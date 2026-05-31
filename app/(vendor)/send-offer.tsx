@@ -1,0 +1,181 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { buyerService, type VendorBuyerSummary } from "../../services/buyerService";
+import { marketingService, type OfferAudience } from "../../services/marketingService";
+
+const AUDIENCES: { id: OfferAudience; label: string }[] = [
+  { id: "all_buyers", label: "All buyers" },
+  { id: "last_30_days", label: "Last 30 days buyers" },
+  { id: "specific_buyer", label: "Specific buyer" },
+];
+
+export default function SendOfferScreen() {
+  const router = useRouter();
+  const { buyerId: paramBuyerId } = useLocalSearchParams<{ buyerId?: string }>();
+
+  const [audience, setAudience] = useState<OfferAudience>(paramBuyerId ? "specific_buyer" : "all_buyers");
+  const [buyers, setBuyers] = useState<VendorBuyerSummary[]>([]);
+  const [loadingBuyers, setLoadingBuyers] = useState(true);
+  const [selectedBuyerId, setSelectedBuyerId] = useState<string | undefined>(paramBuyerId);
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    buyerService
+      .listMyBuyers()
+      .then((list) => setBuyers(list ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingBuyers(false));
+  }, []);
+
+  useEffect(() => {
+    if (audience === "specific_buyer" && !selectedBuyerId && buyers.length > 0) {
+      setSelectedBuyerId(buyers[0].id);
+    }
+  }, [audience, buyers, selectedBuyerId]);
+
+  const selectedBuyer = useMemo(
+    () => buyers.find((b) => b.id === selectedBuyerId) ?? null,
+    [buyers, selectedBuyerId]
+  );
+
+  const handleSend = async () => {
+    setError("");
+    if (!message.trim()) {
+      setError("Please write your offer message.");
+      return;
+    }
+    if (audience === "specific_buyer" && !selectedBuyerId) {
+      setError("Please pick a buyer for this offer.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await marketingService.sendOffer({
+        audience,
+        buyerId: audience === "specific_buyer" ? selectedBuyerId : undefined,
+        message: message.trim(),
+      });
+      router.back();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send offer.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <View style={styles.page}>
+      <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Send Offer</Text>
+          <Text style={styles.headerSubtitle}>Select buyers and send a private offer message through chat.</Text>
+        </View>
+      </SafeAreaView>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Audience</Text>
+          <View style={styles.chipRow}>
+            {AUDIENCES.map((option) => (
+              <TouchableOpacity
+                key={option.id}
+                onPress={() => setAudience(option.id)}
+                style={[styles.chip, audience === option.id && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, audience === option.id && styles.chipTextActive]}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {audience === "specific_buyer" && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Pick a buyer</Text>
+            {loadingBuyers ? (
+              <ActivityIndicator color="#076B51" />
+            ) : buyers.length === 0 ? (
+              <Text style={styles.helperText}>No buyers yet — once orders come in, your buyers will appear here.</Text>
+            ) : (
+              buyers.map((buyer) => {
+                const selected = selectedBuyerId === buyer.id;
+                return (
+                  <TouchableOpacity
+                    key={buyer.id}
+                    onPress={() => setSelectedBuyerId(buyer.id)}
+                    style={[styles.buyerItem, selected && styles.buyerItemActive]}
+                  >
+                    <Text style={[styles.buyerName, selected && styles.buyerNameActive]} numberOfLines={1}>{buyer.name}</Text>
+                    {buyer.email ? (
+                      <Text style={[styles.buyerEmail, selected && styles.buyerEmailActive]} numberOfLines={1}>{buyer.email}</Text>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+            {selectedBuyer ? (
+              <Text style={styles.helperText}>This offer will go to {selectedBuyer.name} only.</Text>
+            ) : null}
+          </View>
+        )}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Offer details</Text>
+          <Text style={styles.fieldLabel}>Offer message</Text>
+          <TextInput
+            value={message}
+            onChangeText={setMessage}
+            multiline
+            numberOfLines={5}
+            placeholder="Share the offer details, foodstuff selection, and expiry."
+            placeholderTextColor="#858585"
+            textAlignVertical="top"
+            style={styles.textArea}
+          />
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        </View>
+
+        <TouchableOpacity onPress={handleSend} style={[styles.primaryButton, submitting && { opacity: 0.6 }]} disabled={submitting}>
+          <Text style={styles.primaryButtonText}>{submitting ? "Sending..." : "Send Offer"}</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: "#F4F4F4" },
+  headerSafeArea: { backgroundColor: "#076B51" },
+  header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 30, borderBottomLeftRadius: 35, borderBottomRightRadius: 35 },
+  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  headerTitle: { fontSize: 30, fontFamily: "Manrope-Bold", lineHeight: 30, color: "#FFFFFF" },
+  headerSubtitle: { fontSize: 16, fontFamily: "Outfit-Light", color: "#FFFFFF", marginTop: 6 },
+  scrollContent: { padding: 20, paddingBottom: 40 },
+  card: { backgroundColor: "#FFFFFF", borderRadius: 30, padding: 20, marginBottom: 20 },
+  sectionTitle: { fontSize: 18, fontFamily: "Manrope-Bold", color: "#282828", marginBottom: 16 },
+  fieldLabel: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#858585", marginBottom: 6 },
+  helperText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 8 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: { borderRadius: 20, backgroundColor: "#F4F4F4", paddingHorizontal: 14, paddingVertical: 10 },
+  chipActive: { backgroundColor: "#076B51" },
+  chipText: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#282828" },
+  chipTextActive: { color: "#FFFFFF" },
+  buyerItem: { backgroundColor: "#F4F4F4", borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 10 },
+  buyerItemActive: { backgroundColor: "#076B51" },
+  buyerName: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
+  buyerNameActive: { color: "#FFFFFF" },
+  buyerEmail: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 4 },
+  buyerEmailActive: { color: "rgba(255,255,255,0.7)" },
+  textArea: { backgroundColor: "#F4F4F4", borderRadius: 10, minHeight: 120, paddingHorizontal: 15, paddingVertical: 14, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
+  errorText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#FB6363", textAlign: "center", marginTop: 8 },
+  primaryButton: { height: 56, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  primaryButtonText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+});

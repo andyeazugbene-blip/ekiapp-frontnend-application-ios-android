@@ -1,0 +1,91 @@
+import React, { useCallback } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useMessageStore, type Conversation } from "../../stores/messageStore";
+
+export default function BuyerMessagesScreen() {
+  const router = useRouter();
+  const { conversations: rawConversations, isLoading, loadConversations, setSelectedConversation } = useMessageStore();
+  const conversations = rawConversations ?? [];
+
+  useFocusEffect(
+    useCallback(() => {
+      loadConversations();
+    }, [loadConversations])
+  );
+
+  const openConversation = (convo: Conversation) => {
+    setSelectedConversation(convo);
+    router.push("/(buyer)/message-chat" as any);
+  };
+
+  return (
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={20} color="#282828" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Messages</Text>
+      </View>
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {isLoading && conversations.length === 0 ? (
+          <View style={styles.placeholder}>
+            <ActivityIndicator color="#076B51" />
+          </View>
+        ) : conversations.length === 0 ? (
+          <Text style={styles.emptyText}>No conversations yet. Reach out to a vendor from any of your orders.</Text>
+        ) : (
+          conversations.map((convo) => (
+            <TouchableOpacity
+              key={convo.id}
+              onPress={() => openConversation(convo)}
+              activeOpacity={0.85}
+              style={styles.convoItem}
+            >
+              <View style={styles.avatar}>
+                <View style={styles.avatarInner} />
+              </View>
+              <View style={styles.convoContent}>
+                <Text style={styles.convoName} numberOfLines={1}>{convo.participantName}</Text>
+                <Text style={styles.convoMessage} numberOfLines={1}>
+                  {convo.lastMessage || "No messages yet"}
+                </Text>
+              </View>
+              <View style={styles.convoRight}>
+                <Text style={styles.convoTime}>{convo.lastMessageAt}</Text>
+                {convo.unreadCount > 0 && (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadText}>{convo.unreadCount}</Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, gap: 12 },
+  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
+  headerTitle: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828" },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
+  placeholder: { paddingVertical: 40, alignItems: "center" },
+  emptyText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", paddingVertical: 40 },
+  convoItem: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 12, borderRadius: 14, marginBottom: 4 },
+  avatar: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: "#E8E8E8", alignItems: "center", justifyContent: "center", marginRight: 12 },
+  avatarInner: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#E0E0E0" },
+  convoContent: { flex: 1 },
+  convoName: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
+  convoMessage: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 3 },
+  convoRight: { alignItems: "flex-end", gap: 4 },
+  convoTime: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585" },
+  unreadBadge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  unreadText: { fontSize: 11, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+});

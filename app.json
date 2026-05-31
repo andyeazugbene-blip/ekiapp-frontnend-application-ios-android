@@ -1,0 +1,94 @@
+{
+  "expo": {
+    "name": "Eki",
+    "slug": "eki-app",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "scheme": "ekiapp",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#076B51"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ekiapp.mobile",
+      "buildNumber": "1",
+      "associatedDomains": [
+        "applinks:waqti.pro",
+        "applinks:www.waqti.pro"
+      ]
+    },
+    "android": {
+      "package": "com.ekiapp.mobile",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#076B51"
+      },
+      "permissions": [
+        "INTERNET",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "https", "host": "waqti.pro", "pathPrefix": "/store" },
+            { "scheme": "https", "host": "www.waqti.pro", "pathPrefix": "/store" },
+            { "scheme": "https", "host": "waqti.pro", "pathPrefix": "/product" },
+            { "scheme": "https", "host": "www.waqti.pro", "pathPrefix": "/product" },
+            { "scheme": "https", "host": "waqti.pro", "pathPrefix": "/order" },
+            { "scheme": "https", "host": "www.waqti.pro", "pathPrefix": "/order" },
+            { "scheme": "https", "host": "waqti.pro", "pathPrefix": "/chat" },
+            { "scheme": "https", "host": "www.waqti.pro", "pathPrefix": "/chat" },
+            { "scheme": "https", "host": "waqti.pro", "pathPrefix": "/invite" },
+            { "scheme": "https", "host": "www.waqti.pro", "pathPrefix": "/invite" }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
+          "autoVerify": true
+        }
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.ekiapp.mobile",
+          "enableGooglePay": true
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "privacyPolicyUrl": "https://waqti.pro/privacy",
+      "termsOfServiceUrl": "https://waqti.pro/terms",
+      "supportEmail": "support@waqti.pro",
+      "publicDomain": "https://waqti.pro",
+      "publicDomainWww": "https://www.waqti.pro",
+      "vercelFallbackUrl": "https://italian-market-place.vercel.app",
+      "router": {},
+      "eas": {
+        "projectId": "b86cbe6a-0c47-4842-b158-b9e9c49b85e4"
+      }
+    },
+    "owner": "mouadchiali"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "cli": {
+    "version": ">= 16.16.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_USE_MOCK_API": "false",
+        "EXPO_PUBLIC_API_BASE_URL": "https://italian-market-place.vercel.app",
+        "EXPO_PUBLIC_APP_REVIEW_MODE": "true"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_USE_MOCK_API": "false",
+        "EXPO_PUBLIC_API_BASE_URL": "https://italian-market-place.vercel.app",
+        "EXPO_PUBLIC_APP_REVIEW_MODE": "true"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false
+      }
+    },
+    "production": {
+      "channel": "production",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_USE_MOCK_API": "false",
+        "EXPO_PUBLIC_API_BASE_URL": "https://italian-market-place.vercel.app",
+        "EXPO_PUBLIC_APP_REVIEW_MODE": "true"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./google-services-key.json",
+        "track": "production",
+        "releaseStatus": "completed",
+        "rollout": 1
+      }
+    }
+  }
+}
