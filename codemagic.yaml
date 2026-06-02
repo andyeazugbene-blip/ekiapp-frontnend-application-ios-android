@@ -1,5 +1,5 @@
 # Codemagic iOS App Store workflow for Eki.
-# In Codemagic, create an App Store Connect integration named `codemagic`
+# In Codemagic, create or use an App Store Connect integration named `EKI`
 # using:
 # - Key ID: 7YYBX34NY6
 # - Issuer ID: 8ffc7119-ddb0-423b-a60a-f43c38c897ca
@@ -12,7 +12,7 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 120
     integrations:
-      app_store_connect: codemagic
+      app_store_connect: EKI
     environment:
       node: 20.18.0
       xcode: 16.4
