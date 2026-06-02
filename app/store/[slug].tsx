@@ -5,6 +5,7 @@ import {
   Platform,
   Pressable,
   SafeAreaView,
+  type LayoutChangeEvent,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,19 +16,22 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import type { CheckoutIntent, ServerCartItem } from "../../services/cartService";
 import { authService } from "../../services/authService";
 import { orderService } from "../../services/orderService";
 import { productService } from "../../services/productService";
 import {
   publicStoreService,
+  type PublicStoreEvent,
+  type PublicStoreEventMetadata,
   type PublicOrderItemSnapshot,
   type PublicStoreOrder,
 } from "../../services/publicStoreService";
 import { reviewService } from "../../services/reviewService";
-import { vendorService } from "../../services/vendorService";
 import { useAuthStore } from "../../stores/authStore";
 import { useCartStore } from "../../stores/cartStore";
+import { usePublicStoreCartStore } from "../../stores/publicStoreCartStore";
 import type { Order } from "../../types/order";
 import type { Product, Review } from "../../types/product";
 import type { VendorSummary } from "../../types/vendor";
@@ -36,10 +40,10 @@ import { RemoteImage } from "../../components/ui/RemoteImage";
 import { WebStripeCheckoutForm } from "../../components/publicStore/WebStripeCheckoutForm";
 
 const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "£",
+  GBP: "\u00A3",
   USD: "$",
-  EUR: "€",
-  NGN: "₦",
+  EUR: "\u20AC",
+  NGN: "\u20A6",
   CAD: "C$",
 };
 
@@ -66,8 +70,28 @@ function roundMoney(value: number): number {
 }
 
 function formatMoney(value: number, currency = "GBP"): string {
-  const symbol = CURRENCY_SYMBOL[currency] ?? "£";
+  const symbol = CURRENCY_SYMBOL[currency] ?? "\u00A3";
   return `${symbol}${value.toFixed(2)}`;
+}
+
+function formatStatusLabel(status: string): string {
+  return status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatOrderDateTime(value: string): string {
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return "Date unavailable";
+  return new Date(parsed).toLocaleString();
+}
+
+function derivePublicEstimatedDeliveryLabel(order: Order): string {
+  if (order.status === "delivered" && order.deliveredAt) {
+    return `Delivered ${new Date(order.deliveredAt).toLocaleDateString()}`;
+  }
+  if (order.status === "dispatched" || order.status === "in_transit") {
+    return "In transit";
+  }
+  return order.deliveryDetails?.estimatedDays || "2-4 days";
 }
 
 function productUnitLabel(product: Product): string {
@@ -131,7 +155,7 @@ function mapBackendOrderToPublicOrder(
     platformFee: order.platformFee ?? 0,
     total: order.total,
     createdAt: order.createdAt,
-    estimatedDeliveryLabel: "Today by 6:00 PM",
+    estimatedDeliveryLabel: derivePublicEstimatedDeliveryLabel(order),
     items: buildOrderItems(order.items),
     contact: {
       firstName: fallbackContact.firstName,
@@ -158,8 +182,6 @@ function mapBackendOrderToPublicOrder(
     source: "backend",
     backendOrderId: order.id,
     backendOrderIds: [order.id],
-    paymentBrand: "Visa",
-    paymentLast4: "4242",
   };
 }
 
@@ -178,7 +200,9 @@ export default function PublicStoreScreen() {
   const {
     slug,
     promo,
+    product,
     order: orderParam,
+    panel: panelParam,
     preview,
     source,
     utm_source: utmSource,
@@ -186,7 +210,9 @@ export default function PublicStoreScreen() {
   } = useLocalSearchParams<{
     slug?: string;
     promo?: string;
+    product?: string;
     order?: string;
+    panel?: string;
     preview?: string;
     source?: string;
     utm_source?: string;
@@ -196,6 +222,7 @@ export default function PublicStoreScreen() {
   const isWeb = Platform.OS === "web";
   const isDesktop = isWeb && width >= 1160;
   const isPreview = preview === "1" || preview === "true";
+  const sharedProductId = typeof product === "string" ? product : "";
   const shareSource =
     (typeof source === "string" && source) ||
     (typeof utmSource === "string" && utmSource) ||
@@ -215,12 +242,12 @@ export default function PublicStoreScreen() {
 
   const [vendor, setVendor] = useState<VendorSummary | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
-  const [cart, setCart] = useState<Record<string, number>>({});
   const [drawerOpen, setDrawerOpen] = useState(isDesktop);
   const [panelMode, setPanelMode] = useState<PanelMode>("cart");
   const [panelError, setPanelError] = useState("");
@@ -242,6 +269,15 @@ export default function PublicStoreScreen() {
   const [showSignIn, setShowSignIn] = useState(false);
   const [signInPassword, setSignInPassword] = useState("");
   const [sessionSubmitting, setSessionSubmitting] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
+  const [productSectionY, setProductSectionY] = useState(0);
+
+  const cartsBySlug = usePublicStoreCartStore((state) => state.cartsBySlug);
+  const addPublicCartItem = usePublicStoreCartStore((state) => state.addItem);
+  const decrementPublicCartItem = usePublicStoreCartStore((state) => state.decrementItem);
+  const replacePublicCart = usePublicStoreCartStore((state) => state.replaceCart);
+  const clearPublicCart = usePublicStoreCartStore((state) => state.clearCart);
+  const cart = slug ? cartsBySlug[slug] ?? {} : {};
 
   const [checkout, setCheckout] = useState<CheckoutState>({
     firstName: "",
@@ -255,10 +291,23 @@ export default function PublicStoreScreen() {
   });
 
   const pageTrackedRef = useRef(false);
+  const scrollViewRef = useRef<ScrollView | null>(null);
   const pendingCheckoutRef = useRef<{
     intent: CheckoutIntent;
     snapshot: ServerCartSnapshotItem[];
   } | null>(null);
+
+  const trackStoreEvent = async (
+    event: PublicStoreEvent,
+    metadata: PublicStoreEventMetadata = {},
+  ) => {
+    if (!(vendor?.storeSlug ?? slug)) return;
+
+    try {
+      const analytics = await publicStoreService.trackEvent(vendor?.storeSlug ?? slug ?? "", event, metadata);
+      setInsights(analytics);
+    } catch {}
+  };
 
   useEffect(() => {
     if (!slug) {
@@ -272,13 +321,22 @@ export default function PublicStoreScreen() {
 
     (async () => {
       try {
-        const nextVendor = await vendorService.getVendorBySlug(slug);
+        const nextVendor = await publicStoreService.getStore(slug);
         if (cancelled) return;
 
         const [nextProducts, nextReviews, analytics] = await Promise.all([
-          productService.getVendorProducts(nextVendor.id).catch(() => [] as Product[]),
+          publicStoreService.listProducts(nextVendor.storeSlug ?? slug).catch(() => [] as Product[]),
           reviewService.getForVendor(nextVendor.id).catch(() => [] as Review[]),
-          publicStoreService.trackEvent(nextVendor.storeSlug ?? slug, "open", { source: shareSource }),
+          publicStoreService
+            .trackEvent(nextVendor.storeSlug ?? slug, "open", { source: shareSource })
+            .catch(() => ({
+              opens: 0,
+              cartAdds: 0,
+              checkoutStarts: 0,
+              ordersPlaced: 0,
+              trackRequests: 0,
+              reorders: 0,
+            })),
         ]);
 
         if (cancelled) return;
@@ -315,6 +373,15 @@ export default function PublicStoreScreen() {
 
     setCheckout((current) => ({ ...current, country: fallbackCountry }));
   }, [checkout.country, vendor]);
+
+  useEffect(() => {
+    if (!panelParam) return;
+
+    if (panelParam === "checkout" || panelParam === "cart" || panelParam === "find") {
+      setPanelMode(panelParam);
+      setDrawerOpen(true);
+    }
+  }, [panelParam]);
 
   useEffect(() => {
     if (!orderParam || user?.role !== "buyer" || !vendor) return;
@@ -385,15 +452,32 @@ export default function PublicStoreScreen() {
   const reviewSummary =
     reviews.length === 0
       ? "No reviews yet"
-      : `${averageRating.toFixed(1)} ★ from ${reviews.length} review${reviews.length === 1 ? "" : "s"}`;
+      : `${averageRating.toFixed(1)} rating from ${reviews.length} review${reviews.length === 1 ? "" : "s"}`;
 
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return products;
-    return products.filter((product) =>
-      `${product.name} ${product.description} ${product.category}`.toLowerCase().includes(term),
-    );
-  }, [products, search]);
+    const visibleProducts = term
+      ? products.filter((item) => `${item.name} ${item.description} ${item.category}`.toLowerCase().includes(term))
+      : products;
+
+    if (!sharedProductId) return visibleProducts;
+
+    return [...visibleProducts].sort((left, right) => {
+      if (left.id === sharedProductId) return -1;
+      if (right.id === sharedProductId) return 1;
+      return 0;
+    });
+  }, [products, search, sharedProductId]);
+
+  useEffect(() => {
+    if (!sharedProductId || filteredProducts.length === 0) return;
+
+    const match = filteredProducts.find((entry) => entry.id === sharedProductId);
+    if (match) {
+      setSelectedProduct(match);
+      setDrawerOpen(true);
+    }
+  }, [filteredProducts, sharedProductId]);
 
   const cartItems = useMemo(
     () =>
@@ -458,6 +542,7 @@ export default function PublicStoreScreen() {
 
   const currentDelivery = deliveryEstimates[0]?.cost ?? estimatedDelivery;
   const currentGrandTotal = roundMoney(subtotal + currentDelivery + platformFee);
+  const cartCurrency = cartItems[0]?.product.currency ?? null;
 
   const buildContactFromOrder = (order: Order): CheckoutState => {
     const recipientName = order.deliveryDetails?.recipientName?.trim() || order.buyerName?.trim() || `${checkout.firstName} ${checkout.lastName}`.trim();
@@ -519,30 +604,28 @@ export default function PublicStoreScreen() {
   };
 
   const incrementCart = async (product: Product, amount = 1) => {
-    const nextQuantity = (cart[product.id] ?? 0) + amount;
-    setCart((current) => ({ ...current, [product.id]: nextQuantity }));
+    if (cartCurrency && cartCurrency !== product.currency) {
+      setPanelError(`This cart already contains ${cartCurrency} items. Place one currency at a time.`);
+      setDrawerOpen(true);
+      return;
+    }
+
+    if (!slug) return;
+
+    addPublicCartItem(slug, product.id, amount);
     setPanelError("");
     setDrawerOpen(true);
-    if (vendor?.storeSlug ?? slug) {
-      const analytics = await publicStoreService.trackEvent(vendor?.storeSlug ?? slug ?? "", "add_to_cart", {
-        source: shareSource,
-        productId: product.id,
-        productName: product.name,
-        quantity: amount,
-      });
-      setInsights(analytics);
-    }
+    await trackStoreEvent("add_to_cart", {
+      source: shareSource,
+      productId: product.id,
+      productName: product.name,
+      quantity: amount,
+    });
   };
 
   const decrementCart = (productId: string) => {
-    setCart((current) => {
-      const nextQuantity = Math.max((current[productId] ?? 0) - 1, 0);
-      if (nextQuantity <= 0) {
-        const { [productId]: _, ...rest } = current;
-        return rest;
-      }
-      return { ...current, [productId]: nextQuantity };
-    });
+    if (!slug) return;
+    decrementPublicCartItem(slug, productId);
   };
 
   const handleOpenCheckout = async () => {
@@ -551,12 +634,9 @@ export default function PublicStoreScreen() {
       return;
     }
 
-    if (vendor?.storeSlug ?? slug) {
-      const analytics = await publicStoreService.trackEvent(vendor?.storeSlug ?? slug ?? "", "start_checkout", {
-        source: shareSource,
-      });
-      setInsights(analytics);
-    }
+    await trackStoreEvent("start_checkout", {
+      source: shareSource,
+    });
 
     setPanelError("");
     setPanelMode("checkout");
@@ -660,7 +740,7 @@ export default function PublicStoreScreen() {
 
     const snapshot = await snapshotServerCart();
     await replaceServerCartWithPublicBasket();
-    await calculateDelivery(deliveryCodeFor(checkout.country));
+    await calculateDelivery(checkout.country.trim());
 
     const intent = await createCheckout(buildContactLabel(checkout));
     if (!intent.clientSecret || intent.clientSecret === "wallet_paid") {
@@ -681,19 +761,17 @@ export default function PublicStoreScreen() {
 
     try {
       const nextOrder = await syncCheckoutOrder(pending.intent.orderIds);
-      const analytics = await publicStoreService.trackEvent(vendor.storeSlug ?? slug, "place_order", {
+      await trackStoreEvent("place_order", {
         source: shareSource,
         orderTotal: currentGrandTotal,
         orderIds: pending.intent.orderIds,
         items: buildOrderItems(cartItems),
       });
-
-      setInsights(analytics);
       setActiveOrder(nextOrder);
       setMatchedOrders([nextOrder]);
       setPanelMode("confirmed");
       setDrawerOpen(true);
-      setCart({});
+      clearPublicCart(slug);
       setLookupContact(checkout.email.trim().toLowerCase());
       setLookupCode("");
       setLookupStatus("");
@@ -705,7 +783,7 @@ export default function PublicStoreScreen() {
       setLookupStatus("Payment received. We are still syncing your order to your buyer account. Use this email to sign in and track it.");
       setPanelMode("syncing");
       setDrawerOpen(true);
-      setCart({});
+      clearPublicCart(slug);
       setSaveAccountState("idle");
       setLookupCode("");
       setOrderLookupError(error instanceof Error ? error.message : "We are still syncing your order.");
@@ -742,12 +820,9 @@ export default function PublicStoreScreen() {
     setDrawerOpen(true);
     setPanelMode("find");
 
-    if (vendor?.storeSlug ?? slug) {
-      const analytics = await publicStoreService.trackEvent(vendor?.storeSlug ?? slug ?? "", "track_order", {
-        source: shareSource,
-      });
-      setInsights(analytics);
-    }
+    await trackStoreEvent("track_order", {
+      source: shareSource,
+    });
 
     if (!normalizedContact.includes("@")) {
       setOrderLookupError("Use the checkout email address to receive access to your order.");
@@ -825,7 +900,7 @@ export default function PublicStoreScreen() {
       return;
     }
 
-    setCart(nextCart);
+    replacePublicCart(slug, nextCart);
     setPanelMode("checkout");
     setDrawerOpen(true);
     setCheckout({
@@ -839,18 +914,60 @@ export default function PublicStoreScreen() {
       country: order.contact.country,
     });
 
-    const analytics = await publicStoreService.trackEvent(vendor.storeSlug ?? slug, "reorder", {
+    await trackStoreEvent("reorder", {
       source: shareSource,
     });
-    setInsights(analytics);
+  };
+
+  const openProductDetails = (product: Product) => {
+    const nextSlug = vendor?.storeSlug ?? slug;
+    if (!nextSlug) return;
+
+    router.push({
+      pathname: "/store/[slug]/product/[productId]",
+      params: { slug: nextSlug, productId: product.id },
+    } as any);
+  };
+
+  const handleCopyStoreLink = async () => {
+    try {
+      await Clipboard.setStringAsync(storeUrl);
+      setCopyState("copied");
+      setTimeout(() => setCopyState("idle"), 2200);
+    } catch {
+      setCopyState("error");
+      setTimeout(() => setCopyState("idle"), 2200);
+    }
+  };
+
+  const handleProductsSectionLayout = (event: LayoutChangeEvent) => {
+    setProductSectionY(event.nativeEvent.layout.y);
+  };
+
+  const handleScrollToProducts = () => {
+    scrollViewRef.current?.scrollTo({ y: Math.max(productSectionY - 120, 0), animated: true });
+  };
+
+  const handleBuyNow = async (product: Product) => {
+    if ((cart[product.id] ?? 0) <= 0) {
+      await incrementCart(product);
+    }
+    setSelectedProduct(null);
+    setPanelError("");
+    setPanelMode("checkout");
+    setDrawerOpen(true);
   };
 
   const handleSendAccessEmail = async () => {
     const email = activeOrder?.contact.email || checkout.email.trim().toLowerCase();
-    if (!email) return;
+    const currentSlug = vendor?.storeSlug ?? slug;
+    if (!email || !currentSlug) return;
+
     setSaveAccountState("sending");
     try {
-      await authService.forgotPassword(email);
+      await publicStoreService.requestLookupCode(currentSlug, email);
+      setLookupContact(email);
+      setLookupStatus(`We sent a 6-digit order access code to ${email}.`);
       setSaveAccountState("sent");
     } catch {
       setSaveAccountState("error");
@@ -944,11 +1061,19 @@ export default function PublicStoreScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <ScrollView style={styles.screen} contentContainerStyle={styles.screenBody} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.screen}
+        contentContainerStyle={styles.screenBody}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
-          <View>
-            <Text style={styles.brandText}>eki.</Text>
-            <Text style={styles.brandCaption}>Auto-synced from Eki app</Text>
+          <View style={styles.brandRow}>
+            <View style={styles.brandDot} />
+            <View>
+              <Text style={styles.brandText}>Culinary Tales</Text>
+              <Text style={styles.brandCaption}>Verified vendor storefront</Text>
+            </View>
           </View>
 
           <View style={styles.headerActions}>
@@ -988,41 +1113,97 @@ export default function PublicStoreScreen() {
               </View>
             ) : null}
 
-            <View style={styles.heroCard}>
-              <RemoteImage uri={vendor.coverImage} style={styles.heroImage} borderRadius={26} fallbackIcon="storefront-outline" />
-              <View style={styles.heroOverlay} />
-
-              <View style={styles.heroTopBar}>
-                <TouchableOpacity onPress={() => router.back()} activeOpacity={0.88} style={styles.backButton}>
-                  <Ionicons name="arrow-back" size={18} color="#0A6C52" />
-                </TouchableOpacity>
-                <View style={styles.securePill}>
-                  <Ionicons name="lock-closed" size={14} color="#0A6C52" />
-                  <Text style={styles.securePillText}>Secure Checkout</Text>
-                </View>
+            <View style={styles.storeOverviewShell}>
+              <View style={styles.storeOverviewBanner}>
+                <RemoteImage
+                  uri={vendor.coverImage}
+                  style={styles.storeOverviewImage}
+                  borderRadius={26}
+                  fallbackIcon="storefront-outline"
+                />
+                <View style={styles.storeOverviewOverlay} />
               </View>
 
-              <View style={styles.heroCopy}>
-                <Text style={styles.heroTitle}>{vendor.storeName}</Text>
-                <Text style={styles.heroSubtitle}>
-                  Authentic African foodstuff delivered to your door. Order securely without sending DMs.
-                </Text>
-                <View style={styles.heroMetaRow}>
-                  <VendorAvatar label={buildInitials(vendor.storeName)} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.vendorMetaTitle}>Sold by {vendor.storeName}</Text>
-                    <Text style={styles.vendorMetaBody}>
-                      {vendor.city || vendor.country} · Verified Vendor · {reviewSummary}
+              <View style={styles.storeOverviewCard}>
+                <View style={styles.storeOverviewHeader}>
+                  <View style={styles.storeOverviewAvatarWrap}>
+                    <VendorAvatar label={buildInitials(vendor.storeName)} square />
+                  </View>
+
+                  <View style={styles.storeOverviewCopy}>
+                    <View style={styles.storeOverviewTitleRow}>
+                      <Text style={styles.storeOverviewTitle}>{vendor.storeName}</Text>
+                      <View style={styles.verifiedBadge}>
+                        <Ionicons name="checkmark-circle" size={14} color="#0A6C52" />
+                        <Text style={styles.verifiedBadgeText}>Verified</Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.storeOverviewLocation}>
+                      {vendor.city || vendor.country || "United Kingdom"}
+                    </Text>
+                    <Text style={styles.storeOverviewDescription}>
+                      {vendor.description || "Authentic foodstuff ready for secure browser checkout and fast order tracking."}
                     </Text>
                   </View>
+                </View>
+
+                <View style={styles.storeOverviewMetaRow}>
+                  <Text style={styles.storeOverviewMetaLabel}>Ships to</Text>
+                  <View style={styles.chipWrap}>
+                    {deliveryCountries.map((country) => (
+                      <View key={country} style={styles.countryChip}>
+                        <Text style={styles.countryChipText}>{country}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.storeOverviewStats}>
+                  <View style={styles.summaryStat}>
+                    <Text style={styles.summaryStatValue}>{products.length}</Text>
+                    <Text style={styles.summaryStatLabel}>Live products</Text>
+                  </View>
+                  <View style={styles.summaryStat}>
+                    <Text style={styles.summaryStatValue}>{reviewSummary === "No reviews yet" ? "New" : averageRating.toFixed(1)}</Text>
+                    <Text style={styles.summaryStatLabel}>Buyer rating</Text>
+                  </View>
+                  <View style={styles.summaryStat}>
+                    <Text style={styles.summaryStatValue}>{insights.opens}</Text>
+                    <Text style={styles.summaryStatLabel}>Store opens</Text>
+                  </View>
+                </View>
+
+                <View style={styles.storeOverviewActions}>
+                  <TouchableOpacity activeOpacity={0.88} onPress={handleCopyStoreLink} style={styles.primaryHeroAction}>
+                    <Ionicons name={copyState === "copied" ? "checkmark" : "copy-outline"} size={16} color="#FFFFFF" />
+                    <Text style={styles.primaryHeroActionText}>
+                      {copyState === "copied" ? "Copied" : copyState === "error" ? "Copy failed" : "Copy share link"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity activeOpacity={0.88} onPress={handleScrollToProducts} style={styles.secondaryHeroAction}>
+                    <Text style={styles.secondaryHeroActionText}>View products</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    onPress={() => {
+                      setDrawerOpen(true);
+                      setPanelMode("find");
+                    }}
+                    style={styles.secondaryHeroAction}
+                  >
+                    <Text style={styles.secondaryHeroActionText}>Track order</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
 
-            <View style={styles.storeCard}>
+            <View style={styles.storeCard} onLayout={handleProductsSectionLayout}>
               <View style={styles.storeCardHeader}>
                 <View>
-                  <Text style={styles.sectionEyebrow}>All Products</Text>
+                  <Text style={styles.sectionEyebrow}>Products</Text>
                   <Text style={styles.sectionTitle}>Shop directly from this vendor</Text>
                 </View>
                 <View style={styles.metricPill}>
@@ -1048,35 +1229,61 @@ export default function PublicStoreScreen() {
                   <Text style={styles.promoBannerText}>Promo code {promo} is active for this shared store link.</Text>
                 </View>
               ) : null}
+              {sharedProductId ? (
+                <View style={styles.focusBanner}>
+                  <Ionicons name="pricetag-outline" size={18} color="#0A6C52" />
+                  <Text style={styles.focusBannerText}>This link opens a specific shared product first.</Text>
+                </View>
+              ) : null}
 
-              <View style={styles.productGrid}>
+
+              <View style={[styles.productGrid, isDesktop && styles.productGridDesktop]}>
+                {filteredProducts.length === 0 ? (
+                  <View style={styles.emptyPanelCard}>
+                    <Ionicons name="storefront-outline" size={24} color="#687076" />
+                    <Text style={styles.emptyPanelTitle}>No products available right now</Text>
+                    <Text style={styles.emptyPanelCopy}>
+                      This vendor has not published live products for this shared storefront yet.
+                    </Text>
+                  </View>
+                ) : null}
                 {filteredProducts.map((product) => {
                   const quantity = cart[product.id] ?? 0;
+                  const isSharedProduct = sharedProductId === product.id;
 
                   return (
-                    <View key={product.id} style={styles.productCard}>
-                      <RemoteImage uri={product.images?.[0]} style={styles.productCardImage} borderRadius={20} />
+                    <View key={product.id} style={[styles.productCard, isDesktop && styles.productCardDesktop]}>
+                      <TouchableOpacity activeOpacity={0.92} onPress={() => openProductDetails(product)}>
+                        <RemoteImage uri={product.images?.[0]} style={styles.productCardImage} borderRadius={20} />
+                      </TouchableOpacity>
                       <View style={styles.productCardBody}>
                         <View style={styles.productTopRow}>
-                          <View style={{ flex: 1 }}>
+                          <TouchableOpacity style={{ flex: 1 }} activeOpacity={0.88} onPress={() => openProductDetails(product)}>
                             <Text style={styles.productCardTitle} numberOfLines={1}>
                               {product.name}
                             </Text>
                             <Text style={styles.productCardMeta}>
                               {productUnitLabel(product)} · Ships from {vendor.city || vendor.country} · Delivery 2-4 days
                             </Text>
-                          </View>
-                          <View style={styles.stockChip}>
-                            <Text style={styles.stockChipText}>In Stock</Text>
+                          </TouchableOpacity>
+                          <View style={[styles.stockChip, isSharedProduct && styles.focusStockChip]}>
+                            <Text style={[styles.stockChipText, isSharedProduct && styles.focusStockChipText]}>{isSharedProduct ? "Shared link" : "In Stock"}</Text>
                           </View>
                         </View>
 
-                        <Text style={styles.productCardDescription} numberOfLines={3}>
-                          {product.description || "Freshly packed and ready for secure checkout on Eki."}
-                        </Text>
+                        <TouchableOpacity activeOpacity={0.88} onPress={() => openProductDetails(product)}>
+                          <Text style={styles.productCardDescription} numberOfLines={3}>
+                            {product.description || "Freshly packed and ready for secure checkout on Eki."}
+                          </Text>
+                        </TouchableOpacity>
 
                         <View style={styles.productFooter}>
-                          <Text style={styles.productPrice}>{formatMoney(product.price, product.currency)}</Text>
+                          <View style={styles.productFooterPrimary}>
+                            <Text style={styles.productPrice}>{formatMoney(product.price, product.currency)}</Text>
+                            <TouchableOpacity onPress={() => openProductDetails(product)} activeOpacity={0.88} style={styles.detailsButton}>
+                              <Text style={styles.detailsButtonText}>View product</Text>
+                            </TouchableOpacity>
+                          </View>
                           {quantity > 0 ? (
                             <View style={styles.quantityControl}>
                               <TouchableOpacity onPress={() => decrementCart(product.id)} activeOpacity={0.88} style={styles.quantityButton}>
@@ -1097,17 +1304,6 @@ export default function PublicStoreScreen() {
                     </View>
                   );
                 })}
-              </View>
-
-              <View style={styles.subSection}>
-                <Text style={styles.subSectionTitle}>Delivery countries</Text>
-                <View style={styles.chipWrap}>
-                  {deliveryCountries.map((country) => (
-                    <View key={country} style={styles.countryChip}>
-                      <Text style={styles.countryChipText}>{country}</Text>
-                    </View>
-                  ))}
-                </View>
               </View>
 
               <View style={styles.subSection}>
@@ -1199,13 +1395,79 @@ export default function PublicStoreScreen() {
           </Modal>
         </>
       ) : null}
+
+      <Modal
+        visible={Boolean(selectedProduct)}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setSelectedProduct(null)}
+      >
+        <Pressable style={styles.productModalScrim} onPress={() => setSelectedProduct(null)}>
+          <Pressable style={styles.productModalCard} onPress={() => undefined}>
+            {selectedProduct ? (
+              <>
+                <RemoteImage
+                  uri={selectedProduct.images?.[0]}
+                  style={styles.productModalImage}
+                  borderRadius={26}
+                />
+                <View style={styles.productModalBody}>
+                  <View style={styles.productModalTopRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.productModalTitle}>{selectedProduct.name}</Text>
+                      <Text style={styles.productModalMeta}>
+                        {productUnitLabel(selectedProduct)} · Ships from {vendor?.city || vendor?.country || "this vendor"}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setSelectedProduct(null)}
+                      activeOpacity={0.88}
+                      style={styles.productModalClose}
+                    >
+                      <Ionicons name="close" size={18} color="#687076" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.productModalDescription}>
+                    {selectedProduct.description || "Freshly packed and ready for secure checkout on Culinary Tales."}
+                  </Text>
+
+                  <View style={styles.productModalSummary}>
+                    <Text style={styles.productModalPrice}>
+                      {formatMoney(selectedProduct.price, selectedProduct.currency)}
+                    </Text>
+                    <Text style={styles.productModalStock}>In stock</Text>
+                  </View>
+
+                  <View style={styles.productModalActions}>
+                    <TouchableOpacity
+                      onPress={() => incrementCart(selectedProduct)}
+                      activeOpacity={0.88}
+                      style={styles.addButton}
+                    >
+                      <Text style={styles.addButtonText}>Add to Cart</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleBuyNow(selectedProduct)}
+                      activeOpacity={0.88}
+                      style={styles.primaryCta}
+                    >
+                      <Text style={styles.primaryCtaText}>Buy now</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-function VendorAvatar({ label }: { label: string }) {
+function VendorAvatar({ label, square = false }: { label: string; square?: boolean }) {
   return (
-    <View style={styles.vendorAvatar}>
+    <View style={[styles.vendorAvatar, square && styles.vendorAvatarSquare]}>
       <Text style={styles.vendorAvatarText}>{label}</Text>
     </View>
   );
@@ -1337,7 +1599,7 @@ function StorePanel(props: {
     <View style={styles.panelShell}>
       <View style={styles.panelHeader}>
         <View>
-          <Text style={styles.panelBrand}>eki.</Text>
+          <Text style={styles.panelBrand}>Culinary Tales</Text>
           <Text style={styles.panelSubtitle}>
             {props.mode === "tracking" || props.mode === "orders" || props.mode === "find"
               ? "Track your order"
@@ -1375,7 +1637,7 @@ function StorePanel(props: {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.summaryItemTitle}>{item.product.name}</Text>
                     <Text style={styles.summaryItemMeta}>
-                      {productUnitLabel(item.product)} × {item.quantity}
+                      {productUnitLabel(item.product)} · Qty {item.quantity}
                     </Text>
                   </View>
                   <Text style={styles.summaryItemPrice}>{formatMoney(item.product.price * item.quantity, item.product.currency)}</Text>
@@ -1460,6 +1722,8 @@ function StorePanel(props: {
           <View style={styles.confirmedCard}>
             <Text style={styles.confirmedStore}>{order.vendorName}</Text>
             <Text style={styles.confirmedMeta}>{order.vendorCity}</Text>
+            <SummaryRow label="Order number" value={order.orderNumber} />
+            <SummaryRow label="Placed" value={formatOrderDateTime(order.createdAt)} />
             <SummaryRow label="Total" value={formatMoney(order.total, order.currency)} />
             <SummaryRow label="Estimated delivery" value={order.estimatedDeliveryLabel} />
           </View>
@@ -1473,17 +1737,17 @@ function StorePanel(props: {
           </TouchableOpacity>
 
           <View style={styles.accountCard}>
-            <Text style={styles.accountCardTitle}>Save my orders with a free account</Text>
-            <Text style={styles.accountCardBody}>Set a password link for {order.contact.email} so you can access this order on any device.</Text>
+            <Text style={styles.accountCardTitle}>Email my tracking code</Text>
+            <Text style={styles.accountCardBody}>Send a secure 6-digit code to {order.contact.email} so you can reopen this order from any device.</Text>
             <TouchableOpacity onPress={() => props.onSendAccessEmail()} activeOpacity={0.88} style={styles.secondaryActionChip}>
               <Text style={styles.secondaryActionChipText}>
                 {props.saveAccountState === "sending"
                   ? "Sending..."
                   : props.saveAccountState === "sent"
-                  ? "Password email sent"
+                  ? "Tracking code sent"
                   : props.saveAccountState === "error"
                   ? "Try sending again"
-                  : "Email my access link"}
+                  : "Email my tracking code"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1553,10 +1817,10 @@ function StorePanel(props: {
               {props.saveAccountState === "sending"
                 ? "Sending..."
                 : props.saveAccountState === "sent"
-                ? "Access email sent"
+                ? "Tracking code sent"
                 : props.saveAccountState === "error"
                 ? "Try again"
-                : "Email my access link"}
+                : "Email my tracking code"}
             </Text>
           </TouchableOpacity>
 
@@ -1576,10 +1840,11 @@ function StorePanel(props: {
               <View style={{ flex: 1 }}>
                 <Text style={styles.orderCardTitle}>{item.orderNumber}</Text>
                 <Text style={styles.orderCardBody}>{item.items.map((product) => product.name).slice(0, 3).join(", ")}</Text>
+                <Text style={styles.orderCardMeta}>{formatOrderDateTime(item.createdAt)}</Text>
               </View>
               <View style={{ alignItems: "flex-end" }}>
                 <Text style={styles.orderCardPrice}>{formatMoney(item.total, item.currency)}</Text>
-                <Text style={styles.orderCardStatus}>{item.status.replace("_", " ")}</Text>
+                <Text style={styles.orderCardStatus}>{formatStatusLabel(item.status)}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -1589,7 +1854,7 @@ function StorePanel(props: {
       {props.mode === "tracking" && order ? (
         <ScrollView style={styles.panelBody} showsVerticalScrollIndicator={false}>
           <Text style={styles.panelTitle}>Track your order</Text>
-          <Text style={styles.panelCopy}>{order.orderNumber} · Est. {order.estimatedDeliveryLabel}</Text>
+          <Text style={styles.panelCopy}>{order.orderNumber} · {formatStatusLabel(order.status)} · Est. {order.estimatedDeliveryLabel}</Text>
 
           <View style={styles.trackingCard}>
             {steps.map((step) => (
@@ -1600,10 +1865,13 @@ function StorePanel(props: {
           <View style={styles.confirmedCard}>
             <Text style={styles.confirmedStore}>{order.vendorName}</Text>
             <Text style={styles.confirmedMeta}>{order.contact.addressLine1}</Text>
+            <SummaryRow label="Order number" value={order.orderNumber} />
+            <SummaryRow label="Placed" value={formatOrderDateTime(order.createdAt)} />
+            <SummaryRow label="Status" value={formatStatusLabel(order.status)} />
             {order.items.map((item) => (
               <SummaryRow
                 key={`${item.productId}-${item.name}`}
-                label={`${item.name} × ${item.quantity}`}
+                label={`${item.name} · Qty ${item.quantity}`}
                 value={formatMoney(item.price * item.quantity, order.currency)}
               />
             ))}
@@ -1674,16 +1942,28 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  brandDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#0A6C52",
+  },
   brandText: {
-    color: "#0A6C52",
-    fontSize: 28,
-    lineHeight: 32,
+    color: "#1F211F",
+    fontSize: 22,
+    lineHeight: 28,
     fontFamily: "Manrope-ExtraBold",
   },
   brandCaption: {
     color: "#687076",
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
     fontFamily: "Outfit-Regular",
   },
   headerActions: {
@@ -1756,6 +2036,169 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontFamily: "Outfit-Regular",
     marginTop: 4,
+  },
+  storeOverviewShell: {
+    marginBottom: 4,
+  },
+  storeOverviewBanner: {
+    height: 220,
+    borderRadius: 30,
+    overflow: "hidden",
+    backgroundColor: "#205948",
+  },
+  storeOverviewImage: {
+    width: "100%",
+    height: "100%",
+  },
+  storeOverviewOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(22,56,45,0.72)",
+  },
+  storeOverviewCard: {
+    marginTop: -58,
+    marginHorizontal: 18,
+    borderRadius: 28,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 24,
+    paddingVertical: 22,
+    gap: 18,
+    borderWidth: 1,
+    borderColor: "#E8ECEA",
+    shadowColor: "#133A2F",
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 5,
+  },
+  storeOverviewHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 18,
+  },
+  storeOverviewAvatarWrap: {
+    marginTop: -42,
+  },
+  storeOverviewCopy: {
+    flex: 1,
+    gap: 10,
+  },
+  storeOverviewTitleRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 10,
+  },
+  storeOverviewTitle: {
+    color: "#1F211F",
+    fontSize: 28,
+    lineHeight: 34,
+    fontFamily: "Manrope-ExtraBold",
+    flexShrink: 1,
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: "#EEF8F3",
+  },
+  verifiedBadgeText: {
+    color: "#0A6C52",
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: "Manrope-Bold",
+  },
+  storeOverviewLocation: {
+    color: "#687076",
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: "Outfit-Regular",
+  },
+  storeOverviewDescription: {
+    color: "#2B2B2B",
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: "Outfit-Regular",
+    maxWidth: 720,
+  },
+  storeOverviewMetaRow: {
+    gap: 10,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: "#EEF1EF",
+  },
+  storeOverviewMetaLabel: {
+    color: "#687076",
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: "Outfit-Medium",
+    textTransform: "uppercase",
+  },
+  storeOverviewStats: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  summaryStat: {
+    minWidth: 120,
+    borderRadius: 18,
+    backgroundColor: "#F8FAF9",
+    borderWidth: 1,
+    borderColor: "#E7ECE9",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 4,
+  },
+  summaryStatValue: {
+    color: "#0A6C52",
+    fontSize: 20,
+    lineHeight: 24,
+    fontFamily: "Manrope-ExtraBold",
+  },
+  summaryStatLabel: {
+    color: "#687076",
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: "Outfit-Regular",
+  },
+  storeOverviewActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  primaryHeroAction: {
+    minHeight: 52,
+    borderRadius: 18,
+    backgroundColor: "#0A6C52",
+    paddingHorizontal: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  primaryHeroActionText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    lineHeight: 19,
+    fontFamily: "Manrope-Bold",
+  },
+  secondaryHeroAction: {
+    minHeight: 52,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#D9E3DE",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryHeroActionText: {
+    color: "#1F211F",
+    fontSize: 14,
+    lineHeight: 19,
+    fontFamily: "Manrope-SemiBold",
   },
   sideColumn: {
     width: 380,
@@ -1844,6 +2287,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
+  },
+  vendorAvatarSquare: {
+    width: 84,
+    height: 84,
+    borderRadius: 24,
+    borderWidth: 4,
+    borderColor: "#FFFFFF",
+    shadowColor: "#133A2F",
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
   },
   vendorAvatarText: {
     color: "#0A6C52",
@@ -1938,8 +2393,31 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontFamily: "Outfit-Medium",
   },
+  focusBanner: {
+    borderRadius: 18,
+    backgroundColor: "#F2FBF7",
+    borderWidth: 1,
+    borderColor: "#D7ECE3",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  focusBannerText: {
+    flex: 1,
+    color: "#0A6C52",
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: "Outfit-Medium",
+  },
   productGrid: {
     gap: 14,
+  },
+  productGridDesktop: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "stretch",
   },
   productCard: {
     borderRadius: 24,
@@ -1947,6 +2425,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#EEF1EF",
     overflow: "hidden",
+  },
+  productCardDesktop: {
+    width: "48.6%",
   },
   productCardImage: {
     width: "100%",
@@ -1981,11 +2462,17 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "#EEF8F3",
   },
+  focusStockChip: {
+    backgroundColor: "#0A6C52",
+  },
   stockChipText: {
     color: "#0A6C52",
     fontSize: 11,
     lineHeight: 15,
     fontFamily: "Manrope-Bold",
+  },
+  focusStockChipText: {
+    color: "#FFFFFF",
   },
   productCardDescription: {
     color: "#4B5563",
@@ -1999,11 +2486,32 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
+  productFooterPrimary: {
+    flex: 1,
+    gap: 10,
+  },
   productPrice: {
     color: "#2B2B2B",
     fontSize: 22,
     lineHeight: 28,
     fontFamily: "Manrope-ExtraBold",
+  },
+  detailsButton: {
+    alignSelf: "flex-start",
+    minHeight: 38,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#D7E1DD",
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  detailsButtonText: {
+    color: "#0A6C52",
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: "Manrope-SemiBold",
   },
   addButton: {
     minWidth: 136,
@@ -2530,6 +3038,13 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Regular",
     marginTop: 4,
   },
+  orderCardMeta: {
+    color: "#8A8F94",
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: "Outfit-Regular",
+    marginTop: 6,
+  },
   orderCardPrice: {
     color: "#2B2B2B",
     fontSize: 14,
@@ -2629,4 +3144,84 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingBottom: 10,
   },
+  productModalScrim: {
+    flex: 1,
+    backgroundColor: "rgba(13,23,19,0.48)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 24,
+  },
+  productModalCard: {
+    width: "100%",
+    maxWidth: 760,
+    borderRadius: 28,
+    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
+  },
+  productModalImage: {
+    width: "100%",
+    height: 300,
+    backgroundColor: "#ECE7DC",
+  },
+  productModalBody: {
+    padding: 22,
+    gap: 16,
+  },
+  productModalTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 16,
+  },
+  productModalClose: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#F5F7F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  productModalTitle: {
+    color: "#2B2B2B",
+    fontSize: 26,
+    lineHeight: 32,
+    fontFamily: "Manrope-ExtraBold",
+  },
+  productModalMeta: {
+    color: "#687076",
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: "Outfit-Regular",
+    marginTop: 6,
+  },
+  productModalDescription: {
+    color: "#4B5563",
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: "Outfit-Regular",
+  },
+  productModalSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  productModalPrice: {
+    color: "#0A6C52",
+    fontSize: 28,
+    lineHeight: 34,
+    fontFamily: "Manrope-ExtraBold",
+  },
+  productModalStock: {
+    color: "#0A6C52",
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: "Manrope-Bold",
+    textTransform: "uppercase",
+  },
+  productModalActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
 });
+

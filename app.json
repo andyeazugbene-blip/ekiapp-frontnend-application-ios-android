@@ -2,7 +2,7 @@
   "expo": {
     "name": "Eki",
     "slug": "eki-app",
-    "version": "1.0.1",
+    "version": "1.0.4",
     "orientation": "portrait",
     "scheme": "ekiapp",
     "userInterfaceStyle": "automatic",
@@ -15,39 +15,84 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ekiapp.mobile",
-      "buildNumber": "1",
+      "buildNumber": "4",
       "associatedDomains": [
-        "applinks:waqti.pro",
-        "applinks:www.waqti.pro"
-      ]
+        "applinks:culinarytales.app",
+        "applinks:www.culinarytales.app"
+      ],
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Eki uses your camera for product photos, identity verification, and chat image sharing.",
+        "NSPhotoLibraryUsageDescription": "Eki uses your photo library so you can upload product photos, verification documents, and chat images.",
+        "NSPhotoLibraryAddUsageDescription": "Eki can save selected images when you choose to download or share them."
+      }
     },
     "android": {
       "package": "com.ekiapp.mobile",
-      "versionCode": 1,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#076B51"
       },
       "permissions": [
-        "INTERNET",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "POST_NOTIFICATIONS"
+        "android.permission.INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "intentFilters": [
         {
           "action": "VIEW",
           "data": [
-            { "scheme": "https", "host": "waqti.pro", "pathPrefix": "/store" },
-            { "scheme": "https", "host": "www.waqti.pro", "pathPrefix": "/store" },
-            { "scheme": "https", "host": "waqti.pro", "pathPrefix": "/product" },
-            { "scheme": "https", "host": "www.waqti.pro", "pathPrefix": "/product" },
-            { "scheme": "https", "host": "waqti.pro", "pathPrefix": "/order" },
-            { "scheme": "https", "host": "www.waqti.pro", "pathPrefix": "/order" },
-            { "scheme": "https", "host": "waqti.pro", "pathPrefix": "/chat" },
-            { "scheme": "https", "host": "www.waqti.pro", "pathPrefix": "/chat" },
-            { "scheme": "https", "host": "waqti.pro", "pathPrefix": "/invite" },
-            { "scheme": "https", "host": "www.waqti.pro", "pathPrefix": "/invite" }
+            {
+              "scheme": "https",
+              "host": "culinarytales.app",
+              "pathPrefix": "/store"
+            },
+            {
+              "scheme": "https",
+              "host": "www.culinarytales.app",
+              "pathPrefix": "/store"
+            },
+            {
+              "scheme": "https",
+              "host": "culinarytales.app",
+              "pathPrefix": "/product"
+            },
+            {
+              "scheme": "https",
+              "host": "www.culinarytales.app",
+              "pathPrefix": "/product"
+            },
+            {
+              "scheme": "https",
+              "host": "culinarytales.app",
+              "pathPrefix": "/order"
+            },
+            {
+              "scheme": "https",
+              "host": "www.culinarytales.app",
+              "pathPrefix": "/order"
+            },
+            {
+              "scheme": "https",
+              "host": "culinarytales.app",
+              "pathPrefix": "/chat"
+            },
+            {
+              "scheme": "https",
+              "host": "www.culinarytales.app",
+              "pathPrefix": "/chat"
+            },
+            {
+              "scheme": "https",
+              "host": "culinarytales.app",
+              "pathPrefix": "/invite"
+            },
+            {
+              "scheme": "https",
+              "host": "www.culinarytales.app",
+              "pathPrefix": "/invite"
+            }
           ],
           "category": [
             "BROWSABLE",
@@ -68,22 +113,30 @@
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.com.ekiapp.mobile",
           "enableGooglePay": true
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Eki uses your photo library so you can upload product photos, verification documents, and chat images.",
+          "cameraPermission": "Eki uses your camera for product photos, identity verification, and chat image sharing.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-notifications",
       "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "privacyPolicyUrl": "https://waqti.pro/privacy",
-      "termsOfServiceUrl": "https://waqti.pro/terms",
-      "supportEmail": "support@waqti.pro",
-      "publicDomain": "https://waqti.pro",
-      "publicDomainWww": "https://www.waqti.pro",
-      "vercelFallbackUrl": "https://italian-market-place.vercel.app",
+      "privacyPolicyUrl": "https://culinarytales.app/privacy",
+      "termsOfServiceUrl": "https://culinarytales.app/terms",
+      "supportEmail": "adminandy@eki.app",
+      "publicDomain": "https://culinarytales.app",
+      "publicDomainWww": "https://www.culinarytales.app",
+      "vercelFallbackUrl": "https://ekiapp-backend.vercel.app",
       "router": {},
       "eas": {
         "projectId": "b86cbe6a-0c47-4842-b158-b9e9c49b85e4"

@@ -3,23 +3,33 @@ import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, Touchabl
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useCartStore } from "../../stores/cartStore";
+
 import { TAB_BAR_RESERVED_SPACE } from "../../components/layout/tabBarConstants";
+import { useCartStore } from "../../stores/cartStore";
+
+const CURRENCY_SYMBOL: Record<string, string> = {
+  GBP: "\u00A3",
+  USD: "$",
+  EUR: "\u20AC",
+  NGN: "\u20A6",
+  CAD: "C$",
+};
 
 export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const items = useCartStore((s) => s.items);
-  const updateQuantity = useCartStore((s) => s.updateQuantity);
-  const removeItem = useCartStore((s) => s.removeItem);
-  const subtotal = useCartStore((s) => s.subtotal());
-  const totalItems = useCartStore((s) => s.totalItems());
-  const deliveryTotal = useCartStore((s) => s.deliveryTotal());
-  const grandTotal = useCartStore((s) => s.grandTotal());
-  const isLoading = useCartStore((s) => s.isLoading);
-  const calculateDelivery = useCartStore((s) => s.calculateDelivery);
-  const deliveryCountry = useCartStore((s) => s.deliveryCountry);
-  const syncWithServer = useCartStore((s) => s.syncWithServer);
+  const items = useCartStore((state) => state.items);
+  const groupedByVendor = useCartStore((state) => state.groupedByVendor());
+  const vendorCount = useCartStore((state) => state.vendorCount());
+  const updateQuantity = useCartStore((state) => state.updateQuantity);
+  const subtotal = useCartStore((state) => state.subtotal());
+  const totalItems = useCartStore((state) => state.totalItems());
+  const deliveryTotal = useCartStore((state) => state.deliveryTotal());
+  const grandTotal = useCartStore((state) => state.grandTotal());
+  const isLoading = useCartStore((state) => state.isLoading);
+  const calculateDelivery = useCartStore((state) => state.calculateDelivery);
+  const deliveryCountry = useCartStore((state) => state.deliveryCountry);
+  const syncWithServer = useCartStore((state) => state.syncWithServer);
 
   useFocusEffect(
     useCallback(() => {
@@ -27,10 +37,12 @@ export default function CartScreen() {
       if (items.length > 0) {
         calculateDelivery(deliveryCountry).catch(() => {});
       }
-    }, [])
+    }, [calculateDelivery, deliveryCountry, items.length, syncWithServer]),
   );
 
-  const totalWeight = items.reduce((sum, i) => sum + (i.product.weight ?? 0) * i.quantity, 0);
+  const totalWeight = items.reduce((sum, item) => sum + (item.product.weight ?? 0) * item.quantity, 0);
+  const checkoutCurrency = items[0]?.product.currency ?? "GBP";
+  const currencySymbol = CURRENCY_SYMBOL[checkoutCurrency] ?? "\u00A3";
 
   const handleQuantityChange = (productId: string, quantity: number) => {
     updateQuantity(productId, quantity).catch((err) => {
@@ -40,7 +52,6 @@ export default function CartScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
@@ -50,46 +61,78 @@ export default function CartScreen() {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isLoading && items.length === 0 ? (
-          <View style={{ paddingVertical: 60, alignItems: "center" }}>
+          <View style={styles.stateWrap}>
             <ActivityIndicator color="#076B51" />
           </View>
         ) : items.length === 0 ? (
-          <View style={{ paddingVertical: 60, alignItems: "center" }}>
+          <View style={styles.stateWrap}>
             <Ionicons name="cart-outline" size={48} color="#858585" />
-            <Text style={{ fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 }}>Your cart is empty</Text>
-            <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 6 }}>Browse foodstuff and add items to get started.</Text>
-            <TouchableOpacity onPress={() => router.push("/(buyer)/explore" as any)} activeOpacity={0.85} style={{ marginTop: 20, height: 44, borderRadius: 12, backgroundColor: "#076B51", paddingHorizontal: 24, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" }}>Browse Foodstuff</Text>
+            <Text style={styles.emptyTitle}>Your cart is empty</Text>
+            <Text style={styles.emptyBody}>Browse foodstuff and add items to get started.</Text>
+            <TouchableOpacity
+              onPress={() => router.push("/(buyer)/explore" as any)}
+              activeOpacity={0.85}
+              style={styles.browseButton}
+            >
+              <Text style={styles.browseButtonText}>Browse Foodstuff</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <>
-            {/* Cart items */}
-            {items.map((item) => (
-              <View key={item.product.id} style={styles.cartItem}>
-                {item.product.images?.[0] ? (
-                  <Image source={{ uri: item.product.images[0] }} style={styles.itemImage} resizeMode="cover" />
-                ) : (
-                  <View style={styles.itemImage} />
-                )}
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemName}>{item.product.name}</Text>
-                  <Text style={styles.itemCategory}>{item.product.category}</Text>
-                  <Text style={styles.itemPrice}>£{item.product.price.toFixed(2)}</Text>
-                </View>
-                <View style={styles.qtyControl}>
-                  <TouchableOpacity onPress={() => handleQuantityChange(item.product.id, item.quantity - 1)} activeOpacity={0.85} style={styles.qtyBtn}>
-                    <Text style={styles.qtyBtnText}>—</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.qtyValue}>{item.quantity}</Text>
-                  <TouchableOpacity onPress={() => handleQuantityChange(item.product.id, item.quantity + 1)} activeOpacity={0.85} style={styles.qtyBtnPlus}>
-                    <Ionicons name="add" size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
+            <View style={styles.vendorSummaryCard}>
+              <Text style={styles.vendorSummaryTitle}>
+                {vendorCount > 1 ? `${vendorCount} sellers in this basket` : "1 seller in this basket"}
+              </Text>
+              <Text style={styles.vendorSummaryBody}>
+                Eki can handle one checkout across multiple sellers when the basket stays in the same currency.
+              </Text>
+            </View>
+
+            {groupedByVendor.map((group) => (
+              <View key={group.vendorId} style={styles.vendorSection}>
+                <Text style={styles.vendorName}>{group.vendorName || "Vendor"}</Text>
+                <Text style={styles.vendorMeta}>
+                  {group.items.length} item{group.items.length === 1 ? "" : "s"} · {currencySymbol}
+                  {group.subtotal.toFixed(2)}
+                </Text>
+
+                {group.items.map((item) => (
+                  <View key={item.product.id} style={styles.cartItem}>
+                    {item.product.images?.[0] ? (
+                      <Image source={{ uri: item.product.images[0] }} style={styles.itemImage} resizeMode="cover" />
+                    ) : (
+                      <View style={styles.itemImage} />
+                    )}
+                    <View style={styles.itemInfo}>
+                      <Text style={styles.itemName}>{item.product.name}</Text>
+                      <Text style={styles.itemCategory}>{item.product.category || group.vendorName}</Text>
+                      <Text style={styles.itemPrice}>
+                        {currencySymbol}
+                        {item.product.price.toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={styles.qtyControl}>
+                      <TouchableOpacity
+                        onPress={() => handleQuantityChange(item.product.id, item.quantity - 1)}
+                        activeOpacity={0.85}
+                        style={styles.qtyBtn}
+                      >
+                        <Text style={styles.qtyBtnText}>-</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.qtyValue}>{item.quantity}</Text>
+                      <TouchableOpacity
+                        onPress={() => handleQuantityChange(item.product.id, item.quantity + 1)}
+                        activeOpacity={0.85}
+                        style={styles.qtyBtnPlus}
+                      >
+                        <Ionicons name="add" size={16} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
               </View>
             ))}
 
-            {/* Summary */}
             <View style={styles.summaryCard}>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Items</Text>
@@ -97,11 +140,18 @@ export default function CartScreen() {
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Total item price</Text>
-                <Text style={styles.summaryValue}>£{subtotal.toFixed(2)}</Text>
+                <Text style={styles.summaryValue}>
+                  {currencySymbol}
+                  {subtotal.toFixed(2)}
+                </Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Total weight</Text>
                 <Text style={styles.summaryValue}>{totalWeight.toFixed(1)} kg</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Sellers</Text>
+                <Text style={styles.summaryValue}>{vendorCount}</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Delivery country</Text>
@@ -109,23 +159,31 @@ export default function CartScreen() {
               </View>
               <View style={[styles.summaryRow, styles.summaryRowBorder]}>
                 <Text style={styles.summaryLabel}>Shipping cost</Text>
-                <Text style={styles.summaryValue}>£{deliveryTotal.toFixed(2)}</Text>
+                <Text style={styles.summaryValue}>
+                  {currencySymbol}
+                  {deliveryTotal.toFixed(2)}
+                </Text>
               </View>
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>£{grandTotal.toFixed(2)}</Text>
+                <Text style={styles.totalValue}>
+                  {currencySymbol}
+                  {grandTotal.toFixed(2)}
+                </Text>
               </View>
             </View>
           </>
         )}
       </ScrollView>
 
-      {/* Checkout button */}
       <View style={[styles.bottomBar, { paddingBottom: TAB_BAR_RESERVED_SPACE + Math.max(insets.bottom, 10) }]}>
         <View style={styles.bottomSummaryRow}>
           <View>
             <Text style={styles.bottomSummaryLabel}>Ready to checkout</Text>
-            <Text style={styles.bottomSummaryValue}>{totalItems} items • £{grandTotal.toFixed(2)}</Text>
+            <Text style={styles.bottomSummaryValue}>
+              {totalItems} items · {currencySymbol}
+              {grandTotal.toFixed(2)}
+            </Text>
           </View>
           <Ionicons name="arrow-forward-circle" size={28} color="#076B51" />
         </View>
@@ -148,6 +206,17 @@ const styles = StyleSheet.create({
   backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828" },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
+  stateWrap: { paddingVertical: 60, alignItems: "center" },
+  emptyTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 },
+  emptyBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 6 },
+  browseButton: { marginTop: 20, height: 44, borderRadius: 12, backgroundColor: "#076B51", paddingHorizontal: 24, alignItems: "center", justifyContent: "center" },
+  browseButtonText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+  vendorSummaryCard: { backgroundColor: "#F4F8F6", borderRadius: 16, padding: 16, marginBottom: 14 },
+  vendorSummaryTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828" },
+  vendorSummaryBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 6, lineHeight: 19 },
+  vendorSection: { marginBottom: 18 },
+  vendorName: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
+  vendorMeta: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 4, marginBottom: 10 },
   cartItem: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 16, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: "#F0F0F0" },
   itemImage: { width: 72, height: 72, borderRadius: 12, backgroundColor: "#F0E6D4", marginRight: 14 },
   itemInfo: { flex: 1 },
