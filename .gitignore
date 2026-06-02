@@ -9,4 +9,10 @@ node_modules/
 dist/
 .expo-tmp/
 .kiro/
+google-services-key.json
+credentials.json
+google-services.json
+*.jks
+*.keystore
+*.p8
 # @end expo-cli

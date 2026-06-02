@@ -10,7 +10,16 @@
       "channel": "development",
       "env": {
         "EXPO_PUBLIC_USE_MOCK_API": "false",
-        "EXPO_PUBLIC_API_BASE_URL": "https://italian-market-place.vercel.app",
+        "EXPO_PUBLIC_API_URL": "https://ekiapp-backend.vercel.app",
+        "EXPO_PUBLIC_API_BASE_URL": "https://ekiapp-backend.vercel.app",
+        "EXPO_PUBLIC_APP_WEBSITE": "https://culinarytales.app",
+        "EXPO_PUBLIC_APP_DOWNLOAD_LINK": "https://culinarytales.app",
+        "EXPO_PUBLIC_PUBLIC_WEB_URL": "https://culinarytales.app",
+        "EXPO_PUBLIC_PUBLIC_WEB_URL_WWW": "https://www.culinarytales.app",
+        "EXPO_PUBLIC_STORE_BASE_URL": "https://culinarytales.app/store",
+        "EXPO_PUBLIC_VERCEL_FALLBACK_URL": "https://ekiapp-backend.vercel.app",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_YXkYBZjPTymtICNHwFSHX9Hg",
+        "EXPO_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAADbdUSFvS7twWicQ",
         "EXPO_PUBLIC_APP_REVIEW_MODE": "true"
       }
     },
@@ -19,8 +28,17 @@
       "channel": "preview",
       "env": {
         "EXPO_PUBLIC_USE_MOCK_API": "false",
-        "EXPO_PUBLIC_API_BASE_URL": "https://italian-market-place.vercel.app",
-        "EXPO_PUBLIC_APP_REVIEW_MODE": "true"
+        "EXPO_PUBLIC_API_URL": "https://ekiapp-backend.vercel.app",
+        "EXPO_PUBLIC_API_BASE_URL": "https://ekiapp-backend.vercel.app",
+        "EXPO_PUBLIC_APP_WEBSITE": "https://culinarytales.app",
+        "EXPO_PUBLIC_APP_DOWNLOAD_LINK": "https://culinarytales.app",
+        "EXPO_PUBLIC_PUBLIC_WEB_URL": "https://culinarytales.app",
+        "EXPO_PUBLIC_PUBLIC_WEB_URL_WWW": "https://www.culinarytales.app",
+        "EXPO_PUBLIC_STORE_BASE_URL": "https://culinarytales.app/store",
+        "EXPO_PUBLIC_VERCEL_FALLBACK_URL": "https://ekiapp-backend.vercel.app",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_YXkYBZjPTymtICNHwFSHX9Hg",
+        "EXPO_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAADbdUSFvS7twWicQ",
+        "EXPO_PUBLIC_APP_REVIEW_MODE": "false"
       },
       "android": {
         "buildType": "apk"
@@ -32,10 +50,20 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
+      "credentialsSource": "local",
       "env": {
         "EXPO_PUBLIC_USE_MOCK_API": "false",
-        "EXPO_PUBLIC_API_BASE_URL": "https://italian-market-place.vercel.app",
-        "EXPO_PUBLIC_APP_REVIEW_MODE": "true"
+        "EXPO_PUBLIC_API_URL": "https://ekiapp-backend.vercel.app",
+        "EXPO_PUBLIC_API_BASE_URL": "https://ekiapp-backend.vercel.app",
+        "EXPO_PUBLIC_APP_WEBSITE": "https://culinarytales.app",
+        "EXPO_PUBLIC_APP_DOWNLOAD_LINK": "https://culinarytales.app",
+        "EXPO_PUBLIC_PUBLIC_WEB_URL": "https://culinarytales.app",
+        "EXPO_PUBLIC_PUBLIC_WEB_URL_WWW": "https://www.culinarytales.app",
+        "EXPO_PUBLIC_STORE_BASE_URL": "https://culinarytales.app/store",
+        "EXPO_PUBLIC_VERCEL_FALLBACK_URL": "https://ekiapp-backend.vercel.app",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_YXkYBZjPTymtICNHwFSHX9Hg",
+        "EXPO_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAADbdUSFvS7twWicQ",
+        "EXPO_PUBLIC_APP_REVIEW_MODE": "false"
       },
       "android": {
         "buildType": "app-bundle"
@@ -47,8 +75,7 @@
       "android": {
         "serviceAccountKeyPath": "./google-services-key.json",
         "track": "production",
-        "releaseStatus": "completed",
-        "rollout": 1
+        "releaseStatus": "completed"
       }
     }
   }
