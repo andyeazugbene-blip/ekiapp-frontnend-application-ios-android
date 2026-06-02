@@ -1,114 +1,191 @@
 # Eki Store Launch Checklist
 
-Last updated: 2026-05-15
+Last updated: 2026-05-31
+
+## Launch verdict
+
+Status today: `not ready for store submission`
+
+Why:
+- The app-side production config is pointed at the new public domain and new backend API.
+- The mobile app still needs a real production backend deployment check, real self-serve account deletion, and live payment credentials before App Store / Play Store submission.
 
 ## Identity
 
-| Field             | Value                                  |
-| ----------------- | -------------------------------------- |
-| App name          | Eki Marketplace                        |
-| Short description | Buy and sell authentic African foodstuff with global delivery. |
-| Tagline           | African foodstuff, delivered.          |
-| Bundle ID (iOS)   | `com.ekiapp.mobile`                    |
-| Package (Android) | `com.ekiapp.mobile`                    |
-| Public domain     | https://waqti.pro                      |
-| Privacy policy    | https://waqti.pro/privacy              |
-| Terms of service  | https://waqti.pro/terms                |
-| Support email     | support@waqti.pro                      |
+| Field | Value |
+| --- | --- |
+| App name | Eki |
+| Product category | Marketplace for physical foodstuff |
+| Bundle ID (iOS) | `com.ekiapp.mobile` |
+| Package (Android) | `com.ekiapp.mobile` |
+| Public domain | `https://culinarytales.app` |
+| WWW domain | `https://www.culinarytales.app` |
+| Backend API | `https://ekiapp-backend.vercel.app` |
+| Privacy policy | `https://culinarytales.app/privacy` |
+| Terms of service | `https://culinarytales.app/terms` |
+| Help page | `https://culinarytales.app/help` |
+| Support email | `adminandy@eki.app` |
 
-## Full description (sample, ≤4000 chars)
+## Current frontend config
 
-Eki connects African vendors with buyers worldwide. Sellers manage their store, foodstuff inventory, delivery, and earnings in one place. Buyers shop authentic foodstuff with secure payment and protected delivery.
+Verified in this repo:
+- [app.json](/C:/Users/PC%20SOFT/Desktop/frontend%20italian/app.json) points to `culinarytales.app` and `ekiapp-backend.vercel.app`
+- [eas.json](/C:/Users/PC%20SOFT/Desktop/frontend%20italian/eas.json) uses the new public URLs and new backend API URL
+- [.env](/C:/Users/PC%20SOFT/Desktop/frontend%20italian/.env) uses the new public URLs, new backend API URL, and new Turnstile site key
+- [.env.example](/C:/Users/PC%20SOFT/Desktop/frontend%20italian/.env.example) documents the new public config
+- [utils/shareLinks.ts](/C:/Users/PC%20SOFT/Desktop/frontend%20italian/utils/shareLinks.ts) builds public links from `culinarytales.app`
+- [services/api/config.ts](/C:/Users/PC%20SOFT/Desktop/frontend%20italian/services/api/config.ts) defaults to `https://ekiapp-backend.vercel.app`
 
-Vendor features
-- Set up your store and add foodstuff in minutes
-- Configure delivery for the UK, US, Canada, and Europe
-- Accept and ship orders with tracking
-- Receive payouts via bank, Stripe, or PayPal
-- Run discounts, bundles, flash sales, and private offers
-- Get verified to unlock buyer trust and higher selling limits
+Expo ownership cleanup:
+- Old Expo `owner` was removed from [app.json](/C:/Users/PC%20SOFT/Desktop/frontend%20italian/app.json)
+- Old Expo `projectId` was removed from [app.json](/C:/Users/PC%20SOFT/Desktop/frontend%20italian/app.json)
 
-Buyer features
-- Order from multiple vendors in one cart
-- Pay securely with Stripe
-- Track orders end-to-end
-- Earn rewards and refer friends
-- Chat with vendors directly inside the app
+## Store review requirements
 
-## Required assets
+### Apple
 
-- App icon: `assets/icon.png` (1024×1024 PNG, no alpha for iOS)
-- Adaptive icon (Android): `assets/adaptive-icon.png` (1024×1024 PNG, foreground)
-- Splash screen: `assets/splash-icon.png` (centered)
-- Web favicon: `assets/favicon.png`
-- Feature graphic (Play Store): 1024×500 JPG/PNG (TODO)
-- Screenshots (≥4 per platform):
-  - Onboarding
-  - Vendor dashboard
-  - Foodstuff list / add product
-  - Buyer home / product detail
-  - Cart / Stripe checkout
-  - Orders / tracking
+Ready:
+- Physical goods marketplace flow can use direct card payments outside IAP
+- Privacy policy and terms URLs are defined in app config
+- Camera and photo-library permission copy is present in app config
 
-## Permissions
+Blocked:
+- Account deletion is not yet self-serve inside the product flow
+- Current deletion entry is a request path, not a full in-app delete flow backed by API
 
-| Permission                | Why                                                       |
-| ------------------------- | --------------------------------------------------------- |
-| INTERNET                  | API calls.                                                |
-| CAMERA                    | Selfie verification, product photos.                      |
-| READ_EXTERNAL_STORAGE     | Pick existing photos for product/verification uploads.    |
-| POST_NOTIFICATIONS        | Order updates, payout notifications, verification status. |
+### Google Play
 
-iOS uses the standard photo library / camera privacy strings via Expo defaults.
+Ready:
+- Data collection categories are known
+- Notification permission and media permissions are declared
 
-## Data Safety (Play Store)
+Blocked:
+- A working public account deletion path is still required in addition to the in-app path
 
-| Data type        | Collected | Shared | Purpose                          |
-| ---------------- | --------- | ------ | -------------------------------- |
-| Email address    | Yes       | No     | Account, login, transactional emails |
-| Phone number     | Optional  | No     | OTP verification                  |
-| Name             | Yes       | No     | Account, order delivery           |
-| Address          | Buyer-only| No     | Order fulfillment                 |
-| Photos           | Yes       | No     | Product photos, verification      |
-| Government ID    | Vendor-only | No   | Identity verification (encrypted) |
-| Purchase history | Yes       | No     | Order history, analytics          |
-| Device IDs       | Yes       | No     | Push notification delivery        |
-| Crash logs       | Yes       | No     | Sentry, redacted (no PII/secrets) |
+## Live credentials status
 
-Encryption in transit: yes (HTTPS).
-Account deletion: contact support@waqti.pro (UI flow planned).
+Public client-side values currently wired in the app:
+- `EXPO_PUBLIC_API_URL=https://ekiapp-backend.vercel.app`
+- `EXPO_PUBLIC_API_BASE_URL=https://ekiapp-backend.vercel.app`
+- `EXPO_PUBLIC_APP_WEBSITE=https://culinarytales.app`
+- `EXPO_PUBLIC_PUBLIC_WEB_URL=https://culinarytales.app`
+- `EXPO_PUBLIC_PUBLIC_WEB_URL_WWW=https://www.culinarytales.app`
+- `EXPO_PUBLIC_STORE_BASE_URL=https://culinarytales.app/store`
+- `EXPO_PUBLIC_VERCEL_FALLBACK_URL=https://ekiapp-backend.vercel.app`
+- `EXPO_PUBLIC_TURNSTILE_SITE_KEY` is set
+- `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` is set
 
-## Build profiles (eas.json)
+Server-side credentials:
+- Must live only in the backend deployment environment
+- Must not be committed to this repo
+- Must be verified on the new backend deployment before release
 
-- `development` — internal distribution, dev client, mock API enabled.
-- `preview` — internal distribution, real API; APK on Android, IPA on iOS.
-- `production` — public submission; AAB on Android, IPA on iOS; auto-increments build number.
+Important:
+- The Stripe keys currently provided are `test` keys, not `live` keys
+- Production checkout is not release-ready until live Stripe credentials replace the test pair
 
-Common commands
+## Backend launch gate
+
+Required before submission:
+1. Backend deploy at `https://ekiapp-backend.vercel.app` returns healthy responses
+2. Public site at `https://culinarytales.app` loads without `FUNCTION_INVOCATION_FAILED`
+3. Database migrations are applied to the production database actually used by the deployed backend
+4. Uploads work against Cloudflare R2
+5. OTP and transactional email flows work with Resend
+6. Turnstile is enforced correctly in production
+7. Stripe webhook is reachable and verified in production
+
+Suggested production env checklist for the backend:
+- `DATABASE_URL`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `JWT_SECRET`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `RESEND_API_KEY`
+- `EMAIL_FROM`
+- `SMS_PROVIDER`
+- `SMS_API_KEY`
+- `AT_USERNAME`
+- `S3_BUCKET`
+- `S3_REGION`
+- `S3_ENDPOINT`
+- `S3_ACCESS_KEY_ID`
+- `S3_SECRET_ACCESS_KEY`
+- `S3_PUBLIC_URL`
+- `TURNSTILE_SECRET_KEY`
+- `PUBLIC_STORE_BASE_URL=https://culinarytales.app`
+- `PLATFORM_FEE_BPS`
+
+## App flow gate
+
+The following must be verified on device builds, not Expo Go:
+- Buyer signup, login, OTP verification
+- Vendor signup, onboarding, store setup
+- Product create/edit with image upload
+- Vendor verification uploads
+- Buyer cart and checkout
+- Buyer wallet top-up
+- Vendor order acceptance and shipment updates
+- Buyer order tracking
+- Buyer/vendor messaging with image attachments
+- Push notifications for orders and messages
+- Deep links for `/store`, `/product`, `/order`, `/chat`, `/invite`
+
+Note:
+- Native Stripe PaymentSheet is not testable in Expo Go
+- Use EAS development/preview builds for payment validation
+
+## Assets checklist
+
+Ready:
+- `assets/icon.png`
+- `assets/adaptive-icon.png`
+- `assets/splash-icon.png`
+- `assets/favicon.png`
+
+Still needed for store listing:
+- Final App Store screenshots
+- Final Play Store screenshots
+- Android feature graphic
+- Final release description copy
+- Final privacy answers / Play Data Safety form answers
+
+## Build commands
 
 ```bash
-# Configure once
-eas build:configure
-
-# Internal preview
 eas build -p android --profile preview
 eas build -p ios --profile preview
-
-# Production
 eas build -p android --profile production
 eas build -p ios --profile production
+```
 
-# Submit
+Submission commands after all blockers are cleared:
+
+```bash
 eas submit -p android --profile production
 eas submit -p ios --profile production
 ```
 
-## Pre-launch sanity checks
+## Repo checks
 
-- `npx tsc --noEmit` clean
-- `npx expo-doctor` — flag-only warnings acceptable
-- All vendor & buyer flows tested against the production API base URL
-- Stripe publishable key set in `.env` and `eas.json` (production)
-- Sentry DSN set (optional, but recommended)
-- Privacy policy & terms accessible at the URLs in `app.json`
-- Deep link `https://waqti.pro/store/<slug>` opens the public store on web; opens the app when installed
+Checks that have already passed during launch prep:
+- `npm run check:no-mock-data`
+- `npm run check:billing-compliance`
+- `npm run check:no-old-domain`
+- `npx expo export --platform web`
+- `npx expo-doctor`
+
+Current note:
+- `npm run typecheck` is not clean in the current workspace because of `admin-web/` TypeScript issues unrelated to the mobile app config pass
+
+## Final release gate
+
+Do not submit to App Store / Play Store until all of these are true:
+- backend health is green on the new deployment
+- public site is loading on the new domain
+- Stripe uses live keys
+- account deletion is truly self-serve in app and backed by API
+- EAS ownership is linked to the client account
+- App Store Connect and Play Console ownership are on the client side
+- preview build smoke test passes on real iPhone and Android devices

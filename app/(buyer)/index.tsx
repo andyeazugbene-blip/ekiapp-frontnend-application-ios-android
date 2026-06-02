@@ -22,6 +22,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { type Product } from "../../types/product";
 import { type VendorSummary } from "../../types/vendor";
 import { RemoteImage } from "../../components/ui/RemoteImage";
+import { vendorService } from "../../services/vendorService";
 
 const CURRENCY_SYMBOL: Record<string, string> = {
   GBP: "\u00A3",
@@ -45,6 +46,59 @@ type HomeDeal = {
   onPress: () => void;
 };
 
+function rankProducts(products: Product[], vendors: VendorSummary[]): Product[] {
+  const vendorMap = new Map(vendors.map((vendor) => [vendor.id, vendor]));
+  const now = Date.now();
+
+  return [...products].sort((left, right) => {
+    const leftVendor = vendorMap.get(left.vendorId);
+    const rightVendor = vendorMap.get(right.vendorId);
+
+    const leftAgeDays = Math.max(1, (now - Date.parse(left.createdAt || new Date().toISOString())) / 86400000);
+    const rightAgeDays = Math.max(1, (now - Date.parse(right.createdAt || new Date().toISOString())) / 86400000);
+
+    const leftScore =
+      (leftVendor?.totalOrders ?? 0) * 5 +
+      (leftVendor?.rating ?? 0) * 20 +
+      Math.min(left.stock, 50) * 0.7 +
+      (left.images?.[0] ? 12 : 0) +
+      Math.max(0, 30 - leftAgeDays);
+
+    const rightScore =
+      (rightVendor?.totalOrders ?? 0) * 5 +
+      (rightVendor?.rating ?? 0) * 20 +
+      Math.min(right.stock, 50) * 0.7 +
+      (right.images?.[0] ? 12 : 0) +
+      Math.max(0, 30 - rightAgeDays);
+
+    if (rightScore !== leftScore) return rightScore - leftScore;
+    return Date.parse(right.createdAt) - Date.parse(left.createdAt);
+  });
+}
+
+function rankVendors(vendors: VendorSummary[], products: Product[]): VendorSummary[] {
+  const productCountMap = products.reduce<Map<string, number>>((map, product) => {
+    map.set(product.vendorId, (map.get(product.vendorId) ?? 0) + 1);
+    return map;
+  }, new Map());
+
+  return [...vendors].sort((left, right) => {
+    const leftScore =
+      (left.totalOrders ?? 0) * 5 +
+      (left.rating ?? 0) * 20 +
+      (productCountMap.get(left.id) ?? left.totalProducts ?? 0) * 4 +
+      (left.verificationStatus === "verified" ? 10 : 0);
+    const rightScore =
+      (right.totalOrders ?? 0) * 5 +
+      (right.rating ?? 0) * 20 +
+      (productCountMap.get(right.id) ?? right.totalProducts ?? 0) * 4 +
+      (right.verificationStatus === "verified" ? 10 : 0);
+
+    if (rightScore !== leftScore) return rightScore - leftScore;
+    return Date.parse(right.joinedAt) - Date.parse(left.joinedAt);
+  });
+}
+
 export default function BuyerHomeScreen() {
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
@@ -60,9 +114,12 @@ export default function BuyerHomeScreen() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const prods = await productService.getAll({ limit: 24 }).catch(() => [] as Product[]);
+      const [prods, vendorList] = await Promise.all([
+        productService.getAll({ limit: 24 }).catch(() => [] as Product[]),
+        vendorService.getAllVendors({ search: "", status: "active" }).catch(() => [] as VendorSummary[]),
+      ]);
       setProducts((prods ?? []).filter(Boolean));
-      setVendors([]);
+      setVendors(rankVendors(vendorList ?? [], prods ?? []).slice(0, 6));
     } finally {
       setLoading(false);
     }
@@ -92,7 +149,7 @@ export default function BuyerHomeScreen() {
       .slice(0, 6);
   }, [activeProducts]);
 
-  const bestSellers = activeProducts.slice(0, 6);
+  const bestSellers = useMemo(() => rankProducts(activeProducts, vendors).slice(0, 6), [activeProducts, vendors]);
   const featuredProduct = activeProducts[0];
   const firstCurrency = featuredProduct?.currency ?? "GBP";
   const firstSymbol = CURRENCY_SYMBOL[firstCurrency] ?? "\u00A3";
@@ -286,7 +343,7 @@ export default function BuyerHomeScreen() {
               {vendors.map((vendor) => (
                 <TouchableOpacity
                   key={vendor.id}
-                  onPress={() => router.push({ pathname: "/store/[slug]", params: { slug: vendor.storeSlug || vendor.id } } as any)}
+                  onPress={() => handleOpenVendor(vendor.id)}
                   activeOpacity={0.86}
                   style={styles.vendorCard}
                 >
@@ -368,7 +425,7 @@ export default function BuyerHomeScreen() {
             {vendors.slice(0, 2).map((vendor) => (
               <TouchableOpacity
                 key={vendor.id}
-                onPress={() => router.push({ pathname: "/store/[slug]", params: { slug: vendor.storeSlug || vendor.id } } as any)}
+                onPress={() => handleOpenVendor(vendor.id)}
                 activeOpacity={0.86}
                 style={styles.supportStoreRow}
               >

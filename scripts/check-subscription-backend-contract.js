@@ -6,7 +6,7 @@
  *   SUBSCRIPTION_TEST_TOKEN=<vendor auth token>
  *
  * Optional:
- *   SUBSCRIPTION_TEST_API_URL=https://italian-market-place.vercel.app
+ *   SUBSCRIPTION_TEST_API_URL=https://ekiapp-backend.vercel.app
  *   SUBSCRIPTION_TEST_ALLOW_MUTATION=true
  *
  * Without SUBSCRIPTION_TEST_ALLOW_MUTATION=true this script verifies read-only
@@ -16,7 +16,7 @@ const API_URL =
   process.env.SUBSCRIPTION_TEST_API_URL ||
   process.env.EXPO_PUBLIC_API_URL ||
   process.env.EXPO_PUBLIC_API_BASE_URL ||
-  "https://italian-market-place.vercel.app";
+  "https://ekiapp-backend.vercel.app";
 const TOKEN = process.env.SUBSCRIPTION_TEST_TOKEN;
 const ALLOW_MUTATION = process.env.SUBSCRIPTION_TEST_ALLOW_MUTATION === "true";
 

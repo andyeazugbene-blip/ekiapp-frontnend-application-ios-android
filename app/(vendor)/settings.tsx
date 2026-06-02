@@ -210,9 +210,9 @@ export default function VendorSettingsScreen() {
           <SettingRow
             icon="pricetag-outline"
             label="Coupons Created"
-            description="Existing product discounts ready to share"
+            description="Review created coupon codes, linked products, dates, and share links"
             value={loadingCounts ? "..." : String(discountCount)}
-            onPress={() => router.push("/(vendor)/grow-sales" as any)}
+            onPress={() => router.push("/(vendor)/coupon-history" as any)}
           />
           <SettingRow
             icon="chatbubble-ellipses-outline"
@@ -262,6 +262,13 @@ export default function VendorSettingsScreen() {
             label="Notifications"
             description="Control order, payout, and marketing alerts"
             onPress={() => router.push("/(vendor)/notifications" as any)}
+          />
+          <SettingRow
+            icon="trash-outline"
+            label="Delete Account"
+            description="Start an account deletion request and review the data-retention policy"
+            onPress={() => router.push("/account-deletion" as any)}
+            danger
           />
         </View>
 

@@ -9,7 +9,7 @@ import {
   type SubscriptionLimits,
 } from "../../services/subscriptionService";
 
-const PLAN_LABELS: Record<ActiveSubscription["slug"], string> = {
+const PLAN_LABELS: Record<string, string> = {
   free: "Free",
   growth: "Growth",
   pro: "Pro",
@@ -59,7 +59,7 @@ export default function SubscriptionPlansScreen() {
     loadPlanStatus();
   }, [loadPlanStatus]);
 
-  const planName = subscription ? PLAN_LABELS[subscription.slug] : "Free";
+  const planName = subscription ? PLAN_LABELS[subscription.slug] ?? subscription.planName ?? "Current Plan" : "Free";
   const isActive = subscription?.status === "active";
 
   return (

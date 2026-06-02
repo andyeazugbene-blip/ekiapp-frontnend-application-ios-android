@@ -12,6 +12,7 @@ import type { VendorSummary } from "../../types/vendor";
 import type { Product, Review } from "../../types/product";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { openConversationThread } from "../../utils/messaging";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const CURRENCY_SYMBOL: Record<string, string> = {
   GBP: "\u00A3",
@@ -81,7 +82,7 @@ export default function VendorDetailScreen() {
       <SafeAreaView style={styles.stateScreen} edges={["top"]}>
         <Ionicons name="storefront-outline" size={42} color="#9AA3A0" />
         <Text style={styles.stateTitle}>Store not found</Text>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.86} style={styles.stateButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.86} style={styles.stateButton}>
           <Text style={styles.stateButtonText}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -99,7 +100,22 @@ export default function VendorDetailScreen() {
   };
 
   const handleMessageVendor = () => {
-    openConversationThread({ participantId: vendor.id })
+    const participantId =
+      vendor.userId ??
+      products.find((product) => product.vendorUserId)?.vendorUserId ??
+      undefined;
+
+    if (!participantId) {
+      Alert.alert("Message unavailable", "This vendor profile is still syncing. Please try again in a moment.");
+      return;
+    }
+
+    openConversationThread({
+      participantId,
+      participantName: vendor.storeName,
+      participantAvatar: vendor.avatar ?? vendor.coverImage,
+      participantRole: "vendor",
+    })
       .then(() => router.push("/(buyer)/message-chat" as any))
       .catch((err) => {
         Alert.alert("Message unavailable", err instanceof Error ? err.message : "Could not open the conversation.");
@@ -112,7 +128,7 @@ export default function VendorDetailScreen() {
         <RemoteImage uri={vendor.coverImage} style={styles.heroImage} borderRadius={0} fallbackIcon="storefront-outline" />
         <View style={styles.heroOverlay} />
         <SafeAreaView edges={["top"]} style={styles.heroSafe}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.86} style={styles.heroButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.86} style={styles.heroButton}>
             <Ionicons name="arrow-back" size={22} color="#0A6C52" />
           </TouchableOpacity>
         </SafeAreaView>

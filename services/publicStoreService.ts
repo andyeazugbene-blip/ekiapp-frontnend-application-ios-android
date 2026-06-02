@@ -1,3 +1,5 @@
+import type { Product } from "../types/product";
+import type { VendorSummary } from "../types/vendor";
 import { apiClient } from "./api";
 
 export type PublicStoreSourceKey =
@@ -137,6 +139,15 @@ interface AnalyticsDetailResponse {
 
 interface LookupVerifyResponse {
   orders?: unknown[];
+}
+
+interface PublicStoreResponse {
+  store?: unknown;
+}
+
+interface PublicStoreProductsResponse {
+  items?: unknown[];
+  nextCursor?: string | null;
 }
 
 const SOURCE_KEYS: PublicStoreSourceKey[] = [
@@ -297,7 +308,90 @@ function normalizeOrder(raw: unknown): PublicStoreOrder {
   };
 }
 
+function normalizeStore(raw: unknown): VendorSummary {
+  const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const verificationStatus = (asString(value.verificationStatus) || "pending_docs").toLowerCase();
+
+  return {
+    id: asString(value.vendorId) || asString(value.id),
+    userId: undefined,
+    storeName: asString(value.storeName),
+    storeSlug: asString(value.storeSlug),
+    shareUrl: asString(value.shareUrl),
+    ownerName: "",
+    country: asString(value.country),
+    city: asString(value.city),
+    rating: asNumber(value.rating),
+    totalProducts: asNumber(value.totalProducts),
+    totalOrders: 0,
+    joinedAt: asString(value.createdAt),
+    coverImage: asString(value.coverImage) || undefined,
+    avatar: asString(value.avatar) || undefined,
+    verificationStatus:
+      verificationStatus === "verified" || verificationStatus === "rejected" || verificationStatus === "pending_docs"
+        ? (verificationStatus as VendorSummary["verificationStatus"])
+        : "pending_docs",
+    adminStatus: verificationStatus === "verified" ? "active" : "pending",
+    subscriptionPlan: "free",
+    description: asString(value.description) || undefined,
+    deliveryCountries: Array.isArray(value.deliveryCountries)
+      ? value.deliveryCountries.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+      : [],
+  };
+}
+
+function normalizePublicProduct(raw: unknown): Product {
+  const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const images = Array.isArray(value.images)
+    ? value.images.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    : [];
+  const stock = asNumber(value.stock);
+  const priceInCents = asNumber(value.priceInCents);
+  const weightGrams = asNumber(value.weightGrams);
+
+  return {
+    id: asString(value.id),
+    name: asString(value.title) || asString(value.name),
+    description: asString(value.description),
+    price: priceInCents > 0 ? priceInCents / 100 : asNumber(value.price),
+    currency: (asString(value.currency) || "GBP").toUpperCase() as Product["currency"],
+    images,
+    category: asString(value.category),
+    vendorId: asString(value.vendorId),
+    vendorUserId: undefined,
+    vendorName: "",
+    vendorCity: "",
+    stock,
+    status: stock > 0 ? "active" : "out_of_stock",
+    weight: weightGrams > 0 ? weightGrams / 1000 : undefined,
+    unit: undefined,
+    createdAt: asString(value.createdAt),
+    updatedAt: asString(value.createdAt),
+  };
+}
+
 export const publicStoreService = {
+  async getStore(storeSlug: string): Promise<VendorSummary> {
+    const response = await apiClient.get<PublicStoreResponse>(
+      `/api/public/stores/${encodeURIComponent(storeSlug)}`,
+      { skipAuth: true },
+    );
+    return normalizeStore(response.store);
+  },
+
+  async listProducts(storeSlug: string, params?: { limit?: number; cursor?: string; category?: string }): Promise<Product[]> {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.cursor) query.set("cursor", params.cursor);
+    if (params?.category) query.set("category", params.category);
+    const qs = query.toString();
+    const response = await apiClient.get<PublicStoreProductsResponse>(
+      `/api/public/stores/${encodeURIComponent(storeSlug)}/products${qs ? `?${qs}` : ""}`,
+      { skipAuth: true },
+    );
+    return Array.isArray(response.items) ? response.items.map(normalizePublicProduct) : [];
+  },
+
   async trackEvent(
     storeSlug: string,
     event: PublicStoreEvent,
@@ -309,7 +403,7 @@ export const publicStoreService = {
         event,
         ...metadata,
       },
-      { skipAuth: false },
+      { skipAuth: true },
     );
 
     return normalizeSummary(response.analytics, storeSlug);

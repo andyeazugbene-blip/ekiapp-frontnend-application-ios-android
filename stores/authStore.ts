@@ -1,12 +1,22 @@
 import { create } from "zustand";
-import { BuyerProfile, VendorProfile, AdminProfile, LoginCredentials, RegisterPayload, UserRole } from "../types/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { authService } from "../services/authService";
 import { ApiRequestError, setOnUnauthorized } from "../services/api";
-import { pushTokenService } from "../services/notificationService";
+import { tokenStorage } from "../services/api/tokenStorage";
 import { setMonitoringUser } from "../services/monitoring";
+import { pushTokenService } from "../services/notificationService";
+import { AdminProfile, BuyerProfile, LoginCredentials, RegisterPayload, UserRole, VendorProfile } from "../types/auth";
 import { useCartStore } from "./cartStore";
 
 type AnyProfile = BuyerProfile | VendorProfile | AdminProfile;
+type AuthCache = {
+  user: AnyProfile | null;
+  hasSeenOnboarding: boolean;
+  pushToken: string | null;
+};
+
+const AUTH_CACHE_KEY = "eki_auth_cache";
 
 interface AuthStore {
   user: AnyProfile | null;
@@ -18,24 +28,65 @@ interface AuthStore {
   hasSeenOnboarding: boolean;
   error: string | null;
   isAccountLocked: boolean;
-
   checkAuth: () => Promise<void>;
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<string>;
   updateProfile: (data: Record<string, unknown>) => Promise<AnyProfile>;
   setUser: (user: AnyProfile) => void;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
   setHasSeenOnboarding: () => void;
+  beginFreshAuthFlow: () => Promise<void>;
+}
+
+const clearLocalSession = () => {
+  useCartStore.getState().reset();
+  setMonitoringUser(null);
+};
+
+async function readAuthCache(): Promise<AuthCache | null> {
+  try {
+    const raw = await AsyncStorage.getItem(AUTH_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<AuthCache>;
+    return {
+      user: (parsed.user as AnyProfile | null) ?? null,
+      hasSeenOnboarding: parsed.hasSeenOnboarding === true,
+      pushToken: parsed.pushToken ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function writeAuthCache(cache: AuthCache) {
+  try {
+    await AsyncStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(cache));
+  } catch {}
+}
+
+async function clearAuthCache() {
+  try {
+    await AsyncStorage.removeItem(AUTH_CACHE_KEY);
+  } catch {}
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => {
-  // Register 401 handler — force logout on token expiry
+  const persistState = () => {
+    const state = get();
+    void writeAuthCache({
+      user: state.user,
+      hasSeenOnboarding: state.hasSeenOnboarding,
+      pushToken: state.pushToken,
+    });
+  };
+
   setOnUnauthorized(() => {
     const state = get();
-    useCartStore.getState().reset();
-    setMonitoringUser(null);
+    clearLocalSession();
+    void clearAuthCache();
     if (state.isAuthenticated) {
       set({
         user: null,
@@ -62,21 +113,56 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     isAccountLocked: false,
 
     checkAuth: async () => {
+      const cached = await readAuthCache();
+      const storedToken = await tokenStorage.getToken();
+
+      if (cached?.hasSeenOnboarding && !get().hasSeenOnboarding) {
+        set({ hasSeenOnboarding: true });
+      }
+
+      if (cached?.user && storedToken && !get().isAuthenticated) {
+        set({
+          user: cached.user,
+          token: storedToken,
+          pushToken: cached.pushToken,
+          isAuthenticated: true,
+          hasSeenOnboarding: cached.hasSeenOnboarding || get().hasSeenOnboarding,
+        });
+        setMonitoringUser({ id: cached.user.id, role: cached.user.role });
+      }
+
       try {
         const result = await authService.getMe();
         if (result) {
           set({
             user: result.user,
             token: result.token,
+            pushToken: get().pushToken ?? cached?.pushToken ?? null,
             isAuthenticated: true,
             isInitializing: false,
+            hasSeenOnboarding: true,
           });
           setMonitoringUser({ id: result.user.id, role: result.user.role });
-        } else {
-          set({ isInitializing: false });
+          persistState();
+          return;
         }
+
+        clearLocalSession();
+        await clearAuthCache();
+        set({
+          user: null,
+          token: null,
+          pushToken: null,
+          isAuthenticated: false,
+          isInitializing: false,
+          hasSeenOnboarding: cached?.hasSeenOnboarding ?? get().hasSeenOnboarding,
+        });
       } catch {
-        set({ isInitializing: false });
+        const state = get();
+        set({
+          isInitializing: false,
+          hasSeenOnboarding: cached?.hasSeenOnboarding ?? state.hasSeenOnboarding,
+        });
       }
     },
 
@@ -84,11 +170,9 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       set({ isLoading: true, error: null, isAccountLocked: false });
       try {
         const { user, token } = await authService.login(credentials);
-
-        // ── Role gate: block if user.role doesn't match expected role ──
         const expected = credentials.expectedRole;
+
         if (expected && user.role !== expected) {
-          // Clear the token we just stored so the user isn't silently signed in
           await authService.logout();
           const roleLabels: Record<string, string> = {
             buyer: "a buyer",
@@ -112,8 +196,16 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           hasSeenOnboarding: true,
         });
         setMonitoringUser({ id: user.id, role: user.role });
-        // Register push token (non-blocking)
-        pushTokenService.registerPushToken().then((pt) => { if (pt) set({ pushToken: pt }); }).catch(() => {});
+        persistState();
+        pushTokenService
+          .registerPushToken()
+          .then((pushToken) => {
+            if (pushToken) {
+              set({ pushToken });
+              persistState();
+            }
+          })
+          .catch(() => {});
       } catch (err: unknown) {
         if (err instanceof ApiRequestError && err.status === 423) {
           set({
@@ -121,12 +213,13 @@ export const useAuthStore = create<AuthStore>((set, get) => {
             isLoading: false,
             isAccountLocked: true,
           });
-        } else {
-          set({
-            error: err instanceof Error ? err.message : "Login failed",
-            isLoading: false,
-          });
+          return;
         }
+
+        set({
+          error: err instanceof Error ? err.message : "Login failed",
+          isLoading: false,
+        });
       }
     },
 
@@ -135,7 +228,6 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       try {
         const { user, token } = await authService.register(payload);
 
-        // ── Role gate: block if returned role doesn't match requested role ──
         if (payload.role && user.role !== payload.role) {
           await authService.logout();
           const roleLabels: Record<string, string> = {
@@ -160,8 +252,16 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           hasSeenOnboarding: true,
         });
         setMonitoringUser({ id: user.id, role: user.role });
-        // Register push token (non-blocking)
-        pushTokenService.registerPushToken().then((pt) => { if (pt) set({ pushToken: pt }); }).catch(() => {});
+        persistState();
+        pushTokenService
+          .registerPushToken()
+          .then((pushToken) => {
+            if (pushToken) {
+              set({ pushToken });
+              persistState();
+            }
+          })
+          .catch(() => {});
       } catch (err: unknown) {
         set({
           error: err instanceof Error ? err.message : "Registration failed",
@@ -173,14 +273,14 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     logout: async () => {
       set({ isLoading: true });
       try {
-        const pt = get().pushToken;
-        if (pt) {
-          pushTokenService.unregisterPushToken(pt).catch(() => {});
+        const pushToken = get().pushToken;
+        if (pushToken) {
+          pushTokenService.unregisterPushToken(pushToken).catch(() => {});
         }
         await authService.logout();
       } finally {
-        useCartStore.getState().reset();
-        setMonitoringUser(null);
+        clearLocalSession();
+        await clearAuthCache();
         set({
           user: null,
           token: null,
@@ -194,22 +294,69 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       }
     },
 
+    deleteAccount: async () => {
+      set({ isLoading: true, error: null });
+      try {
+        const message = (await authService.deleteAccount()).message;
+        await authService.logout();
+        clearLocalSession();
+        await clearAuthCache();
+        set({
+          user: null,
+          token: null,
+          pushToken: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null,
+          isAccountLocked: false,
+          hasSeenOnboarding: true,
+        });
+        return message;
+      } catch (err: unknown) {
+        set({
+          isLoading: false,
+          error: err instanceof Error ? err.message : "Account deletion failed",
+        });
+        throw err;
+      }
+    },
+
     updateProfile: async (data) => {
       const response = await authService.updateProfile(data);
       const current = get().user;
       const merged = { ...(current ?? {}), ...(response.user ?? data) } as AnyProfile;
       set({ user: merged });
+      persistState();
       return merged;
     },
 
-    setUser: (user) => set({ user }),
+    beginFreshAuthFlow: async () => {
+      await tokenStorage.clearTokens();
+      clearLocalSession();
+      await clearAuthCache();
+      set({
+        user: null,
+        token: null,
+        pushToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+        isAccountLocked: false,
+      });
+    },
+
+    setUser: (user) => {
+      set({ user });
+      persistState();
+    },
     clearError: () => set({ error: null, isAccountLocked: false }),
     setLoading: (loading) => set({ isLoading: loading }),
-    setHasSeenOnboarding: () => set({ hasSeenOnboarding: true }),
+    setHasSeenOnboarding: () => {
+      set({ hasSeenOnboarding: true });
+      persistState();
+    },
   };
 });
-
-// ─── Selectors ─────────────────────────────────────────────────────────────────
 
 export const selectUser = (state: AuthStore) => state.user;
 export const selectRole = (state: AuthStore): UserRole | null => state.user?.role ?? null;

@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { canVendorConfirmEscrowOrder, deriveEscrowStatus, getEscrowStatusLabel } from "../../services/escrowStatus";
 import { orderService } from "../../services/orderService";
 import { Order } from "../../types/order";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const CURRENCY_SYMBOL: Record<string, string> = { GBP: "£", USD: "$", EUR: "€", NGN: "₦", GHS: "GH₵", KES: "KSh" };
 
@@ -58,7 +59,7 @@ export default function AcceptOrderScreen() {
       } else {
         await orderService.updateOrderStatus(order.id, "confirmed");
       }
-      router.replace({ pathname: "/(vendor)/order-detail", params: { id: order.id } } as any);
+      goBackOrReplace(router, { pathname: "/(vendor)/order-detail", params: { id: order.id } } as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not accept order.");
     } finally {

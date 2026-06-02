@@ -1,18 +1,19 @@
 /**
  * Public share-link helpers for the Eki app.
  *
- * The public storefront is served from the production domain `https://waqti.pro`
- * (with `https://www.waqti.pro` as a www alias and
- * `https://italian-market-place.vercel.app` as the Vercel fallback).
+ * The public storefront is served from the production domain
+ * `https://culinarytales.app` (with `https://www.culinarytales.app` as a www
+ * alias and `https://ekiapp-backend.vercel.app` as the Vercel fallback).
  *
  * All in-app share buttons (vendor share, copy link, WhatsApp/Instagram share,
  * referral invites, promo links) must build URLs through these helpers so the
  * domain is centralized and easy to update.
  */
 
-export const PUBLIC_DOMAIN = "https://waqti.pro";
-export const PUBLIC_DOMAIN_WWW = "https://www.waqti.pro";
-export const VERCEL_FALLBACK_URL = "https://italian-market-place.vercel.app";
+export const PUBLIC_DOMAIN = process.env.EXPO_PUBLIC_PUBLIC_WEB_URL || "https://culinarytales.app";
+export const PUBLIC_DOMAIN_WWW = process.env.EXPO_PUBLIC_PUBLIC_WEB_URL_WWW || "https://www.culinarytales.app";
+export const VERCEL_FALLBACK_URL =
+  process.env.EXPO_PUBLIC_VERCEL_FALLBACK_URL || process.env.EXPO_PUBLIC_API_URL || "https://ekiapp-backend.vercel.app";
 
 /**
  * Normalize an arbitrary string (e.g. a store name) into a URL-safe slug:
@@ -39,7 +40,7 @@ export function toCompactStoreSlug(value: string | undefined | null): string {
  * Build the canonical public storefront URL for a vendor.
  *
  * Prefer the backend-provided `shareUrl` when available; otherwise build
- * `https://waqti.pro/store/{slug}`.
+ * `https://culinarytales.app/store/{slug}`.
  */
 export function getPublicStoreUrl(input: {
   shareUrl?: string | null;

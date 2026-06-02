@@ -15,6 +15,7 @@ import { orderService, type Shipment } from "../../services/orderService";
 import { payoutService } from "../../services/payoutService";
 import type { Order, VendorEarnings } from "../../types/order";
 import { openConversationThread } from "../../utils/messaging";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const CURRENCY_SYMBOL: Record<string, string> = {
   GBP: "\u00A3",
@@ -37,6 +38,22 @@ function paymentProviderLabel(order?: Order | null) {
   if (provider === "wallet") return "Wallet";
   if ((order?.escrowType ?? "").toLowerCase() === "domestic_africa") return "Paystack";
   return "Provider unavailable";
+}
+
+function formatShipmentStatus(status?: Shipment["status"]): string {
+  if (!status) return "Not created";
+  return status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function deriveDeliveryLabel(order: Order, shipment: Shipment | null): string {
+  if (shipment?.estimatedDelivery) return shipment.estimatedDelivery;
+  if (order.status === "delivered" && order.deliveredAt) {
+    return `Delivered ${new Date(order.deliveredAt).toLocaleDateString()}`;
+  }
+  if (order.status === "dispatched" || order.status === "in_transit") {
+    return "In transit";
+  }
+  return order.deliveryDetails.estimatedDays || "2-4 days";
 }
 
 export default function OrderDetailScreen() {
@@ -140,45 +157,45 @@ export default function OrderDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={["#0B6C52", "#0A7B5D"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
-        <SafeAreaView edges={["top"]}>
-          <View style={styles.headerRow}>
-            <TouchableOpacity onPress={() => router.back()} activeOpacity={0.86} style={styles.heroButton}>
-              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Order Details</Text>
-            <TouchableOpacity onPress={handleMessageBuyer} activeOpacity={0.86} style={styles.heroButton}>
-              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.heroSummary}>
-            <View style={styles.heroSummaryIcon}>
-              <Ionicons name="cube-outline" size={24} color="#FFFFFF" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.heroLabel}>Order Summary</Text>
-              <Text style={styles.heroOrderNumber}>#{order.orderNumber}</Text>
-            </View>
-            <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeText}>{order.status === "pending" ? "New Order" : getEscrowStatusLabel(escrowStatus)}</Text>
-            </View>
-          </View>
-
-          <View style={styles.heroFooter}>
-            <View>
-              <Text style={styles.heroFooterLabel}>Order date</Text>
-              <Text style={styles.heroFooterValue}>{new Date(order.createdAt).toLocaleDateString()}</Text>
-            </View>
-            <View>
-              <Text style={styles.heroFooterLabel}>Payment provider</Text>
-              <Text style={styles.heroFooterValue}>{paymentProviderLabel(order)}</Text>
-            </View>
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
-
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <LinearGradient colors={["#0B6C52", "#0A7B5D"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+          <SafeAreaView edges={["top"]}>
+            <View style={styles.headerRow}>
+              <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/orders" as any)} activeOpacity={0.86} style={styles.heroButton}>
+                <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Order Details</Text>
+              <TouchableOpacity onPress={handleMessageBuyer} activeOpacity={0.86} style={styles.heroButton}>
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.heroSummary}>
+              <View style={styles.heroSummaryIcon}>
+                <Ionicons name="cube-outline" size={24} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.heroLabel}>Order Summary</Text>
+                <Text style={styles.heroOrderNumber}>#{order.orderNumber}</Text>
+              </View>
+              <View style={styles.heroBadge}>
+                <Text style={styles.heroBadgeText}>{order.status === "pending" ? "New Order" : getEscrowStatusLabel(escrowStatus)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.heroFooter}>
+              <View>
+                <Text style={styles.heroFooterLabel}>Order date</Text>
+                <Text style={styles.heroFooterValue}>{new Date(order.createdAt).toLocaleDateString()}</Text>
+              </View>
+              <View>
+                <Text style={styles.heroFooterLabel}>Payment provider</Text>
+                <Text style={styles.heroFooterValue}>{paymentProviderLabel(order)}</Text>
+              </View>
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
+
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Buyer Information</Text>
           <View style={styles.buyerRow}>
@@ -218,7 +235,7 @@ export default function OrderDetailScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.lineItemName}>{item.product.name}</Text>
-                <Text style={styles.lineItemMeta}>{item.quantity} × {formatMoney(order, item.product.price)}</Text>
+                <Text style={styles.lineItemMeta}>{item.quantity} x {formatMoney(order, item.product.price)}</Text>
               </View>
               <Text style={styles.lineItemTotal}>{formatMoney(order, item.product.price * item.quantity)}</Text>
             </View>
@@ -240,9 +257,9 @@ export default function OrderDetailScreen() {
           <Text style={styles.sectionTitle}>Delivery Details</Text>
           <View style={styles.tileGrid}>
             <InfoTile label="Total Weight" value={`${order.deliveryDetails.totalWeight || 0}kg`} icon="barbell-outline" />
-            <InfoTile label="Delivery Country" value={order.deliveryDetails.country || "—"} icon="globe-outline" />
+            <InfoTile label="Delivery Country" value={order.deliveryDetails.country || "Not set"} icon="globe-outline" />
             <InfoTile label="Delivery Cost" value={formatMoney(order, order.deliveryDetails.deliveryCost || order.deliveryCost)} icon="wallet-outline" />
-            <InfoTile label="Estimated Delivery" value={order.deliveryDetails.estimatedDays || "3-5 days"} icon="car-outline" dark />
+            <InfoTile label="Estimated Delivery" value={deriveDeliveryLabel(order, shipment)} icon="car-outline" dark />
           </View>
         </View>
 
@@ -263,10 +280,37 @@ export default function OrderDetailScreen() {
                 : `Payment is protected and stays secured until delivery confirmation. Available balance: ${formatMoney(order, earnings?.availableBalance)}.`}
             </Text>
           </View>
-          {shipment?.trackingNumber ? (
-            <Text style={styles.trackingText}>Tracking: {shipment.trackingNumber}</Text>
-          ) : null}
+
+          <View style={styles.shipmentGrid}>
+            <ShipmentMeta label="Shipment status" value={formatShipmentStatus(shipment?.status)} />
+            <ShipmentMeta label="Estimated delivery" value={deriveDeliveryLabel(order, shipment)} />
+            <ShipmentMeta label="Carrier" value={shipment?.carrier || "Not assigned"} />
+            <ShipmentMeta label="Tracking number" value={shipment?.trackingNumber || "Not added yet"} />
+          </View>
         </LinearGradient>
+
+        {shipment?.events?.length ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Shipment Updates</Text>
+            {shipment.events.map((event, index) => (
+              <View key={`${event.timestamp}-${index}`} style={[styles.timelineRow, index > 0 && styles.shipmentEventBorder]}>
+                <View style={styles.timelineRail}>
+                  <View style={[styles.timelineDot, styles.timelineDotDone]} />
+                  {index < shipment.events.length - 1 ? <View style={[styles.timelineLine, styles.timelineLineActive]} /> : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.timelineLabel}>{formatShipmentStatus(event.status as Shipment["status"])}</Text>
+                  <Text style={styles.timelineCaption}>
+                    {event.description}
+                    {event.location ? ` • ${event.location}` : ""}
+                    {"\n"}
+                    {new Date(event.timestamp).toLocaleString()}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Order Timeline</Text>
@@ -295,7 +339,7 @@ export default function OrderDetailScreen() {
 
           {actionEnabled ? (
             <TouchableOpacity onPress={handleAccept} activeOpacity={0.86} disabled={submitting} style={[styles.acceptButton, submitting && styles.buttonDisabled]}>
-              <Text style={styles.acceptButtonText}>{submitting ? "Updating..." : isEscrowOrder ? "Accept Order" : "Accept Order"}</Text>
+              <Text style={styles.acceptButtonText}>{submitting ? "Updating..." : "Accept Order"}</Text>
             </TouchableOpacity>
           ) : null}
 
@@ -308,7 +352,7 @@ export default function OrderDetailScreen() {
               <Text style={styles.secondaryActionText}>Mark Shipped</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity onPress={() => router.back()} activeOpacity={0.86} style={styles.secondaryAction}>
+            <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/orders" as any)} activeOpacity={0.86} style={styles.secondaryAction}>
               <Text style={styles.secondaryActionText}>Cancel</Text>
             </TouchableOpacity>
           )}
@@ -325,6 +369,15 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
     <View style={styles.summaryRow}>
       <Text style={styles.summaryLabel}>{label}</Text>
       <Text style={styles.summaryValue}>{value}</Text>
+    </View>
+  );
+}
+
+function ShipmentMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.shipmentMetaCard}>
+      <Text style={styles.shipmentMetaLabel}>{label}</Text>
+      <Text style={styles.shipmentMetaValue}>{value}</Text>
     </View>
   );
 }
@@ -355,7 +408,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F5F2" },
   stateScreen: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F5F5F2", paddingHorizontal: 24 },
   errorText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#FB6363", textAlign: "center" },
-  hero: { paddingHorizontal: 16, paddingBottom: 26, borderBottomLeftRadius: 34, borderBottomRightRadius: 34 },
+  hero: { paddingHorizontal: 16, paddingBottom: 26, borderBottomLeftRadius: 34, borderBottomRightRadius: 34, marginBottom: 18 },
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 10 },
   heroButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center" },
   headerTitle: { color: "#FFFFFF", fontSize: 20, fontFamily: "Manrope-Bold" },
@@ -368,7 +421,7 @@ const styles = StyleSheet.create({
   heroFooter: { flexDirection: "row", justifyContent: "space-between", marginTop: 22 },
   heroFooterLabel: { color: "rgba(255,255,255,0.74)", fontSize: 13, fontFamily: "Outfit-Regular" },
   heroFooterValue: { color: "#FFFFFF", fontSize: 16, fontFamily: "Manrope-Bold", marginTop: 6 },
-  scrollContent: { paddingHorizontal: 14, paddingTop: 18, paddingBottom: 30 },
+  scrollContent: { paddingHorizontal: 14, paddingBottom: 30 },
   card: { borderRadius: 26, backgroundColor: "#FFFFFF", padding: 18, marginBottom: 16 },
   sectionTitle: { fontSize: 18, fontFamily: "Manrope-Bold", color: "#282828", marginBottom: 14 },
   buyerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -412,7 +465,10 @@ const styles = StyleSheet.create({
   paymentIcon: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
   paymentNotice: { borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.14)", backgroundColor: "rgba(255,255,255,0.08)", padding: 14, marginTop: 16 },
   paymentNoticeText: { color: "rgba(255,255,255,0.86)", fontSize: 13, lineHeight: 19, fontFamily: "Outfit-Regular" },
-  trackingText: { color: "rgba(255,255,255,0.86)", fontSize: 12, fontFamily: "Outfit-Medium", marginTop: 12 },
+  shipmentGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 16 },
+  shipmentMetaCard: { width: "47.5%", borderRadius: 16, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", padding: 12 },
+  shipmentMetaLabel: { color: "rgba(255,255,255,0.66)", fontSize: 12, fontFamily: "Outfit-Regular" },
+  shipmentMetaValue: { color: "#FFFFFF", fontSize: 14, fontFamily: "Manrope-SemiBold", marginTop: 6 },
   timelineRow: { flexDirection: "row", minHeight: 68 },
   timelineRail: { width: 26, alignItems: "center" },
   timelineDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: "#D6E3DD", marginTop: 4 },
@@ -422,6 +478,7 @@ const styles = StyleSheet.create({
   timelineLineActive: { backgroundColor: "#076B51" },
   timelineLabel: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
   timelineCaption: { fontSize: 13, lineHeight: 19, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 4, paddingBottom: 14 },
+  shipmentEventBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E4E7E5", paddingTop: 14 },
   actionCard: { borderRadius: 26, padding: 18 },
   actionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   actionTitle: { color: "#FFFFFF", fontSize: 18, fontFamily: "Manrope-Bold" },

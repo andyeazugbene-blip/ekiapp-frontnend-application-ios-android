@@ -22,6 +22,14 @@ function normalizeVendor(raw: any): VendorSummary {
 
   return {
     id: raw?.id ?? raw?.vendorId ?? "",
+    userId:
+      raw?.userId ??
+      raw?.user?.id ??
+      raw?.owner?.id ??
+      raw?.vendorUserId ??
+      raw?.participantUserId ??
+      raw?.profile?.userId ??
+      undefined,
     storeName: raw?.storeName ?? "",
     storeSlug: raw?.storeSlug,
     shareUrl: raw?.shareUrl,
@@ -89,8 +97,20 @@ export const vendorService = {
       return vendor;
     }
 
-    const response = await apiClient.get<VendorMeResponse>(`/api/vendors/${id}`, { skipAuth: true });
-    return normalizeVendor(response.vendor);
+    try {
+      const response = await apiClient.get<VendorMeResponse>(`/api/vendors/${id}`, { skipAuth: true });
+      const normalized = normalizeVendor(response.vendor ?? response.store);
+      if (normalized.id && normalized.storeName) {
+        return normalized;
+      }
+    } catch {}
+
+    const vendors = await this.getAllVendors();
+    const matchedVendor = vendors.find((vendor) => vendor.id === id || vendor.storeSlug === id);
+    if (!matchedVendor) {
+      throw new Error("Vendor not found");
+    }
+    return matchedVendor;
   },
 
   async getVendorBySlug(slug: string): Promise<VendorSummary> {

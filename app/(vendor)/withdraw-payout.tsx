@@ -73,7 +73,7 @@ export default function WithdrawPayoutScreen() {
     setSubmitting(true);
     try {
       const request = await payoutService.requestPayout(parsed, selectedMethod.id);
-      router.replace({ pathname: "/(vendor)/payout-requested", params: { id: request.id, amount: String(parsed) } } as any);
+      router.push({ pathname: "/(vendor)/payout-requested", params: { id: request.id, amount: String(parsed) } } as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not request payout.");
     } finally {

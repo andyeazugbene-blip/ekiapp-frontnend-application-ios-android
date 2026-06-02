@@ -78,7 +78,7 @@ export default function MarkShippedScreen() {
           );
         }
 
-        router.replace({
+        router.push({
           pathname: "/(vendor)/order-completed",
           params: { id: order.id, deliveryCode: dispatch.deliveryCode, expiresAt: dispatch.expiresAt },
         } as any);
@@ -93,7 +93,7 @@ export default function MarkShippedScreen() {
         carrier: carrier.trim(),
         trackingNumber: trackingNumber.trim() || undefined,
       });
-      router.replace({ pathname: "/(vendor)/order-completed", params: { id: order.id } } as any);
+      router.push({ pathname: "/(vendor)/order-completed", params: { id: order.id } } as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not mark as shipped.");
     } finally {

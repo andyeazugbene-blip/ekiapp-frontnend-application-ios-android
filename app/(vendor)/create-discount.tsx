@@ -55,7 +55,7 @@ export default function CreateDiscountScreen() {
         endsAt: endDate || undefined,
       });
       const selectedProduct = products.find((item) => item.id === productId);
-      router.replace({
+      router.push({
         pathname: "/(vendor)/promo-link",
         params: {
           promo: created.code ?? name.trim(),

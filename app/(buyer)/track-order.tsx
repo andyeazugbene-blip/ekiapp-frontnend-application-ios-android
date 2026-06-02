@@ -25,6 +25,8 @@ import {
 import { orderService, type Shipment } from "../../services/orderService";
 import type { Order } from "../../types/order";
 import { openConversationThread } from "../../utils/messaging";
+import { vendorService } from "../../services/vendorService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const DISPUTE_OPTIONS = [
   { id: "not_received", label: "Order not received" },
@@ -75,6 +77,8 @@ export default function TrackOrderScreen() {
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [confirmCode, setConfirmCode] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [resendingOtp, setResendingOtp] = useState(false);
+  const [otpDeliveryHint, setOtpDeliveryHint] = useState("");
   const [disputeModalVisible, setDisputeModalVisible] = useState(false);
   const [disputeReason, setDisputeReason] = useState<string>(DISPUTE_OPTIONS[0].id);
   const [disputeSubmitting, setDisputeSubmitting] = useState(false);
@@ -137,6 +141,21 @@ export default function TrackOrderScreen() {
     }
   };
 
+  const handleResendOtp = async () => {
+    if (!order) return;
+    setResendingOtp(true);
+    try {
+      const result = await orderService.resendBuyerDeliveryOtp(order.id);
+      const hint = result.otpSentTo ? `A new OTP was sent to ${result.otpSentTo}.` : "A new OTP was sent.";
+      setOtpDeliveryHint(hint);
+      Alert.alert("OTP sent", hint);
+    } catch (err) {
+      Alert.alert("Could not resend OTP", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setResendingOtp(false);
+    }
+  };
+
   const handleDisputePress = () => {
     if (!order) return;
 
@@ -155,7 +174,17 @@ export default function TrackOrderScreen() {
 
   const handleMessageVendor = () => {
     if (!order) return;
-    openConversationThread({ participantId: order.vendorId, orderId: order.id })
+    const start = async () => {
+      const vendor = await vendorService.getVendorById(order.vendorId);
+      return openConversationThread({
+        participantId: vendor.userId ?? order.vendorId,
+        participantName: vendor.storeName || order.vendorName,
+        participantAvatar: vendor.avatar ?? vendor.coverImage,
+        participantRole: "vendor",
+        orderId: order.id,
+      });
+    };
+    start()
       .then(() => router.push("/(buyer)/message-chat" as any))
       .catch((err) => {
         Alert.alert("Message unavailable", err instanceof Error ? err.message : "Could not open the conversation.");
@@ -187,7 +216,7 @@ export default function TrackOrderScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <Header onBack={() => router.back()} />
+        <Header onBack={() => goBackOrReplace(router, "/(buyer)/orders" as any)} />
         <View style={styles.stateScreen}>
           <ActivityIndicator color="#076B51" />
         </View>
@@ -198,7 +227,7 @@ export default function TrackOrderScreen() {
   if (!order) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <Header onBack={() => router.back()} />
+        <Header onBack={() => goBackOrReplace(router, "/(buyer)/orders" as any)} />
         <View style={styles.stateScreen}>
           <Text style={styles.errorText}>{error || "Order not found."}</Text>
         </View>
@@ -208,7 +237,7 @@ export default function TrackOrderScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <Header onBack={() => router.back()} />
+      <Header onBack={() => goBackOrReplace(router, "/(buyer)/orders" as any)} />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.summaryCard}>
@@ -316,8 +345,9 @@ export default function TrackOrderScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Confirm delivery</Text>
             <Text style={styles.modalBody}>
-              Enter the 6-digit delivery code given to you when the order arrived. Funds are only released after the backend confirms this code.
+              Enter the 6-digit OTP sent to your phone when the vendor dispatched the order. Funds are only released after the backend confirms this code.
             </Text>
+            {otpDeliveryHint ? <Text style={styles.otpHintText}>{otpDeliveryHint}</Text> : null}
 
             <View style={styles.codeInputWrap}>
               <TextInput
@@ -338,6 +368,15 @@ export default function TrackOrderScreen() {
               style={[styles.modalPrimaryButton, confirming && styles.buttonDisabled]}
             >
               <Text style={styles.modalPrimaryButtonText}>{confirming ? "Confirming..." : "Confirm Delivery"}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.86}
+              onPress={handleResendOtp}
+              disabled={resendingOtp}
+              style={styles.modalLinkButton}
+            >
+              <Text style={styles.modalLinkButtonText}>{resendingOtp ? "Sending OTP..." : "Resend OTP to phone"}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity activeOpacity={0.86} onPress={() => setConfirmModalVisible(false)} style={styles.modalSecondaryButton}>
@@ -696,6 +735,13 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Regular",
     marginTop: 8,
   },
+  otpHintText: {
+    color: "#076B51",
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: "Outfit-Medium",
+    marginTop: 10,
+  },
   codeInputWrap: {
     marginTop: 18,
     backgroundColor: "#F6F7F7",
@@ -723,6 +769,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     fontFamily: "Manrope-Bold",
+  },
+  modalLinkButton: {
+    alignSelf: "center",
+    paddingVertical: 10,
+    marginTop: 6,
+  },
+  modalLinkButtonText: {
+    color: "#076B51",
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: "Manrope-SemiBold",
   },
   modalSecondaryButton: {
     height: 52,

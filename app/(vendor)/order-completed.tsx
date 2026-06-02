@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { orderService } from "../../services/orderService";
 import { Order } from "../../types/order";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const CURRENCY_SYMBOL: Record<string, string> = { GBP: "£", USD: "$", EUR: "€", NGN: "₦", GHS: "GH₵", KES: "KSh" };
 
@@ -100,11 +101,19 @@ export default function OrderCompletedScreen() {
           </View>
 
           <View style={styles.buttons}>
-            <TouchableOpacity onPress={() => router.replace("/(vendor)/orders" as any)} activeOpacity={0.85} style={styles.primaryButton}>
+            <TouchableOpacity onPress={() => router.push("/(vendor)/orders" as any)} activeOpacity={0.85} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>View Orders</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.replace("/(vendor)" as any)} activeOpacity={0.85} style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonText}>Back to Dashboard</Text>
+            <TouchableOpacity
+              onPress={() =>
+                order?.id
+                  ? goBackOrReplace(router, { pathname: "/(vendor)/order-detail", params: { id: order.id } } as any)
+                  : goBackOrReplace(router, "/(vendor)/orders" as any)
+              }
+              activeOpacity={0.85}
+              style={styles.secondaryButton}
+            >
+              <Text style={styles.secondaryButtonText}>View Order Details</Text>
             </TouchableOpacity>
           </View>
         </View>

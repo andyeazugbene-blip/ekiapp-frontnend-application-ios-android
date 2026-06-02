@@ -194,6 +194,22 @@ function buildInitials(name: string): string {
     .toUpperCase();
 }
 
+function buildProductCode(name: string): string {
+  const parts = name
+    .split(/\s+/)
+    .map((part) => part.trim().charAt(0))
+    .filter(Boolean);
+
+  if (parts.length >= 2) return `${parts[0]}${parts[1]}`.toUpperCase();
+  return name.replace(/[^a-z0-9]/gi, "").slice(0, 2).toUpperCase() || "EK";
+}
+
+function getStockLabel(stock: number): string {
+  if (stock <= 0) return "Sold out";
+  if (stock <= 3) return `${stock} in stock`;
+  return "In stock";
+}
+
 export default function PublicStoreScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -248,7 +264,7 @@ export default function PublicStoreScreen() {
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
-  const [drawerOpen, setDrawerOpen] = useState(isDesktop);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>("cart");
   const [panelError, setPanelError] = useState("");
   const [orderLookupError, setOrderLookupError] = useState("");
@@ -1067,39 +1083,19 @@ export default function PublicStoreScreen() {
         contentContainerStyle={styles.screenBody}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View style={styles.brandRow}>
-            <View style={styles.brandDot} />
-            <View>
-              <Text style={styles.brandText}>Culinary Tales</Text>
-              <Text style={styles.brandCaption}>Verified vendor storefront</Text>
-            </View>
-          </View>
-
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              activeOpacity={0.88}
-              onPress={() => {
-                setDrawerOpen(true);
-                setPanelMode("find");
-              }}
-              style={styles.ghostButton}
-            >
-              <Ionicons name="search-outline" size={18} color="#0A6C52" />
-              <Text style={styles.ghostButtonText}>Find your order</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.88}
-              onPress={() => {
-                setDrawerOpen(true);
-                setPanelMode(totalItems > 0 ? "cart" : "find");
-              }}
-              style={styles.cartChip}
-            >
-              <Text style={styles.cartChipText}>View Cart ({totalItems})</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.topRibbon}>
+          <Text style={styles.topRibbonBrand}>eki.</Text>
+          <Text style={styles.topRibbonCaption}>Auto-synced from Eki app</Text>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={() => {
+              setDrawerOpen(true);
+              setPanelMode(totalItems > 0 ? "cart" : "find");
+            }}
+            style={styles.topRibbonCart}
+          >
+            <Text style={styles.topRibbonCartText}>View Cart ({totalItems})</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={[styles.layout, isDesktop && styles.layoutDesktop]}>
@@ -1114,100 +1110,50 @@ export default function PublicStoreScreen() {
             ) : null}
 
             <View style={styles.storeOverviewShell}>
-              <View style={styles.storeOverviewBanner}>
-                <RemoteImage
-                  uri={vendor.coverImage}
-                  style={styles.storeOverviewImage}
-                  borderRadius={26}
-                  fallbackIcon="storefront-outline"
-                />
-                <View style={styles.storeOverviewOverlay} />
+              <View style={styles.storeHeaderCard}>
+                <VendorAvatar label={buildInitials(vendor.storeName)} square />
+                <View style={styles.storeHeaderCopy}>
+                  <View style={styles.storeOverviewTitleRow}>
+                    <Text style={styles.storeOverviewTitle}>{vendor.storeName}</Text>
+                    <View style={styles.verifiedBadge}>
+                      <Ionicons name="checkmark-circle" size={14} color="#0A6C52" />
+                      <Text style={styles.verifiedBadgeText}>Verified Vendor</Text>
+                    </View>
+                    <Text style={styles.ratingInline}>{reviewSummary === "No reviews yet" ? "New" : `${averageRating.toFixed(1)} ★`}</Text>
+                  </View>
+
+                  <Text style={styles.storeOverviewLocation}>
+                    {vendor.city || "Birmingham"}, {vendor.country || "UK"}
+                  </Text>
+                  <Text style={styles.storeOverviewDescription}>
+                    {vendor.description || "Authentic African foodstuff delivered to your door. Order securely without sending DMs."}
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.storeOverviewCard}>
-                <View style={styles.storeOverviewHeader}>
-                  <View style={styles.storeOverviewAvatarWrap}>
-                    <VendorAvatar label={buildInitials(vendor.storeName)} square />
-                  </View>
-
-                  <View style={styles.storeOverviewCopy}>
-                    <View style={styles.storeOverviewTitleRow}>
-                      <Text style={styles.storeOverviewTitle}>{vendor.storeName}</Text>
-                      <View style={styles.verifiedBadge}>
-                        <Ionicons name="checkmark-circle" size={14} color="#0A6C52" />
-                        <Text style={styles.verifiedBadgeText}>Verified</Text>
-                      </View>
-                    </View>
-
-                    <Text style={styles.storeOverviewLocation}>
-                      {vendor.city || vendor.country || "United Kingdom"}
-                    </Text>
-                    <Text style={styles.storeOverviewDescription}>
-                      {vendor.description || "Authentic foodstuff ready for secure browser checkout and fast order tracking."}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.storeOverviewMetaRow}>
-                  <Text style={styles.storeOverviewMetaLabel}>Ships to</Text>
-                  <View style={styles.chipWrap}>
-                    {deliveryCountries.map((country) => (
-                      <View key={country} style={styles.countryChip}>
-                        <Text style={styles.countryChipText}>{country}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.storeOverviewStats}>
-                  <View style={styles.summaryStat}>
-                    <Text style={styles.summaryStatValue}>{products.length}</Text>
-                    <Text style={styles.summaryStatLabel}>Live products</Text>
-                  </View>
-                  <View style={styles.summaryStat}>
-                    <Text style={styles.summaryStatValue}>{reviewSummary === "No reviews yet" ? "New" : averageRating.toFixed(1)}</Text>
-                    <Text style={styles.summaryStatLabel}>Buyer rating</Text>
-                  </View>
-                  <View style={styles.summaryStat}>
-                    <Text style={styles.summaryStatValue}>{insights.opens}</Text>
-                    <Text style={styles.summaryStatLabel}>Store opens</Text>
-                  </View>
-                </View>
-
-                <View style={styles.storeOverviewActions}>
-                  <TouchableOpacity activeOpacity={0.88} onPress={handleCopyStoreLink} style={styles.primaryHeroAction}>
-                    <Ionicons name={copyState === "copied" ? "checkmark" : "copy-outline"} size={16} color="#FFFFFF" />
-                    <Text style={styles.primaryHeroActionText}>
-                      {copyState === "copied" ? "Copied" : copyState === "error" ? "Copy failed" : "Copy share link"}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity activeOpacity={0.88} onPress={handleScrollToProducts} style={styles.secondaryHeroAction}>
-                    <Text style={styles.secondaryHeroActionText}>View products</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={0.88}
-                    onPress={() => {
-                      setDrawerOpen(true);
-                      setPanelMode("find");
-                    }}
-                    style={styles.secondaryHeroAction}
-                  >
-                    <Text style={styles.secondaryHeroActionText}>Track order</Text>
-                  </TouchableOpacity>
-                </View>
+              <View style={styles.infoRail}>
+                <Text style={styles.infoRailText}>Secure checkout</Text>
+                <Text style={styles.infoRailDivider}>·</Text>
+                <Text style={styles.infoRailText}>Instant confirmation</Text>
+                <Text style={styles.infoRailDivider}>·</Text>
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  onPress={() => {
+                    setDrawerOpen(true);
+                    setPanelMode("find");
+                  }}
+                >
+                  <Text style={styles.infoRailLink}>Track in Eki</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.storeCard} onLayout={handleProductsSectionLayout}>
               <View style={styles.storeCardHeader}>
                 <View>
-                  <Text style={styles.sectionEyebrow}>Products</Text>
-                  <Text style={styles.sectionTitle}>Shop directly from this vendor</Text>
+                  <Text style={styles.sectionTitle}>All Products</Text>
                 </View>
                 <View style={styles.metricPill}>
-                  <Ionicons name="pulse-outline" size={16} color="#0A6C52" />
                   <Text style={styles.metricPillText}>{products.length} items</Text>
                 </View>
               </View>
@@ -1250,40 +1196,33 @@ export default function PublicStoreScreen() {
                 {filteredProducts.map((product) => {
                   const quantity = cart[product.id] ?? 0;
                   const isSharedProduct = sharedProductId === product.id;
+                  const productCode = buildProductCode(product.name);
 
                   return (
                     <View key={product.id} style={[styles.productCard, isDesktop && styles.productCardDesktop]}>
                       <TouchableOpacity activeOpacity={0.92} onPress={() => openProductDetails(product)}>
-                        <RemoteImage uri={product.images?.[0]} style={styles.productCardImage} borderRadius={20} />
+                        <RemoteImage uri={product.images?.[0]} style={styles.productCardImage} borderRadius={0} />
+                        <View style={styles.productCodeBadge}>
+                          <Text style={styles.productCodeBadgeText}>{productCode}</Text>
+                        </View>
+                        <View style={[styles.stockChip, isSharedProduct && styles.focusStockChip]}>
+                          <Text style={[styles.stockChipText, isSharedProduct && styles.focusStockChipText]}>
+                            {isSharedProduct ? "Shared" : getStockLabel(product.stock)}
+                          </Text>
+                        </View>
                       </TouchableOpacity>
                       <View style={styles.productCardBody}>
-                        <View style={styles.productTopRow}>
-                          <TouchableOpacity style={{ flex: 1 }} activeOpacity={0.88} onPress={() => openProductDetails(product)}>
-                            <Text style={styles.productCardTitle} numberOfLines={1}>
-                              {product.name}
-                            </Text>
-                            <Text style={styles.productCardMeta}>
-                              {productUnitLabel(product)} · Ships from {vendor.city || vendor.country} · Delivery 2-4 days
-                            </Text>
-                          </TouchableOpacity>
-                          <View style={[styles.stockChip, isSharedProduct && styles.focusStockChip]}>
-                            <Text style={[styles.stockChipText, isSharedProduct && styles.focusStockChipText]}>{isSharedProduct ? "Shared link" : "In Stock"}</Text>
-                          </View>
-                        </View>
-
-                        <TouchableOpacity activeOpacity={0.88} onPress={() => openProductDetails(product)}>
-                          <Text style={styles.productCardDescription} numberOfLines={3}>
-                            {product.description || "Freshly packed and ready for secure checkout on Eki."}
+                        <TouchableOpacity style={{ flex: 1 }} activeOpacity={0.88} onPress={() => openProductDetails(product)}>
+                          <Text style={styles.productCardTitle} numberOfLines={2}>
+                            {product.name}
+                          </Text>
+                          <Text style={styles.productCardMeta}>
+                            {productUnitLabel(product)} · 2-4 days
                           </Text>
                         </TouchableOpacity>
 
                         <View style={styles.productFooter}>
-                          <View style={styles.productFooterPrimary}>
-                            <Text style={styles.productPrice}>{formatMoney(product.price, product.currency)}</Text>
-                            <TouchableOpacity onPress={() => openProductDetails(product)} activeOpacity={0.88} style={styles.detailsButton}>
-                              <Text style={styles.detailsButtonText}>View product</Text>
-                            </TouchableOpacity>
-                          </View>
+                          <Text style={styles.productPrice}>{formatMoney(product.price, product.currency)}</Text>
                           {quantity > 0 ? (
                             <View style={styles.quantityControl}>
                               <TouchableOpacity onPress={() => decrementCart(product.id)} activeOpacity={0.88} style={styles.quantityButton}>
@@ -1296,7 +1235,7 @@ export default function PublicStoreScreen() {
                             </View>
                           ) : (
                             <TouchableOpacity onPress={() => incrementCart(product)} activeOpacity={0.88} style={styles.addButton}>
-                              <Text style={styles.addButtonText}>Add to Cart</Text>
+                              <Ionicons name="add" size={16} color="#FFFFFF" />
                             </TouchableOpacity>
                           )}
                         </View>
@@ -1361,7 +1300,7 @@ export default function PublicStoreScreen() {
             </View>
           </View>
 
-          {isDesktop ? (
+          {isDesktop && drawerOpen ? (
             <View style={styles.sideColumn}>
               <View style={styles.sideSticky}>{panel}</View>
             </View>
@@ -1394,6 +1333,26 @@ export default function PublicStoreScreen() {
             <View style={styles.mobilePanel}>{panel}</View>
           </Modal>
         </>
+      ) : null}
+
+      {isDesktop && totalItems > 0 && !drawerOpen ? (
+        <View style={styles.desktopBottomBar}>
+          <View>
+            <Text style={styles.desktopBottomMeta}>{totalItems} items in cart</Text>
+            <Text style={styles.desktopBottomTotal}>{formatMoney(total, currency)}</Text>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => {
+              setDrawerOpen(true);
+              setPanelMode("cart");
+            }}
+            style={styles.desktopBottomButton}
+          >
+            <Text style={styles.desktopBottomButtonText}>View Cart</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       ) : null}
 
       <Modal
@@ -1913,10 +1872,10 @@ function InputField(props: React.ComponentProps<typeof TextInput> & { label: str
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#F4F6F5",
+    backgroundColor: "#F8FAF8",
   },
   screenBody: {
-    paddingBottom: 96,
+    paddingBottom: 112,
   },
   stateScreen: {
     flex: 1,
@@ -1933,78 +1892,49 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope-Bold",
     textAlign: "center",
   },
-  header: {
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: 12,
+  topRibbon: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 14,
+    minHeight: 42,
+    borderRadius: 6,
+    backgroundColor: "#174C3A",
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
   },
-  brandRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    flex: 1,
-  },
-  brandDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#0A6C52",
-  },
-  brandText: {
-    color: "#1F211F",
-    fontSize: 22,
-    lineHeight: 28,
+  topRibbonBrand: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    lineHeight: 22,
     fontFamily: "Manrope-ExtraBold",
   },
-  brandCaption: {
-    color: "#687076",
-    fontSize: 11,
-    lineHeight: 16,
-    fontFamily: "Outfit-Regular",
+  topRibbonCaption: {
+    flex: 1,
+    textAlign: "center",
+    color: "rgba(255,255,255,0.75)",
+    fontSize: 10,
+    lineHeight: 14,
+    fontFamily: "Outfit-Medium",
   },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  ghostButton: {
-    height: 42,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E4E8E6",
+  topRibbonCart: {
+    minHeight: 28,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.14)",
     paddingHorizontal: 14,
     alignItems: "center",
     justifyContent: "center",
-    flexDirection: "row",
-    gap: 8,
   },
-  ghostButtonText: {
-    color: "#0A6C52",
-    fontSize: 13,
-    lineHeight: 18,
-    fontFamily: "Manrope-SemiBold",
-  },
-  cartChip: {
-    height: 42,
-    borderRadius: 18,
-    backgroundColor: "#0A6C52",
-    paddingHorizontal: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cartChipText: {
+  topRibbonCartText: {
     color: "#FFFFFF",
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 15,
     fontFamily: "Manrope-Bold",
   },
   layout: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     gap: 18,
   },
   layoutDesktop: {
@@ -2038,61 +1968,34 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   storeOverviewShell: {
-    marginBottom: 4,
+    gap: 12,
   },
-  storeOverviewBanner: {
-    height: 220,
-    borderRadius: 30,
-    overflow: "hidden",
-    backgroundColor: "#205948",
-  },
-  storeOverviewImage: {
-    width: "100%",
-    height: "100%",
-  },
-  storeOverviewOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(22,56,45,0.72)",
-  },
-  storeOverviewCard: {
-    marginTop: -58,
-    marginHorizontal: 18,
-    borderRadius: 28,
+  storeHeaderCard: {
+    borderRadius: 12,
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 24,
-    paddingVertical: 22,
-    gap: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 14,
     borderWidth: 1,
-    borderColor: "#E8ECEA",
-    shadowColor: "#133A2F",
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 5,
-  },
-  storeOverviewHeader: {
+    borderColor: "#E2EAE5",
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 18,
   },
-  storeOverviewAvatarWrap: {
-    marginTop: -42,
-  },
-  storeOverviewCopy: {
+  storeHeaderCopy: {
     flex: 1,
-    gap: 10,
+    gap: 6,
   },
   storeOverviewTitleRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   storeOverviewTitle: {
     color: "#1F211F",
-    fontSize: 28,
-    lineHeight: 34,
-    fontFamily: "Manrope-ExtraBold",
+    fontSize: 24,
+    lineHeight: 30,
+    fontFamily: "Manrope-Bold",
     flexShrink: 1,
   },
   verifiedBadge: {
@@ -2106,22 +2009,57 @@ const styles = StyleSheet.create({
   },
   verifiedBadgeText: {
     color: "#0A6C52",
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: "Manrope-Bold",
+  },
+  ratingInline: {
+    color: "#687076",
     fontSize: 12,
     lineHeight: 16,
-    fontFamily: "Manrope-Bold",
+    fontFamily: "Outfit-Medium",
   },
   storeOverviewLocation: {
     color: "#687076",
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 18,
     fontFamily: "Outfit-Regular",
   },
   storeOverviewDescription: {
     color: "#2B2B2B",
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 19,
     fontFamily: "Outfit-Regular",
-    maxWidth: 720,
+  },
+  infoRail: {
+    minHeight: 40,
+    borderRadius: 6,
+    backgroundColor: "#F3FBF6",
+    borderWidth: 1,
+    borderColor: "#CFE3D8",
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  infoRailText: {
+    color: "#0A6C52",
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: "Manrope-SemiBold",
+  },
+  infoRailDivider: {
+    color: "#8FB7A6",
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: "Manrope-Bold",
+  },
+  infoRailLink: {
+    color: "#0A6C52",
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: "Manrope-Bold",
   },
   storeOverviewMetaRow: {
     gap: 10,
@@ -2319,10 +2257,12 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Regular",
   },
   storeCard: {
-    borderRadius: 28,
+    borderRadius: 12,
     backgroundColor: "#FFFFFF",
-    padding: 18,
-    gap: 18,
+    padding: 16,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: "#E2EAE5",
   },
   storeCardHeader: {
     flexDirection: "row",
@@ -2330,42 +2270,32 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 12,
   },
-  sectionEyebrow: {
-    color: "#687076",
-    fontSize: 12,
-    lineHeight: 16,
-    fontFamily: "Outfit-Medium",
-    textTransform: "uppercase",
-  },
   sectionTitle: {
     color: "#2B2B2B",
-    fontSize: 24,
-    lineHeight: 30,
-    fontFamily: "Manrope-ExtraBold",
-    marginTop: 4,
-  },
-  metricPill: {
-    height: 38,
-    borderRadius: 19,
-    paddingHorizontal: 14,
-    backgroundColor: "#F2FBF7",
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  metricPillText: {
-    color: "#0A6C52",
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 20,
+    lineHeight: 26,
     fontFamily: "Manrope-Bold",
   },
+  metricPill: {
+    height: 28,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    backgroundColor: "#F6F8F7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  metricPillText: {
+    color: "#687076",
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: "Outfit-Medium",
+  },
   searchRow: {
-    minHeight: 52,
-    borderRadius: 18,
+    minHeight: 44,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#E4E8E6",
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -2412,131 +2342,121 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Medium",
   },
   productGrid: {
-    gap: 14,
+    gap: 12,
   },
   productGridDesktop: {
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "stretch",
+    justifyContent: "space-between",
   },
   productCard: {
-    borderRadius: 24,
-    backgroundColor: "#FBFBFA",
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#EEF1EF",
+    borderColor: "#E7ECE9",
     overflow: "hidden",
   },
   productCardDesktop: {
-    width: "48.6%",
+    width: "24%",
   },
   productCardImage: {
     width: "100%",
-    height: 210,
-    backgroundColor: "#ECE7DC",
+    height: 140,
+    backgroundColor: "#E8F3EA",
+  },
+  productCodeBadge: {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    transform: [{ translateX: -24 }, { translateY: -14 }],
+    minWidth: 48,
+    minHeight: 28,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    backgroundColor: "#CFE7D8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  productCodeBadgeText: {
+    color: "#2B6A56",
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: "Manrope-Bold",
   },
   productCardBody: {
-    padding: 16,
-    gap: 12,
-  },
-  productTopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
+    padding: 10,
+    gap: 8,
   },
   productCardTitle: {
     color: "#2B2B2B",
-    fontSize: 19,
-    lineHeight: 25,
+    fontSize: 13,
+    lineHeight: 18,
     fontFamily: "Manrope-Bold",
   },
   productCardMeta: {
     color: "#687076",
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 10,
+    lineHeight: 14,
     fontFamily: "Outfit-Regular",
-    marginTop: 4,
+    marginTop: 2,
   },
   stockChip: {
+    position: "absolute",
+    right: 8,
+    top: 8,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: "#EEF8F3",
+    backgroundColor: "#174C3A",
   },
   focusStockChip: {
     backgroundColor: "#0A6C52",
   },
   stockChipText: {
-    color: "#0A6C52",
-    fontSize: 11,
-    lineHeight: 15,
+    color: "#FFFFFF",
+    fontSize: 9,
+    lineHeight: 12,
     fontFamily: "Manrope-Bold",
   },
   focusStockChipText: {
     color: "#FFFFFF",
   },
-  productCardDescription: {
-    color: "#4B5563",
-    fontSize: 14,
-    lineHeight: 20,
-    fontFamily: "Outfit-Regular",
-  },
   productFooter: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
-  },
-  productFooterPrimary: {
-    flex: 1,
-    gap: 10,
+    gap: 8,
   },
   productPrice: {
     color: "#2B2B2B",
     fontSize: 22,
-    lineHeight: 28,
-    fontFamily: "Manrope-ExtraBold",
-  },
-  detailsButton: {
-    alignSelf: "flex-start",
-    minHeight: 38,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#D7E1DD",
-    paddingHorizontal: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  detailsButtonText: {
-    color: "#0A6C52",
-    fontSize: 12,
-    lineHeight: 17,
-    fontFamily: "Manrope-SemiBold",
+    lineHeight: 24,
+    fontFamily: "Manrope-Bold",
   },
   addButton: {
-    minWidth: 136,
-    height: 46,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     backgroundColor: "#0A6C52",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 18,
   },
   addButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 12,
+    lineHeight: 16,
     fontFamily: "Manrope-Bold",
   },
   quantityControl: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 6,
   },
   quantityButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 26,
+    height: 26,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: "#D4DDD8",
     alignItems: "center",
@@ -2544,18 +2464,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   quantityButtonFilled: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 26,
+    height: 26,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#0A6C52",
   },
   quantityValue: {
-    minWidth: 20,
+    minWidth: 16,
     color: "#2B2B2B",
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 16,
     fontFamily: "Manrope-Bold",
     textAlign: "center",
   },
@@ -2682,15 +2602,15 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope-Bold",
   },
   panelShell: {
-    borderRadius: 28,
+    borderRadius: 12,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E8ECEA",
+    borderColor: "#E2EAE5",
     overflow: "hidden",
   },
   panelHeader: {
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -2699,14 +2619,14 @@ const styles = StyleSheet.create({
   },
   panelBrand: {
     color: "#0A6C52",
-    fontSize: 24,
-    lineHeight: 28,
-    fontFamily: "Manrope-ExtraBold",
+    fontSize: 18,
+    lineHeight: 22,
+    fontFamily: "Manrope-Bold",
   },
   panelSubtitle: {
     color: "#687076",
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
     fontFamily: "Outfit-Regular",
   },
   panelClose: {
@@ -2718,12 +2638,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#F5F7F6",
   },
   panelBody: {
-    padding: 18,
+    padding: 16,
   },
   panelTitle: {
     color: "#2B2B2B",
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 18,
+    lineHeight: 24,
     fontFamily: "Manrope-Bold",
   },
   panelCopy: {
@@ -3132,6 +3052,56 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     lineHeight: 21,
+    fontFamily: "Manrope-Bold",
+  },
+  desktopBottomBar: {
+    position: "absolute",
+    left: 24,
+    right: 24,
+    bottom: 20,
+    minHeight: 72,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2EAE5",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    shadowColor: "#113128",
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  desktopBottomMeta: {
+    color: "#687076",
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: "Outfit-Regular",
+  },
+  desktopBottomTotal: {
+    color: "#1F211F",
+    fontSize: 22,
+    lineHeight: 26,
+    fontFamily: "Manrope-Bold",
+    marginTop: 4,
+  },
+  desktopBottomButton: {
+    minHeight: 44,
+    borderRadius: 10,
+    backgroundColor: "#174C3A",
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  desktopBottomButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    lineHeight: 18,
     fontFamily: "Manrope-Bold",
   },
   modalScrim: {

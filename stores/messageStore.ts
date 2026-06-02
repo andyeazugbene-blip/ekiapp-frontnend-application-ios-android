@@ -27,6 +27,16 @@ function mergeMessages(primary: Message[], secondary: Message[]): Message[] {
   return sortMessages(Array.from(byId.values()));
 }
 
+function sortConversations(conversations: Conversation[]): Conversation[] {
+  return [...conversations].sort((left, right) => {
+    const leftTime = Date.parse(left.lastMessageAt);
+    const rightTime = Date.parse(right.lastMessageAt);
+    const safeLeft = Number.isFinite(leftTime) ? leftTime : 0;
+    const safeRight = Number.isFinite(rightTime) ? rightTime : 0;
+    return safeRight - safeLeft;
+  });
+}
+
 // ─── Store ─────────────────────────────────────────────────────────────────────
 
 interface MessageStore {
@@ -66,18 +76,30 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
     try {
       const conversations = await messageService.getConversations();
       const localMessages = get().localMessages;
+      const currentConversations = get().conversations;
+      const currentMap = new Map(currentConversations.map((conversation) => [conversation.id, conversation]));
       const mergedConversations = conversations.map((conversation) => {
         const recentLocal = sortMessages(localMessages[conversation.id] ?? []).slice(-1)[0];
-        if (!recentLocal) return conversation;
+        const existing = currentMap.get(conversation.id);
+        const baseConversation = {
+          ...conversation,
+          participantName:
+            conversation.participantName === "User" && existing?.participantName
+              ? existing.participantName
+              : conversation.participantName,
+          participantAvatar: conversation.participantAvatar ?? existing?.participantAvatar,
+          participantRole: conversation.participantRole ?? existing?.participantRole ?? "buyer",
+        };
+        if (!recentLocal) return baseConversation;
         const localPreview = recentLocal.text?.trim() || (recentLocal.imageUrl ? "Photo" : conversation.lastMessage);
         const localTime = recentLocal.createdAt || conversation.lastMessageAt;
         return {
-          ...conversation,
+          ...baseConversation,
           lastMessage: localPreview,
           lastMessageAt: localTime,
         };
       });
-      set({ conversations: mergedConversations, isLoading: false });
+      set({ conversations: sortConversations(mergedConversations), isLoading: false });
     } catch {
       set({ isLoading: false });
     }
@@ -191,11 +213,12 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
             : c
         ),
       }));
-    } catch {
+    } catch (error) {
       // Keep the optimistic message locally so image/text sending still works in-app.
       set((s) => ({
         isSending: false,
       }));
+      throw error;
     }
   },
 
@@ -241,7 +264,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
 
   createConversation: async (participantId, orderId) => {
     const conv = await messageService.createConversation(participantId, orderId);
-    set((s) => ({ conversations: [conv, ...s.conversations] }));
+    set((s) => ({ conversations: sortConversations([conv, ...s.conversations.filter((item) => item.id !== conv.id)]) }));
     return conv;
   },
 

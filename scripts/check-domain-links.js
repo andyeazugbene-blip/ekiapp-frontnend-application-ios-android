@@ -3,32 +3,32 @@
  * Live domain health-check.
  *
  * Tests:
- *   1. https://waqti.pro                                (200/3xx)
- *   2. https://www.waqti.pro                            (200/3xx)
- *   3. https://waqti.pro/store/<slug>                   (200, no loop)
- *   4. https://www.waqti.pro/store/<slug>               (200, no loop)
- *   5. https://italian-market-place.vercel.app/store/<slug>  (200)
- *   6. https://italian-market-place.vercel.app/api/health    (200)
+ *   1. https://culinarytales.app                             (200/3xx)
+ *   2. https://www.culinarytales.app                         (200/3xx)
+ *   3. https://culinarytales.app/store/<slug>                (200, no loop)
+ *   4. https://www.culinarytales.app/store/<slug>            (200, no loop)
+ *   5. https://ekiapp-backend.vercel.app/store/<slug>        (200)
+ *   6. https://ekiapp-backend.vercel.app/api/health          (200)
  *
  * If TEST_VENDOR_SLUG is not provided in env, the script will fetch
  *   GET {API_BASE}/vendors?limit=10
  * and pick the first vendor that has a `storeSlug`. If no slug exists
  * anywhere, the store-route checks are SKIPPED with a clear message.
  *
- * Also scans response bodies of public pages and fails if "neon.online"
- * is found in any HTML body.
+ * Also scans response bodies of public pages and fails if stale launch
+ * domain text is found in any HTML body.
  */
 
-const DOMAIN_PRIMARY = process.env.DOMAIN_PRIMARY || "https://waqti.pro";
-const DOMAIN_WWW = process.env.DOMAIN_WWW || "https://www.waqti.pro";
-const VERCEL_WEB = process.env.VERCEL_WEB || "https://italian-market-place.vercel.app";
+const DOMAIN_PRIMARY = process.env.DOMAIN_PRIMARY || "https://culinarytales.app";
+const DOMAIN_WWW = process.env.DOMAIN_WWW || "https://www.culinarytales.app";
+const VERCEL_WEB = process.env.VERCEL_WEB || "https://ekiapp-backend.vercel.app";
 const API_BASE = process.env.API_BASE || `${VERCEL_WEB}/api`;
 let TEST_VENDOR_SLUG = process.env.TEST_VENDOR_SLUG || "";
 const FALLBACK_STORE_SLUGS = ["mama-chi-foodstuff", "mamachifoodstuff"];
 
 const TIMEOUT_MS = 12_000;
 const MAX_REDIRECTS = 5;
-const NEON_RE = /neon\.online/i;
+const STALE_DOMAIN_RE = /(?:waqti\.pro|italian-market-place\.vercel\.app|neon\.online)/i;
 
 /**
  * Manual fetch with redirect following + cycle detection.
@@ -156,7 +156,7 @@ let warnings = 0;
 let oldDomainHits = 0;
 
 function record({ name, target, ok, status, finalUrl, chain, body, error, severity = "critical", skipped = false }) {
-  const hasOldDomain = body && NEON_RE.test(body);
+  const hasOldDomain = body && STALE_DOMAIN_RE.test(body);
   if (hasOldDomain) oldDomainHits++;
 
   const passed = skipped ? null : (ok && !hasOldDomain);
@@ -224,13 +224,13 @@ function record({ name, target, ok, status, finalUrl, chain, body, error, severi
 
   if (TEST_VENDOR_SLUG) {
     const slug = encodeURIComponent(TEST_VENDOR_SLUG);
-    // 3. waqti.pro/store/:slug
+    // 3. culinarytales.app/store/:slug
     {
       const url = `${DOMAIN_PRIMARY}/store/${slug}`;
       const r = await fetchWithChain(url);
       record({ name: "store route (primary)", target: url, ...r });
     }
-    // 4. www.waqti.pro/store/:slug
+    // 4. www.culinarytales.app/store/:slug
     {
       const url = `${DOMAIN_WWW}/store/${slug}`;
       const r = await fetchWithChain(url);
@@ -260,7 +260,7 @@ function record({ name, target, ok, status, finalUrl, chain, body, error, severi
     }
     console.log(`    status=${c.status}  redirects=${c.redirects ?? 0}  finalUrl=${c.finalUrl}`);
     if (c.error) console.log(`    error: ${c.error}`);
-    if (c.hasOldDomain) console.log(`    ⚠ neon.online found in response body`);
+    if (c.hasOldDomain) console.log("    ⚠ stale launch-domain text found in response body");
   }
 
   console.log("");

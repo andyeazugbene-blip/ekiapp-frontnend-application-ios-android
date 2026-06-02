@@ -6,6 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { ChatMessage, useMessageStore } from "../../stores/messageStore";
 import { uploadService } from "../../services/uploadService";
+import { goBackOrReplace } from "../../utils/navigation";
+import { RemoteImage } from "../../components/ui/RemoteImage";
 
 function formatMessageTime(value: string): string {
   try {
@@ -39,17 +41,24 @@ export default function BuyerMessageChatScreen() {
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.emptyPage}>
           <Text style={styles.emptyText}>No conversation selected.</Text>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/messages" as any)} activeOpacity={0.85} style={styles.emptyAction}>
+            <Text style={styles.emptyActionText}>Back to messages</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
-  const onSend = () => {
+  const onSend = async () => {
     const text = input.trim();
     if (!text || isSending) return;
-    void sendMessage(conversation.id, text);
-    setInput("");
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    try {
+      await sendMessage(conversation.id, text);
+      setInput("");
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch (err) {
+      Alert.alert("Message not sent", err instanceof Error ? err.message : "Please try again.");
+    }
   };
 
   const pickAndSendImage = async () => {
@@ -76,15 +85,11 @@ export default function BuyerMessageChatScreen() {
 
     setSendingImage(true);
     try {
-      let remoteImageUrl: string | undefined;
-      try {
-        remoteImageUrl = await uploadService.uploadImage(localUri, fileName, contentType, "product");
-      } catch {}
+      const remoteImageUrl = await uploadService.uploadImage(localUri, fileName, contentType, "product");
 
       await sendMessage(conversation.id, {
         text: input.trim(),
         imageUrl: remoteImageUrl,
-        localImageUri: localUri,
       });
       setInput("");
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 120);
@@ -98,10 +103,16 @@ export default function BuyerMessageChatScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/messages" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
-        <View style={styles.headerAvatar}><View style={styles.headerAvatarInner} /></View>
+        <RemoteImage
+          uri={conversation.participantAvatar}
+          style={styles.headerAvatar}
+          borderRadius={22}
+          fallbackIcon={conversation.participantRole === "vendor" ? "storefront-outline" : "person-outline"}
+          fallbackBg="#F4F4F4"
+        />
         <View style={styles.headerInfo}>
           <Text style={styles.headerName}>{conversation.participantName}</Text>
           <Text style={styles.headerSub}>{conversation.orderNumber ? `Order ${conversation.orderNumber}` : "Vendor"}</Text>
@@ -125,7 +136,7 @@ export default function BuyerMessageChatScreen() {
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.messageList}
-            renderItem={({ item }) => <Bubble message={item} />}
+            renderItem={({ item }) => <Bubble message={item} avatarUri={conversation.participantAvatar} />}
             ListHeaderComponent={<View style={styles.dayLabel}><Text style={styles.dayLabelText}>Today</Text></View>}
             ListEmptyComponent={<Text style={styles.emptyChat}>Say hi to start the conversation.</Text>}
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
@@ -153,11 +164,19 @@ export default function BuyerMessageChatScreen() {
   );
 }
 
-function Bubble({ message }: { message: ChatMessage }) {
+function Bubble({ message, avatarUri }: { message: ChatMessage; avatarUri?: string }) {
   const isMine = message.senderRole === "buyer";
   return (
     <View style={[styles.bubbleRow, isMine ? styles.bubbleRowRight : styles.bubbleRowLeft]}>
-      {!isMine && <View style={styles.bubbleAvatar}><View style={styles.bubbleAvatarInner} /></View>}
+      {!isMine && (
+        <RemoteImage
+          uri={avatarUri}
+          style={styles.bubbleAvatar}
+          borderRadius={16}
+          fallbackIcon="storefront-outline"
+          fallbackBg="#F4F4F4"
+        />
+      )}
       <View style={styles.bubbleContent}>
         <View style={[styles.bubble, isMine ? styles.bubbleRight : styles.bubbleLeft]}>
           {message.imageUrl ? <Image source={{ uri: message.imageUrl }} style={styles.messageImage} resizeMode="cover" /> : null}
@@ -175,6 +194,8 @@ const styles = StyleSheet.create({
   emptyPage: { flex: 1, alignItems: "center", justifyContent: "center" },
   loadingPage: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#858585" },
+  emptyAction: { marginTop: 14, minWidth: 150, height: 42, borderRadius: 12, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  emptyActionText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
   emptyChat: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", paddingTop: 40 },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#F0F0F0" },
   backButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center", marginRight: 12 },

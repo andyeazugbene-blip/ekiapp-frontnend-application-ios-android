@@ -57,6 +57,13 @@ export interface ConfirmDeliveryResponse {
   confirmed: boolean;
 }
 
+export interface ResendDeliveryOtpResponse {
+  resent: boolean;
+  expiresAt: string;
+  otpSentTo?: string | null;
+  smsSent?: boolean;
+}
+
 export interface OpenDisputeResponse {
   disputeId: string;
 }
@@ -118,6 +125,10 @@ export const orderService = {
 
   async confirmBuyerDelivery(orderId: string, code: string): Promise<ConfirmDeliveryResponse> {
     return apiClient.post<ConfirmDeliveryResponse>(`/api/orders/${orderId}/confirm-delivery`, { code });
+  },
+
+  async resendBuyerDeliveryOtp(orderId: string): Promise<ResendDeliveryOtpResponse> {
+    return apiClient.post<ResendDeliveryOtpResponse>(`/api/orders/${orderId}/resend-delivery-otp`, {});
   },
 
   async openBuyerDispute(orderId: string, reason: string): Promise<OpenDisputeResponse> {

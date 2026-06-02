@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { subscriptionService, type ActiveSubscription } from "../../services/subscriptionService";
 
-const PLAN_LABELS: Record<ActiveSubscription["slug"], string> = {
+const PLAN_LABELS: Record<string, string> = {
   free: "Free",
   growth: "Growth",
   pro: "Pro",
@@ -38,7 +38,7 @@ export default function UpgradePromptScreen() {
     loadPlanStatus();
   }, [loadPlanStatus]);
 
-  const planName = subscription ? PLAN_LABELS[subscription.slug] : "Free";
+  const planName = subscription ? PLAN_LABELS[subscription.slug] ?? subscription.planName ?? "Current Plan" : "Free";
   const active = subscription?.status === "active";
 
   return (

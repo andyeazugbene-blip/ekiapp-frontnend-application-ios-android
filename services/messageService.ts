@@ -47,17 +47,45 @@ interface ConversationResponse {
 }
 
 function normalizeConversation(c: any, participantId = ""): Conversation {
+  const displayName =
+    c.participantStoreName ??
+    c.participantVendor?.storeName ??
+    c.participantUser?.vendor?.storeName ??
+    c.order?.vendor?.storeName ??
+    c.vendor?.storeName ??
+    c.participantUser?.name ??
+    c.participantName ??
+    c.otherParticipant?.vendor?.storeName ??
+    c.otherParticipant?.name ??
+    "User";
+
+  const displayAvatar =
+    c.participantAvatar ??
+    c.participantVendor?.avatar ??
+    c.participantUser?.vendor?.avatar ??
+    c.order?.vendor?.avatar ??
+    c.vendor?.avatar ??
+    c.participantUser?.avatar ??
+    c.otherParticipant?.vendor?.avatar ??
+    c.otherParticipant?.avatar;
+
+  const displayRole =
+    c.participantRole ??
+    c.participantUser?.role?.toLowerCase() ??
+    c.otherParticipant?.role?.toLowerCase() ??
+    "buyer";
+
   return {
     id: c.id,
     participantId: c.participantId ?? c.participantA ?? c.participantB ?? participantId,
-    participantName: c.participantUser?.name ?? c.participantName ?? c.otherParticipant?.name ?? "User",
-    participantAvatar: c.participantUser?.avatar ?? c.participantAvatar ?? c.otherParticipant?.avatar,
-    participantRole: (c.participantUser?.role?.toLowerCase() ?? c.participantRole ?? "buyer") as Conversation["participantRole"],
+    participantName: displayName,
+    participantAvatar: displayAvatar,
+    participantRole: displayRole as Conversation["participantRole"],
     lastMessage: c.lastMessage?.text ?? c.lastMessage ?? "",
     lastMessageAt: c.lastMessageAt ?? c.updatedAt ?? c.createdAt ?? new Date().toISOString(),
     unreadCount: c.unreadCount ?? 0,
-    orderId: c.orderId ?? undefined,
-    orderNumber: c.orderNumber ?? undefined,
+    orderId: c.orderId ?? c.order?.id ?? undefined,
+    orderNumber: c.orderNumber ?? c.order?.orderNumber ?? undefined,
   };
 }
 
@@ -73,7 +101,12 @@ function normalizeMessage(m: any): Message {
     id: m.id,
     conversationId: m.conversationId,
     senderId: m.senderId,
-    senderRole: (m.sender?.role?.toLowerCase() ?? m.senderRole ?? "buyer") as Message["senderRole"],
+    senderRole: (
+      m.sender?.role?.toLowerCase() ??
+      m.senderRole ??
+      m.sender?.vendor?.user?.role?.toLowerCase() ??
+      "buyer"
+    ) as Message["senderRole"],
     text: m.text ?? "",
     imageUrl:
       m.imageUrl ??

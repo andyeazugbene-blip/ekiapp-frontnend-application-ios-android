@@ -72,7 +72,7 @@ export default function CreateFlashSaleScreen() {
         startsAt: now.toISOString(),
         endsAt: ends.toISOString(),
       });
-      router.replace({
+      router.push({
         pathname: "/(vendor)/promo-link",
         params: {
           url: created.shareUrl,

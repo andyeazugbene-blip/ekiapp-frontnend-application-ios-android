@@ -5,6 +5,7 @@
  */
 import { API_BASE_URL } from "./config";
 import { tokenStorage } from "./tokenStorage";
+import { Platform } from "react-native";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,10 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     Accept: "application/json",
     ...headers,
   };
+
+  requestHeaders["X-Client-Platform"] =
+    Platform.OS === "web" ? "web" : Platform.OS;
+  requestHeaders["X-Client-App"] = "eki-mobile";
 
   // Inject auth token
   let authToken: string | null = null;

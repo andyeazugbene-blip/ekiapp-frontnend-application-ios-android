@@ -2,7 +2,7 @@
  * RemoteImage — Renders an image from a backend URL with neutral fallback.
  * Use for product images, vendor avatars, user avatars.
  */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Image, StyleSheet, View, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -24,6 +24,10 @@ export function RemoteImage({
   borderRadius = 12,
 }: RemoteImageProps) {
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [uri]);
 
   if (!uri || failed) {
     return (

@@ -10,6 +10,7 @@ export interface Product {
   images: string[];
   category: string;
   vendorId: string;
+  vendorUserId?: string;
   vendorName: string;
   vendorCity: string;
   stock: number;

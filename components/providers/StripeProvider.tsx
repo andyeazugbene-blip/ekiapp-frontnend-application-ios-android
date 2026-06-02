@@ -41,12 +41,5 @@ export function StripeProvider({ children }: { children: React.ReactNode }) {
   if (!Provider || !STRIPE_PUBLISHABLE_KEY) {
     return <>{children}</>;
   }
-  return (
-    <Provider
-      publishableKey={STRIPE_PUBLISHABLE_KEY}
-      merchantIdentifier="merchant.com.ekiapp.mobile"
-    >
-      {children}
-    </Provider>
-  );
+  return <Provider publishableKey={STRIPE_PUBLISHABLE_KEY}>{children}</Provider>;
 }

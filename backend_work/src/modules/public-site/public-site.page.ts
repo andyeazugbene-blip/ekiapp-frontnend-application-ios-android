@@ -258,7 +258,7 @@ function renderLayout(page: PageDefinition): string {
     <div class="shell topbar-inner">
       <a class="brand" href="/">
         <span class="brand-dot"></span>
-        Waqti
+        Eki
       </a>
       <nav class="nav" aria-label="Public pages">
         <a href="/help">Help</a>
@@ -283,7 +283,7 @@ function renderLayout(page: PageDefinition): string {
 
   <footer class="foot">
     <div class="shell">
-      Waqti public storefront and support pages. For order-specific help, email <a href="mailto:support@waqti.pro">support@waqti.pro</a>.
+      Eki public storefront and support pages. For order-specific help, email <a href="mailto:adminandy@eki.app">adminandy@eki.app</a>.
     </div>
   </footer>
 </body>
@@ -291,19 +291,19 @@ function renderLayout(page: PageDefinition): string {
 }
 
 const homePage: PageDefinition = {
-  title: "Waqti",
-  description: "Waqti helps buyers discover verified vendors, check out securely, and track orders.",
+  title: "Eki",
+  description: "Eki helps buyers discover verified vendors, check out securely, and track orders.",
   eyebrow: "Public storefront",
   heading: "Verified vendors, secure checkout, and clear order tracking.",
   intro:
-    "Waqti powers shared vendor storefronts, secure buyer checkout, and post-purchase tracking. If a vendor sent you a store link, open that exact /store/{slug} URL to browse and order.",
+    "Eki powers shared vendor storefronts, secure buyer checkout, and post-purchase tracking. If a vendor sent you a store link, open that exact /store/{slug} URL to browse and order.",
   actions: [
     { href: "/store/mama-chi-foodstuff", label: "Open live store example" },
     { href: "/help", label: "Help and support", variant: "secondary" },
   ],
   sections: [
     {
-      title: "What Waqti handles",
+      title: "What Eki handles",
       bullets: [
         "Vendor storefront pages shared by direct link",
         "Secure checkout through connected payment providers",
@@ -331,21 +331,21 @@ const homePage: PageDefinition = {
         "Help: /help",
         "Privacy: /privacy",
         "Terms: /terms",
-        "Email: support@waqti.pro",
+        "Email: adminandy@eki.app",
       ],
     },
   ],
 };
 
 const helpPage: PageDefinition = {
-  title: "Help and support | Waqti",
-  description: "Public support and order-help information for Waqti buyers and vendors.",
+  title: "Help and support | Eki",
+  description: "Public support and order-help information for Eki buyers and vendors.",
   eyebrow: "Support",
   heading: "Get help with orders, payouts, OTP, and disputes.",
   intro:
-    "For support, contact support@waqti.pro. The support team aims to respond within 24 hours, and order-specific issues may require the order number or checkout email used during purchase.",
+    "For support, contact adminandy@eki.app. The support team aims to respond within 24 hours, and order-specific issues may require the order number or checkout email used during purchase.",
   actions: [
-    { href: "mailto:support@waqti.pro", label: "Email support" },
+    { href: "mailto:adminandy@eki.app", label: "Email support" },
     { href: "/terms", label: "Read terms", variant: "secondary" },
   ],
   sections: [
@@ -385,14 +385,14 @@ const helpPage: PageDefinition = {
 };
 
 const privacyPage: PageDefinition = {
-  title: "Privacy policy | Waqti",
-  description: "How Waqti handles account, order, payment, support, and operational data.",
+  title: "Privacy policy | Eki",
+  description: "How Eki handles account, order, payment, support, and operational data.",
   eyebrow: "Privacy",
-  heading: "How Waqti handles your data.",
+  heading: "How Eki handles your data.",
   intro:
-    "This page summarizes the operational privacy posture of Waqti based on the current product and backend implementation. It explains what data we process, why we process it, and the user controls currently available in the product.",
+    "This page summarizes the operational privacy posture of Eki based on the current product and backend implementation. It explains what data we process, why we process it, and the user controls currently available in the product.",
   actions: [
-    { href: "mailto:support@waqti.pro", label: "Privacy questions" },
+    { href: "mailto:adminandy@eki.app", label: "Privacy questions" },
     { href: "/help", label: "Support", variant: "secondary" },
   ],
   sections: [
@@ -433,28 +433,28 @@ const privacyPage: PageDefinition = {
         "Authenticated users can export account data through the data-export endpoint",
         "Authenticated users can request account deletion, with financial records retained where legally required",
         "Order and payment records may be retained for compliance, fraud prevention, and accounting obligations",
-        "For privacy requests or correction requests, contact support@waqti.pro",
+        "For privacy requests or correction requests, contact adminandy@eki.app",
       ],
     },
   ],
 };
 
 const termsPage: PageDefinition = {
-  title: "Terms of service | Waqti",
-  description: "Platform rules for buyers, vendors, payments, disputes, and support on Waqti.",
+  title: "Terms of service | Eki",
+  description: "Platform rules for buyers, vendors, payments, disputes, and support on Eki.",
   eyebrow: "Terms",
   heading: "Platform rules for buyers and vendors.",
   intro:
-    "These terms summarize how Waqti operates as a marketplace platform for vendor storefronts, secure checkout, order tracking, escrow-sensitive flows, and support. By using the platform, buyers and vendors agree to follow these platform rules.",
+    "These terms summarize how Eki operates as a marketplace platform for vendor storefronts, secure checkout, order tracking, escrow-sensitive flows, and support. By using the platform, buyers and vendors agree to follow these platform rules.",
   actions: [
     { href: "/privacy", label: "Read privacy policy", variant: "secondary" },
-    { href: "mailto:support@waqti.pro", label: "Contact support" },
+    { href: "mailto:adminandy@eki.app", label: "Contact support" },
   ],
   sections: [
     {
       title: "Marketplace role",
       bullets: [
-        "Waqti provides the software platform, storefront links, checkout flows, messaging, notifications, and support tooling used by buyers and vendors.",
+        "Eki provides the software platform, storefront links, checkout flows, messaging, notifications, and support tooling used by buyers and vendors.",
         "Product availability, pricing, fulfillment timing, and listing accuracy remain the vendor's responsibility.",
       ],
     },
@@ -471,7 +471,7 @@ const termsPage: PageDefinition = {
       bullets: [
         "Vendors must publish accurate product information, pricing, and stock availability.",
         "Vendors must ship and manage orders through the platform in line with delivery, escrow, and dispute states.",
-        "Waqti may suspend storefronts or accounts for fraud, prohibited listings, abuse, or repeated operational failures.",
+        "Eki may suspend storefronts or accounts for fraud, prohibited listings, abuse, or repeated operational failures.",
       ],
     },
     {
@@ -486,7 +486,7 @@ const termsPage: PageDefinition = {
     {
       title: "Support and policy changes",
       bullets: [
-        "Support is available at support@waqti.pro.",
+        "Support is available at adminandy@eki.app.",
         "Operational policies may change as the platform matures, including payout, support, and fraud-prevention controls.",
         "If you do not agree with a platform change, stop using the service and contact support for account assistance.",
       ],

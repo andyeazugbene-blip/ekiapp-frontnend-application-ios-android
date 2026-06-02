@@ -16,7 +16,7 @@ if (!__DEV__ && !envStripeKey) {
   console.error("[API] EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set. Payments will fail.");
 }
 
-export const API_BASE_URL = envUrl || "https://italian-market-place.vercel.app";
+export const API_BASE_URL = envUrl || "https://ekiapp-backend.vercel.app";
 
 export const STRIPE_PUBLISHABLE_KEY = envStripeKey || "";
 

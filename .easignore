@@ -1,0 +1,17 @@
+.expo/
+.expo-tmp/
+.kiro/
+dist/
+backend_work/
+admin-web/
+*.log
+*.bmp
+*.md
+assets/figma-screens/
+assets/figma-exports/
+assets/figma-slices/
+google-services-key.json
+credentials.json
+google-services.json
+*.jks
+*.keystore

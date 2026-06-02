@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { useAuthStore } from "../../stores/authStore";
 import { getPublicStoreUrl } from "../../utils/shareLinks";
+import { goBackOrReplace } from "../../utils/navigation";
 
 export default function PromoLinkScreen() {
   const router = useRouter();
@@ -33,6 +34,11 @@ export default function PromoLinkScreen() {
     return canonicalUrl || params.url || "";
   }, [vendor, params.productId, params.promo, params.url]);
 
+  const fallbackRoute = useMemo(
+    () => (params.campaignType === "discount" ? "/(vendor)/coupon-history" : "/(vendor)/share-store-link"),
+    [params.campaignType],
+  );
+
   const handleCopy = async () => {
     try {
       await Clipboard.setStringAsync(storeUrl);
@@ -49,7 +55,7 @@ export default function PromoLinkScreen() {
     <View style={styles.page}>
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, fallbackRoute as any)} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Your Store Link</Text>
@@ -124,7 +130,7 @@ export default function PromoLinkScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity onPress={() => router.back()} style={styles.primaryButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, fallbackRoute as any)} style={styles.primaryButton}>
           <Text style={styles.primaryButtonTextLarge}>Done</Text>
         </TouchableOpacity>
       </ScrollView>

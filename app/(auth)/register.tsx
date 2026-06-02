@@ -24,11 +24,11 @@ import {
 export default function RegisterScreen() {
   const router = useRouter();
   const { role, redirect } = useLocalSearchParams<{ role?: string; redirect?: string }>();
-  const { register, isLoading, error, isAuthenticated, user, clearError } =
+  const { register, isLoading, error, isAuthenticated, user, clearError, beginFreshAuthFlow } =
     useAuthStore();
 
   const [name, setName] = useState("");
-  const [contact, setContact] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const resolvedRole = (role ?? "buyer") as UserRole;
@@ -36,8 +36,9 @@ export default function RegisterScreen() {
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
+    if (user.role !== resolvedRole) return;
 
-    if (isVendor) {
+    if (isVendor && user.role === "vendor") {
       router.replace("/(vendor-onboarding)/otp" as any);
       return;
     }
@@ -54,18 +55,33 @@ export default function RegisterScreen() {
   }, [isAuthenticated, user, isVendor, router, redirect]);
 
   useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    if (user.role !== resolvedRole) {
+      beginFreshAuthFlow().catch(() => {});
+    }
+  }, [beginFreshAuthFlow, isAuthenticated, resolvedRole, user]);
+
+  useEffect(() => {
     if (error) {
       Alert.alert("Registration failed", error);
     }
   }, [error]);
+
+  useEffect(() => {
+    clearError();
+  }, [clearError, resolvedRole, redirect]);
 
   const handleContinue = async () => {
     if (!name.trim()) {
       Alert.alert("Missing details", "Full name is required.");
       return;
     }
-    if (!contact.trim()) {
-      Alert.alert("Missing details", "Phone number or email is required.");
+    if (!email.trim()) {
+      Alert.alert("Missing details", "Email address is required.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      Alert.alert("Invalid email", "Enter a valid email address.");
       return;
     }
     if (!password.trim()) {
@@ -74,9 +90,12 @@ export default function RegisterScreen() {
     }
 
     clearError();
+    if (isAuthenticated || user) {
+      await beginFreshAuthFlow().catch(() => {});
+    }
     await register({
       name: name.trim(),
-      email: contact.trim().toLowerCase(),
+      email: email.trim().toLowerCase(),
       password,
       role: resolvedRole,
     });
@@ -91,7 +110,12 @@ export default function RegisterScreen() {
       >
         <OnboardingHeader
           activeSegments={0}
-          title={isVendor ? "Create Your\nVendor Account" : "Create your\nbuyer account"}
+          title={isVendor ? "Create your vendor account" : "Create your buyer account"}
+          subtitle={
+            isVendor
+              ? "Use your email to set up your store and seller profile."
+              : "Use your email to start shopping with Eki."
+          }
         />
 
         <FormCard>
@@ -106,7 +130,10 @@ export default function RegisterScreen() {
               <FieldLabel>Full name:</FieldLabel>
               <TextInput
                 autoCapitalize="words"
-                onChangeText={setName}
+                onChangeText={(value) => {
+                  setName(value);
+                  if (error) clearError();
+                }}
                 placeholder="e.g johnson"
                 placeholderTextColor="#858585"
                 style={styles.input}
@@ -115,22 +142,30 @@ export default function RegisterScreen() {
             </View>
 
             <View style={styles.fieldGroup}>
-              <FieldLabel>Phone number or email</FieldLabel>
+              <FieldLabel>Email address</FieldLabel>
               <TextInput
                 autoCapitalize="none"
+                autoComplete="email"
                 keyboardType="email-address"
-                onChangeText={setContact}
-                placeholder="e.g (212) 555-7890"
+                onChangeText={(value) => {
+                  setEmail(value);
+                  if (error) clearError();
+                }}
+                placeholder="e.g name@email.com"
                 placeholderTextColor="#858585"
                 style={styles.input}
-                value={contact}
+                textContentType="emailAddress"
+                value={email}
               />
             </View>
 
             <View style={styles.fieldGroup}>
               <FieldLabel>Password:</FieldLabel>
               <TextInput
-                onChangeText={setPassword}
+                onChangeText={(value) => {
+                  setPassword(value);
+                  if (error) clearError();
+                }}
                 placeholder="Enter your password"
                 placeholderTextColor="#858585"
                 secureTextEntry
@@ -144,9 +179,15 @@ export default function RegisterScreen() {
             {!isVendor ? (
               <View style={styles.rewardCard}>
                 <Text style={styles.rewardTitle}>Buyer rewards on signup</Text>
-                <Text style={styles.rewardItem}>• Your personal referral code is created on your Eki account after signup.</Text>
-                <Text style={styles.rewardItem}>• Referral credit is added after the invited buyer completes their first paid order.</Text>
-                <Text style={styles.rewardItem}>• Earned wallet credits and referral totals stay synced with your live account.</Text>
+                <Text style={styles.rewardItem}>
+                  - Your personal referral code is created on your Eki account after signup.
+                </Text>
+                <Text style={styles.rewardItem}>
+                  - Referral credit is added after the invited buyer completes their first paid order.
+                </Text>
+                <Text style={styles.rewardItem}>
+                  - Earned wallet credits and referral totals stay synced with your live account.
+                </Text>
               </View>
             ) : null}
 

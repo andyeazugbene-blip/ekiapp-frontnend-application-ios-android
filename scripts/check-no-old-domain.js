@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Fail the build when any production source/doc still references the old
- * domain `neon.online` / `www.neon.online` / `support@neon.online`.
+ * launch domains `waqti.pro`, `italian-market-place.vercel.app`, or the
+ * earlier `neon.online` placeholder.
  *
  * Allowed only inside:
  *   - docs/archive/**
@@ -10,7 +11,7 @@
  *   - this script and check-no-old-domain itself
  *
  * Scans:
- *   - app/, src/, services/, components/, utils/, stores/
+ *   - app/, src/, services/, components/, utils/, stores/, backend_work/src/
  *   - docs/ (excluding docs/archive)
  *   - README.md, app.json, .env.example, package.json
  */
@@ -19,12 +20,12 @@ const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
 
-const SCAN_DIRS = ["app", "src", "services", "components", "utils", "stores", "docs", "scripts"];
-const SCAN_FILES = ["README.md", "app.json", ".env.example", "package.json"];
+const SCAN_DIRS = ["app", "src", "services", "components", "utils", "stores", "docs", "scripts", "backend_work/src"];
+const SCAN_FILES = ["README.md", "app.json", "eas.json", ".env.example", "package.json"];
 
-const ALLOW_RE = /(^|[\\/])(docs[\\/]archive|DOMAIN_MIGRATION_.*\.md|CHANGELOG\.md|check-no-old-domain\.js|check-domain-links\.js)/;
+const ALLOW_RE = /(^|[\\/])(docs[\\/]archive|DOMAIN_MIGRATION_.*\.md|CHANGELOG\.md|check-no-old-domain\.js|check-domain-links\.js|check-billing-compliance\.js)/;
 
-const FORBIDDEN_RE = /\bneon\.online\b/i;
+const FORBIDDEN_RE = /\b(?:waqti\.pro|italian-market-place\.vercel\.app|neon\.online)\b/i;
 const FILE_EXT_RE = /\.(t|j)sx?$|\.json$|\.md$|\.env(?:\..*)?$|\.example$|\.txt$|\.yml$|\.yaml$/i;
 
 function walk(dir, out) {
@@ -78,7 +79,7 @@ for (const full of files) {
 }
 
 if (violations.length === 0) {
-  console.log(`✓ No references to old domain neon.online found across ${files.length} files.`);
+  console.log(`✓ No references to old launch domains found across ${files.length} files.`);
   process.exit(0);
 }
 
@@ -87,5 +88,5 @@ for (const v of violations) {
   console.error(`  ${v.file}:${v.line}`);
   console.error(`    ${v.text}\n`);
 }
-console.error(`Found ${violations.length} occurrence(s). Replace with waqti.pro and try again.`);
+console.error(`Found ${violations.length} occurrence(s). Replace with culinarytales.app / ekiapp-backend.vercel.app and try again.`);
 process.exit(1);

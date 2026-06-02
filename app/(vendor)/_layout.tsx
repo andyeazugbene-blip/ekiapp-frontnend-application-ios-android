@@ -96,9 +96,21 @@ export default function VendorLayout() {
       <Tabs.Screen
         name="buyers"
         options={{
+          href: null,
           title: "Buyers",
+          tabBarStyle: { display: "none" },
+          tabBarButton: () => null,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color} name="people" outline="people-outline" />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="messages"
+        options={{
+          title: "Inbox",
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} name="chatbubbles" outline="chatbubbles-outline" />
           ),
         }}
       />
@@ -118,6 +130,7 @@ export default function VendorLayout() {
       <Tabs.Screen name="buyers-profile" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="analytics" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="grow-sales" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="coupon-history" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="create-discount" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="create-bundle" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="create-flash-sale" options={{ href: null, tabBarStyle: { display: "none" } }} />
@@ -141,7 +154,6 @@ export default function VendorLayout() {
       <Tabs.Screen name="delivery-zone" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="delivery-tracking" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="order-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
-      <Tabs.Screen name="messages" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="message-chat" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="publish-check" options={{ href: null, tabBarStyle: { display: "none" } }} />

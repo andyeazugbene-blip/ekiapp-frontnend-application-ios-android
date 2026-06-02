@@ -3,6 +3,9 @@ import { useMessageStore } from "../stores/messageStore";
 interface OpenConversationParams {
   participantId: string;
   orderId?: string;
+  participantName?: string;
+  participantAvatar?: string;
+  participantRole?: "buyer" | "vendor" | "admin";
 }
 
 export async function openConversationThread(params: OpenConversationParams) {
@@ -24,6 +27,19 @@ export async function openConversationThread(params: OpenConversationParams) {
     conversation = await freshState.createConversation(params.participantId, params.orderId);
   }
 
-  await useMessageStore.getState().selectConversation(conversation);
-  return conversation;
+  const enrichedConversation = {
+    ...conversation,
+    participantName: params.participantName ?? conversation.participantName,
+    participantAvatar: params.participantAvatar ?? conversation.participantAvatar,
+    participantRole: params.participantRole ?? conversation.participantRole,
+  };
+
+  useMessageStore.setState((state) => ({
+    conversations: state.conversations.map((item) =>
+      item.id === enrichedConversation.id ? enrichedConversation : item,
+    ),
+  }));
+
+  await useMessageStore.getState().selectConversation(enrichedConversation);
+  return enrichedConversation;
 }

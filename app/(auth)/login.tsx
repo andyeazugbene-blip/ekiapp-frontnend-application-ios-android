@@ -16,7 +16,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function LoginScreen() {
   const router = useRouter();
   const { role, redirect } = useLocalSearchParams<{ role?: string; redirect?: string }>();
-  const { login, isLoading, error, isAuthenticated, user, clearError } = useAuthStore();
+  const { login, isLoading, error, isAuthenticated, user, clearError, beginFreshAuthFlow } = useAuthStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,12 +29,26 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
+      if (user.role !== resolvedRole) return;
       if (user.role === "vendor") router.replace("/(vendor)");
       else if (user.role === "admin") router.replace("/(admin)");
       else if (redirect) router.replace(redirect as any);
       else router.replace("/(buyer)");
     }
   }, [isAuthenticated, router, user, redirect]);
+
+  useEffect(() => {
+    clearError();
+    setEmailError("");
+    setPasswordError("");
+  }, [clearError, resolvedRole, redirect]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    if (user.role !== resolvedRole) {
+      beginFreshAuthFlow().catch(() => {});
+    }
+  }, [beginFreshAuthFlow, isAuthenticated, resolvedRole, user]);
 
   const validate = () => {
     let valid = true;
@@ -63,6 +77,9 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!validate()) return;
     clearError();
+    if (isAuthenticated || user) {
+      await beginFreshAuthFlow().catch(() => {});
+    }
     await login({
       email: email.trim().toLowerCase(),
       password,
@@ -124,6 +141,7 @@ export default function LoginScreen() {
               onChangeText={(t) => {
                 setEmail(t);
                 setEmailError("");
+                if (error) clearError();
               }}
               error={emailError}
             />
@@ -138,6 +156,7 @@ export default function LoginScreen() {
               onChangeText={(t) => {
                 setPassword(t);
                 setPasswordError("");
+                if (error) clearError();
               }}
               error={passwordError}
             />

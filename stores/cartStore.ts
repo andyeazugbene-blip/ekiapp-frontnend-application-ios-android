@@ -26,7 +26,8 @@ interface CartStore {
   clearCart: () => Promise<void>;
   syncWithServer: () => Promise<void>;
   calculateDelivery: (country: string) => Promise<void>;
-  createCheckout: (address: string, walletAmount?: number) => Promise<CheckoutIntent>;
+  setDeliveryCountry: (country: string) => void;
+  createCheckout: (address: string, walletAmount?: number, deliveryCountryOverride?: string) => Promise<CheckoutIntent>;
 
   subtotal: () => number;
   totalItems: () => number;
@@ -35,6 +36,60 @@ interface CartStore {
   groupedByVendor: () => VendorGroup[];
   vendorCount: () => number;
   reset: () => void;
+}
+
+function normalizeCountryToken(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function inferCountryFromCurrency(currency?: string): string {
+  switch ((currency ?? "").toUpperCase()) {
+    case "EUR":
+      return "Europe";
+    case "USD":
+      return "United States";
+    case "CAD":
+      return "Canada";
+    case "NGN":
+      return "Nigeria";
+    case "GBP":
+    default:
+      return "United Kingdom";
+  }
+}
+
+function resolveDeliveryCountry(currentCountry: string | undefined, currency?: string, override?: string): string {
+  const explicit = override?.trim();
+  if (explicit) return explicit;
+
+  const fallbackCountry = inferCountryFromCurrency(currency);
+  const current = currentCountry?.trim();
+  if (!current) return fallbackCountry;
+
+  if (current.toLowerCase() === "uk" && (currency ?? "").toUpperCase() !== "GBP") {
+    return fallbackCountry;
+  }
+
+  return current;
+}
+
+function countryMatches(zone: { countryCode?: string; country?: string }, country: string): boolean {
+  const normalized = normalizeCountryToken(country);
+  const shortCode =
+    normalized === "uk" || normalized.includes("united kingdom")
+      ? "uk"
+      : normalized === "us" || normalized === "usa" || normalized.includes("united states")
+        ? "us"
+        : normalized.includes("canada")
+          ? "ca"
+          : normalized.includes("europe") || normalized === "eu"
+            ? "eu"
+            : normalized;
+
+  const zoneCode = normalizeCountryToken(zone.countryCode ?? "");
+  const zoneCountry = normalizeCountryToken(zone.country ?? "");
+
+  return zoneCode === normalized || zoneCode === shortCode || zoneCountry.includes(normalized) || zoneCountry.includes(shortCode);
 }
 
 function productFromServerItem(item: ServerCartItem): Product {
@@ -74,6 +129,13 @@ export const useCartStore = create<CartStore>((set, get) => ({
   deliveryCountry: "UK",
 
   addItem: async (product, quantity = 1) => {
+    const existingCurrency = get().items[0]?.product.currency ?? get().serverItems[0]?.currency;
+    if (existingCurrency && existingCurrency !== product.currency) {
+      const message = "Your cart can only contain products with the same currency. Clear the cart or checkout first.";
+      set({ error: message });
+      throw new Error(message);
+    }
+
     set({ isLoading: true, error: null });
     try {
       const cart = await cartService.addItem(product.id, quantity);
@@ -159,9 +221,11 @@ export const useCartStore = create<CartStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const cart = await cartService.getCart();
+      const resolvedCountry = resolveDeliveryCountry(get().deliveryCountry, cart.items[0]?.currency);
       set({
         items: cartItemsFromServer(cart.items),
         serverItems: cart.items,
+        deliveryCountry: resolvedCountry,
         isLoading: false,
       });
     } catch (err) {
@@ -180,9 +244,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
       }
 
       const zones = await deliveryService.listAllZones();
-      const match = zones.find(
-        (z) => z.countryCode === country || z.country?.toLowerCase().includes(country.toLowerCase())
-      );
+      const match = zones.find((z) => countryMatches(z, country));
       if (!match) throw new Error("Delivery is not available for this country yet.");
 
       const firstItem = cart.items[0];
@@ -201,21 +263,32 @@ export const useCartStore = create<CartStore>((set, get) => ({
     }
   },
 
-  createCheckout: async (address, walletAmount) => {
+  setDeliveryCountry: (country) => {
+    const nextCountry = country.trim();
+    if (!nextCountry) return;
+    set({ deliveryCountry: nextCountry, error: null });
+  },
+
+  createCheckout: async (address, walletAmount, deliveryCountryOverride) => {
     set({ isLoading: true, error: null });
     try {
+      const uniqueCurrencies = new Set(get().items.map((item) => item.product.currency).filter(Boolean));
+      if (uniqueCurrencies.size > 1) {
+        throw new Error("Your cart contains multiple currencies. Clear the cart and place one currency at a time.");
+      }
+
       const cart = await cartService.getCart();
       if (!cart.id) throw new Error("Your cart is not available on the server.");
 
       let destinationZoneId: string | undefined;
       const zones = await deliveryService.listAllZones();
-      const country = get().deliveryCountry;
-      const match = zones.find(
-        (z) => z.countryCode === country || z.country?.toLowerCase().includes(country.toLowerCase())
-      );
+      const cartCurrency = get().items[0]?.product.currency ?? get().serverItems[0]?.currency;
+      const country = resolveDeliveryCountry(get().deliveryCountry, cartCurrency, deliveryCountryOverride);
+      const match = zones.find((z) => countryMatches(z, country));
       destinationZoneId = match?.id;
       if (!destinationZoneId) throw new Error("Delivery is not available for this country yet.");
 
+      set({ deliveryCountry: country });
       const intent = await cartService.createPaymentIntent({
         cartId: cart.id,
         destinationZoneId,

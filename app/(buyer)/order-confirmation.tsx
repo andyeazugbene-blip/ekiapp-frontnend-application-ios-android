@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { deriveEscrowStatus, getEscrowStatusLabel } from "../../services/escrowStatus";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const CURRENCY_SYMBOL = "£";
 
@@ -67,11 +68,11 @@ export default function OrderConfirmationScreen() {
           </View>
         ) : null}
 
-        <TouchableOpacity onPress={() => router.replace("/(buyer)/orders" as any)} activeOpacity={0.85} style={styles.trackBtn}>
+        <TouchableOpacity onPress={() => router.push("/(buyer)/orders" as any)} activeOpacity={0.85} style={styles.trackBtn}>
           <Text style={styles.trackBtnText}>Track Order</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.replace("/(buyer)" as any)} activeOpacity={0.85} style={styles.closeBtn}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/orders" as any)} activeOpacity={0.85} style={styles.closeBtn}>
           <Ionicons name="close" size={18} color="#858585" />
         </TouchableOpacity>
 
@@ -100,7 +101,7 @@ export default function OrderConfirmationScreen() {
           </View>
         </View>
 
-        <TouchableOpacity onPress={() => router.replace("/(buyer)" as any)} activeOpacity={0.85} style={styles.browseBtn}>
+        <TouchableOpacity onPress={() => router.push("/(buyer)/explore" as any)} activeOpacity={0.85} style={styles.browseBtn}>
           <Text style={styles.browseBtnText}>Browse Foodstuff</Text>
         </TouchableOpacity>
       </View>

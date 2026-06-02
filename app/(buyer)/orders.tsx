@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { deriveEscrowStatus, getEscrowStatusColor, getEscrowStatusLabel } from "../../services/escrowStatus";
 import { orderService } from "../../services/orderService";
 import { Order } from "../../types/order";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const STATUS_COLOR: Record<string, string> = {
   pending: "#858585",
@@ -67,8 +68,13 @@ export default function OrdersScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Orders</Text>
-        <Text style={styles.headerSubtitle}>Track your purchases</Text>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.86} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>My Orders</Text>
+          <Text style={styles.headerSubtitle}>Track your purchases</Text>
+        </View>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -136,7 +142,8 @@ export default function OrdersScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
-  header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 30, borderBottomLeftRadius: 35, borderBottomRightRadius: 35, gap: 6 },
+  header: { backgroundColor: "#076B51", flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 30, borderBottomLeftRadius: 35, borderBottomRightRadius: 35, gap: 12 },
+  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 30, fontFamily: "Manrope-Bold", lineHeight: 30, color: "#FFFFFF" },
   headerSubtitle: { fontSize: 16, fontFamily: "Outfit-Light", color: "#FFFFFF" },
   scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 },

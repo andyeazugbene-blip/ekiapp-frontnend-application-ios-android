@@ -13,8 +13,8 @@ interface MenuItem {
   target?: string;
 }
 
-const SUPPORT_EMAIL = "support@waqti.pro";
-const HELP_URL = "https://waqti.pro/help";
+const SUPPORT_EMAIL = "adminandy@eki.app";
+const HELP_URL = "https://culinarytales.app/support";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -44,6 +44,7 @@ export default function ProfileScreen() {
     { icon: "warning-outline", label: "Report an issue", action: "navigate", target: "/(buyer)/report-issue" },
     { icon: "mail-outline", label: "Email support", action: "external", target: `mailto:${SUPPORT_EMAIL}` },
     { icon: "help-circle-outline", label: "Help & Support", action: "external", target: HELP_URL },
+    { icon: "trash-outline", label: "Delete Account", action: "navigate", target: "/account-deletion" },
   ];
 
   const handleItemPress = async (item: MenuItem) => {

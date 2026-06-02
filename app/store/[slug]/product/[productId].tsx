@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -25,21 +25,33 @@ function formatMoney(value: number, currency = "GBP"): string {
 function productUnitLabel(product: Product): string {
   if (product.unit) return product.unit;
   if (product.weight) return `${Math.round(product.weight * 1000)}g`;
-  return "Pack";
+  return "pack";
+}
+
+function buildProductCode(name: string): string {
+  const initials = name
+    .split(/\s+/)
+    .map((part) => part.trim().charAt(0))
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("");
+  return initials.toUpperCase() || "EK";
 }
 
 export default function PublicStoreProductScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === "web" && width >= 980;
   const { slug, productId } = useLocalSearchParams<{ slug?: string; productId?: string }>();
 
   const cartsBySlug = usePublicStoreCartStore((state) => state.cartsBySlug);
   const addCartItem = usePublicStoreCartStore((state) => state.addItem);
+  const decrementCartItem = usePublicStoreCartStore((state) => state.decrementItem);
 
   const [vendor, setVendor] = useState<VendorSummary | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [actionError, setActionError] = useState("");
 
   const cart = slug ? cartsBySlug[slug] ?? {} : {};
   const quantityInCart = product ? cart[product.id] ?? 0 : 0;
@@ -87,26 +99,28 @@ export default function PublicStoreProductScreen() {
     };
   }, [productId, slug]);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (amount = 1) => {
     if (!slug || !product) return;
-
-    addCartItem(slug, product.id, 1);
-    setActionError("");
+    addCartItem(slug, product.id, amount);
   };
 
-  const handleNavigateToStore = (panel: "cart" | "checkout" | "find") => {
+  const handleViewCart = () => {
     if (!slug) return;
+    router.push({ pathname: "/store/[slug]", params: { slug, panel: totalItems > 0 ? "cart" : "find" } } as any);
+  };
 
-    router.push({
-      pathname: "/store/[slug]",
-      params: { slug, panel },
-    } as any);
+  const handleBuyNow = () => {
+    if (!slug || !product) return;
+    if (quantityInCart <= 0) {
+      addCartItem(slug, product.id, 1);
+    }
+    router.push({ pathname: "/store/[slug]", params: { slug, panel: "checkout" } } as any);
   };
 
   if (loading) {
     return (
       <View style={styles.stateScreen}>
-        <ActivityIndicator color="#076B51" />
+        <ActivityIndicator color="#174C3A" />
       </View>
     );
   }
@@ -129,85 +143,101 @@ export default function PublicStoreProductScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
+      <View style={styles.topRibbon}>
+        <Text style={styles.topRibbonBrand}>eki.</Text>
+        <Text style={styles.topRibbonCaption}>Secure Checkout</Text>
+        <TouchableOpacity activeOpacity={0.88} onPress={handleViewCart} style={styles.topRibbonCart}>
+          <Text style={styles.topRibbonCartText}>{totalItems > 0 ? `View Cart (${totalItems})` : "Track Order"}</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.88} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color="#1F1B16" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={() => handleNavigateToStore(totalItems > 0 ? "cart" : "find")}
-            style={styles.cartButton}
-          >
-            <Text style={styles.cartButtonText}>
-              {totalItems > 0 ? `Cart (${totalItems})` : "Track order"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <RemoteImage
-          uri={product.images?.[0]}
-          style={styles.productImage}
-          borderRadius={28}
-          fallbackIcon="storefront-outline"
-        />
-
-        <View style={styles.card}>
-          <Text style={styles.kicker}>{vendor.storeName}</Text>
-          <Text style={styles.title}>{product.name}</Text>
-          <Text style={styles.meta}>
-            {productUnitLabel(product)} · Ships from {vendor.city || vendor.country || "this vendor"}
-          </Text>
-          <Text style={styles.description}>
-            {product.description || "Freshly packed and ready for secure checkout on Culinary Tales."}
-          </Text>
-
-          <View style={styles.priceRow}>
-            <Text style={styles.price}>{formatMoney(product.price, product.currency)}</Text>
+        <View style={[styles.layout, isDesktop && styles.layoutDesktop]}>
+          <View style={styles.mediaPanel}>
+            <TouchableOpacity onPress={() => router.back()} activeOpacity={0.88} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={18} color="#1F1B16" />
+            </TouchableOpacity>
             <View style={styles.stockPill}>
-              <Text style={styles.stockPillText}>{product.stock > 0 ? "In stock" : "Sold out"}</Text>
+              <Text style={styles.stockPillText}>{product.stock > 0 ? "In Stock" : "Sold out"}</Text>
+            </View>
+            <RemoteImage
+              uri={product.images?.[0]}
+              style={styles.productImage}
+              borderRadius={0}
+              fallbackIcon="storefront-outline"
+            />
+            <View style={styles.productCodeBadge}>
+              <Text style={styles.productCodeBadgeText}>{buildProductCode(product.name)}</Text>
             </View>
           </View>
 
-          <View style={styles.infoGrid}>
-            <InfoCard icon="shield-checkmark-outline" title="Secure payment" body="Protected browser payment keeps each order and delivery record in sync." />
-            <InfoCard icon="mail-outline" title="Email tracking" body="Use your checkout email to reopen and track orders quickly." />
-            <InfoCard icon="cart-outline" title="Shared cart" body="Add this product, then finish checkout from the store cart." />
-          </View>
-
-          {actionError ? <Text style={styles.errorText}>{actionError}</Text> : null}
-
-          <View style={styles.actionStack}>
+          <View style={styles.detailPanel}>
             <TouchableOpacity
-              onPress={handleAddToCart}
+              onPress={() => slug && router.push({ pathname: "/store/[slug]", params: { slug } } as any)}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.backToProducts}>← Back to all products</Text>
+            </TouchableOpacity>
+
+            <View style={styles.vendorChip}>
+              <Ionicons name="checkmark-circle" size={12} color="#0A6C52" />
+              <Text style={styles.vendorChipText}>Sold by {vendor.storeName}</Text>
+            </View>
+
+            <Text style={styles.title}>{product.name}</Text>
+            <Text style={styles.meta}>
+              {productUnitLabel(product)} · Ships from {vendor.city || vendor.country || "this vendor"} · Delivery 2-4 days
+            </Text>
+            <Text style={styles.price}>{formatMoney(product.price, product.currency)}</Text>
+
+            <View style={styles.descriptionBox}>
+              <Text style={styles.description}>
+                {product.description || "Freshly dried and packed premium foodstuff sourced from trusted farms and vendors."}
+              </Text>
+            </View>
+
+            <View style={styles.qtySection}>
+              <Text style={styles.qtyLabel}>Quantity</Text>
+              <View style={styles.quantityControl}>
+                <TouchableOpacity
+                  onPress={() => product && quantityInCart > 0 && decrementCartItem(slug!, product.id)}
+                  activeOpacity={0.88}
+                  style={styles.quantityButton}
+                >
+                  <Ionicons name="remove" size={16} color="#174C3A" />
+                </TouchableOpacity>
+                <Text style={styles.quantityValue}>{Math.max(quantityInCart, 1)}</Text>
+                <TouchableOpacity onPress={() => handleAddToCart(1)} activeOpacity={0.88} style={styles.quantityButton}>
+                  <Ionicons name="add" size={16} color="#174C3A" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.securityRail}>
+              <Text style={styles.securityRailText}>Secure checkout</Text>
+              <Text style={styles.securityRailDivider}>·</Text>
+              <Text style={styles.securityRailText}>Order recorded on Eki</Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={handleBuyNow}
               activeOpacity={0.88}
               style={[styles.primaryAction, product.stock <= 0 && styles.disabledAction]}
               disabled={product.stock <= 0}
             >
-              <Text style={styles.primaryActionText}>
-                {quantityInCart > 0 ? `Add another · ${quantityInCart} in cart` : "Add to cart"}
-              </Text>
+              <Text style={styles.primaryActionText}>Add to Cart — {formatMoney(product.price, product.currency)}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => {
-                handleAddToCart();
-                handleNavigateToStore("checkout");
-              }}
-              activeOpacity={0.88}
-              style={[styles.secondaryAction, product.stock <= 0 && styles.disabledAction]}
-              disabled={product.stock <= 0}
-            >
-              <Text style={styles.secondaryActionText}>Buy now</Text>
-            </TouchableOpacity>
-
-            <View style={styles.inlineActions}>
-              <TouchableOpacity onPress={() => handleNavigateToStore("cart")} activeOpacity={0.88} style={styles.inlineChip}>
-                <Text style={styles.inlineChipText}>View cart</Text>
+            <View style={styles.secondaryRow}>
+              <TouchableOpacity onPress={handleViewCart} activeOpacity={0.88} style={styles.secondaryAction}>
+                <Text style={styles.secondaryActionText}>View cart</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleNavigateToStore("find")} activeOpacity={0.88} style={styles.inlineChip}>
-                <Text style={styles.inlineChipText}>Track order by email</Text>
+              <TouchableOpacity
+                onPress={() => slug && router.push({ pathname: "/store/[slug]", params: { slug, panel: "find" } } as any)}
+                activeOpacity={0.88}
+                style={styles.secondaryAction}
+              >
+                <Text style={styles.secondaryActionText}>Track order by email</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -217,160 +247,255 @@ export default function PublicStoreProductScreen() {
   );
 }
 
-function InfoCard({ icon, title, body }: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }) {
-  return (
-    <View style={styles.infoCard}>
-      <View style={styles.infoIcon}>
-        <Ionicons name={icon} size={18} color="#0A6C52" />
-      </View>
-      <Text style={styles.infoTitle}>{title}</Text>
-      <Text style={styles.infoBody}>{body}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#F4F6F5",
+    backgroundColor: "#F8FAF8",
   },
-  content: {
-    paddingHorizontal: 18,
-    paddingTop: Platform.OS === "web" ? 24 : 18,
-    paddingBottom: 96,
-    gap: 18,
-  },
-  topBar: {
+  topRibbon: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    minHeight: 42,
+    borderRadius: 6,
+    backgroundColor: "#174C3A",
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
   },
+  topRibbonBrand: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    lineHeight: 22,
+    fontFamily: "Manrope-ExtraBold",
+  },
+  topRibbonCaption: {
+    flex: 1,
+    textAlign: "center",
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 10,
+    lineHeight: 14,
+    fontFamily: "Outfit-Medium",
+  },
+  topRibbonCart: {
+    minHeight: 28,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topRibbonCartText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    lineHeight: 15,
+    fontFamily: "Manrope-Bold",
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  layout: {
+    gap: 0,
+  },
+  layoutDesktop: {
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+  mediaPanel: {
+    flex: 1,
+    minHeight: 540,
+    backgroundColor: "#E9F3EA",
+    borderTopLeftRadius: 10,
+    borderBottomLeftRadius: 10,
+    position: "relative",
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailPanel: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderTopRightRadius: 10,
+    borderBottomRightRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2EAE5",
+    padding: 24,
+  },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    position: "absolute",
+    left: 16,
+    top: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#E4E8E6",
+    zIndex: 2,
   },
-  cartButton: {
-    minHeight: 40,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: "#0A6C52",
+  stockPill: {
+    position: "absolute",
+    right: 16,
+    top: 16,
+    minHeight: 26,
+    borderRadius: 999,
+    backgroundColor: "#174C3A",
+    paddingHorizontal: 10,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 2,
   },
-  cartButtonText: {
+  stockPillText: {
     color: "#FFFFFF",
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 10,
+    lineHeight: 12,
     fontFamily: "Manrope-Bold",
   },
   productImage: {
     width: "100%",
-    minHeight: 320,
-    backgroundColor: "#EDE7DB",
+    height: "100%",
+    backgroundColor: "#E9F3EA",
   },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: "#E4E8E6",
-    padding: 22,
-    gap: 14,
-  },
-  kicker: {
-    color: "#687076",
-    fontSize: 12,
-    lineHeight: 18,
-    fontFamily: "Outfit-Medium",
-    textTransform: "uppercase",
-  },
-  title: {
-    color: "#1F1B16",
-    fontSize: 30,
-    lineHeight: 36,
-    fontFamily: "Manrope-Bold",
-  },
-  meta: {
-    color: "#687076",
-    fontSize: 14,
-    lineHeight: 20,
-    fontFamily: "Outfit-Regular",
-  },
-  description: {
-    color: "#2B2B2B",
-    fontSize: 15,
-    lineHeight: 24,
-    fontFamily: "Outfit-Regular",
-  },
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-  price: {
-    color: "#0A6C52",
-    fontSize: 28,
-    lineHeight: 34,
-    fontFamily: "Manrope-Bold",
-  },
-  stockPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: "#E9F3EF",
-  },
-  stockPillText: {
-    color: "#0A6C52",
-    fontSize: 12,
-    lineHeight: 18,
-    fontFamily: "Outfit-Medium",
-  },
-  infoGrid: {
-    gap: 12,
-  },
-  infoCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#E4E8E6",
-    backgroundColor: "#F8FAF9",
-    padding: 16,
-    gap: 8,
-  },
-  infoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#E8F3EE",
+  productCodeBadge: {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    transform: [{ translateX: -44 }, { translateY: -18 }],
+    minWidth: 88,
+    minHeight: 36,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    backgroundColor: "#CFE7D8",
     alignItems: "center",
     justifyContent: "center",
   },
-  infoTitle: {
-    color: "#1F1B16",
-    fontSize: 15,
-    lineHeight: 21,
+  productCodeBadgeText: {
+    color: "#2B6A56",
+    fontSize: 12,
+    lineHeight: 16,
     fontFamily: "Manrope-Bold",
   },
-  infoBody: {
+  backToProducts: {
+    color: "#6C816F",
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: "Outfit-Medium",
+  },
+  vendorChip: {
+    alignSelf: "flex-start",
+    marginTop: 12,
+    borderRadius: 999,
+    backgroundColor: "#EAF7F1",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  vendorChipText: {
+    color: "#0A6C52",
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: "Manrope-Bold",
+  },
+  title: {
+    color: "#1F1B16",
+    fontSize: 34,
+    lineHeight: 40,
+    fontFamily: "Manrope-Bold",
+    marginTop: 14,
+  },
+  meta: {
     color: "#687076",
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: "Outfit-Regular",
+    marginTop: 6,
+  },
+  price: {
+    color: "#174C3A",
+    fontSize: 34,
+    lineHeight: 40,
+    fontFamily: "Manrope-Bold",
+    marginTop: 14,
+  },
+  descriptionBox: {
+    marginTop: 16,
+    borderRadius: 6,
+    backgroundColor: "#F7F9F8",
+    padding: 14,
+  },
+  description: {
+    color: "#52625A",
     fontSize: 13,
     lineHeight: 20,
     fontFamily: "Outfit-Regular",
   },
-  actionStack: {
-    gap: 12,
+  qtySection: {
+    marginTop: 16,
+  },
+  qtyLabel: {
+    color: "#687076",
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: "Outfit-Medium",
+    marginBottom: 8,
+  },
+  quantityControl: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  quantityButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#D4DDD8",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  quantityValue: {
+    minWidth: 18,
+    color: "#2B2B2B",
+    fontSize: 16,
+    lineHeight: 20,
+    fontFamily: "Manrope-Bold",
+    textAlign: "center",
+  },
+  securityRail: {
+    marginTop: 18,
+    minHeight: 38,
+    borderRadius: 6,
+    backgroundColor: "#F3FBF6",
+    borderWidth: 1,
+    borderColor: "#CFE3D8",
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  securityRailText: {
+    color: "#0A6C52",
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: "Manrope-SemiBold",
+  },
+  securityRailDivider: {
+    color: "#8FB7A6",
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: "Manrope-Bold",
   },
   primaryAction: {
-    minHeight: 56,
-    borderRadius: 18,
-    backgroundColor: "#0A6C52",
+    marginTop: 14,
+    minHeight: 52,
+    borderRadius: 8,
+    backgroundColor: "#174C3A",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 18,
@@ -378,61 +503,40 @@ const styles = StyleSheet.create({
   primaryActionText: {
     color: "#FFFFFF",
     fontSize: 15,
-    lineHeight: 21,
+    lineHeight: 20,
     fontFamily: "Manrope-Bold",
   },
-  secondaryAction: {
-    minHeight: 54,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#D5DDD9",
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 18,
-  },
-  secondaryActionText: {
-    color: "#1F1B16",
-    fontSize: 15,
-    lineHeight: 21,
-    fontFamily: "Manrope-Bold",
-  },
-  inlineActions: {
+  secondaryRow: {
+    marginTop: 12,
     flexDirection: "row",
     gap: 10,
     flexWrap: "wrap",
   },
-  inlineChip: {
+  secondaryAction: {
     minHeight: 42,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    backgroundColor: "#F4F6F5",
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#E4E8E6",
+    borderColor: "#D7E1DD",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
     alignItems: "center",
     justifyContent: "center",
   },
-  inlineChipText: {
-    color: "#1F1B16",
+  secondaryActionText: {
+    color: "#174C3A",
     fontSize: 13,
     lineHeight: 18,
-    fontFamily: "Outfit-Medium",
+    fontFamily: "Manrope-SemiBold",
   },
   disabledAction: {
     opacity: 0.45,
-  },
-  errorText: {
-    color: "#B42318",
-    fontSize: 13,
-    lineHeight: 18,
-    fontFamily: "Outfit-Regular",
   },
   stateScreen: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
-    backgroundColor: "#F4F6F5",
+    backgroundColor: "#F8FAF8",
     gap: 12,
   },
   stateTitle: {

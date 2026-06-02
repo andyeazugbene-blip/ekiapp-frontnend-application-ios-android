@@ -1,3 +1,4 @@
 {
-    "chat.mcp.assisted.nuget.enabled": true
+    "chat.mcp.assisted.nuget.enabled": true,
+    "typescript.autoClosingTags": false
 }

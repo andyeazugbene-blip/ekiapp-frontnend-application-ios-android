@@ -486,8 +486,8 @@ export default function VendorDashboardScreen() {
 
             <TouchableOpacity
               activeOpacity={0.86}
-              onPress={() => navigate("/(vendor)/grow-sales")}
-              style={styles.sendOfferBtn}
+              onPress={() => undefined}
+              style={styles.hiddenMarketingButton}
             >
               <Text style={styles.sendOfferText}>Open marketing tools</Text>
               <Ionicons name={"arrow-up-forward" as any} size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
@@ -1133,6 +1133,7 @@ const styles = StyleSheet.create({
   growCardTitle: { color: "#282828", fontSize: 13, fontFamily: "Manrope-Bold" },
 
   // ── Send offer ───────────────────────────────────────────────────────
+  hiddenMarketingButton: { display: "none" },
   sendOfferBtn: { height: 50, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6, marginBottom: 18 },
   sendOfferText: { color: "#FFFFFF", fontSize: 14, fontFamily: "Manrope-SemiBold" },
 

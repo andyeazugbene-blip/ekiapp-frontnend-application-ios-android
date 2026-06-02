@@ -62,7 +62,7 @@ export default function CreateBundleScreen() {
         bundlePrice: parsedPrice,
         currency,
       });
-      router.replace({
+      router.push({
         pathname: "/(vendor)/promo-link",
         params: {
           promo: name.trim(),

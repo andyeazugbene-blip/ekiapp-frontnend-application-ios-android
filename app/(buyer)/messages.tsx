@@ -1,14 +1,22 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useMessageStore, type Conversation } from "../../stores/messageStore";
+import { RemoteImage } from "../../components/ui/RemoteImage";
+import { goBackOrReplace } from "../../utils/navigation";
 
 export default function BuyerMessagesScreen() {
   const router = useRouter();
   const { conversations: rawConversations, isLoading, loadConversations, setSelectedConversation } = useMessageStore();
   const conversations = rawConversations ?? [];
+  const [activeTab, setActiveTab] = useState<"vendor" | "order">("vendor");
+
+  const filteredConversations = useMemo(
+    () => conversations.filter((conversation) => (activeTab === "order" ? Boolean(conversation.orderId) : !conversation.orderId)),
+    [activeTab, conversations],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -24,38 +32,64 @@ export default function BuyerMessagesScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Messages</Text>
       </View>
 
+      <View style={styles.segmentWrap}>
+        <TouchableOpacity
+          onPress={() => setActiveTab("vendor")}
+          activeOpacity={0.86}
+          style={activeTab === "vendor" ? styles.segmentActive : styles.segmentInactive}
+        >
+          <Text style={activeTab === "vendor" ? styles.segmentActiveText : styles.segmentInactiveText}>Vendor messages</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setActiveTab("order")}
+          activeOpacity={0.86}
+          style={activeTab === "order" ? styles.segmentActive : styles.segmentInactive}
+        >
+          <Text style={activeTab === "order" ? styles.segmentActiveText : styles.segmentInactiveText}>Order messages</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {isLoading && conversations.length === 0 ? (
+        {isLoading && filteredConversations.length === 0 ? (
           <View style={styles.placeholder}>
             <ActivityIndicator color="#076B51" />
           </View>
-        ) : conversations.length === 0 ? (
-          <Text style={styles.emptyText}>No conversations yet. Reach out to a vendor from any of your orders.</Text>
+        ) : filteredConversations.length === 0 ? (
+          <Text style={styles.emptyText}>
+            {activeTab === "order"
+              ? "No order messages yet. Order conversations will appear here once a vendor starts chatting on an order."
+              : "No vendor messages yet. Reach out to a vendor from any store or product page."}
+          </Text>
         ) : (
-          conversations.map((convo) => (
+          filteredConversations.map((convo) => (
             <TouchableOpacity
               key={convo.id}
               onPress={() => openConversation(convo)}
               activeOpacity={0.85}
               style={styles.convoItem}
             >
-              <View style={styles.avatar}>
-                <View style={styles.avatarInner} />
-              </View>
+              <RemoteImage
+                uri={convo.participantAvatar}
+                style={styles.avatar}
+                borderRadius={28}
+                fallbackIcon={convo.participantRole === "vendor" ? "storefront-outline" : "person-outline"}
+                fallbackBg="#F3F5F4"
+              />
               <View style={styles.convoContent}>
                 <Text style={styles.convoName} numberOfLines={1}>{convo.participantName}</Text>
                 <Text style={styles.convoMessage} numberOfLines={1}>
                   {convo.lastMessage || "No messages yet"}
                 </Text>
+                {convo.orderNumber ? <Text style={styles.orderMeta}>Order {convo.orderNumber}</Text> : null}
               </View>
               <View style={styles.convoRight}>
-                <Text style={styles.convoTime}>{convo.lastMessageAt}</Text>
+                <Text style={styles.convoTime}>{formatConversationTime(convo.lastMessageAt)}</Text>
                 {convo.unreadCount > 0 && (
                   <View style={styles.unreadBadge}>
                     <Text style={styles.unreadText}>{convo.unreadCount}</Text>
@@ -70,20 +104,36 @@ export default function BuyerMessagesScreen() {
   );
 }
 
+function formatConversationTime(value: string) {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return value;
+  return new Date(parsed).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, gap: 12 },
   backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828" },
+  segmentWrap: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingBottom: 14 },
+  segmentActive: { flex: 1, height: 52, borderRadius: 26, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  segmentInactive: { flex: 1, height: 52, borderRadius: 26, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
+  segmentActiveText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+  segmentInactiveText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#282828" },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
   placeholder: { paddingVertical: 40, alignItems: "center" },
   emptyText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", paddingVertical: 40 },
-  convoItem: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 12, borderRadius: 14, marginBottom: 4 },
-  avatar: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: "#E8E8E8", alignItems: "center", justifyContent: "center", marginRight: 12 },
-  avatarInner: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#E0E0E0" },
+  convoItem: { flexDirection: "row", alignItems: "center", paddingVertical: 16, paddingHorizontal: 16, borderRadius: 24, marginBottom: 12, backgroundColor: "#FFFFFF" },
+  avatar: { width: 56, height: 56, borderRadius: 28, marginRight: 14 },
   convoContent: { flex: 1 },
   convoName: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
   convoMessage: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 3 },
+  orderMeta: { fontSize: 11, fontFamily: "Outfit-Medium", color: "#076B51", marginTop: 4 },
   convoRight: { alignItems: "flex-end", gap: 4 },
   convoTime: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585" },
   unreadBadge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },

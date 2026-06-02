@@ -11,6 +11,8 @@ import { useAuthStore } from "../../stores/authStore";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { type Product, type Review } from "../../types/product";
 import { openConversationThread } from "../../utils/messaging";
+import { vendorService } from "../../services/vendorService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const CURRENCY_SYMBOL: Record<string, string> = {
   GBP: "\u00A3",
@@ -94,7 +96,20 @@ export default function ProductDetailScreen() {
 
   const handleMessageVendor = () => {
     if (!product) return;
-    openConversationThread({ participantId: product.vendorId })
+    const start = async () => {
+      const vendor = await vendorService.getVendorById(product.vendorId);
+      const participantId = vendor.userId ?? product.vendorUserId ?? undefined;
+      if (!participantId) {
+        throw new Error("This vendor profile is still syncing. Please try again in a moment.");
+      }
+      return openConversationThread({
+        participantId,
+        participantName: vendor.storeName || product.vendorName,
+        participantAvatar: vendor.avatar ?? vendor.coverImage,
+        participantRole: "vendor",
+      });
+    };
+    start()
       .then(() => router.push("/(buyer)/message-chat" as any))
       .catch((err) => {
         Alert.alert("Message unavailable", err instanceof Error ? err.message : "Could not open the conversation.");
@@ -119,7 +134,7 @@ export default function ProductDetailScreen() {
       <SafeAreaView style={styles.stateScreen} edges={["top"]}>
         <Ionicons name="alert-circle-outline" size={42} color="#9AA3A0" />
         <Text style={styles.stateTitle}>Product not found</Text>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.86} style={styles.stateButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.86} style={styles.stateButton}>
           <Text style={styles.stateButtonText}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -135,7 +150,7 @@ export default function ProductDetailScreen() {
         <View style={styles.heroOverlay} />
 
         <SafeAreaView edges={["top"]} style={styles.heroSafe}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.86} style={styles.heroButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.86} style={styles.heroButton}>
             <Ionicons name="arrow-back" size={22} color="#0A6C52" />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleOpenVendorStore} activeOpacity={0.86} style={styles.heroButton}>

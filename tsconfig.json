@@ -44,6 +44,7 @@
     ".expo/types/**/*.ts"
   ],
   "exclude": [
+    "admin-web",
     "backend_work"
   ]
 }

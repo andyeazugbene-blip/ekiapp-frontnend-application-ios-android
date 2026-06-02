@@ -38,11 +38,11 @@ export default function PayoutRequestedScreen() {
       ) : null}
 
       <TouchableOpacity
-        onPress={() => router.replace("/(vendor)/" as any)}
+        onPress={() => router.push("/(vendor)/earnings" as any)}
         activeOpacity={0.85}
         style={styles.primaryButton}
       >
-        <Text style={styles.primaryButtonText}>Back to Dashboard</Text>
+        <Text style={styles.primaryButtonText}>View Earnings</Text>
       </TouchableOpacity>
     </View>
   );

@@ -4,6 +4,7 @@ export type VendorAdminStatus = "pending" | "active" | "suspended";
 
 export interface VendorSummary {
   id: string;
+  userId?: string;
   storeName: string;
   storeSlug?: string;
   shareUrl?: string;

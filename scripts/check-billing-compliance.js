@@ -20,11 +20,11 @@ const FORBIDDEN_PATTERNS = [
   { label: "subscribe on web", re: /\bsubscribe\s+on\s+(the\s+)?web\b/i },
   { label: "external checkout", re: /\bexternal\s+checkout\b/i },
   { label: "Stripe checkout", re: /\bstripe\s+checkout\b/i },
-  { label: "upgrade at waqti.pro", re: /\bupgrade\s+at\s+waqti\.pro\b/i },
+  { label: "upgrade at old domain", re: /\bupgrade\s+at\s+waqti\.pro\b/i },
   { label: "subscription checkout endpoint", re: /\/api\/subscriptions\/checkout/i },
   { label: "checkout URL field", re: /\bcheckoutUrl\b/i },
   { label: "subscription checkout opener", re: /\bopenCheckout\b/i },
-  { label: "subscription checkout route", re: /waqti\.pro\/(?:subscribe|subscription|subscriptions|checkout|pricing|plans|upgrade)\b/i },
+  { label: "subscription checkout route", re: /(?:waqti\.pro|culinarytales\.app)\/(?:subscribe|subscription|subscriptions|checkout|pricing|plans|upgrade)\b/i },
   { label: "paid subscription CTA", re: /<(?:Text|Button)\b[^>]*>[^<]*(?:Upgrade now|Upgrade Plan|Choose Plan|View Plans|See Plans|Subscribe|Activate\s+[-\u2013\u2014])[^<]*<\/(?:Text|Button)>/i },
 ];
 

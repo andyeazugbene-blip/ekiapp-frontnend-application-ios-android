@@ -12,6 +12,10 @@ interface MeResponse {
   user: any;
 }
 
+interface DeleteAccountResponse {
+  message: string;
+}
+
 function normalizeUser(user: any): any {
   if (!user) return user;
   if (user.role && typeof user.role === "string") {
@@ -77,6 +81,10 @@ export const authService = {
 
   async updateProfile(data: Record<string, unknown>) {
     return apiClient.patch<{ user: any }>("/api/auth/me", data);
+  },
+
+  async deleteAccount() {
+    return apiClient.post<DeleteAccountResponse>("/api/me/delete-account");
   },
 
   async forgotPassword(email: string) {

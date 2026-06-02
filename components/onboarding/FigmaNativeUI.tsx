@@ -1,5 +1,14 @@
 import React, { ReactNode, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -38,6 +47,22 @@ export function OnboardingHeader({
   activeSegments,
   compact = false,
 }: HeaderProps) {
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 380;
+  const isVeryNarrow = width < 350;
+  const titleFontSize = compact
+    ? isVeryNarrow
+      ? 20
+      : isNarrow
+        ? 21
+        : 22
+    : isVeryNarrow
+      ? 24
+      : isNarrow
+        ? 26
+        : 28;
+  const titleLineHeight = titleFontSize + (compact ? 5 : 6);
+
   return (
     <LinearGradient
       colors={["#0A8062", "#076B51"]}
@@ -46,9 +71,26 @@ export function OnboardingHeader({
       style={[styles.header, compact && styles.headerCompact]}
     >
       <SafeAreaView edges={["top"]}>
-        <View style={[styles.headerBody, compact && styles.headerBodyCompact]}>
-          <Text style={[styles.headerTitle, compact && styles.headerTitleCompact]}>{title}</Text>
-          {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
+        <View
+          style={[
+            styles.headerBody,
+            compact && styles.headerBodyCompact,
+            isNarrow && styles.headerBodyNarrow,
+          ]}
+        >
+          <Text
+            style={[
+              styles.headerTitle,
+              compact && styles.headerTitleCompact,
+              {
+                fontSize: titleFontSize,
+                lineHeight: titleLineHeight,
+              },
+            ]}
+          >
+            {title}
+          </Text>
+          {subtitle ? <Text style={[styles.headerSubtitle, isNarrow && styles.headerSubtitleNarrow]}>{subtitle}</Text> : null}
         </View>
         <View style={styles.progressRow}>
           {Array.from({ length: PROGRESS_STEPS }, (_, index) => (
@@ -259,6 +301,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 18,
   },
+  headerBodyNarrow: {
+    paddingHorizontal: 20,
+  },
   headerBodyCompact: {
     paddingTop: 12,
   },
@@ -267,6 +312,8 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope-Bold",
     fontSize: 28,
     lineHeight: 34,
+    flexShrink: 1,
+    maxWidth: "100%",
   },
   headerTitleCompact: {
     fontSize: 22,
@@ -278,6 +325,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginTop: 6,
+    flexShrink: 1,
+  },
+  headerSubtitleNarrow: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   progressRow: {
     flexDirection: "row",
