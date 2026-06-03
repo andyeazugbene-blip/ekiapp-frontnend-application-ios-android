@@ -1,8 +1,8 @@
 # Codemagic iOS App Store workflow for Eki.
 # In Codemagic:
 # 1. Create or use an App Store Connect integration named `EKI`
-# 2. Upload the Apple Distribution certificate (`eki_app.p12`)
-# 3. Upload the provisioning profile (`Eki_App.mobileprovision`)
+# 2. Upload or fetch the Apple Distribution certificate as `Eki`
+# 3. Upload or fetch the provisioning profile as `Eki App`
 # The uploaded provisioning profile currently targets:
 # - Bundle ID: com.ekiapp.mobilee
 # Keep private keys and certificate passwords in Codemagic only. Do not commit them to git.
@@ -20,9 +20,9 @@ workflows:
       cocoapods: default
       ios_signing:
         certificates:
-          - Eki_App
+          - Eki
         provisioning_profiles:
-          - Ekiapp
+          - Eki App
       vars:
         APP_NAME: Eki
         BUNDLE_ID: com.ekiapp.mobilee
