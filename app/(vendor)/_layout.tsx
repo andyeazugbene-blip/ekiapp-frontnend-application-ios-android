@@ -99,7 +99,6 @@ export default function VendorLayout() {
           href: null,
           title: "Buyers",
           tabBarStyle: { display: "none" },
-          tabBarButton: () => null,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color} name="people" outline="people-outline" />
           ),
