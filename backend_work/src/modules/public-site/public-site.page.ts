@@ -586,9 +586,154 @@ function renderHomeLayout(page: PageDefinition): string {
   <section class="order-band">
     <div class="shell order-row">
       <span>Already have an order?</span>
-      <a class="find-link" href="/store/seed-qa-store-001-001">Find your order -></a>
+      <a class="find-link" href="/find-order">Find your order -></a>
     </div>
   </section>
+</body>
+</html>`;
+}
+
+function renderFindOrderLayout(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#164F3F" />
+  <title>Find your order | Eki</title>
+  <meta name="description" content="Find and track an Eki order with your checkout email or phone number." />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{min-height:100vh;background:#F6F8F7;color:#111827;font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+    a{color:inherit;text-decoration:none}
+    .topbar{height:44px;background:#FFFFFF;border-bottom:1px solid #E5E7EB}
+    .shell{width:min(1120px,calc(100% - 32px));margin:0 auto}
+    .topbar .shell{height:100%;display:flex;align-items:center;justify-content:space-between;gap:18px}
+    .brand{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:24px;border-radius:4px;background:#164F3F;color:#FFFFFF;font-weight:800;font-size:13px;letter-spacing:-.03em}
+    .nav{display:flex;align-items:center;gap:26px;font-size:12px;color:#374151;font-weight:600}
+    .signin{min-width:56px;height:24px;border-radius:4px;background:#164F3F;color:#FFFFFF;display:grid;place-items:center}
+    main{padding:58px 0 72px}
+    .lookup-card{width:min(100%,420px);margin:0 auto;border:1px solid #E5E7EB;border-radius:12px;background:#FFFFFF;padding:30px 32px 32px;box-shadow:0 12px 36px rgba(15,23,42,.04)}
+    .badge{width:58px;height:58px;margin:0 auto 18px;border-radius:999px;background:#DCF5E4;color:#238154;display:grid;place-items:center;font-weight:800;text-transform:lowercase}
+    h1{margin:0;text-align:center;font-size:22px;line-height:1.15;letter-spacing:-.04em}
+    .sub{margin:8px auto 22px;max-width:280px;text-align:center;color:#6B7280;font-size:12px;line-height:1.45}
+    label{display:block;font-size:11px;font-weight:700;color:#374151;margin:0 0 7px}
+    input{width:100%;height:42px;border:1px solid #DCE3E0;border-radius:5px;padding:0 12px;font:inherit;font-size:13px;outline:none;background:#FFFFFF;color:#111827}
+    input:focus{border-color:#164F3F;box-shadow:0 0 0 3px rgba(22,79,63,.1)}
+    button{width:100%;height:38px;border:0;border-radius:5px;background:#164F3F;color:#FFFFFF;font:inherit;font-size:12px;font-weight:800;cursor:pointer;margin-top:12px}
+    button:disabled{opacity:.62;cursor:not-allowed}
+    .notice{margin-top:16px;border-radius:6px;border:1px solid #F2B56B;background:#FFF7E7;color:#9A4B09;padding:12px 13px;font-size:11px;line-height:1.45}
+    .notice.ok{border-color:#BFE5CD;background:#F0FFF5;color:#155F3B}
+    .notice.error{border-color:#F2B6B6;background:#FFF1F1;color:#9F1D1D}
+    .helper{margin:22px auto 0;text-align:center;color:#87918D;font-size:11px}
+    .otp-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:8px}
+    .otp-row input{text-align:center;font-weight:800;font-size:16px;padding:0}
+    .secondary-action{border:1px solid #DCE3E0;background:#FFFFFF;color:#164F3F;margin-top:10px}
+    .results{width:min(100%,920px);margin:0 auto}
+    .result-head{background:#164F3F;color:#FFFFFF;padding:20px 0;margin:-58px calc((100vw - min(1120px,calc(100vw - 32px))) / -2) 24px}
+    .result-head .shell{display:flex;align-items:center;justify-content:center;gap:12px}
+    .ok-dot{width:34px;height:34px;border-radius:999px;background:#2E8658;display:grid;place-items:center;font-weight:800}
+    .result-title{font-size:18px;font-weight:800;letter-spacing:-.03em}
+    .result-sub{font-size:12px;color:rgba(255,255,255,.78);margin-top:2px}
+    .orders{display:grid;gap:12px}
+    .order-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;background:#FFFFFF;border:1px solid #E5E7EB;border-radius:9px;padding:16px}
+    .order-number{font-weight:800;font-size:13px;color:#111827}
+    .order-meta{margin-top:5px;color:#6B7280;font-size:12px;line-height:1.45}
+    .order-total{font-weight:800;color:#164F3F;font-size:13px;text-align:right}
+    .status{display:inline-flex;margin-top:8px;border-radius:999px;background:#DDF4E7;color:#17623F;padding:4px 9px;font-size:11px;font-weight:800;text-transform:capitalize}
+    .track-link{display:inline-flex;align-items:center;justify-content:center;height:30px;border-radius:5px;background:#164F3F;color:#FFFFFF;padding:0 12px;font-size:11px;font-weight:800;margin-top:8px}
+    .hidden{display:none!important}
+    @media(max-width:620px){.nav{gap:14px}.nav a:nth-child(2){display:none}main{padding-top:36px}.lookup-card{padding:24px 20px}.order-card{grid-template-columns:1fr}.order-total{text-align:left}.result-head{margin-top:-36px}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell">
+      <a class="brand" href="/">eki</a>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="/store">Vendors</a>
+        <a href="/help">Help</a>
+      </nav>
+      <a class="signin" href="/">Home</a>
+    </div>
+  </header>
+  <main>
+    <section id="lookupPanel" class="lookup-card">
+      <div class="badge">seal</div>
+      <h1>Find your order.</h1>
+      <p class="sub">Enter the checkout email or phone number used when the order was placed.</p>
+      <form id="lookupForm">
+        <label for="contact">Email address or phone number</label>
+        <input id="contact" autocomplete="email tel" placeholder="Email or phone" />
+        <button id="lookupButton" type="submit">Continue</button>
+      </form>
+      <div id="lookupMessage" class="notice">No password needed. If an order exists, we will send a one-time code to the checkout email.</div>
+      <p class="helper">Orders placed as a guest still work here. Use the details entered at checkout.</p>
+    </section>
+    <section id="otpPanel" class="lookup-card hidden">
+      <div class="badge">OTP</div>
+      <h1>Enter your code.</h1>
+      <p id="otpIntro" class="sub">We sent a 6-digit code to your checkout email.</p>
+      <form id="otpForm">
+        <label for="otp0">Verification code</label>
+        <div class="otp-row" id="otpInputs">
+          <input id="otp0" inputmode="numeric" maxlength="1" />
+          <input inputmode="numeric" maxlength="1" />
+          <input inputmode="numeric" maxlength="1" />
+          <input inputmode="numeric" maxlength="1" />
+          <input inputmode="numeric" maxlength="1" />
+          <input inputmode="numeric" maxlength="1" />
+        </div>
+        <button id="verifyButton" type="submit">Verify and continue</button>
+        <button class="secondary-action" id="changeContact" type="button">Use another email or phone</button>
+      </form>
+      <div id="otpMessage" class="notice ok">Check your email inbox for the latest code.</div>
+    </section>
+    <section id="resultsPanel" class="results hidden">
+      <div class="result-head">
+        <div class="shell">
+          <div class="ok-dot">OK</div>
+          <div>
+            <div class="result-title">Your order is now in Eki.</div>
+            <div id="resultSubtitle" class="result-sub">Track, reorder, or open the vendor store.</div>
+          </div>
+        </div>
+      </div>
+      <div class="orders" id="ordersList"></div>
+      <button class="secondary-action" id="findAnother" type="button">Find another order</button>
+    </section>
+  </main>
+  <script>
+    const lookupPanel = document.getElementById('lookupPanel');
+    const otpPanel = document.getElementById('otpPanel');
+    const resultsPanel = document.getElementById('resultsPanel');
+    const lookupForm = document.getElementById('lookupForm');
+    const otpForm = document.getElementById('otpForm');
+    const contactInput = document.getElementById('contact');
+    const lookupButton = document.getElementById('lookupButton');
+    const verifyButton = document.getElementById('verifyButton');
+    const lookupMessage = document.getElementById('lookupMessage');
+    const otpMessage = document.getElementById('otpMessage');
+    const otpIntro = document.getElementById('otpIntro');
+    const otpInputs = Array.from(document.querySelectorAll('#otpInputs input'));
+    const ordersList = document.getElementById('ordersList');
+    const resultSubtitle = document.getElementById('resultSubtitle');
+    let activeContact = '';
+    function show(panel){lookupPanel.classList.toggle('hidden',panel!=='lookup');otpPanel.classList.toggle('hidden',panel!=='otp');resultsPanel.classList.toggle('hidden',panel!=='results')}
+    function setMessage(node,text,kind){node.textContent=text;node.className='notice '+(kind||'')}
+    function escapeHtml(value){return String(value||'').replace(/[&<>"']/g,function(char){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[char]})}
+    function formatMoney(order){const amount=Number(order.total||0);const currency=order.currency||'GBP';try{return new Intl.NumberFormat('en-GB',{style:'currency',currency}).format(amount)}catch{return currency+' '+amount.toFixed(2)}}
+    function codeValue(){return otpInputs.map((input)=>input.value.replace(/\\D/g,'')).join('')}
+    otpInputs.forEach((input,index)=>{input.addEventListener('input',()=>{input.value=input.value.replace(/\\D/g,'').slice(0,1);if(input.value&&otpInputs[index+1])otpInputs[index+1].focus()});input.addEventListener('keydown',(event)=>{if(event.key==='Backspace'&&!input.value&&otpInputs[index-1])otpInputs[index-1].focus()})});
+    lookupForm.addEventListener('submit',async(event)=>{event.preventDefault();const contact=contactInput.value.trim();if(!contact){setMessage(lookupMessage,'Enter the email address or phone number used at checkout.','error');return}lookupButton.disabled=true;setMessage(lookupMessage,'Checking for matching orders...','ok');try{const response=await fetch('/api/public/stores/order-lookup/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contact})});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.message||'Unable to check this order right now.');if(!data.found){setMessage(lookupMessage,data.message||'No order found for this email or phone number.','error');return}activeContact=contact;otpInputs.forEach((input)=>{input.value=''});otpIntro.textContent='We sent a 6-digit code to '+(data.emailHint||'your checkout email')+'.';setMessage(otpMessage,'Check your email inbox for the latest code.','ok');show('otp');otpInputs[0].focus()}catch(error){setMessage(lookupMessage,error.message||'Unable to check this order right now.','error')}finally{lookupButton.disabled=false}});
+    otpForm.addEventListener('submit',async(event)=>{event.preventDefault();const code=codeValue();if(code.length!==6){setMessage(otpMessage,'Enter the full 6-digit code from your email.','error');return}verifyButton.disabled=true;setMessage(otpMessage,'Verifying your code...','ok');try{const response=await fetch('/api/public/stores/order-lookup/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contact:activeContact,code})});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.message||'Invalid or expired code.');const orders=Array.isArray(data.orders)?data.orders:[];renderOrders(orders);resultSubtitle.textContent=orders.length+' order'+(orders.length===1?'':'s')+' found for your checkout details.';show('results')}catch(error){setMessage(otpMessage,error.message||'Invalid or expired code.','error')}finally{verifyButton.disabled=false}});
+    function renderOrders(orders){if(!orders.length){ordersList.innerHTML='<article class="order-card"><div><div class="order-number">No active order found</div><div class="order-meta">Please contact support if you believe this is a mistake.</div></div></article>';return}ordersList.innerHTML=orders.map((order)=>{const items=Array.isArray(order.items)?order.items.map((item)=>escapeHtml(item.name)+' x'+Number(item.quantity||0)).join(', '):'';const storeUrl='/store/'+encodeURIComponent(order.vendorSlug||'');return '<article class="order-card"><div><div class="order-number">'+escapeHtml(order.orderNumber||order.id)+'</div><div class="order-meta">'+escapeHtml(order.vendorName||'Vendor')+'<br />'+escapeHtml(items||'Order items')+'</div><span class="status">'+escapeHtml(order.status||'placed').replace(/_/g,' ')+'</span><br /><a class="track-link" href="'+storeUrl+'">Open vendor store</a></div><div class="order-total">'+escapeHtml(formatMoney(order))+'</div></article>'}).join('')}
+    document.getElementById('changeContact').addEventListener('click',()=>show('lookup'));
+    document.getElementById('findAnother').addEventListener('click',()=>show('lookup'));
+  </script>
 </body>
 </html>`;
 }
@@ -806,6 +951,12 @@ function sendPage(response: Response, page: PageDefinition): void {
 
 export async function getPublicHomePage(_request: Request, response: Response): Promise<void> {
   sendPage(response, homePage);
+}
+
+export async function getPublicFindOrderPage(_request: Request, response: Response): Promise<void> {
+  response.setHeader("Content-Type", "text/html; charset=utf-8");
+  response.setHeader("Cache-Control", "public, max-age=120, s-maxage=300");
+  response.status(200).send(renderFindOrderLayout());
 }
 
 export async function getPublicHelpPage(_request: Request, response: Response): Promise<void> {

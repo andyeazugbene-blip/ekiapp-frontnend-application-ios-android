@@ -74,6 +74,19 @@ function parseLookupEmail(body: unknown): string {
   return raw.email.trim().toLowerCase();
 }
 
+function parseLookupContact(body: unknown): string {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new AppError("Invalid request body", 400);
+  }
+
+  const raw = body as Record<string, unknown>;
+  if (typeof raw.contact !== "string" || !raw.contact.trim()) {
+    throw new AppError("Email address or phone number required", 400);
+  }
+
+  return raw.contact.trim();
+}
+
 function parseLookupVerification(body: unknown): { email: string; code: string } {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw new AppError("Invalid request body", 400);
@@ -89,6 +102,25 @@ function parseLookupVerification(body: unknown): { email: string; code: string }
 
   return {
     email: raw.email.trim().toLowerCase(),
+    code: raw.code.trim(),
+  };
+}
+
+function parseGlobalLookupVerification(body: unknown): { contact: string; code: string } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new AppError("Invalid request body", 400);
+  }
+
+  const raw = body as Record<string, unknown>;
+  if (typeof raw.contact !== "string" || !raw.contact.trim()) {
+    throw new AppError("Email address or phone number required", 400);
+  }
+  if (typeof raw.code !== "string" || !/^\d{6}$/.test(raw.code.trim())) {
+    throw new AppError("Code must be a 6-digit number", 400);
+  }
+
+  return {
+    contact: raw.contact.trim(),
     code: raw.code.trim(),
   };
 }
@@ -143,5 +175,30 @@ export async function verifyPublicStoreOrderLookup(request: Request, response: R
   const slug = parseSlug(request);
   const { email, code } = parseLookupVerification(request.body);
   const orders = await publicStoresService.verifyGuestOrderLookup(slug, email, code);
+  response.status(200).json({ orders });
+}
+
+export async function requestGlobalPublicOrderLookup(request: Request, response: Response): Promise<void> {
+  const contact = parseLookupContact(request.body);
+  const result = await publicStoresService.requestGlobalOrderLookupCode(contact);
+
+  if (!result.found) {
+    response.status(200).json({
+      found: false,
+      message: "No order found for this email or phone number.",
+    });
+    return;
+  }
+
+  response.status(200).json({
+    found: true,
+    emailHint: result.emailHint,
+    message: "A verification code was sent to the checkout email for this order.",
+  });
+}
+
+export async function verifyGlobalPublicOrderLookup(request: Request, response: Response): Promise<void> {
+  const { contact, code } = parseGlobalLookupVerification(request.body);
+  const orders = await publicStoresService.verifyGlobalOrderLookup(contact, code);
   response.status(200).json({ orders });
 }

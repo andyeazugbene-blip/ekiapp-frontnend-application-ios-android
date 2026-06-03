@@ -447,6 +447,111 @@ async function listPublicStoreOrdersForContact(vendor: VendorStoreRecord, email:
   return orders.map((order) => mapTrackedOrder(order, vendor));
 }
 
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function phoneDigits(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+function phoneMatches(inputDigits: string, storedPhone: string | null | undefined): boolean {
+  const storedDigits = phoneDigits(storedPhone ?? "");
+  if (inputDigits.length < 7 || storedDigits.length < 7) return false;
+  const inputTail = inputDigits.slice(-8);
+  const storedTail = storedDigits.slice(-8);
+  return inputTail === storedTail || storedDigits.endsWith(inputTail) || inputDigits.endsWith(storedTail);
+}
+
+function maskEmail(email: string): string {
+  const [name = "", domain = ""] = email.split("@");
+  if (!domain) return "your checkout email";
+  const visible = name.slice(0, Math.min(2, name.length));
+  return `${visible}${"*".repeat(Math.max(2, name.length - visible.length))}@${domain}`;
+}
+
+type GlobalLookupContact =
+  | { kind: "email"; value: string }
+  | { kind: "phone"; value: string; digits: string };
+
+function parseGlobalLookupContact(contact: string): GlobalLookupContact {
+  const value = contact.trim();
+  if (!value) {
+    throw new AppError("Email address or phone number required", 400);
+  }
+
+  if (value.includes("@")) {
+    const email = normalizeEmail(value);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new AppError("Valid email address required", 400);
+    }
+    return { kind: "email", value: email };
+  }
+
+  const digits = phoneDigits(value);
+  if (digits.length < 7) {
+    throw new AppError("Valid email address or phone number required", 400);
+  }
+
+  return { kind: "phone", value, digits };
+}
+
+async function listGlobalOrdersForContact(contact: GlobalLookupContact): Promise<PublicStoreTrackedOrder[]> {
+  const orders = await prisma.order.findMany({
+    where: {
+      status: { in: [...TRACKABLE_ORDER_STATUSES] },
+      buyer:
+        contact.kind === "email"
+          ? { email: contact.value }
+          : { phone: { not: null } },
+    },
+    include: {
+      vendor: {
+        select: {
+          id: true,
+          storeName: true,
+          storeSlug: true,
+          city: true,
+          country: true,
+          isSuspended: true,
+        },
+      },
+      buyer: {
+        select: {
+          name: true,
+          email: true,
+          phone: true,
+          id: true,
+        },
+      },
+      items: {
+        select: {
+          productId: true,
+          productTitle: true,
+          quantity: true,
+          unitAmount: true,
+          totalAmount: true,
+        },
+      },
+    },
+    orderBy: CURSOR_ORDER_BY,
+    take: contact.kind === "email" ? 50 : 250,
+  });
+
+  return orders
+    .filter((order) => !order.vendor.isSuspended)
+    .filter((order) => contact.kind === "email" || phoneMatches(contact.digits, order.buyer.phone))
+    .map((order) => mapTrackedOrder(order, order.vendor));
+}
+
+function getOtpEmailForOrders(orders: PublicStoreTrackedOrder[]): string {
+  const email = normalizeEmail(orders.find((order) => order.contact.email.includes("@"))?.contact.email ?? "");
+  if (!email) {
+    throw new AppError("This order does not have a checkout email. Please contact support.", 409);
+  }
+  return email;
+}
+
 export const publicStoresService = {
   async getStoreBySlug(slug: string): Promise<PublicStore> {
     const vendorRecord = await findVendorBySlug(slug);
@@ -708,7 +813,7 @@ export const publicStoresService = {
 
   async requestGuestOrderLookupCode(slug: string, email: string): Promise<void> {
     const vendor = await findVendorBySlug(slug);
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
 
     const existingOrder = await prisma.order.findFirst({
       where: {
@@ -730,9 +835,41 @@ export const publicStoresService = {
 
   async verifyGuestOrderLookup(slug: string, email: string, code: string): Promise<PublicStoreTrackedOrder[]> {
     const vendor = await findVendorBySlug(slug);
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
 
     await otpService.verifyOtp(normalizedEmail, code, "guest_order_lookup");
     return listPublicStoreOrdersForContact(vendor, normalizedEmail);
+  },
+
+  async requestGlobalOrderLookupCode(contactInput: string): Promise<{ found: boolean; emailHint?: string }> {
+    const contact = parseGlobalLookupContact(contactInput);
+    const orders = await listGlobalOrdersForContact(contact);
+
+    if (orders.length === 0) {
+      return { found: false };
+    }
+
+    const otpEmail = getOtpEmailForOrders(orders);
+    await otpService.sendOtp(otpEmail, "guest_order_lookup");
+
+    return { found: true, emailHint: maskEmail(otpEmail) };
+  },
+
+  async verifyGlobalOrderLookup(contactInput: string, code: string): Promise<PublicStoreTrackedOrder[]> {
+    const contact = parseGlobalLookupContact(contactInput);
+    const orders = await listGlobalOrdersForContact(contact);
+
+    if (orders.length === 0) {
+      throw new AppError("No order found for this email or phone number.", 404);
+    }
+
+    const otpEmail = getOtpEmailForOrders(orders);
+    await otpService.verifyOtp(otpEmail, code, "guest_order_lookup");
+
+    if (contact.kind === "email") {
+      return orders;
+    }
+
+    return orders.filter((order) => normalizeEmail(order.contact.email) === otpEmail);
   },
 };

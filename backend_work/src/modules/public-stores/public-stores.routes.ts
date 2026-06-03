@@ -4,9 +4,11 @@ import { optionalAuthenticate } from "../../middlewares/authenticate";
 import { asyncHandler } from "../../shared/utils/async-handler";
 import {
   getPublicStore,
+  requestGlobalPublicOrderLookup,
   requestPublicStoreOrderLookup,
   trackPublicStoreEvent,
   listPublicStoreProducts,
+  verifyGlobalPublicOrderLookup,
   verifyPublicStoreOrderLookup,
 } from "./public-stores.controller";
 
@@ -16,6 +18,8 @@ import {
  */
 export const publicStoresRouter = Router();
 
+publicStoresRouter.post("/order-lookup/request", asyncHandler(requestGlobalPublicOrderLookup));
+publicStoresRouter.post("/order-lookup/verify", asyncHandler(verifyGlobalPublicOrderLookup));
 publicStoresRouter.get("/:slug", asyncHandler(getPublicStore));
 publicStoresRouter.get("/:slug/products", asyncHandler(listPublicStoreProducts));
 publicStoresRouter.post("/:slug/events", optionalAuthenticate, asyncHandler(trackPublicStoreEvent));

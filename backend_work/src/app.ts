@@ -13,6 +13,7 @@ import { requestIdMiddleware } from "./middlewares/request-id";
 import { requestLogger } from "./middlewares/request-logger";
 import { validateInputLength } from "./middlewares/validate-input-length";
 import {
+  getPublicFindOrderPage,
   getPublicHelpPage,
   getPublicHomePage,
   getPublicPrivacyPage,
@@ -34,7 +35,7 @@ app.disable("x-powered-by");
 
 // Security headers. CSP must be relaxed on /api/docs and server-rendered
 // public HTML pages that use inline scripts.
-const publicHtmlPaths = new Set(["/", "/help", "/privacy", "/terms"]);
+const publicHtmlPaths = new Set(["/", "/find-order", "/help", "/privacy", "/terms"]);
 const swaggerAndPublicPagePaths = (req: { path: string }) =>
   req.path === "/api/docs" || req.path.startsWith("/store/") || publicHtmlPaths.has(req.path);
 
@@ -103,6 +104,9 @@ app.get("/assets/public-site/hero-phone-mockup.jpg", (_req, res) => {
 // Public web routes (server-rendered pages outside /api).
 app.get("/", (req, res, next) => {
   Promise.resolve(getPublicHomePage(req, res)).catch(next);
+});
+app.get("/find-order", (req, res, next) => {
+  Promise.resolve(getPublicFindOrderPage(req, res)).catch(next);
 });
 app.get("/help", (req, res, next) => {
   Promise.resolve(getPublicHelpPage(req, res)).catch(next);
