@@ -107,7 +107,6 @@ workflows:
       - /tmp/xcodebuild_logs/*.log
       - /Users/builder/export_options.plist
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
+    # App Store Connect publishing is intentionally disabled until the app
+    # record exists for bundle id com.ekiapp.mobilee. The workflow still
+    # exports Eki.ipa under build/ios/ipa/*.ipa.
