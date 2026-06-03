@@ -19,8 +19,10 @@ workflows:
       xcode: 16.4
       cocoapods: default
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.ekiapp.mobilee
+        certificates:
+          - Eki_App
+        provisioning_profiles:
+          - Ekiapp
       vars:
         APP_NAME: Eki
         BUNDLE_ID: com.ekiapp.mobilee
@@ -58,10 +60,6 @@ workflows:
         script: npm ci
       - name: Generate iOS project from Expo config
         script: npx expo prebuild --platform ios --clean --non-interactive
-      - name: Initialize keychain
-        script: keychain initialize
-      - name: Add signing certificates to keychain
-        script: keychain add-certificates
       - name: Install CocoaPods
         script: |
           cd ios
