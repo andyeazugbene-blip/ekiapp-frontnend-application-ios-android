@@ -2,7 +2,7 @@
 # In Codemagic:
 # 1. Create or use an App Store Connect integration named `EKI`
 # 2. Upload or fetch the Apple Distribution certificate as `Eki`
-# 3. Upload or fetch the provisioning profile as `Eki App`
+# 3. Upload or fetch the provisioning profile as `Eki`
 # The uploaded provisioning profile currently targets:
 # - Bundle ID: com.ekiapp.mobilee
 # Keep private keys and certificate passwords in Codemagic only. Do not commit them to git.
@@ -22,7 +22,7 @@ workflows:
         certificates:
           - Eki
         provisioning_profiles:
-          - Eki App
+          - Eki
       vars:
         APP_NAME: Eki
         BUNDLE_ID: com.ekiapp.mobilee
@@ -107,7 +107,7 @@ workflows:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="iPhone Distribution" \
             PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
-            PROVISIONING_PROFILE_SPECIFIER="Eki App" \
+            PROVISIONING_PROFILE_SPECIFIER="Eki" \
             | tee /tmp/xcodebuild_logs/archive.log
           ARCHIVE_STATUS=${PIPESTATUS[0]}
           if [ "$ARCHIVE_STATUS" -ne 0 ]; then
