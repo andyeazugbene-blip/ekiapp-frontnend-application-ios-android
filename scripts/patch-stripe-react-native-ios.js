@@ -27,10 +27,23 @@ function patchPodspec() {
   return patchFile(file, (source) => {
     const lines = source.split(/\r?\n/);
     const next = [];
+    let wroteNewArchExclude = false;
 
     for (const line of lines) {
       if (line.trim().startsWith("s.exclude_files =")) {
-        next.push("  s.exclude_files = [ 'ios/Tests/', 'ios/NewArch/', 'ios/PushProvisioning/**/*' ]");
+        next.push(
+          "  s.exclude_files = [ 'ios/Tests/', 'ios/NewArch/', 'ios/PushProvisioning/**/*', 'ios/AuBECSDebitForm*' ]",
+        );
+        continue;
+      }
+
+      if (line.trim().startsWith("ss.exclude_files =")) {
+        if (!wroteNewArchExclude) {
+          next.push(
+            '      ss.exclude_files = [ "ios/NewArch/AddToWalletButtonComponentView.*", "ios/NewArch/AuBECSDebitFormComponentView.*" ]',
+          );
+          wroteNewArchExclude = true;
+        }
         continue;
       }
 
@@ -38,9 +51,12 @@ function patchPodspec() {
 
       if (
         line.trim() === 'ss.source_files = "ios/NewArch/**/*.{h,m,mm}"' &&
-        !source.includes("AddToWalletButtonComponentView.*")
+        !source.includes("ss.exclude_files")
       ) {
-        next.push('      ss.exclude_files = [ "ios/NewArch/AddToWalletButtonComponentView.*" ]');
+        next.push(
+          '      ss.exclude_files = [ "ios/NewArch/AddToWalletButtonComponentView.*", "ios/NewArch/AuBECSDebitFormComponentView.*" ]',
+        );
+        wroteNewArchExclude = true;
       }
     }
 
@@ -55,15 +71,21 @@ function patchStripePackageCodegen() {
     if (pkg.codegenConfig?.ios?.componentProvider?.AddToWalletButton) {
       delete pkg.codegenConfig.ios.componentProvider.AddToWalletButton;
     }
+    if (pkg.codegenConfig?.ios?.componentProvider?.AuBECSDebitForm) {
+      delete pkg.codegenConfig.ios.componentProvider.AuBECSDebitForm;
+    }
     return `${JSON.stringify(pkg, null, 2)}\n`;
   });
 }
 
 function patchSwiftInteropHeader() {
   const file = path.join(stripeRoot, "ios", "StripeSwiftInterop.h");
-  const importBlock = `// Eki build patch:
-// Import Stripe and PassKit before stripe_react_native-Swift.h. This keeps
-// PaymentSheet builds stable when Xcode parses the generated Swift bridge.
+  const header = `// Eki build patch:
+// Import this header instead of stripe_react_native-Swift.h. Xcode can parse
+// the generated Swift bridge before Stripe's optional protocols are visible.
+#if __has_include(<Stripe/Stripe-Swift.h>)
+#import <Stripe/Stripe-Swift.h>
+#endif
 #if __has_include(<Stripe/Stripe.h>)
 #import <Stripe/Stripe.h>
 #endif
@@ -71,12 +93,57 @@ function patchSwiftInteropHeader() {
 #import <PassKit/PassKit.h>
 #endif
 
+@protocol STPAuthenticationContext;
+@protocol STPApplePayContextDelegate;
+@protocol PKPaymentAuthorizationViewControllerDelegate;
+@protocol STPIssuingCardEphemeralKeyProvider;
+@protocol PKAddPaymentPassViewControllerDelegate;
+@protocol STPAUBECSDebitFormViewDelegate;
+@protocol STPPaymentCardTextFieldDelegate;
+@protocol STPCardFormViewDelegate;
+
+typedef NS_ENUM(NSUInteger, STPPaymentStatus);
+
+#import <React/RCTBridgeModule.h>
+#import <React/RCTViewManager.h>
+
+#if __has_include("stripe_react_native/stripe_react_native-Swift.h")
+#import <stripe_react_native/stripe_react_native-Swift.h>
+#elif __has_include(<stripe_react_native-Swift.h>)
+#import <stripe_react_native-Swift.h>
+#endif
 `;
 
-  return patchFile(file, (source) => {
-    if (source.includes("Eki build patch:")) return source;
-    return source.replace("// Import this header", `${importBlock}// Import this header`);
-  });
+  return patchFile(file, () => header);
+}
+
+function patchSwiftBridgeImports() {
+  const iosRoot = path.join(stripeRoot, "ios");
+  const targets = [];
+
+  function walk(dir) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (entry.name !== "StripeSwiftInterop.h" && /\.(m|mm|h)$/.test(entry.name)) {
+        targets.push(fullPath);
+      }
+    }
+  }
+
+  walk(iosRoot);
+
+  return targets
+    .map((file) =>
+      patchFile(file, (source) =>
+        source
+          .replace(/#import\s+["<]stripe_react_native\/stripe_react_native-Swift\.h[">]/g, '#import "StripeSwiftInterop.h"')
+          .replace(/#import\s+["<]stripe_react_native-Swift\.h[">]/g, '#import "StripeSwiftInterop.h"'),
+      ),
+    )
+    .some(Boolean);
 }
 
 function patchStripeSdkImpl() {
@@ -122,6 +189,7 @@ const changed = [
   patchPodspec(),
   patchStripePackageCodegen(),
   patchSwiftInteropHeader(),
+  patchSwiftBridgeImports(),
   patchStripeSdkImpl(),
 ].some(Boolean);
 
