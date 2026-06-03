@@ -215,7 +215,7 @@ function patchSwiftInteropHeader() {
 @protocol STPPaymentCardTextFieldDelegate;
 @protocol STPCardFormViewDelegate;
 
-typedef NS_ENUM(NSUInteger, STPPaymentStatus);
+typedef NS_ENUM(NSInteger, STPPaymentStatus);
 
 #import <React/RCTBridgeModule.h>
 #import <React/RCTViewManager.h>
