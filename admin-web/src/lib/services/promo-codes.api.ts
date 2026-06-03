@@ -4,6 +4,8 @@ import { PromoCode } from "@/types";
 function normalizePromoCode(raw: any): PromoCode {
   return {
     id: raw.id,
+    vendorId: raw.vendorId,
+    storeSlug: raw.storeSlug ?? raw.vendor?.storeSlug,
     code: raw.code ?? "",
     type: raw.type ?? "PERCENTAGE",
     value: typeof raw.value === "number" ? raw.value : 0,
@@ -24,6 +26,7 @@ export const promoCodesAPI = {
   },
 
   async createPromoCode(input: {
+    vendorId: string;
     code: string;
     type: "PERCENTAGE" | "FIXED_AMOUNT";
     value: number;
@@ -34,6 +37,7 @@ export const promoCodesAPI = {
   }): Promise<PromoCode> {
     const res = await apiClient.post<any>("/admin/promo-codes", {
       code: input.code.trim().toUpperCase(),
+      vendorId: input.vendorId,
       type: input.type,
       value: input.value,
       minOrderAmount: input.minOrderAmount ? Math.round(input.minOrderAmount * 100) : undefined,

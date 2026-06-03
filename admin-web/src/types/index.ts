@@ -160,6 +160,8 @@ export interface Payout {
 
 export interface PromoCode {
   id: string;
+  vendorId?: string;
+  storeSlug?: string;
   code: string;
   type: "PERCENTAGE" | "FIXED_AMOUNT";
   value: number;

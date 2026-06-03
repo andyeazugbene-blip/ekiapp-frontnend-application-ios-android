@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { promoCodesAPI } from "@/lib/services/promo-codes.api";
+import { vendorsAPI } from "@/lib/services/vendors.api";
 import { APIError } from "@/lib/api";
-import { PromoCode } from "@/types";
+import { PromoCode, Vendor } from "@/types";
 
 type PromoTypeOption = "PERCENTAGE" | "FIXED_AMOUNT";
 
 const EMPTY_FORM = {
+  vendorId: "",
   code: "",
   type: "PERCENTAGE" as PromoTypeOption,
   value: "10",
@@ -21,6 +23,7 @@ const EMPTY_FORM = {
 
 export default function PromoCodesPage() {
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -47,6 +50,21 @@ export default function PromoCodesPage() {
     void loadPromoCodes();
   }, [loadPromoCodes]);
 
+  useEffect(() => {
+    let active = true;
+    vendorsAPI
+      .getVendors({ limit: 250 })
+      .then((items) => {
+        if (active) setVendors(items);
+      })
+      .catch(() => {
+        if (active) setVendors([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const activeCount = useMemo(
     () => promoCodes.filter((promo) => promo.isActive).length,
     [promoCodes],
@@ -57,11 +75,16 @@ export default function PromoCodesPage() {
       setError("Promo code is required");
       return;
     }
+    if (!form.vendorId) {
+      setError("Choose the store this promo code belongs to");
+      return;
+    }
 
     try {
       setSubmitting(true);
       setError("");
       await promoCodesAPI.createPromoCode({
+        vendorId: form.vendorId,
         code: form.code,
         type: form.type,
         value: Number(form.value),
@@ -133,6 +156,22 @@ export default function PromoCodesPage() {
             <section className="rounded-lg bg-white p-6 shadow">
               <h2 className="text-lg font-semibold text-gray-900">Create promo code</h2>
               <div className="mt-4 space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Store</label>
+                  <select
+                    value={form.vendorId}
+                    onChange={(event) => setForm((current) => ({ ...current, vendorId: event.target.value }))}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                  >
+                    <option value="">Choose a store</option>
+                    {vendors.map((vendor) => (
+                      <option key={vendor.id} value={vendor.id}>
+                        {vendor.storeName} {vendor.storeSlug ? `(${vendor.storeSlug})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Code</label>
                   <input
@@ -254,6 +293,7 @@ export default function PromoCodesPage() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Code</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Store</th>
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Offer</th>
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Usage</th>
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Validity</th>
@@ -265,6 +305,9 @@ export default function PromoCodesPage() {
                       {promoCodes.map((promo) => (
                         <tr key={promo.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-sm font-semibold text-gray-900">{promo.code}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {promo.storeSlug || promo.vendorId || "Store required"}
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-700">
                             {promo.type === "PERCENTAGE" ? `${promo.value}% off` : `${(promo.value / 100).toFixed(2)} off`}
                             {promo.minOrderAmount ? (
