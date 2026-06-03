@@ -30,6 +30,7 @@ type PageDefinition = {
   intro: string;
   actions?: PageAction[];
   sections: PageSection[];
+  variant?: "home";
 };
 
 function renderSection(section: PageSection): string {
@@ -50,6 +51,10 @@ function renderSection(section: PageSection): string {
 }
 
 function renderLayout(page: PageDefinition): string {
+  if (page.variant === "home") {
+    return renderHomeLayout(page);
+  }
+
   const actions = (page.actions ?? [])
     .map(
       (action) => `
@@ -290,17 +295,316 @@ function renderLayout(page: PageDefinition): string {
 </html>`;
 }
 
+function renderHomeLayout(page: PageDefinition): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#164F3F" />
+  <title>${escape(page.title)}</title>
+  <meta name="description" content="${escape(page.description)}" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{
+      background:#F6F8F7;
+      color:#111827;
+      font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+    a{color:inherit}
+    .hero-wrap{
+      background:#164F3F;
+      color:#FFFFFF;
+      overflow:hidden;
+    }
+    .shell{width:min(1120px,calc(100% - 40px));margin:0 auto}
+    .topbar{
+      height:54px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:24px;
+    }
+    .brand{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:58px;
+      height:28px;
+      border-radius:6px;
+      background:#2E8658;
+      color:#FFFFFF;
+      text-decoration:none;
+      font-weight:800;
+      letter-spacing:-0.03em;
+      line-height:1;
+    }
+    .nav{display:flex;align-items:center;gap:28px}
+    .nav a{
+      color:rgba(255,255,255,0.86);
+      font-size:13px;
+      font-weight:600;
+      text-decoration:none;
+    }
+    .nav a:hover{color:#FFFFFF}
+    .hero{
+      min-height:360px;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) minmax(280px,430px);
+      align-items:center;
+      gap:48px;
+      padding:42px 0 52px;
+    }
+    .copy{max-width:560px}
+    h1{
+      margin:0;
+      font-size:43px;
+      line-height:1.06;
+      letter-spacing:-0.045em;
+      font-weight:800;
+    }
+    .intro{
+      margin:16px 0 0;
+      max-width:520px;
+      color:rgba(255,255,255,0.82);
+      font-size:16px;
+      line-height:1.45;
+    }
+    .store-buttons{
+      display:flex;
+      flex-wrap:wrap;
+      gap:14px;
+      margin-top:34px;
+    }
+    .store-button{
+      min-width:150px;
+      height:46px;
+      border-radius:8px;
+      background:#FFFFFF;
+      color:#164F3F;
+      text-decoration:none;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      padding:0 16px;
+      box-shadow:0 14px 30px rgba(0,0,0,0.08);
+    }
+    .store-button.google{
+      background:#2E8658;
+      color:#FFFFFF;
+    }
+    .store-small{font-size:9px;font-weight:600;opacity:.74}
+    .store-main{font-size:14px;font-weight:800;margin-top:1px}
+    .helper{
+      color:rgba(255,255,255,0.72);
+      font-size:12px;
+      margin:15px 0 0;
+    }
+    .phone-stage{
+      position:relative;
+      min-height:320px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .phone-stage::before{
+      content:"";
+      position:absolute;
+      inset:auto 5% 7% 18%;
+      height:210px;
+      border-radius:34px;
+      background:#2E8658;
+      opacity:.78;
+    }
+    .phone-stage::after{
+      content:"";
+      position:absolute;
+      width:110px;
+      height:110px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.2);
+      right:10px;
+      top:18px;
+    }
+    .phone{
+      position:relative;
+      z-index:2;
+      width:min(84vw,360px);
+      max-height:380px;
+      object-fit:contain;
+      object-position:center;
+      filter:drop-shadow(0 28px 36px rgba(0,0,0,.34));
+    }
+    .features-band{background:#FFFFFF;padding:36px 0 48px}
+    .features-title{
+      margin:0 0 24px;
+      text-align:center;
+      font-size:22px;
+      line-height:1.2;
+      letter-spacing:-0.03em;
+      font-weight:800;
+    }
+    .feature-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:28px;
+    }
+    .feature-card{
+      min-height:124px;
+      border-radius:10px;
+      background:#ECF7F0;
+      padding:24px 22px;
+    }
+    .feature-icon{
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      background:#D7F0DF;
+      display:grid;
+      place-items:center;
+      margin-bottom:18px;
+      color:#164F3F;
+      font-size:17px;
+    }
+    .feature-card h2{
+      margin:0 0 6px;
+      font-size:14px;
+      font-weight:800;
+      letter-spacing:-0.02em;
+    }
+    .feature-card p{
+      margin:0;
+      color:#637069;
+      font-size:12px;
+      line-height:1.35;
+    }
+    .order-band{background:#ECF7F0;padding:18px 0}
+    .order-row{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:28px;
+      color:#6B7280;
+      font-size:13px;
+    }
+    .find-link{
+      min-width:180px;
+      height:34px;
+      border-radius:6px;
+      border:1px solid #164F3F;
+      color:#164F3F;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
+      font-weight:700;
+      background:#F8FFFB;
+    }
+    @media (max-width:860px){
+      .shell{width:min(100% - 28px,1120px)}
+      .hero{grid-template-columns:1fr;gap:28px;padding-top:30px}
+      h1{font-size:36px}
+      .phone-stage{min-height:300px}
+      .phone{max-height:340px}
+      .feature-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+      .order-row{flex-direction:column;gap:12px}
+    }
+    @media (max-width:520px){
+      .topbar{height:50px}
+      .nav{gap:18px}
+      h1{font-size:32px}
+      .intro{font-size:14px}
+      .store-buttons{gap:10px}
+      .store-button{flex:1;min-width:135px}
+      .feature-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="hero-wrap">
+    <header class="shell topbar">
+      <a class="brand" href="/">eki</a>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="/store/seed-qa-store-001-001">Vendors</a>
+      </nav>
+    </header>
+    <main class="shell hero">
+      <section class="copy">
+        <h1>${escape(page.heading)}</h1>
+        <p class="intro">${escape(page.intro)}</p>
+        <div class="store-buttons">
+          <a class="store-button" href="https://culinarytales.app" aria-label="Download Eki on the App Store">
+            <span class="store-small">Download on the</span>
+            <span class="store-main">App Store</span>
+          </a>
+          <a class="store-button google" href="https://culinarytales.app" aria-label="Get Eki on Google Play">
+            <span class="store-small">Get it on</span>
+            <span class="store-main">Google Play</span>
+          </a>
+        </div>
+        <p class="helper">Or scan the QR code in the app to get started instantly</p>
+      </section>
+      <section class="phone-stage" aria-label="Eki app preview">
+        <img class="phone" src="/assets/public-site/hero-phone-mockup.jpg" alt="Eki vendor dashboard phone mockup" />
+      </section>
+    </main>
+  </div>
+
+  <section class="features-band">
+    <div class="shell">
+      <h2 class="features-title">Why thousands love Eki</h2>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <div class="feature-icon">OK</div>
+          <h2>Shop from verified vendors</h2>
+          <p>Every vendor is reviewed and verified before listing on Eki.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">TRK</div>
+          <h2>Live order tracking</h2>
+          <p>Track your foodstuff order from vendor confirmation to dispatch and delivery.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">SEC</div>
+          <h2>Secure Eki checkout</h2>
+          <p>Your order and payment record are handled securely through Eki.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">RE</div>
+          <h2>One-tap reorder</h2>
+          <p>Saved your favorite vendors? Reorder last basket in a single tap.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="order-band">
+    <div class="shell order-row">
+      <span>Already have an order?</span>
+      <a class="find-link" href="/store/seed-qa-store-001-001">Find your order -></a>
+    </div>
+  </section>
+</body>
+</html>`;
+}
+
 const homePage: PageDefinition = {
   title: "Eki",
-  description: "Eki helps buyers discover verified vendors, check out securely, and track orders.",
-  eyebrow: "Public storefront",
-  heading: "Verified vendors, secure checkout, and clear order tracking.",
+  description: "Eki helps buyers keep favorite African foodstuff vendors close, track orders, and reorder quickly.",
+  eyebrow: "Eki",
+  heading: "Never lose your vendors again.",
   intro:
-    "Eki powers shared vendor storefronts, secure buyer checkout, and post-purchase tracking. If a vendor sent you a store link, open that exact /store/{slug} URL to browse and order.",
+    "The Eki app puts your favourite African foodstuff vendors right in your pocket. Track orders live, confirm deliveries with a tap, and reorder in seconds.",
   actions: [
     { href: "/store/mama-chi-foodstuff", label: "Open live store example" },
     { href: "/help", label: "Help and support", variant: "secondary" },
   ],
+  variant: "home",
   sections: [
     {
       title: "What Eki handles",
