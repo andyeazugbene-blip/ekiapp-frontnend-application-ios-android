@@ -184,6 +184,21 @@ function patchSwiftInteropHeader() {
 #if __has_include(<Stripe/Stripe.h>)
 #import <Stripe/Stripe.h>
 #endif
+#if __has_include(<StripePayments/StripePayments.h>)
+#import <StripePayments/StripePayments.h>
+#endif
+#if __has_include(<StripePayments/STPAuthenticationContext.h>)
+#import <StripePayments/STPAuthenticationContext.h>
+#endif
+#if __has_include(<StripePaymentsUI/StripePaymentsUI.h>)
+#import <StripePaymentsUI/StripePaymentsUI.h>
+#endif
+#if __has_include(<StripeApplePay/StripeApplePay.h>)
+#import <StripeApplePay/StripeApplePay.h>
+#endif
+#if __has_include(<StripePaymentSheet/StripePaymentSheet.h>)
+#import <StripePaymentSheet/StripePaymentSheet.h>
+#endif
 #if __has_include(<PassKit/PassKit.h>)
 #import <PassKit/PassKit.h>
 #endif
