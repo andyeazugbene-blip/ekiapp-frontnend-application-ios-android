@@ -15,6 +15,7 @@ const EMPTY_PLAN = (): AdminSubscriptionPlan => ({
   name: "Free",
   description: "",
   monthlyPriceCents: 0,
+  platformFeeBps: 1200,
   currency: "GBP",
   maxProducts: 10,
   maxImagesPerProduct: 3,
@@ -159,10 +160,15 @@ export default function SubscriptionPlansPage() {
                 <Field label="Display name" value={draft.name} onChange={(value) => setDraft((current) => ({ ...current, name: value }))} />
                 <Field label="Currency" value={draft.currency} onChange={(value) => setDraft((current) => ({ ...current, currency: value.toUpperCase() }))} />
                 <Field label="Monthly price (cents)" value={String(draft.monthlyPriceCents)} onChange={(value) => setDraft((current) => ({ ...current, monthlyPriceCents: Number(value || 0) }))} type="number" />
+                <Field label="Platform fee (basis points)" value={String(draft.platformFeeBps)} onChange={(value) => setDraft((current) => ({ ...current, platformFeeBps: Number(value || 0) }))} type="number" />
                 <Field label="Display order" value={String(draft.displayOrder)} onChange={(value) => setDraft((current) => ({ ...current, displayOrder: Number(value || 0) }))} type="number" />
                 <Field label="Max products" value={String(draft.maxProducts)} onChange={(value) => setDraft((current) => ({ ...current, maxProducts: Number(value || 0) }))} type="number" />
                 <Field label="Max images / product" value={String(draft.maxImagesPerProduct)} onChange={(value) => setDraft((current) => ({ ...current, maxImagesPerProduct: Number(value || 0) }))} type="number" />
               </div>
+
+              <p className="mt-3 text-xs text-gray-500">
+                Basis points example: <code>1000</code> = 10.00%, <code>650</code> = 6.50%.
+              </p>
 
               <label className="mt-4 block text-sm font-medium text-gray-700">Description</label>
               <textarea

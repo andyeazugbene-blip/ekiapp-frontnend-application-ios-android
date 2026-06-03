@@ -9,6 +9,8 @@ export interface SubscriptionPlan {
   slug: string;
   description?: string | null;
   price: number;
+  platformFeeBps: number;
+  platformFeePercent: string;
   currency: string;
   interval: "month";
   features: string[];
@@ -22,6 +24,8 @@ export interface ActiveSubscription {
   planId: string;
   planName: string;
   slug: string;
+  platformFeeBps?: number;
+  platformFeePercent?: string;
   status: "active" | "cancelled" | "past_due";
   currentPeriodEnd: string;
   cancelAtPeriodEnd: boolean;
@@ -30,6 +34,8 @@ export interface ActiveSubscription {
 export interface SubscriptionLimits {
   maxProducts: number;
   maxImagesPerProduct?: number;
+  platformFeeBps?: number;
+  platformFeePercent?: string;
   currentProducts: number;
   maxOrders: number | null;
   currentOrders: number;
@@ -92,6 +98,11 @@ function normalizePlan(raw: any): SubscriptionPlan {
     slug,
     description: raw.description ?? null,
     price,
+    platformFeeBps: typeof raw.platformFeeBps === "number" ? raw.platformFeeBps : 1000,
+    platformFeePercent:
+      typeof raw.platformFeePercent === "string"
+        ? raw.platformFeePercent
+        : `${((typeof raw.platformFeeBps === "number" ? raw.platformFeeBps : 1000) / 100).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}%`,
     currency: raw.currency ?? "GBP",
     interval: "month",
     features,
@@ -109,6 +120,8 @@ function normalizeSubscription(raw: any): ActiveSubscription {
     planId: plan,
     planName: sub.planName ?? PLAN_NAMES[plan] ?? "Plan",
     slug: typeof sub.slug === "string" && sub.slug.trim() ? sub.slug.trim().toLowerCase() : planSlug(plan),
+    platformFeeBps: typeof sub.platformFeeBps === "number" ? sub.platformFeeBps : undefined,
+    platformFeePercent: typeof sub.platformFeePercent === "string" ? sub.platformFeePercent : undefined,
     status: (sub.status ?? "ACTIVE").toString().toLowerCase(),
     currentPeriodEnd: sub.currentPeriodEnd ?? "",
     cancelAtPeriodEnd: Boolean(sub.cancelAtPeriodEnd ?? sub.cancelledAt),
@@ -129,6 +142,8 @@ function normalizeLimits(raw: any): SubscriptionLimits {
   return {
     maxProducts,
     maxImagesPerProduct: limits.maxImagesPerProduct ?? raw.maxImagesPerProduct ?? 0,
+    platformFeeBps: typeof limits.platformFeeBps === "number" ? limits.platformFeeBps : undefined,
+    platformFeePercent: typeof limits.platformFeePercent === "string" ? limits.platformFeePercent : undefined,
     currentProducts: limits.currentProducts ?? raw.currentProducts ?? 0,
     maxOrders,
     currentOrders: limits.currentOrders ?? raw.currentOrders ?? 0,

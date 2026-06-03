@@ -98,6 +98,10 @@ export default function SubscriptionPlansScreen() {
               <Text style={styles.statusBody}>
                 Available features refresh automatically when your account status changes.
               </Text>
+              <View style={styles.feeBanner}>
+                <Text style={styles.feeBannerLabel}>Platform fee per order</Text>
+                <Text style={styles.feeBannerValue}>{limits?.platformFeePercent ?? subscription?.platformFeePercent ?? "Unavailable"}</Text>
+              </View>
             </View>
 
             <View style={styles.statusCard}>
@@ -193,6 +197,17 @@ const styles = StyleSheet.create({
   statusBadgeText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   statusBadgeTextInactive: { color: "#858585" },
   statusBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", lineHeight: 19, marginTop: 14 },
+  feeBanner: {
+    marginTop: 16,
+    borderRadius: 14,
+    backgroundColor: "#EEF8F0",
+    borderWidth: 1,
+    borderColor: "#D9EDE0",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  feeBannerLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72", textTransform: "uppercase", letterSpacing: 0.6 },
+  feeBannerValue: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#076B51", marginTop: 4 },
   sectionTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginBottom: 12 },
   limitRow: { minHeight: 48, flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderTopColor: "#F0F0F0", gap: 10 },
   limitIcon: { width: 30, height: 30, borderRadius: 10, backgroundColor: "#E8F4ED", alignItems: "center", justifyContent: "center" },

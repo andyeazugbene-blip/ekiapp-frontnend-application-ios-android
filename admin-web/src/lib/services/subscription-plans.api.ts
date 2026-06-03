@@ -9,6 +9,7 @@ function normalizePlan(raw: any): AdminSubscriptionPlan {
     name: raw.name,
     description: raw.description ?? null,
     monthlyPriceCents: raw.monthlyPriceCents ?? 0,
+    platformFeeBps: raw.platformFeeBps ?? 1000,
     currency: raw.currency ?? "GBP",
     maxProducts: raw.maxProducts ?? 0,
     maxImagesPerProduct: raw.maxImagesPerProduct ?? 0,

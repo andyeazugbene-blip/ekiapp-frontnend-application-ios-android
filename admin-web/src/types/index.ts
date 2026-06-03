@@ -195,6 +195,7 @@ export interface AdminSubscriptionPlan {
   name: string;
   description?: string | null;
   monthlyPriceCents: number;
+  platformFeeBps: number;
   currency: string;
   maxProducts: number;
   maxImagesPerProduct: number;
