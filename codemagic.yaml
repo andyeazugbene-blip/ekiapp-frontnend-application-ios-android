@@ -1,10 +1,11 @@
 # Codemagic iOS App Store workflow for Eki.
-# In Codemagic, create or use an App Store Connect integration named `EKI`
-# using:
-# - Key ID: 7YYBX34NY6
-# - Issuer ID: 8ffc7119-ddb0-423b-a60a-f43c38c897ca
-# - The private key from App Store Connect UI
-# Keep the private key in Codemagic only. Do not commit it to git.
+# In Codemagic:
+# 1. Create or use an App Store Connect integration named `EKI`
+# 2. Upload the Apple Distribution certificate (`eki_app.p12`)
+# 3. Upload the provisioning profile (`Eki_App.mobileprovision`)
+# The uploaded provisioning profile currently targets:
+# - Bundle ID: com.ekiapp.mobilee
+# Keep private keys and certificate passwords in Codemagic only. Do not commit them to git.
 
 workflows:
   ios-app-store:
@@ -19,10 +20,10 @@ workflows:
       cocoapods: default
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.ekiapp.mobile
+        bundle_identifier: com.ekiapp.mobilee
       vars:
         APP_NAME: Eki
-        BUNDLE_ID: com.ekiapp.mobile
+        BUNDLE_ID: com.ekiapp.mobilee
         XCODE_WORKSPACE: ios/Eki.xcworkspace
         XCODE_SCHEME: Eki
         EXPO_USE_LOCAL_CLI: "1"
@@ -59,11 +60,6 @@ workflows:
         script: npx expo prebuild --platform ios --clean --non-interactive
       - name: Initialize keychain
         script: keychain initialize
-      - name: Fetch signing files
-        script: |
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
       - name: Add signing certificates to keychain
         script: keychain add-certificates
       - name: Install CocoaPods

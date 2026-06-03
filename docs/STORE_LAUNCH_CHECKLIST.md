@@ -16,7 +16,7 @@ Why:
 | --- | --- |
 | App name | Eki |
 | Product category | Marketplace for physical foodstuff |
-| Bundle ID (iOS) | `com.ekiapp.mobile` |
+| Bundle ID (iOS) | `com.ekiapp.mobilee` |
 | Package (Android) | `com.ekiapp.mobile` |
 | Public domain | `https://culinarytales.app` |
 | WWW domain | `https://www.culinarytales.app` |
