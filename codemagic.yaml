@@ -55,6 +55,9 @@ workflows:
         - pattern: main
           include: true
           source: true
+        - pattern: master
+          include: true
+          source: true
     scripts:
       - name: Install dependencies
         script: npm ci
@@ -66,8 +69,12 @@ workflows:
         script: keychain add-certificates
       - name: Install CocoaPods
         script: |
+          set -e
           cd ios
-          pod install --repo-update
+          pod install || {
+            pod repo update
+            pod install
+          }
       - name: Apply App Store signing profiles
         script: |
           xcode-project use-profiles \
