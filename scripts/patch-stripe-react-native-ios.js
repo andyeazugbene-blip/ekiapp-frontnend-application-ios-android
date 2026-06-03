@@ -2,6 +2,27 @@ const fs = require("fs");
 const path = require("path");
 
 const stripeRoot = path.join(__dirname, "..", "node_modules", "@stripe", "stripe-react-native");
+const disabledNewArchComponents = [
+  "AddressSheetViewComponentView.*",
+  "AddToWalletButtonComponentView.*",
+  "ApplePayButtonComponentView.*",
+  "AuBECSDebitFormComponentView.*",
+  "CardFieldComponentView.*",
+  "CardFormComponentView.*",
+  "EmbeddedPaymentElementViewComponentView.*",
+  "GooglePayButtonComponentView.*",
+  "StripeContainerComponentView.*",
+];
+const disabledCodegenComponents = [
+  "AddToWalletButton",
+  "AddressSheetView",
+  "ApplePayButton",
+  "AuBECSDebitForm",
+  "CardField",
+  "CardForm",
+  "EmbeddedPaymentElementView",
+  "StripeContainer",
+];
 
 function read(file) {
   return fs.readFileSync(file, "utf8");
@@ -24,6 +45,10 @@ function patchFile(file, patcher) {
 
 function patchPodspec() {
   const file = path.join(stripeRoot, "stripe-react-native.podspec");
+  const newArchExclude = `      ss.exclude_files = [ ${disabledNewArchComponents
+    .map((component) => `"ios/NewArch/${component}"`)
+    .join(", ")} ]`;
+
   return patchFile(file, (source) => {
     const lines = source.split(/\r?\n/);
     const next = [];
@@ -39,9 +64,7 @@ function patchPodspec() {
 
       if (line.trim().startsWith("ss.exclude_files =")) {
         if (!wroteNewArchExclude) {
-          next.push(
-            '      ss.exclude_files = [ "ios/NewArch/AddToWalletButtonComponentView.*", "ios/NewArch/AuBECSDebitFormComponentView.*" ]',
-          );
+          next.push(newArchExclude);
           wroteNewArchExclude = true;
         }
         continue;
@@ -53,9 +76,7 @@ function patchPodspec() {
         line.trim() === 'ss.source_files = "ios/NewArch/**/*.{h,m,mm}"' &&
         !source.includes("ss.exclude_files")
       ) {
-        next.push(
-          '      ss.exclude_files = [ "ios/NewArch/AddToWalletButtonComponentView.*", "ios/NewArch/AuBECSDebitFormComponentView.*" ]',
-        );
+        next.push(newArchExclude);
         wroteNewArchExclude = true;
       }
     }
@@ -68,14 +89,88 @@ function patchStripePackageCodegen() {
   const file = path.join(stripeRoot, "package.json");
   return patchFile(file, (source) => {
     const pkg = JSON.parse(source);
-    if (pkg.codegenConfig?.ios?.componentProvider?.AddToWalletButton) {
-      delete pkg.codegenConfig.ios.componentProvider.AddToWalletButton;
-    }
-    if (pkg.codegenConfig?.ios?.componentProvider?.AuBECSDebitForm) {
-      delete pkg.codegenConfig.ios.componentProvider.AuBECSDebitForm;
+    if (pkg.codegenConfig?.ios?.componentProvider) {
+      for (const component of disabledCodegenComponents) {
+        delete pkg.codegenConfig.ios.componentProvider[component];
+      }
     }
     return `${JSON.stringify(pkg, null, 2)}\n`;
   });
+}
+
+function patchUnusedCardViews() {
+  const cardFieldView = path.join(stripeRoot, "ios", "CardFieldView.swift");
+  const cardFormView = path.join(stripeRoot, "ios", "CardFormView.swift");
+
+  const cardFieldStub = `import Foundation
+import UIKit
+import Stripe
+
+@objc(CardFieldView)
+public class CardFieldView: UIView {
+    @objc public var onCardChange: RCTDirectEventBlock?
+    @objc public var onFocusChange: RCTDirectEventBlock?
+    @objc public var dangerouslyGetFullCardDetails: Bool = false
+    @objc public var disabled: Bool = false
+    @objc public var postalCodeEnabled: Bool = true
+    @objc public var countryCode: String?
+    @objc public var onBehalfOf: String?
+    @objc public var preferredNetworks: Array<Int>?
+    @objc public var placeholders: NSDictionary = NSDictionary()
+    @objc public var autofocus: Bool = false
+    @objc public var cardStyle: NSDictionary = NSDictionary()
+
+    public var cardParams: STPPaymentMethodParams? = nil
+    public var cardPostalCode: String? = nil
+
+    override public init(frame: CGRect) {
+        super.init(frame: frame)
+        StripeSdkImpl.shared.cardFieldView = self
+    }
+
+    @objc public func focus() {}
+    @objc public func blur() {}
+    @objc public func clear() {}
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+`;
+
+  const cardFormStub = `import Foundation
+import UIKit
+import Stripe
+
+@objc(CardFormView)
+public class CardFormView: UIView {
+    public var cardForm: STPCardFormView?
+    public var cardParams: STPPaymentMethodCardParams? = nil
+
+    @objc public var dangerouslyGetFullCardDetails: Bool = false
+    @objc public var onFormComplete: RCTDirectEventBlock?
+    @objc public var autofocus: Bool = false
+    @objc public var disabled: Bool = false
+    @objc public var preferredNetworks: Array<Int>?
+    @objc public var cardStyle: NSDictionary = NSDictionary()
+
+    @objc public func didSetProps() {}
+    override public func didSetProps(_ changedProps: [String]!) {}
+    @objc public func focus() {}
+    @objc public func blur() {}
+
+    override public init(frame: CGRect) {
+        super.init(frame: frame)
+        StripeSdkImpl.shared.cardFormView = self
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+`;
+
+  return [patchFile(cardFieldView, () => cardFieldStub), patchFile(cardFormView, () => cardFormStub)].some(Boolean);
 }
 
 function patchSwiftInteropHeader() {
@@ -188,6 +283,7 @@ if (!fs.existsSync(stripeRoot)) {
 const changed = [
   patchPodspec(),
   patchStripePackageCodegen(),
+  patchUnusedCardViews(),
   patchSwiftInteropHeader(),
   patchSwiftBridgeImports(),
   patchStripeSdkImpl(),
