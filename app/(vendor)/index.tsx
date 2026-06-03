@@ -42,7 +42,7 @@ const CURRENCY_SYMBOL: Record<string, string> = {
 };
 
 const formatCurrency = (n: number, currencyCode = "GBP") => {
-  const symbol = CURRENCY_SYMBOL[currencyCode.toUpperCase()] ?? "£";
+  const symbol = CURRENCY_SYMBOL[String(currencyCode || "GBP").toUpperCase()] ?? "£";
   const amount = Number(n);
   return `${symbol}${(Number.isFinite(amount) ? amount : 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
@@ -55,6 +55,22 @@ const fmtNgn = (n: number) => {
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const SCREEN_WIDTH = Dimensions.get("window").width;
+
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function asText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return fallback;
+}
+
+function asNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
 
 function formatToday() {
   const d = new Date();
@@ -137,7 +153,7 @@ export default function VendorDashboardScreen() {
         deliveryService.listZones().catch(() => [] as DeliveryZone[]),
       ]);
 
-      const unreadMessages = (conversations ?? []).reduce(
+      const unreadMessages = asArray<any>(conversations).reduce(
         (sum, c) => sum + (c.unreadCount ?? 0),
         0
       );
@@ -147,10 +163,10 @@ export default function VendorDashboardScreen() {
         data,
         subscription,
         limits,
-        products: products ?? [],
-        orders: orders ?? [],
-        buyers: buyers ?? [],
-        zones: zones ?? [],
+        products: asArray<Product>(products),
+        orders: asArray<Order>(orders),
+        buyers: asArray<VendorBuyerSummary>(buyers),
+        zones: asArray<DeliveryZone>(zones),
         unreadMessages,
       });
     } finally {
@@ -183,24 +199,25 @@ export default function VendorDashboardScreen() {
   const { profile, data, subscription, limits, products, orders, buyers, zones, unreadMessages } = agg;
 
   const storeName =
-    profile?.storeName?.trim() || data?.storeName?.trim() || user?.name || "your store";
+    asText(profile?.storeName).trim() || asText(data?.storeName).trim() || asText(user?.name, "your store") || "your store";
 
   const earnings = data?.earnings;
   const insights = data?.insights;
   const subscriptionPlan = subscription?.slug ?? "free";
   const subscriptionStatus = subscription?.status === "active" ? "Active" : "Inactive";
-  const bestSellingText = insights?.bestSellingProduct?.trim() || "No order data yet";
-  const repeatBuyerCount = insights?.repeatBuyers ?? 0;
+  const bestSellingText = asText(insights?.bestSellingProduct).trim() || "No order data yet";
+  const repeatBuyerCount = asNumber(insights?.repeatBuyers);
+  const backendAlerts = asArray<{ type?: string; count?: unknown }>(data?.alerts);
 
   // Alerts — prefer the backend-provided alerts; fall back to derived values.
   const alertOrderAction =
-    (data?.alerts ?? []).find((a) => a.type === "order_action")?.count ??
+    asNumber(backendAlerts.find((a) => a.type === "order_action")?.count, NaN) ||
     orders.filter((o) => o.status === "pending" || o.status === "confirmed").length;
   const alertLowStock =
-    (data?.alerts ?? []).find((a) => a.type === "low_stock")?.count ??
+    asNumber(backendAlerts.find((a) => a.type === "low_stock")?.count, NaN) ||
     products.filter((p) => (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5).length;
   const alertUnreadMessages =
-    (data?.alerts ?? []).find((a) => a.type === "message")?.count ?? unreadMessages;
+    asNumber(backendAlerts.find((a) => a.type === "message")?.count, NaN) || unreadMessages;
 
   // Derived counts
   const productsCount = products.length;
@@ -208,14 +225,14 @@ export default function VendorDashboardScreen() {
   const totalOrders = orders.length;
   const ratingValue = Number(profile?.rating ?? 0);
   const safeRatingValue = Number.isFinite(ratingValue) ? ratingValue : 0;
-  const sellsCountryText = profile?.country?.trim() || "Country not set";
+  const sellsCountryText = asText(profile?.country).trim() || "Country not set";
 
   // Avg delivery — average estimated days across all zones, otherwise empty.
   const avgDeliveryText = (() => {
     if (zones.length === 0) return "";
     // estimatedDays is "3–5 days" or similar; collapse to the dominant string.
     const counts = zones.reduce<Record<string, number>>((acc, z) => {
-      const key = z.estimatedDays || "";
+      const key = asText(z.estimatedDays);
       if (key) acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {});
@@ -323,7 +340,7 @@ export default function VendorDashboardScreen() {
           </View>
 
           <Text style={styles.welcome}>
-            {data?.greeting?.trim() || "Welcome back,"}
+            {asText(data?.greeting).trim() || "Welcome back,"}
           </Text>
           <Text style={styles.storeName} numberOfLines={1}>
             {storeName} <Text style={styles.wave}>👑</Text>
@@ -585,8 +602,9 @@ export default function VendorDashboardScreen() {
                 style={styles.buyersScroll}
               >
                 {buyers.slice(0, 4).map((b) => {
-                  const isTop = b.totalOrders >= 10;
-                  const label = isTop ? `Top Buyer • ${b.totalOrders} Orders` : `${b.totalOrders} Orders`;
+                  const totalBuyerOrders = asNumber(b.totalOrders);
+                  const isTop = totalBuyerOrders >= 10;
+                  const label = isTop ? `Top Buyer • ${totalBuyerOrders} Orders` : `${totalBuyerOrders} Orders`;
                   return (
                     <BuyerCard 
                       key={b.id} 
