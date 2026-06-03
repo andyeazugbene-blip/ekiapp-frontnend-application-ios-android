@@ -107,7 +107,7 @@ workflows:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="iPhone Distribution" \
             PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
-            PROVISIONING_PROFILE_SPECIFIER="Ekiapp" \
+            PROVISIONING_PROFILE_SPECIFIER="Eki App" \
             | tee /tmp/xcodebuild_logs/archive.log
           ARCHIVE_STATUS=${PIPESTATUS[0]}
           if [ "$ARCHIVE_STATUS" -ne 0 ]; then
