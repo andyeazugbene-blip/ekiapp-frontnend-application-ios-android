@@ -63,12 +63,7 @@ export default function DashboardPage() {
     return (
       <ProtectedRoute>
         <AdminLayout>
-          <div className="flex h-64 items-center justify-center">
-            <div className="text-center">
-              <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-700"></div>
-              <p className="mt-4 text-slate-600">Loading dashboard...</p>
-            </div>
-          </div>
+          <DashboardSkeleton />
         </AdminLayout>
       </ProtectedRoute>
     );
@@ -93,15 +88,10 @@ export default function DashboardPage() {
     <ProtectedRoute>
       <AdminLayout>
         <div className="space-y-8">
-          <section className="rounded-[28px] border border-emerald-100 bg-gradient-to-br from-[#0f3d32] via-[#114738] to-[#153c30] px-6 py-7 text-white shadow-[0_24px_60px_rgba(8,38,30,0.24)]">
+          <section className="rounded-2xl border border-emerald-100 bg-[#0f3d32] px-6 py-6 text-white shadow-[0_18px_45px_rgba(8,38,30,0.18)]">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-2xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100/80">Eki control</p>
-                <h1 className="mt-3 text-3xl font-bold tracking-tight">Marketplace operations at a glance</h1>
-                <p className="mt-3 text-sm leading-6 text-emerald-50/78">
-                  Fast checks for approvals, revenue, orders, and vendor activity. This dashboard is tuned for quick scanning,
-                  not hunting through clutter.
-                </p>
+                <h1 className="text-2xl font-bold tracking-tight">Marketplace operations</h1>
               </div>
               <div className="grid grid-cols-2 gap-3 text-left lg:min-w-[320px]">
                 <HeroMetric label="Active vendors" value={stats?.activeVendors ?? 0} />
@@ -115,11 +105,6 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">Overview</h2>
-            <p className="mt-1 text-sm text-slate-500">Live operational summary from the admin backend.</p>
-          </div>
-
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard title="Total Vendors" value={stats?.totalVendors ?? 0} subtitle={`${stats?.activeVendors ?? 0} active`} accent="emerald" />
             <StatCard title="Pending Approvals" value={stats?.pendingApprovals ?? 0} subtitle="Vendors awaiting review" accent="amber" />
@@ -132,10 +117,9 @@ export default function DashboardPage() {
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">Revenue trend</h2>
-                  <p className="mt-1 text-sm text-slate-500">Last 30 days, live from the admin API.</p>
                 </div>
                 <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  Updated now
+                  Live
                 </div>
               </div>
               <ResponsiveContainer width="100%" height={300}>
@@ -211,9 +195,39 @@ export default function DashboardPage() {
   );
 }
 
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="h-7 w-64 animate-pulse rounded bg-slate-200" />
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
+              <div className="mt-4 h-8 w-20 animate-pulse rounded bg-slate-200" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <div key={index} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="h-5 w-36 animate-pulse rounded bg-slate-200" />
+            <div className="mt-6 space-y-3">
+              {Array.from({ length: 5 }).map((__, row) => (
+                <div key={row} className="h-10 animate-pulse rounded bg-slate-100" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HeroMetric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
+    <div className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
       <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-50/60">{label}</p>
       <p className="mt-2 text-lg font-bold text-white">{value}</p>
     </div>
@@ -239,7 +253,7 @@ function StatCard({
   }[accent];
 
   return (
-    <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-slate-500">{title}</p>
@@ -264,7 +278,7 @@ function DataTableCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         <span className="text-xs font-medium text-slate-500">{note}</span>
