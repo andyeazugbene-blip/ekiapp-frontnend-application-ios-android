@@ -4,6 +4,7 @@ import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, Text, TextInput, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { StripeProvider } from "../components/providers/StripeProvider";
 import { useAuthStore } from "../stores/authStore";
 import { initMonitoring } from "../services/monitoring";
@@ -66,19 +67,21 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StripeProvider>
-        <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(buyer)" />
-          <Stack.Screen name="(vendor)" />
-          <Stack.Screen name="(admin)" />
-          <Stack.Screen name="(vendor-onboarding)" options={{ animation: "slide_from_right" }} />
-          <Stack.Screen name="(vendor-verification)" options={{ animation: "slide_from_right" }} />
-          <Stack.Screen name="store/[slug]" options={{ animation: "slide_from_right" }} />
-        </Stack>
-      </StripeProvider>
+      <ErrorBoundary>
+        <StripeProvider>
+          <StatusBar style="dark" />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(buyer)" />
+            <Stack.Screen name="(vendor)" />
+            <Stack.Screen name="(admin)" />
+            <Stack.Screen name="(vendor-onboarding)" options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="(vendor-verification)" options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="store/[slug]" options={{ animation: "slide_from_right" }} />
+          </Stack>
+        </StripeProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }

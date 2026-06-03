@@ -15,13 +15,24 @@ interface VendorListResponse {
   total?: number;
 }
 
+function toNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return fallback;
+  return String(value);
+}
+
 function normalizeVendor(raw: any): VendorSummary {
   const rawVerificationStatus = (raw?.verificationStatus ?? "pending_docs").toString().toLowerCase();
   const verificationStatus = rawVerificationStatus === "pending" ? "pending_docs" : rawVerificationStatus;
   const suspended = raw?.isSuspended === true || raw?.adminStatus === "suspended";
 
   return {
-    id: raw?.id ?? raw?.vendorId ?? "",
+    id: toText(raw?.id ?? raw?.vendorId),
     userId:
       raw?.userId ??
       raw?.user?.id ??
@@ -30,24 +41,24 @@ function normalizeVendor(raw: any): VendorSummary {
       raw?.participantUserId ??
       raw?.profile?.userId ??
       undefined,
-    storeName: raw?.storeName ?? "",
-    storeSlug: raw?.storeSlug,
-    shareUrl: raw?.shareUrl,
-    ownerName: raw?.ownerName ?? raw?.user?.name ?? "",
-    country: raw?.country ?? "",
-    city: raw?.city ?? "",
-    rating: raw?.rating ?? 0,
-    totalProducts: raw?.totalProducts ?? 0,
-    totalOrders: raw?.totalOrders ?? 0,
-    joinedAt: raw?.joinedAt ?? raw?.createdAt ?? "",
-    coverImage: raw?.coverImage,
-    avatar: raw?.avatar,
+    storeName: toText(raw?.storeName),
+    storeSlug: raw?.storeSlug ? toText(raw.storeSlug) : undefined,
+    shareUrl: raw?.shareUrl ? toText(raw.shareUrl) : undefined,
+    ownerName: toText(raw?.ownerName ?? raw?.user?.name),
+    country: toText(raw?.country),
+    city: toText(raw?.city),
+    rating: toNumber(raw?.rating),
+    totalProducts: toNumber(raw?.totalProducts),
+    totalOrders: toNumber(raw?.totalOrders),
+    joinedAt: toText(raw?.joinedAt ?? raw?.createdAt),
+    coverImage: raw?.coverImage ? toText(raw.coverImage) : undefined,
+    avatar: raw?.avatar ? toText(raw.avatar) : undefined,
     verificationStatus: verificationStatus as VendorSummary["verificationStatus"],
     adminStatus: suspended ? "suspended" : verificationStatus === "verified" ? "active" : "pending",
     subscriptionPlan: (raw?.subscriptionPlan ?? "free").toString().toLowerCase(),
-    description: raw?.description,
-    businessType: raw?.businessType,
-    sellerRegion: raw?.sellerRegion,
+    description: raw?.description ? toText(raw.description) : undefined,
+    businessType: raw?.businessType ? toText(raw.businessType) : undefined,
+    sellerRegion: raw?.sellerRegion ? toText(raw.sellerRegion) : undefined,
     deliveryCountries: Array.isArray(raw?.deliveryCountries) ? raw.deliveryCountries.filter(Boolean) : [],
   } as VendorSummary;
 }

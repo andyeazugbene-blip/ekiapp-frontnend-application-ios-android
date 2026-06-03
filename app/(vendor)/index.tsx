@@ -43,11 +43,14 @@ const CURRENCY_SYMBOL: Record<string, string> = {
 
 const formatCurrency = (n: number, currencyCode = "GBP") => {
   const symbol = CURRENCY_SYMBOL[currencyCode.toUpperCase()] ?? "£";
-  return `${symbol}${(n ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const amount = Number(n);
+  return `${symbol}${(Number.isFinite(amount) ? amount : 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-const fmtNgn = (n: number) =>
-  `≈ ₦${(n ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+const fmtNgn = (n: number) => {
+  const amount = Number(n);
+  return `≈ ₦${(Number.isFinite(amount) ? amount : 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+};
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -203,7 +206,8 @@ export default function VendorDashboardScreen() {
   const productsCount = products.length;
   const lowStockCount = products.filter((p) => (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5).length;
   const totalOrders = orders.length;
-  const ratingValue = profile?.rating ?? 0;
+  const ratingValue = Number(profile?.rating ?? 0);
+  const safeRatingValue = Number.isFinite(ratingValue) ? ratingValue : 0;
   const sellsCountryText = profile?.country?.trim() || "Country not set";
 
   // Avg delivery — average estimated days across all zones, otherwise empty.
@@ -220,7 +224,7 @@ export default function VendorDashboardScreen() {
   })();
   const deliveryHealth =
     zones.length === 0 ? "Setup" : zones.every((z) => z.active) ? "Good" : "Paused";
-  const ratingDisplay = ratingValue > 0 ? `${ratingValue.toFixed(1)}/5` : "No rating yet";
+  const ratingDisplay = safeRatingValue > 0 ? `${safeRatingValue.toFixed(1)}/5` : "No rating yet";
   const ordersDisplay = totalOrders.toLocaleString("en-US");
   const deliveryDisplay = avgDeliveryText || "Not set";
 
