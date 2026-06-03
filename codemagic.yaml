@@ -65,12 +65,33 @@ workflows:
           cd ios
           pod install --repo-update
       - name: Apply App Store signing profiles
-        script: xcode-project use-profiles
+        script: |
+          xcode-project use-profiles \
+            --export-options-plist=/Users/builder/export_options.plist \
+            --code-signing-setup-verbose-logging
+      - name: Check iOS signing settings
+        script: |
+          set -e
+          echo "Expected bundle id: $BUNDLE_ID"
+          echo "Installed provisioning profiles:"
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles" || true
+          echo "Archive signing build settings:"
+          xcodebuild -workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -showBuildSettings \
+            | grep -E "PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|PROVISIONING_PROFILE_SPECIFIER|PROVISIONING_PROFILE" || true
+          echo "Export options:"
+          cat /Users/builder/export_options.plist
       - name: Build IPA
-        script: xcode-project build-ipa --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" --scheme "$XCODE_SCHEME"
+        script: |
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME" \
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
+      - /Users/builder/export_options.plist
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
     publishing:
       app_store_connect:
