@@ -60,6 +60,10 @@ workflows:
         script: npm ci
       - name: Generate iOS project from Expo config
         script: npx expo prebuild --platform ios --clean --non-interactive
+      - name: Initialize keychain
+        script: keychain initialize
+      - name: Add signing certificates to keychain
+        script: keychain add-certificates
       - name: Install CocoaPods
         script: |
           cd ios
@@ -84,10 +88,31 @@ workflows:
           cat /Users/builder/export_options.plist
       - name: Build IPA
         script: |
-          xcode-project build-ipa \
-            --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME" \
-            --export-options-plist=/Users/builder/export_options.plist
+          set -eo pipefail
+          mkdir -p "$CM_BUILD_DIR/build/ios/xcarchive"
+          mkdir -p "$CM_BUILD_DIR/build/ios/ipa"
+          mkdir -p /tmp/xcodebuild_logs
+
+          ARCHIVE_PATH="$CM_BUILD_DIR/build/ios/xcarchive/Eki.xcarchive"
+          EXPORT_PATH="$CM_BUILD_DIR/build/ios/ipa"
+
+          xcodebuild clean archive \
+            -workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$ARCHIVE_PATH" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            DEVELOPMENT_TEAM=83BMQKN6K7 \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            | tee /tmp/xcodebuild_logs/archive.log
+
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$EXPORT_PATH" \
+            -exportOptionsPlist /Users/builder/export_options.plist \
+            | tee /tmp/xcodebuild_logs/export.log
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
