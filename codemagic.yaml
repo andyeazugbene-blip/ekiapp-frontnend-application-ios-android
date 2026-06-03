@@ -16,7 +16,7 @@ workflows:
       app_store_connect: EKI
     environment:
       node: 20.18.0
-      xcode: 16.4
+      xcode: latest
       cocoapods: default
       ios_signing:
         certificates:
