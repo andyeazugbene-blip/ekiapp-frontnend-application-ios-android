@@ -202,8 +202,11 @@ function patchSwiftInteropHeader() {
 #if __has_include(<PassKit/PassKit.h>)
 #import <PassKit/PassKit.h>
 #endif
+#import <UIKit/UIKit.h>
 
-@protocol STPAuthenticationContext;
+@protocol STPAuthenticationContext <NSObject>
+- (UIViewController *)authenticationPresentingViewController;
+@end
 @protocol STPApplePayContextDelegate;
 @protocol PKPaymentAuthorizationViewControllerDelegate;
 @protocol STPIssuingCardEphemeralKeyProvider;
