@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,7 +15,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { vendorService } from "../../services/vendorService";
+import { uploadService } from "../../services/uploadService";
 import { useAuthStore } from "../../stores/authStore";
 import type { VendorProfile } from "../../types/auth";
 
@@ -26,6 +30,8 @@ export default function EditStoreProfileScreen() {
   const [description, setDescription] = useState(user?.storeDescription ?? "");
   const [city, setCity] = useState(user?.city ?? "");
   const [country, setCountry] = useState(user?.country ?? "");
+  const [avatar, setAvatar] = useState(user?.avatar ?? "");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -34,7 +40,37 @@ export default function EditStoreProfileScreen() {
     setDescription(user?.storeDescription ?? "");
     setCity(user?.city ?? "");
     setCountry(user?.country ?? "");
+    setAvatar(user?.avatar ?? "");
   }, [user]);
+
+  const handlePickAvatar = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Allow photo access to update your store avatar.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    setUploadingAvatar(true);
+    setError("");
+    try {
+      const asset = result.assets[0];
+      const contentType = asset.mimeType ?? "image/jpeg";
+      const fileName = `store-avatar-${Date.now()}.${contentType.includes("png") ? "png" : "jpg"}`;
+      setAvatar(await uploadService.uploadImage(asset.uri, fileName, contentType, "avatar"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not upload your store avatar.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!storeName.trim()) {
@@ -50,6 +86,7 @@ export default function EditStoreProfileScreen() {
         description: description.trim(),
         city: city.trim(),
         country: country.trim(),
+        avatar: avatar || null,
       } as any);
       await checkAuth().catch(() => undefined);
       router.back();
@@ -75,6 +112,22 @@ export default function EditStoreProfileScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
+            <View style={styles.avatarSection}>
+              <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.85} style={styles.avatarButton}>
+                {avatar ? (
+                  <Image source={{ uri: avatar }} style={styles.avatarImage} />
+                ) : (
+                  <Ionicons name="storefront-outline" size={28} color="#076B51" />
+                )}
+                <View style={styles.avatarBadge}>
+                  {uploadingAvatar ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="camera-outline" size={14} color="#FFFFFF" />}
+                </View>
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.avatarTitle}>Store avatar</Text>
+                <Text style={styles.avatarCopy}>Shown on your store, products, and buyer messages.</Text>
+              </View>
+            </View>
             <Field label="Store name" value={storeName} onChangeText={setStoreName} placeholder="Queen African Foods" />
             <Field
               label="Store description"
@@ -138,6 +191,12 @@ const styles = StyleSheet.create({
   headerSubtitle: { fontSize: 13, lineHeight: 18, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 4 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
   card: { backgroundColor: "#FFFFFF", borderRadius: 24, padding: 18, marginBottom: 16 },
+  avatarSection: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 18 },
+  avatarButton: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#EAF5F0", alignItems: "center", justifyContent: "center" },
+  avatarImage: { width: "100%", height: "100%", borderRadius: 36 },
+  avatarBadge: { position: "absolute", right: 0, bottom: 0, width: 25, height: 25, borderRadius: 13, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFFFFF" },
+  avatarTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
+  avatarCopy: { fontSize: 12, lineHeight: 17, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 3 },
   fieldGroup: { marginBottom: 14 },
   fieldLabel: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#687076", marginBottom: 6 },
   input: { minHeight: 52, borderRadius: 14, backgroundColor: "#F6F7F7", paddingHorizontal: 14, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },

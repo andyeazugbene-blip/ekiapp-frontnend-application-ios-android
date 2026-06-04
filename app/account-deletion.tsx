@@ -7,7 +7,7 @@ import { useRouter } from "expo-router";
 import { ApiRequestError } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
 
-const PRIVACY_URL = "https://culinarytales.app/account-deletion";
+const PRIVACY_URL = "https://www.culinarytales.app/account-deletion";
 const ROLE_SELECT_ROUTE = "/(auth)/role-select";
 
 export default function AccountDeletionScreen() {

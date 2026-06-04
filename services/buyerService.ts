@@ -15,6 +15,7 @@ export interface VendorBuyerSummary {
   totalSpent: number;
   currency: string;
   lastOrderAt: string | null;
+  lastOrderId?: string;
   joinedAt?: string;
 }
 
@@ -43,6 +44,7 @@ function normalizeBuyer(raw: any): VendorBuyerSummary {
     totalSpent: typeof raw.totalSpent === "number" ? raw.totalSpent / 100 : 0,
     currency: (raw.currency ?? "GBP").toUpperCase(),
     lastOrderAt: raw.lastOrderAt ?? raw.lastOrder ?? null,
+    lastOrderId: raw.lastOrderId ?? raw.lastOrder?.id ?? undefined,
     joinedAt: raw.joinedAt ?? raw.createdAt,
   };
 }

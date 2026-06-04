@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -145,7 +146,11 @@ export default function VendorSettingsScreen() {
         <View style={styles.profileCard}>
           <View style={styles.profileRow}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{(vendor?.storeName || vendor?.name || "S").charAt(0).toUpperCase()}</Text>
+              {vendor?.avatar ? (
+                <Image source={{ uri: vendor.avatar }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>{(vendor?.storeName || vendor?.name || "S").charAt(0).toUpperCase()}</Text>
+              )}
               <View style={styles.avatarBadge}>
                 <Ionicons name="storefront" size={10} color="#FFFFFF" />
               </View>
@@ -323,7 +328,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
+    overflow: "hidden",
   },
+  avatarImage: { width: "100%", height: "100%" },
   avatarText: { fontSize: 28, fontFamily: "Manrope-Bold", color: "#076B51" },
   avatarBadge: {
     position: "absolute",

@@ -130,23 +130,25 @@ function normalizeDiscount(raw: any): Discount {
   };
 }
 
-async function resolveOfferRecipients(input: OfferInput): Promise<string[]> {
+async function resolveOfferRecipients(input: OfferInput): Promise<Array<{ buyerId: string; orderId?: string }>> {
   if (input.audience === "specific_buyer") {
     if (!input.buyerId) {
       throw new Error("Choose a buyer before sending this offer.");
     }
-    return [input.buyerId];
+    const buyers = await buyerService.listMyBuyers();
+    const buyer = buyers.find((item) => item.id === input.buyerId);
+    return [{ buyerId: input.buyerId, orderId: buyer?.lastOrderId }];
   }
 
   const buyers = await buyerService.listMyBuyers();
   if (input.audience === "all_buyers") {
-    return buyers.map((buyer) => buyer.id);
+    return buyers.map((buyer) => ({ buyerId: buyer.id, orderId: buyer.lastOrderId }));
   }
 
   const last30DaysCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   return buyers
     .filter((buyer) => buyer.lastOrderAt && Date.parse(buyer.lastOrderAt) >= last30DaysCutoff)
-    .map((buyer) => buyer.id);
+    .map((buyer) => ({ buyerId: buyer.id, orderId: buyer.lastOrderId }));
 }
 
 export const marketingService = {
@@ -199,8 +201,8 @@ export const marketingService = {
       throw new Error("No matching buyers were found for this audience yet.");
     }
 
-    for (const buyerId of recipientIds) {
-      const conversation = await messageService.createConversation(buyerId);
+    for (const recipient of recipientIds) {
+      const conversation = await messageService.createConversation(recipient.buyerId, recipient.orderId);
       await messageService.sendMessage(conversation.id, { text: message });
     }
 

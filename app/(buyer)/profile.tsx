@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
+import * as ImagePicker from "expo-image-picker";
 import { useAuthStore } from "../../stores/authStore";
+import { uploadService } from "../../services/uploadService";
 
 interface MenuItem {
   icon: keyof typeof Ionicons.glyphMap;
@@ -20,7 +22,9 @@ export default function ProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const updateProfile = useAuthStore((s) => s.updateProfile);
   const [copied, setCopied] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -34,6 +38,36 @@ export default function ProfileScreen() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {}
+  };
+
+  const handlePickAvatar = async () => {
+    if (uploadingAvatar) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Allow photo access to update your avatar.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    setUploadingAvatar(true);
+    try {
+      const asset = result.assets[0];
+      const contentType = asset.mimeType ?? "image/jpeg";
+      const fileName = `buyer-avatar-${Date.now()}.${contentType.includes("png") ? "png" : "jpg"}`;
+      const avatar = await uploadService.uploadImage(asset.uri, fileName, contentType, "avatar");
+      await updateProfile({ avatar });
+    } catch (err) {
+      Alert.alert("Avatar not updated", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const items: MenuItem[] = [
@@ -71,9 +105,20 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <View style={styles.profileRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
+          <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.85} style={styles.avatar}>
+            {user?.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>{initials}</Text>
+            )}
+            <View style={styles.avatarEdit}>
+              {uploadingAvatar ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="camera-outline" size={13} color="#FFFFFF" />
+              )}
+            </View>
+          </TouchableOpacity>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{user?.name ?? "User"}</Text>
             {user?.email ? (
@@ -134,6 +179,21 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarImage: { width: "100%", height: "100%" },
+  avatarEdit: {
+    position: "absolute",
+    right: -1,
+    bottom: -1,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#1A2E24",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#076B51",
   },
   avatarText: { fontSize: 22, fontWeight: "700", color: "#FFFFFF" },
   profileInfo: { flex: 1 },

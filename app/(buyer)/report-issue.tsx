@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ApiRequestError } from "../../services/api";
 import { orderService } from "../../services/orderService";
+import type { Order } from "../../types/order";
 
 const ISSUES = [
   { id: "not_received", label: "Order not received", detail: "The order has not arrived as expected." },
@@ -16,7 +17,11 @@ const ISSUES = [
 export default function ReportIssueScreen() {
   const router = useRouter();
   const { orderId } = useLocalSearchParams<{ orderId?: string }>();
+  const initialOrderId = typeof orderId === "string" && orderId.length > 0 ? orderId : undefined;
   const [selected, setSelected] = useState<string | null>(ISSUES[0]?.id ?? null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | undefined>(initialOrderId);
+  const [loadingOrders, setLoadingOrders] = useState(!initialOrderId);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -26,10 +31,39 @@ export default function ReportIssueScreen() {
     [selected],
   );
 
-  const canSubmit = typeof orderId === "string" && orderId.length > 0;
+  useEffect(() => {
+    if (initialOrderId) return;
+    let active = true;
+    setLoadingOrders(true);
+    orderService
+      .getBuyerOrders()
+      .then((list) => {
+        if (!active) return;
+        const eligible = (list ?? []).filter((order) => !["cancelled", "refunded"].includes(order.status));
+        setOrders(eligible);
+        setSelectedOrderId((current) => current ?? eligible[0]?.id);
+      })
+      .catch(() => {
+        if (active) setOrders([]);
+      })
+      .finally(() => {
+        if (active) setLoadingOrders(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [initialOrderId]);
+
+  const selectedOrder = useMemo(
+    () => orders.find((order) => order.id === selectedOrderId) ?? null,
+    [orders, selectedOrderId],
+  );
+
+  const canSubmit = typeof selectedOrderId === "string" && selectedOrderId.length > 0;
 
   const submitIssue = async () => {
-    if (!canSubmit) {
+    const targetOrderId = selectedOrderId;
+    if (!targetOrderId) {
       Alert.alert("Support required", "This screen needs a real order before a dispute can be opened.");
       return;
     }
@@ -39,7 +73,7 @@ export default function ReportIssueScreen() {
 
     setSubmitting(true);
     try {
-      await orderService.openBuyerDispute(orderId, reason);
+      await orderService.openBuyerDispute(targetOrderId, reason);
       setSubmitted(true);
       Alert.alert("Dispute opened", "The escrow is now frozen while support reviews the case.");
     } catch (err) {
@@ -68,11 +102,42 @@ export default function ReportIssueScreen() {
           <Text style={styles.sectionBody}>
             If this escrow order was shipped but something went wrong, open a dispute here. The backend keeps funds frozen until an admin resolves it.
           </Text>
-          {canSubmit ? (
-            <Text style={styles.orderMeta}>Order reference: {orderId}</Text>
+          {initialOrderId ? (
+            <Text style={styles.orderMeta}>Order reference: {initialOrderId}</Text>
+          ) : loadingOrders ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color="#076B51" size="small" />
+              <Text style={styles.loadingText}>Loading your orders...</Text>
+            </View>
+          ) : orders.length > 0 ? (
+            <View style={styles.orderPicker}>
+              <Text style={styles.pickerLabel}>Choose the order</Text>
+              {orders.map((order) => {
+                const active = order.id === selectedOrderId;
+                return (
+                  <TouchableOpacity
+                    key={order.id}
+                    onPress={() => setSelectedOrderId(order.id)}
+                    activeOpacity={0.85}
+                    style={[styles.orderChoice, active && styles.orderChoiceActive]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.orderChoiceTitle, active && styles.orderChoiceTitleActive]}>
+                        {order.orderNumber}
+                      </Text>
+                      <Text style={[styles.orderChoiceMeta, active && styles.orderChoiceMetaActive]} numberOfLines={1}>
+                        {order.vendorName} - {order.items.length} item{order.items.length === 1 ? "" : "s"}
+                      </Text>
+                    </View>
+                    <Ionicons name={active ? "radio-button-on" : "radio-button-off"} size={18} color={active ? "#076B51" : "#A8B0B6"} />
+                  </TouchableOpacity>
+                );
+              })}
+              {selectedOrder ? <Text style={styles.orderMeta}>Selected: {selectedOrder.orderNumber}</Text> : null}
+            </View>
           ) : (
             <Text style={[styles.orderMeta, styles.warningText]}>
-              No order id was provided. This screen will fall back to support guidance only.
+              No eligible order was found. Open a specific order from My Orders if you need support.
             </Text>
           )}
         </View>
@@ -151,6 +216,16 @@ const styles = StyleSheet.create({
   sectionBody: { fontSize: 14, lineHeight: 21, fontFamily: "Outfit-Regular", color: "#687076" },
   orderMeta: { fontSize: 12, lineHeight: 18, fontFamily: "Outfit-Medium", color: "#076B51", marginTop: 12 },
   warningText: { color: "#D97706" },
+  loadingRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14 },
+  loadingText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#687076" },
+  orderPicker: { marginTop: 14, gap: 8 },
+  pickerLabel: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#282828" },
+  orderChoice: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 14, padding: 12 },
+  orderChoiceActive: { borderColor: "#076B51", backgroundColor: "#F0F7F4" },
+  orderChoiceTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828" },
+  orderChoiceTitleActive: { color: "#076B51" },
+  orderChoiceMeta: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 2 },
+  orderChoiceMetaActive: { color: "#24564A" },
   issueList: { gap: 10 },
   issueItem: {
     flexDirection: "row",

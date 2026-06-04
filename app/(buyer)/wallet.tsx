@@ -19,6 +19,7 @@ import { walletService, type Wallet, type WalletTransaction } from "../../servic
 import { referralService, type ReferralInfo } from "../../services/referralService";
 import { isPaymentSheetAvailable, presentPayment } from "../../services/stripePayment";
 import { getPublicReferralUrl } from "../../utils/shareLinks";
+import { useAuthStore } from "../../stores/authStore";
 
 const CURRENCY_SYMBOL: Record<string, string> = {
   GBP: "\u00A3",
@@ -37,6 +38,7 @@ function formatDate(value: string): string {
 
 export default function WalletScreen() {
   const router = useRouter();
+  const userReferralCode = useAuthStore((state) => state.user?.referralCode ?? "");
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
@@ -76,7 +78,7 @@ export default function WalletScreen() {
 
   const currency = wallet?.currency ?? referralInfo?.currency ?? "GBP";
   const symbol = CURRENCY_SYMBOL[currency] ?? "\u00A3";
-  const referralCode = referralInfo?.referralCode ?? "";
+  const referralCode = referralInfo?.referralCode || userReferralCode || "";
   const referralUrl = referralCode ? getPublicReferralUrl(referralCode) : "";
   const creditTransactions = useMemo(
     () => transactions.filter((item) => item.type === "credit").slice(0, 3),
@@ -126,8 +128,8 @@ export default function WalletScreen() {
       Alert.alert("Referral unavailable", "Your referral code is not ready yet. Please refresh and try again.");
       return;
     }
-    await Clipboard.setStringAsync(referralCode || referralUrl);
-    Alert.alert("Copied", "Referral code copied to clipboard.");
+    await Clipboard.setStringAsync([referralCode, referralUrl].filter(Boolean).join("\n"));
+    Alert.alert("Copied", "Referral link copied to clipboard.");
   };
 
   const handleShareReferral = async () => {

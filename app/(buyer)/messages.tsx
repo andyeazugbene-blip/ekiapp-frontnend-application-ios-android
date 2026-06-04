@@ -17,6 +17,8 @@ export default function BuyerMessagesScreen() {
     () => conversations.filter((conversation) => (activeTab === "order" ? Boolean(conversation.orderId) : !conversation.orderId)),
     [activeTab, conversations],
   );
+  const vendorConversationCount = useMemo(() => conversations.filter((conversation) => !conversation.orderId).length, [conversations]);
+  const orderConversationCount = useMemo(() => conversations.filter((conversation) => Boolean(conversation.orderId)).length, [conversations]);
 
   useFocusEffect(
     useCallback(() => {
@@ -44,14 +46,14 @@ export default function BuyerMessagesScreen() {
           activeOpacity={0.86}
           style={activeTab === "vendor" ? styles.segmentActive : styles.segmentInactive}
         >
-          <Text style={activeTab === "vendor" ? styles.segmentActiveText : styles.segmentInactiveText}>Vendor messages</Text>
+          <Text style={activeTab === "vendor" ? styles.segmentActiveText : styles.segmentInactiveText}>Vendor messages ({vendorConversationCount})</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setActiveTab("order")}
           activeOpacity={0.86}
           style={activeTab === "order" ? styles.segmentActive : styles.segmentInactive}
         >
-          <Text style={activeTab === "order" ? styles.segmentActiveText : styles.segmentInactiveText}>Order messages</Text>
+          <Text style={activeTab === "order" ? styles.segmentActiveText : styles.segmentInactiveText}>Order messages ({orderConversationCount})</Text>
         </TouchableOpacity>
       </View>
 
@@ -83,10 +85,14 @@ export default function BuyerMessagesScreen() {
               />
               <View style={styles.convoContent}>
                 <Text style={styles.convoName} numberOfLines={1}>{convo.participantName}</Text>
+                <View style={[styles.messageTypePill, convo.orderId ? styles.orderTypePill : styles.vendorTypePill]}>
+                  <Text style={[styles.messageTypeText, convo.orderId ? styles.orderTypeText : styles.vendorTypeText]}>
+                    {convo.orderNumber ? `Order ${convo.orderNumber}` : convo.orderId ? "Order chat" : "Vendor chat"}
+                  </Text>
+                </View>
                 <Text style={styles.convoMessage} numberOfLines={1}>
                   {convo.lastMessage || "No messages yet"}
                 </Text>
-                {convo.orderNumber ? <Text style={styles.orderMeta}>Order {convo.orderNumber}</Text> : null}
               </View>
               <View style={styles.convoRight}>
                 <Text style={styles.convoTime}>{formatConversationTime(convo.lastMessageAt)}</Text>
@@ -132,6 +138,12 @@ const styles = StyleSheet.create({
   avatar: { width: 56, height: 56, borderRadius: 28, marginRight: 14 },
   convoContent: { flex: 1 },
   convoName: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
+  messageTypePill: { alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginTop: 5 },
+  vendorTypePill: { backgroundColor: "#EEF8F3" },
+  orderTypePill: { backgroundColor: "#FFF6E7" },
+  messageTypeText: { fontSize: 10, fontFamily: "Outfit-Medium" },
+  vendorTypeText: { color: "#076B51" },
+  orderTypeText: { color: "#A05A00" },
   convoMessage: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 3 },
   orderMeta: { fontSize: 11, fontFamily: "Outfit-Medium", color: "#076B51", marginTop: 4 },
   convoRight: { alignItems: "flex-end", gap: 4 },

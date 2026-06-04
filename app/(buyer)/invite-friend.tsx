@@ -6,19 +6,27 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { getPublicReferralUrl } from "../../utils/shareLinks";
 import { referralService, type ReferralInfo } from "../../services/referralService";
+import { useAuthStore } from "../../stores/authStore";
 
 export default function InviteFriendScreen() {
   const router = useRouter();
+  const userReferralCode = useAuthStore((state) => state.user?.referralCode ?? "");
   const [copied, setCopied] = useState(false);
   const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
-  useEffect(() => {
+  const loadReferral = React.useCallback(() => {
     let mounted = true;
+    setLoading(true);
+    setLoadError("");
 
     referralService
       .getMyReferralInfo()
-      .catch(() => null)
+      .catch((error) => {
+        if (mounted) setLoadError(error instanceof Error ? error.message : "Referral unavailable.");
+        return null;
+      })
       .then((nextReferralInfo) => {
         if (!mounted) return;
         setReferralInfo(nextReferralInfo);
@@ -32,7 +40,9 @@ export default function InviteFriendScreen() {
     };
   }, []);
 
-  const referralCode = referralInfo?.referralCode ?? "";
+  useEffect(() => loadReferral(), [loadReferral]);
+
+  const referralCode = referralInfo?.referralCode || userReferralCode || "";
   const referralUrl = getPublicReferralUrl(referralCode);
 
   const handleShare = async () => {
@@ -94,7 +104,12 @@ export default function InviteFriendScreen() {
             {copied ? <Text style={styles.copiedFeedback}>Copied to clipboard</Text> : null}
           </>
         ) : (
-          <Text style={styles.errorText}>We could not load your referral code right now.</Text>
+          <View style={styles.errorBlock}>
+            <Text style={styles.errorText}>{loadError || "We could not load your referral code right now."}</Text>
+            <TouchableOpacity onPress={loadReferral} activeOpacity={0.85} style={styles.retryButton}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         <TouchableOpacity
@@ -234,6 +249,9 @@ const styles = StyleSheet.create({
     color: "#FB6363",
     marginBottom: 20,
   },
+  errorBlock: { width: "100%", alignItems: "center", marginBottom: 20 },
+  retryButton: { marginTop: 10, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
+  retryButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   shareBtn: {
     width: "100%",
     height: 52,

@@ -171,7 +171,7 @@ export default function ShareStoreLinkScreen() {
           </View>
           <Text style={styles.topTitle}>My Store</Text>
           <TouchableOpacity
-            onPress={() => router.push("/(vendor)/settings" as any)}
+            onPress={() => router.back()}
             activeOpacity={0.85}
             style={styles.moreButton}
           >
