@@ -1,111 +1,124 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
+import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { APIError } from "@/lib/api";
 import { disputesAPI } from "@/lib/services/disputes.api";
 import { Dispute } from "@/types";
-import { APIError } from "@/lib/api";
 
 export default function DisputesPage() {
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    loadDisputes();
-  }, []);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   const loadDisputes = async () => {
     try {
       setLoading(true);
       setError("");
-      const data = await disputesAPI.getDisputes();
-      setDisputes(data);
+      setDisputes(await disputesAPI.getDisputes());
     } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
-      } else {
-        setError("Failed to load disputes");
-      }
+      setError(err instanceof APIError ? err.message : "Failed to load disputes");
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <AdminLayout>
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          </div>
-        </AdminLayout>
-      </ProtectedRoute>
-    );
-  }
+  useEffect(() => {
+    void loadDisputes();
+  }, []);
+
+  const summary = useMemo(() => {
+    const open = disputes.filter((d) => !d.resolvedAt && d.status.toLowerCase() !== "resolved");
+    return {
+      open: open.length,
+      urgent: open.filter((d) => d.status.toLowerCase().includes("urgent") || d.reason.toLowerCase().includes("not received")).length,
+      awaiting: open.filter((d) => d.status.toLowerCase().includes("await")).length || open.length,
+      hold: open.filter((d) => d.refundAmount && d.refundAmount > 0).length,
+      ready: open.filter((d) => d.status.toLowerCase().includes("ready")).length,
+    };
+  }, [disputes]);
+
+  const resolve = async (dispute: Dispute, resolution: "buyer" | "vendor") => {
+    if (!confirm(`Resolve this dispute for the ${resolution}?`)) return;
+    try {
+      setResolvingId(dispute.id);
+      await disputesAPI.resolveDispute(dispute.id, { resolution, note: `Resolved for ${resolution} from admin resolution centre.` });
+      await loadDisputes();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Failed to resolve dispute");
+    } finally {
+      setResolvingId(null);
+    }
+  };
 
   return (
     <ProtectedRoute>
       <AdminLayout>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Disputes</h1>
-            <p className="mt-1 text-sm text-gray-600">Manage order disputes</p>
-          </div>
+        {loading ? <LoadingPanel label="Loading disputes..." /> : (
+          <div className="space-y-8">
+            <PageHeader title="Disputes" subtitle="Manage and resolve vendor and buyer disputes." actions={<><Button variant="ghost" disabled><Icon name="settings" /> Filters</Button><Button variant="ghost" disabled><Icon name="calendar" /> Last 30 days</Button></>} />
+            {error ? <ErrorPanel message={error} onRetry={() => void loadDisputes()} /> : null}
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-              <button onClick={loadDisputes} className="ml-4 underline">Retry</button>
-            </div>
-          )}
-
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {disputes.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500">No disputes found</p>
-                <p className="text-sm text-gray-400 mt-2">All clear! 🎉</p>
+            <div>
+              <h2 className="text-2xl font-black">Reported issues</h2>
+              <div className="mt-6 grid gap-6 md:grid-cols-3">
+                <MetricCard icon="disputes" label="Disputes" value={summary.open} tone="green" />
+                <MetricCard icon="disputes" label="Urgent" value={summary.urgent.toString().padStart(2, "0")} tone="red" />
+                <MetricCard icon="clock" label="Awaiting" value={summary.awaiting.toString().padStart(2, "0")} tone="amber" />
               </div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {disputes.map((dispute) => (
-                    <tr key={dispute.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{dispute.orderId}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{dispute.reason}</td>
-                      <td className="px-6 py-4 text-sm">
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                          {dispute.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(dispute.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <button className="text-primary-600 hover:text-primary-900 font-medium">
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+            </div>
 
-          <div className="text-sm text-gray-500">Showing {disputes.length} disputes</div>
-        </div>
+            <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+              <Card>
+                <h2 className="text-2xl font-black">Dispute queue</h2>
+                {disputes.length === 0 ? (
+                  <p className="mt-8 text-slate-500">No disputes found. All clear.</p>
+                ) : (
+                  <div className="mt-6 space-y-5">
+                    {disputes.slice(0, 8).map((dispute) => (
+                      <div key={dispute.id} className="rounded-2xl border border-slate-200 p-5">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                          <Badge tone="green">Order #{dispute.order?.orderNumber || dispute.orderId.slice(0, 8)}</Badge>
+                          <span className="text-sm text-slate-500">{dispute.createdAt ? new Date(dispute.createdAt).toLocaleString() : ""}</span>
+                        </div>
+                        <div className="mt-6 grid gap-4 md:grid-cols-[0.25fr_1fr_auto] md:items-center">
+                          <div className="space-y-3 text-sm text-slate-500"><p>Buyer:</p><p>Issue:</p><p>Status:</p></div>
+                          <div className="space-y-3 text-sm font-semibold text-[#101820]"><p>{dispute.buyerId || "Unknown buyer"}</p><p>{dispute.reason || "No reason provided"}</p><p><StatusBadge status={dispute.status} /></p></div>
+                          <div className="flex flex-wrap gap-3">
+                            <Button variant="secondary" onClick={() => alert(`Order: ${dispute.order?.orderNumber || dispute.orderId}\nBuyer: ${dispute.buyerId || "Unknown"}\nIssue: ${dispute.reason || "No reason provided"}\nStatus: ${dispute.status}`)}>View Details</Button>
+                            <Button disabled={resolvingId === dispute.id} onClick={() => void resolve(dispute, "buyer")}>Release payment</Button>
+                            <Button variant="danger" disabled={resolvingId === dispute.id} onClick={() => void resolve(dispute, "vendor")}>Hold payment</Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              <Card>
+                <h2 className="text-2xl font-black">Escrow decision summary</h2>
+                <DecisionCard icon="settings" label="Payments on hold" value={summary.hold.toString().padStart(2, "0")} />
+                <DecisionCard icon="arrow" label="Ready for release" value={summary.ready.toString().padStart(2, "0")} />
+              </Card>
+            </div>
+          </div>
+        )}
       </AdminLayout>
     </ProtectedRoute>
   );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const value = status.toLowerCase();
+  if (value.includes("resolved") || value.includes("ready")) return <Badge tone="green">{status}</Badge>;
+  if (value.includes("investigation") || value.includes("urgent")) return <Badge tone="red">{status}</Badge>;
+  return <Badge tone="amber">{status || "Awaiting review"}</Badge>;
+}
+
+function DecisionCard({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return <div className="mt-6 rounded-2xl bg-slate-50 p-7"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-[#096B4A]"><Icon name={icon} className="h-8 w-8" /></div><p className="mt-8 text-lg">{label}</p><p className="mt-5 text-4xl font-black">{value}</p><p className="mt-6 font-bold text-[#096B4A]">View details</p></div>;
 }

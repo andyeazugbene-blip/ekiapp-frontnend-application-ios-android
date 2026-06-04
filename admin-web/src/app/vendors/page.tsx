@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
+import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader, downloadCsv } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { API2FARequiredError, APIError } from "@/lib/api";
 import { vendorsAPI } from "@/lib/services/vendors.api";
 import { Vendor, VendorStatus } from "@/types";
-import { APIError, API2FARequiredError } from "@/lib/api";
 
 export default function VendorsPage() {
   const router = useRouter();
@@ -16,26 +18,19 @@ export default function VendorsPage() {
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState<VendorStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"joined" | "store">("joined");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [show2FAModal, setShow2FAModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<{ vendorId: string; action: string } | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ vendorId: string; action: "approve" | "reject" | "suspend" | "unsuspend" } | null>(null);
 
   const loadVendors = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const data = await vendorsAPI.getVendors({
-        status: statusFilter === "all" ? undefined : statusFilter,
-        search: searchQuery || undefined,
-      });
-      setVendors(data);
+      setVendors(await vendorsAPI.getVendors({ status: statusFilter === "all" ? undefined : statusFilter, search: searchQuery || undefined }));
     } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
-      } else {
-        setError("Failed to load vendors");
-      }
+      setError(err instanceof APIError ? err.message : "Failed to load vendors");
     } finally {
       setLoading(false);
     }
@@ -45,25 +40,29 @@ export default function VendorsPage() {
     void loadVendors();
   }, [loadVendors]);
 
-  const performAction = async (
-    vendorId: string,
-    action: "approve" | "reject" | "suspend" | "unsuspend",
-    code?: string,
-  ) => {
-    if (action === "approve") {
-      await vendorsAPI.approveVendor(vendorId);
-    } else if (action === "reject") {
-      await vendorsAPI.rejectVendor(vendorId);
-    } else if (action === "suspend") {
-      await vendorsAPI.suspendVendor(vendorId, code);
-    } else if (action === "unsuspend") {
-      await vendorsAPI.unsuspendVendor(vendorId, code);
-    }
+  const counts = useMemo(() => ({
+    all: vendors.length,
+    pending: vendors.filter((vendor) => vendor.adminStatus === "pending").length,
+    active: vendors.filter((vendor) => vendor.adminStatus === "active").length,
+    suspended: vendors.filter((vendor) => vendor.adminStatus === "suspended").length,
+  }), [vendors]);
+
+  const sortedVendors = useMemo(() => {
+    return [...vendors].sort((a, b) => {
+      if (sortBy === "store") return (a.storeName || "").localeCompare(b.storeName || "");
+      return new Date(b.joinedAt || 0).getTime() - new Date(a.joinedAt || 0).getTime();
+    });
+  }, [sortBy, vendors]);
+
+  const performAction = async (vendorId: string, action: "approve" | "reject" | "suspend" | "unsuspend", code?: string) => {
+    if (action === "approve") await vendorsAPI.approveVendor(vendorId);
+    if (action === "reject") await vendorsAPI.rejectVendor(vendorId);
+    if (action === "suspend") await vendorsAPI.suspendVendor(vendorId, code);
+    if (action === "unsuspend") await vendorsAPI.unsuspendVendor(vendorId, code);
   };
 
   const handleAction = async (vendorId: string, action: "approve" | "reject" | "suspend" | "unsuspend") => {
     if (!confirm(`Are you sure you want to ${action} this vendor?`)) return;
-
     try {
       setActionLoading(vendorId);
       await performAction(vendorId, action);
@@ -72,10 +71,8 @@ export default function VendorsPage() {
       if (err instanceof API2FARequiredError) {
         setPendingAction({ vendorId, action });
         setShow2FAModal(true);
-      } else if (err instanceof APIError) {
-        alert(err.message);
       } else {
-        alert(`Failed to ${action} vendor`);
+        alert(err instanceof APIError ? err.message : `Failed to ${action} vendor`);
       }
     } finally {
       setActionLoading(null);
@@ -84,258 +81,165 @@ export default function VendorsPage() {
 
   const handle2FASubmit = async () => {
     if (!pendingAction || !twoFactorCode) return;
-
     try {
       setActionLoading(pendingAction.vendorId);
-      await performAction(
-        pendingAction.vendorId,
-        pendingAction.action as "approve" | "reject" | "suspend" | "unsuspend",
-        twoFactorCode,
-      );
+      await performAction(pendingAction.vendorId, pendingAction.action, twoFactorCode);
       await loadVendors();
       setShow2FAModal(false);
       setTwoFactorCode("");
       setPendingAction(null);
     } catch (err) {
-      if (err instanceof APIError) {
-        alert(err.message);
-      }
+      alert(err instanceof APIError ? err.message : "2FA action failed");
     } finally {
       setActionLoading(null);
     }
   };
 
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <AdminLayout>
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading vendors...</p>
-            </div>
-          </div>
-        </AdminLayout>
-      </ProtectedRoute>
-    );
-  }
-
   return (
     <ProtectedRoute>
       <AdminLayout>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Vendors</h1>
-            <p className="mt-1 text-sm text-gray-600">Manage marketplace vendors</p>
-          </div>
+        {loading ? (
+          <LoadingPanel label="Loading vendors..." />
+        ) : (
+          <div className="space-y-8">
+            <PageHeader
+              title="Vendor Management"
+              subtitle="Manage and monitor all vendors on the platform."
+              actions={
+                <>
+                  <div className="flex h-14 min-w-[420px] items-center gap-3 rounded-xl border border-slate-300 bg-white px-5">
+                    <Icon name="search" className="h-5 w-5 text-slate-400" />
+                    <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search for vendors, stores or categories..." className="w-full bg-transparent text-base outline-none" />
+                  </div>
+                  <Button variant="ghost" onClick={() => exportVendors(sortedVendors)}><Icon name="export" /> Export</Button>
+                  <Button disabled title="Vendors must create their own seller account so store ownership, KYC, and payout data stay correct."><Icon name="plus" /> Add Vendor</Button>
+                </>
+              }
+            />
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-              <button onClick={loadVendors} className="ml-4 underline">
-                Retry
-              </button>
-            </div>
-          )}
+            {error ? <ErrorPanel message={error} onRetry={() => void loadVendors()} /> : null}
 
-          {/* Filters */}
-          <div className="bg-white p-4 rounded-lg shadow space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-                <input
-                  type="text"
-                  placeholder="Search by store name or owner..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && loadVendors()}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-gray-900"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as VendorStatus | "all")}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-gray-900"
+            <div className="flex flex-wrap gap-4">
+              {(["all", "pending", "active", "suspended"] as const).map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
+                  className={`min-w-[130px] rounded-2xl px-8 py-5 text-center transition ${
+                    statusFilter === status ? "bg-[#096B4A] text-white shadow-lg" : "bg-white text-slate-700 shadow-sm hover:bg-emerald-50"
+                  }`}
                 >
-                  <option value="all">All Statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="active">Active</option>
-                  <option value="suspended">Suspended</option>
-                </select>
+                  <p className="text-lg font-bold capitalize">{status}</p>
+                  <p className="mt-2 text-base">{counts[status]}</p>
+                </button>
+              ))}
+              <div className="ml-auto flex items-center gap-4">
+                <Button variant="ghost" onClick={() => setSearchQuery("")}><Icon name="settings" /> Clear filters</Button>
+                <Button variant="ghost" onClick={() => setSortBy((value) => value === "joined" ? "store" : "joined")}>Sort by {sortBy === "joined" ? "name" : "joined"}</Button>
               </div>
             </div>
-            <button
-              onClick={loadVendors}
-              className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
-            >
-              Apply Filters
-            </button>
-          </div>
 
-          {/* Vendors Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {vendors.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500">No vendors found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Store Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Owner</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Products</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {vendors.map((vendor) => (
-                      <tr
-                        key={vendor.id}
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => router.push(`/vendors/${vendor.id}`)}
-                        onMouseEnter={() => void vendorsAPI.preloadVendor(vendor.id)}
-                      >
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{vendor.storeName}</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">{vendor.ownerName}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {vendor.city}, {vendor.country}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">{vendor.totalProducts}</td>
-                        <td className="px-6 py-4 text-sm">
-                          <StatusBadge status={vendor.adminStatus} />
-                        </td>
-                        <td className="px-6 py-4 text-sm space-x-2">
-                          {vendor.adminStatus === "pending" && (
-                            <>
-                              <button
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void handleAction(vendor.id, "approve");
-                                }}
-                                disabled={actionLoading === vendor.id}
-                                className="text-green-600 hover:text-green-900 font-medium disabled:opacity-50"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void handleAction(vendor.id, "reject");
-                                }}
-                                disabled={actionLoading === vendor.id}
-                                className="text-red-600 hover:text-red-900 font-medium disabled:opacity-50"
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-                          {vendor.adminStatus === "active" && (
-                            <button
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                void handleAction(vendor.id, "suspend");
-                              }}
-                              disabled={actionLoading === vendor.id}
-                              className="text-red-600 hover:text-red-900 font-medium disabled:opacity-50"
-                            >
-                              Suspend
-                            </button>
-                          )}
-                          {vendor.adminStatus === "suspended" && (
-                            <button
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                void handleAction(vendor.id, "unsuspend");
-                              }}
-                              disabled={actionLoading === vendor.id}
-                              className="text-green-600 hover:text-green-900 font-medium disabled:opacity-50"
-                            >
-                              Unsuspend
-                            </button>
-                          )}
-                          <Link
-                            href={`/vendors/${vendor.id}`}
-                            prefetch
-                            onMouseEnter={() => void vendorsAPI.preloadVendor(vendor.id)}
-                            onClick={(event) => event.stopPropagation()}
-                            className="text-primary-600 hover:text-primary-900 font-medium"
-                          >
-                            View
-                          </Link>
-                        </td>
+            <Card className="overflow-hidden p-0">
+              {vendors.length === 0 ? (
+                <div className="p-12 text-center text-slate-500">No vendors found</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-sm font-bold text-slate-600">
+                        <th className="px-7 py-6">Vendor / Store</th>
+                        <th className="px-7 py-6">Location</th>
+                        <th className="px-7 py-6">Status</th>
+                        <th className="px-7 py-6">Joined</th>
+                        <th className="px-7 py-6">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div className="text-sm text-gray-500">Showing {vendors.length} vendors</div>
-        </div>
-
-        {/* 2FA Modal */}
-        {show2FAModal && (
-          <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen px-4">
-              <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setShow2FAModal(false)}></div>
-              <div className="relative bg-white rounded-lg max-w-md w-full p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">2FA Required</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Enter 2FA Code</label>
-                    <input
-                      type="text"
-                      value={twoFactorCode}
-                      onChange={(e) => setTwoFactorCode(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-gray-900"
-                      placeholder="000000"
-                    />
-                  </div>
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={handle2FASubmit}
-                      className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
-                    >
-                      Submit
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShow2FAModal(false);
-                        setTwoFactorCode("");
-                        setPendingAction(null);
-                      }}
-                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                    </thead>
+                    <tbody>
+                      {sortedVendors.map((vendor) => (
+                        <tr key={vendor.id} onMouseEnter={() => void vendorsAPI.preloadVendor(vendor.id)} className="border-b border-slate-100 last:border-0">
+                          <td className="px-7 py-6">
+                            <div className="flex items-center gap-5">
+                              <StoreThumb vendor={vendor} />
+                              <div>
+                                <button onClick={() => router.push(`/vendors/${vendor.id}`)} className="text-left text-lg font-black text-[#101820] hover:text-[#096B4A]">{vendor.storeName || "Unnamed store"}</button>
+                                <p className="mt-1 text-sm text-slate-500">{vendor.ownerName}</p>
+                                <Badge tone="green">{vendor.subscriptionPlan || "Foodstuff"}</Badge>
+                              </div>
+                            </div>
+                            <Link href={`/vendors/${vendor.id}`} className="mt-5 inline-flex h-11 w-full max-w-[360px] items-center justify-center rounded-xl border border-[#096B4A] text-sm font-bold text-[#096B4A]">
+                              {vendor.adminStatus === "pending" ? "Review verification" : "View Details"}
+                            </Link>
+                          </td>
+                          <td className="px-7 py-6 text-base text-slate-700"><Icon name="overview" className="mr-2 inline h-4 w-4 text-slate-500" /> {vendor.city || "Unknown"}, {vendor.country || "Unknown"}</td>
+                          <td className="px-7 py-6"><StatusBadge status={vendor.adminStatus} /></td>
+                          <td className="px-7 py-6 text-base text-slate-700">{vendor.joinedAt ? new Date(vendor.joinedAt).toLocaleDateString() : "N/A"}</td>
+                          <td className="px-7 py-6">
+                            <div className="flex flex-wrap gap-3">
+                              {vendor.adminStatus === "pending" ? (
+                                <>
+                                  <Button variant="danger" disabled={actionLoading === vendor.id} onClick={() => void handleAction(vendor.id, "reject")}>Reject</Button>
+                                  <Button disabled={actionLoading === vendor.id} onClick={() => void handleAction(vendor.id, "approve")}>Approve</Button>
+                                </>
+                              ) : vendor.adminStatus === "active" ? (
+                                <>
+                                  <Button variant="danger" disabled={actionLoading === vendor.id} onClick={() => void handleAction(vendor.id, "suspend")}>Suspend</Button>
+                                  <Button onClick={() => router.push(`/vendors/${vendor.id}`)}>View activation</Button>
+                                </>
+                              ) : (
+                                <Button variant="danger" disabled={actionLoading === vendor.id} onClick={() => void handleAction(vendor.id, "unsuspend")}>Reactivate account</Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
-            </div>
+              )}
+            </Card>
+
+            <p className="text-sm text-slate-500">Showing {sortedVendors.length} vendors</p>
           </div>
         )}
+
+        {show2FAModal ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+            <Card className="w-full max-w-md">
+              <h3 className="text-2xl font-black">2FA Required</h3>
+              <input value={twoFactorCode} onChange={(event) => setTwoFactorCode(event.target.value)} placeholder="000000" className="mt-6 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
+              <div className="mt-6 flex gap-3">
+                <Button className="flex-1" onClick={() => void handle2FASubmit()}>Submit</Button>
+                <Button className="flex-1" variant="ghost" onClick={() => setShow2FAModal(false)}>Cancel</Button>
+              </div>
+            </Card>
+          </div>
+        ) : null}
       </AdminLayout>
     </ProtectedRoute>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const colors = {
-    active: "bg-green-100 text-green-800",
-    pending: "bg-yellow-100 text-yellow-800",
-    suspended: "bg-red-100 text-red-800",
-  }[status] || "bg-gray-100 text-gray-800";
+function exportVendors(vendors: Vendor[]) {
+  downloadCsv("eki-vendors.csv", vendors.map((vendor) => ({
+    id: vendor.id,
+    storeName: vendor.storeName,
+    ownerName: vendor.ownerName,
+    status: vendor.adminStatus,
+    city: vendor.city,
+    country: vendor.country,
+    subscriptionPlan: vendor.subscriptionPlan,
+    joinedAt: vendor.joinedAt,
+  })));
+}
 
-  return (
-    <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors}`}>
-      {status}
-    </span>
-  );
+function StoreThumb({ vendor }: { vendor: Vendor }) {
+  if (vendor.coverImage || vendor.avatar) {
+    return <Image src={vendor.coverImage || vendor.avatar || ""} alt="" width={96} height={96} unoptimized className="h-24 w-24 rounded-2xl object-cover" />;
+  }
+  return <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-emerald-50 text-xl font-black text-[#096B4A]">{vendor.storeName?.slice(0, 2).toUpperCase() || "EK"}</div>;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "active") return <Badge tone="green">Active</Badge>;
+  if (status === "suspended") return <Badge tone="red">Suspended</Badge>;
+  return <Badge tone="amber">Pending</Badge>;
 }

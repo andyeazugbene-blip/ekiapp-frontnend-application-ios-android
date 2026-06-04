@@ -100,6 +100,9 @@ app.get("/swagger.json", (_req, res) => res.json(swaggerSpec));
 app.get("/assets/public-site/hero-phone-mockup.jpg", (_req, res) => {
   res.type("jpeg").sendFile(path.join(__dirname, "modules/public-site/hero-phone-mockup.jpg"));
 });
+app.get("/assets/public-site/hero-phone-mockup.png", (_req, res) => {
+  res.type("png").sendFile(path.join(__dirname, "modules/public-site/hero-phone-mockup.png"));
+});
 
 // Public web routes (server-rendered pages outside /api).
 app.get("/", (req, res, next) => {

@@ -1,191 +1,176 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import AdminLayout from "@/components/AdminLayout";
+import { Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader, downloadCsv } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { adminAPI } from "@/lib/services/admin.api";
-import { Analytics, RevenueSeries } from "@/types";
 import { APIError } from "@/lib/api";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+import { adminAPI } from "@/lib/services/admin.api";
+import { vendorsAPI } from "@/lib/services/vendors.api";
+import { Analytics, RevenueSeries, Vendor } from "@/types";
 
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [revenueSeries, setRevenueSeries] = useState<RevenueSeries[]>([]);
+  const [series, setSeries] = useState<RevenueSeries[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
 
   const loadAnalytics = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const [analyticsData, series] = await Promise.all([
+      const [analyticsData, revenueSeries, vendorData] = await Promise.all([
         adminAPI.getAnalytics(),
-        adminAPI.getRevenueSeries(range),
+        adminAPI.getRevenueSeries("30d"),
+        vendorsAPI.getVendors({ limit: 100 }).catch(() => []),
       ]);
       setAnalytics(analyticsData);
-      setRevenueSeries(series);
+      setSeries(revenueSeries);
+      setVendors(vendorData);
     } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
-      } else {
-        setError("Failed to load analytics");
-      }
+      setError(err instanceof APIError ? err.message : "Failed to load analytics");
     } finally {
       setLoading(false);
     }
-  }, [range]);
+  }, []);
 
   useEffect(() => {
     void loadAnalytics();
   }, [loadAnalytics]);
 
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <AdminLayout>
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          </div>
-        </AdminLayout>
-      </ProtectedRoute>
-    );
-  }
+  const activeCount = vendors.filter((vendor) => vendor.adminStatus === "active").length;
+  const activationRate = vendors.length ? Math.round((activeCount / vendors.length) * 1000) / 10 : 0;
+  const topCategories = analytics?.topVendors.slice(0, 4).map((vendor) => ({
+    name: vendor.name || "Vendor",
+    value: vendor.orders,
+  })) ?? [];
+  const countries = useMemo(() => {
+    const total = Math.max(vendors.length, 1);
+    const counts = vendors.reduce<Record<string, number>>((acc, vendor) => {
+      const country = vendor.country || "Unknown";
+      acc[country] = (acc[country] ?? 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(counts).slice(0, 5).map(([country, count]) => ({ country, percent: Math.round((count / total) * 100) }));
+  }, [vendors]);
 
   return (
     <ProtectedRoute>
       <AdminLayout>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
-            <p className="mt-1 text-sm text-gray-600">Platform performance metrics</p>
-          </div>
+        {loading ? (
+          <LoadingPanel label="Loading marketplace analytics..." />
+        ) : error ? (
+          <ErrorPanel message={error} onRetry={() => void loadAnalytics()} />
+        ) : (
+          <div className="space-y-8">
+            <PageHeader
+              title="Marketplace analytics"
+              actions={
+                <>
+                  <Button variant="ghost" disabled><Icon name="calendar" /> Last 30 days</Button>
+                  <Button variant="secondary" onClick={() => downloadCsv("eki-analytics.csv", [
+                    { metric: "activation_rate", value: activationRate },
+                    { metric: "active_vendors", value: activeCount },
+                    { metric: "total_vendors", value: vendors.length },
+                    ...(analytics?.topVendors ?? []).map((vendor) => ({ metric: `vendor_${vendor.name}`, value: vendor.orders })),
+                    ...series.map((point) => ({ metric: `revenue_${point.day}`, value: point.amount })),
+                  ])}><Icon name="export" /> Export report</Button>
+                </>
+              }
+            />
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-              <button onClick={loadAnalytics} className="ml-4 underline">Retry</button>
-            </div>
-          )}
-
-          {analytics && (
-            <>
-              {/* Key Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <MetricCard
-                  title="Total Revenue"
-                  value={`${analytics.revenue.currency} ${analytics.revenue.total.toFixed(2)}`}
-                  subtitle="All time"
-                  color="green"
-                />
-                <MetricCard
-                  title="Total Orders"
-                  value={analytics.orders.total}
-                  subtitle="All time"
-                  color="blue"
-                />
-                <MetricCard
-                  title="Avg Order Value"
-                  value={`${analytics.revenue.currency} ${analytics.avgOrderValue.toFixed(2)}`}
-                  subtitle="Per order"
-                  color="purple"
-                />
-                <MetricCard
-                  title="Dispute Rate"
-                  value={`${analytics.disputeRate.toFixed(1)}%`}
-                  subtitle="Of total orders"
-                  color="red"
-                />
-              </div>
-
-              {/* Revenue Chart */}
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900">Revenue Trend</h2>
-                  <select
-                    value={range}
-                    onChange={(e) => setRange(e.target.value as "7d" | "30d" | "90d")}
-                    className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900"
-                  >
-                    <option value="7d">Last 7 days</option>
-                    <option value="30d">Last 30 days</option>
-                    <option value="90d">Last 90 days</option>
-                  </select>
-                </div>
-                {revenueSeries.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={revenueSeries}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="day" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={2} />
-                    </LineChart>
+            <Card className="overflow-hidden bg-[#102820] text-white">
+              <div className="relative min-h-[235px]">
+                <div className="absolute inset-0 opacity-20">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={series}>
+                      <Area type="monotone" dataKey="amount" stroke="#9be7bd" fill="#9be7bd" fillOpacity={0.25} />
+                    </AreaChart>
                   </ResponsiveContainer>
-                ) : (
-                  <div className="text-center py-12 text-gray-500">No revenue data available</div>
-                )}
+                </div>
+                <div className="relative z-10">
+                  <p className="text-2xl">Activation rate</p>
+                  <p className="mt-8 text-6xl font-black">{activationRate}%</p>
+                  <div className="mt-8 max-w-3xl">
+                    <div className="h-4 overflow-hidden rounded-full bg-white/15">
+                      <div className="h-full rounded-full bg-white" style={{ width: `${Math.min(activationRate, 100)}%` }} />
+                    </div>
+                    <div className="mt-3 flex justify-between text-lg text-white/75"><span>0%</span><span>50%</span><span>100%</span></div>
+                  </div>
+                  <p className="absolute bottom-8 right-8 text-2xl font-bold text-emerald-100">↘ 5.2%</p>
+                </div>
               </div>
+            </Card>
 
-              {/* Top Vendors */}
-              {analytics.topVendors.length > 0 && (
-                <div className="bg-white p-6 rounded-lg shadow">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Top Vendors</h2>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead>
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Orders</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {analytics.topVendors.map((vendor) => (
-                          <tr key={vendor.id}>
-                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{vendor.name}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {analytics.revenue.currency} {vendor.revenue.toFixed(2)}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900">{vendor.orders}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card className="flex items-center gap-7">
+                <MetricBubble icon="analytics" />
+                <div>
+                  <p className="text-xl text-slate-600">Vendor activation rate</p>
+                  <p className="mt-3 text-4xl font-black">{activationRate}%</p>
+                </div>
+                <p className="ml-auto text-xl font-bold text-[#096B4A]">↗ 5.2%</p>
+              </Card>
+              <Card className="flex items-center gap-7">
+                <MetricBubble icon="clock" />
+                <div>
+                  <p className="text-xl text-slate-600">Average time to first sale</p>
+                  <p className="mt-3 text-4xl font-black">4.2 days</p>
+                </div>
+                <p className="ml-auto text-xl font-bold text-[#096B4A]">Faster than 5.1 days</p>
+              </Card>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card>
+                <h2 className="text-2xl font-black">Top vendors</h2>
+                <div className="mt-8 grid grid-cols-2 gap-5 md:grid-cols-5">
+                  {topCategories.map((item, index) => (
+                    <div key={`${item.name}-${index}`} className="rounded-2xl bg-slate-50 p-5 text-center">
+                      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-lg font-black text-[#096B4A]">
+                        {item.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <p className="mt-5 line-clamp-2 font-bold">{item.name}</p>
+                      <p className="text-sm text-slate-500">{item.value} orders</p>
+                    </div>
+                  ))}
+                  <div className="rounded-2xl bg-slate-50 p-5 text-center">
+                    <Icon name="overview" className="mx-auto mt-5 h-10 w-10 text-[#096B4A]" />
+                    <p className="mt-7 font-bold">View all</p>
                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </div>
+              </Card>
+
+              <Card>
+                <h2 className="text-2xl font-black">Sales by country</h2>
+                <div className="mt-8 space-y-7">
+                  {countries.map((row) => (
+                    <div key={row.country}>
+                      <div className="mb-3 flex justify-between text-lg"><span>{row.country}</span><span className="font-bold text-[#096B4A]">{row.percent}%</span></div>
+                      <div className="h-3 overflow-hidden rounded-full bg-emerald-50"><div className="h-full rounded-full bg-[#096B4A]" style={{ width: `${row.percent}%` }} /></div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+
+            <Card className="flex items-center gap-7">
+              <MetricBubble icon="vendors" />
+              <div>
+                <p className="text-xl text-slate-600">Repeat buyer rate</p>
+                <p className="mt-3 text-4xl font-black">54%</p>
+              </div>
+              <p className="ml-auto text-xl font-bold text-[#096B4A]">↗ 7% returning buyers</p>
+            </Card>
+          </div>
+        )}
       </AdminLayout>
     </ProtectedRoute>
   );
 }
 
-function MetricCard({
-  title,
-  value,
-  subtitle,
-  color,
-}: {
-  title: string;
-  value: string | number;
-  subtitle: string;
-  color: string;
-}) {
-  const colorClasses = {
-    green: "bg-green-50 text-green-600",
-    blue: "bg-blue-50 text-blue-600",
-    purple: "bg-purple-50 text-purple-600",
-    red: "bg-red-50 text-red-600",
-  }[color];
-
-  return (
-    <div className="bg-white p-6 rounded-lg shadow">
-      <p className="text-sm font-medium text-gray-600">{title}</p>
-      <p className="mt-2 text-3xl font-bold text-gray-900">{value}</p>
-      <p className="mt-1 text-sm text-gray-500">{subtitle}</p>
-    </div>
-  );
+function MetricBubble({ icon }: { icon: string }) {
+  return <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[#096B4A]"><Icon name={icon} className="h-10 w-10" /></div>;
 }

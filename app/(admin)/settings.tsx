@@ -152,9 +152,9 @@ export default function AdminSettingsScreen() {
           />
           <SettingRow
             icon="shield-outline"
-            label="Audit Log"
-            description="Track admin actions and changes"
-            onPress={() => handleUnavailable("Audit log unavailable", "Audit log access is not connected on the mobile admin app yet.")}
+            label="Resolution Centre"
+            description="Review disputes and escrow decisions"
+            onPress={() => router.push("/(admin)/disputes" as any)}
           />
         </View>
 
@@ -177,9 +177,9 @@ export default function AdminSettingsScreen() {
           />
           <SettingRow
             icon="mail-outline"
-            label="Notifications"
-            description="Email and push notification config"
-            onPress={() => handleUnavailable("Notifications config unavailable", "Notification configuration is not exposed on the mobile admin app yet.")}
+            label="Admin Communications"
+            description="Send in-app and push broadcasts"
+            onPress={() => router.push("/(admin)/create-message" as any)}
           />
           <SettingRow
             icon="globe-outline"

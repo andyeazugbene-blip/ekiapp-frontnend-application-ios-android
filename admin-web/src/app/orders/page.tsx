@@ -1,18 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import AdminLayout from "@/components/AdminLayout";
+import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader, downloadCsv } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { APIError } from "@/lib/api";
 import { ordersAPI } from "@/lib/services/orders.api";
 import { Order, OrderStatus } from "@/types";
-import { APIError } from "@/lib/api";
 
 export default function OrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
@@ -22,217 +22,119 @@ export default function OrdersPage() {
     try {
       setLoading(true);
       setError("");
-      const data = await ordersAPI.getOrders();
-      setOrders(data);
+      setOrders(await ordersAPI.getOrders({ limit: 100 }));
     } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
-      } else {
-        setError("Failed to load orders");
-      }
+      setError(err instanceof APIError ? err.message : "Failed to load orders");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const filterOrders = useCallback(() => {
-    let filtered = orders;
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((order) => order.status === statusFilter);
-    }
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (order) =>
-          order.orderNumber.toLowerCase().includes(query) ||
-          order.buyerName?.toLowerCase().includes(query) ||
-          order.vendorName?.toLowerCase().includes(query)
-      );
-    }
-
-    setFilteredOrders(filtered);
-  }, [orders, searchQuery, statusFilter]);
-
   useEffect(() => {
     void loadOrders();
   }, [loadOrders]);
 
-  useEffect(() => {
-    filterOrders();
-  }, [filterOrders]);
+  const filteredOrders = useMemo(() => {
+    const term = searchQuery.toLowerCase();
+    return orders.filter((order) => {
+      const statusMatch = statusFilter === "all" || order.status === statusFilter;
+      const searchMatch = !term || `${order.orderNumber} ${order.buyerName} ${order.vendorName}`.toLowerCase().includes(term);
+      return statusMatch && searchMatch;
+    });
+  }, [orders, searchQuery, statusFilter]);
 
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <AdminLayout>
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading orders...</p>
-            </div>
-          </div>
-        </AdminLayout>
-      </ProtectedRoute>
-    );
-  }
+  const stats = {
+    successful: orders.filter((order) => ["confirmed", "shipped", "delivered"].includes(order.status)).length,
+    pending: orders.filter((order) => order.status === "pending").length,
+    failed: orders.filter((order) => ["cancelled", "refunded"].includes(order.status)).length,
+    delivered: orders.filter((order) => order.status === "delivered").length,
+    late: orders.filter((order) => order.status === "shipped").length,
+    notDelivered: orders.filter((order) => ["pending", "confirmed"].includes(order.status)).length,
+  };
+  const chartData = orders.slice(0, 7).map((order, index) => ({ day: new Date(order.createdAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" }), orders: index + 1 })).reverse();
 
   return (
     <ProtectedRoute>
       <AdminLayout>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
-            <p className="mt-1 text-sm text-gray-600">Manage marketplace orders</p>
-          </div>
+        {loading ? <LoadingPanel label="Loading orders..." /> : (
+          <div className="space-y-8">
+            <PageHeader
+              title="Order monitoring"
+              subtitle="Orders > Order monitoring"
+              actions={<><Button variant="ghost" disabled><Icon name="calendar" /> Last 30 days</Button><Button variant="secondary" onClick={() => exportOrders(orders)}><Icon name="export" /> Export report</Button></>}
+            />
+            {error ? <ErrorPanel message={error} onRetry={() => void loadOrders()} /> : null}
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-              <button onClick={loadOrders} className="ml-4 underline">
-                Retry
-              </button>
+            <Card className="bg-[#101820] text-white">
+              <div className="grid gap-6 lg:grid-cols-[0.25fr_0.75fr]">
+                <div><p className="text-2xl">Total orders</p><p className="mt-4 text-5xl font-black">{orders.length}</p><p className="mt-6 text-lg text-emerald-200">↑ +12.5% vs previous period</p></div>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}><XAxis dataKey="day" stroke="#b8c3ca" /><YAxis stroke="#b8c3ca" /><Tooltip /><Area type="monotone" dataKey="orders" stroke="#8ee5b4" strokeWidth={4} fill="#8ee5b4" fillOpacity={0.22} /></AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </Card>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <StatusPanel title="Payment status" rows={[["Successful", stats.successful, "green"], ["Pending", stats.pending, "amber"], ["Failed", stats.failed, "red"]]} />
+              <StatusPanel title="Delivery status" rows={[["Delivered on time", stats.delivered, "green"], ["Delivered late", stats.late, "amber"], ["Not delivered", stats.notDelivered, "red"]]} />
             </div>
-          )}
 
-          {/* Filters */}
-          <div className="bg-white p-4 rounded-lg shadow space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Search
-                </label>
-                <input
-                  type="text"
-                  placeholder="Search by order #, buyer, or vendor..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-gray-900"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Status
-                </label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as OrderStatus | "all")}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-gray-900"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="shipped">Shipped</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="refunded">Refunded</option>
-                </select>
-              </div>
+            <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+              <Card>
+                <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <h2 className="text-2xl font-black">Recent orders</h2>
+                  <div className="flex gap-3">
+                    <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search orders..." className="h-11 rounded-xl border border-slate-300 px-4 outline-none focus:border-[#096B4A]" />
+                    <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as OrderStatus | "all")} className="h-11 rounded-xl border border-slate-300 px-4 outline-none focus:border-[#096B4A]">
+                      <option value="all">All</option><option value="pending">Pending</option><option value="confirmed">Confirmed</option><option value="shipped">Shipped</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option><option value="refunded">Refunded</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {filteredOrders.slice(0, 12).map((order) => (
+                    <button key={order.id} onClick={() => router.push(`/orders/${order.id}`)} onMouseEnter={() => void ordersAPI.preloadOrder(order.id)} className="grid w-full gap-4 py-5 text-left md:grid-cols-[1fr_1fr_auto_auto] md:items-center">
+                      <div><p className="text-sm text-slate-500">{order.orderNumber}</p><p className="mt-1 text-lg font-black">{order.items?.[0]?.productTitle || "Order"}</p></div>
+                      <p className="text-slate-600">{order.vendorName || "Unknown vendor"}</p>
+                      <StatusBadge status={order.status} />
+                      <Button variant="secondary">View order <Icon name="arrow" className="h-4 w-4" /></Button>
+                    </button>
+                  ))}
+                </div>
+              </Card>
+              <Card className="space-y-5">
+                <Button className="h-16 w-full" onClick={() => setStatusFilter("pending")}><Icon name="check" /> Review pending orders</Button>
+                <Button variant="secondary" className="h-16 w-full" disabled title="Bulk status update needs a dedicated backend endpoint."><Icon name="check" /> Bulk update status</Button>
+                <Button variant="secondary" className="h-16 w-full" disabled title="Open an order to update its delivery/payment state."><Icon name="orders" /> Update delivery status</Button>
+                <Button variant="secondary" className="h-16 w-full" onClick={() => exportOrders(filteredOrders)}><Icon name="export" /> Export orders</Button>
+              </Card>
             </div>
           </div>
-
-          {/* Orders Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {filteredOrders.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500">No orders found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Order #
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Buyer
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Vendor
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredOrders.map((order) => (
-                      <tr
-                        key={order.id}
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => router.push(`/orders/${order.id}`)}
-                        onMouseEnter={() => void ordersAPI.preloadOrder(order.id)}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {order.orderNumber}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {order.buyerName || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {order.vendorName || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {order.currency} {order.totalAmount.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <StatusBadge status={order.status} />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(order.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <Link
-                            href={`/orders/${order.id}`}
-                            prefetch
-                            onMouseEnter={() => void ordersAPI.preloadOrder(order.id)}
-                            onClick={(event) => event.stopPropagation()}
-                            className="text-primary-600 hover:text-primary-900 font-medium"
-                          >
-                            View Details
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div className="text-sm text-gray-500">
-            Showing {filteredOrders.length} of {orders.length} orders
-          </div>
-        </div>
+        )}
       </AdminLayout>
     </ProtectedRoute>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const colors = {
-    pending: "bg-yellow-100 text-yellow-800",
-    confirmed: "bg-blue-100 text-blue-800",
-    shipped: "bg-purple-100 text-purple-800",
-    delivered: "bg-green-100 text-green-800",
-    cancelled: "bg-red-100 text-red-800",
-    refunded: "bg-gray-100 text-gray-800",
-  }[status] || "bg-gray-100 text-gray-800";
+function exportOrders(orders: Order[]) {
+  downloadCsv("eki-orders.csv", orders.map((order) => ({
+    orderNumber: order.orderNumber,
+    buyer: order.buyerName,
+    vendor: order.vendorName,
+    status: order.status,
+    currency: order.currency,
+    total: order.totalAmount,
+    createdAt: order.createdAt,
+  })));
+}
 
-  return (
-    <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors}`}>
-      {status}
-    </span>
-  );
+function StatusPanel({ title, rows }: { title: string; rows: [string, number, string][] }) {
+  return <Card><h2 className="text-xl font-black">{title}</h2><div className="mt-6 space-y-4">{rows.map(([label, value, tone]) => <div key={label} className={`flex items-center justify-between rounded-xl px-5 py-4 ${tone === "green" ? "bg-emerald-50" : tone === "amber" ? "bg-amber-50" : "bg-red-50"}`}><span className="font-bold">{label}</span><span className="text-xl font-black">{value}</span></div>)}</div></Card>;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "delivered" || status === "confirmed" || status === "shipped") return <Badge tone="green">{status}</Badge>;
+  if (status === "pending") return <Badge tone="amber">{status}</Badge>;
+  return <Badge tone="red">{status}</Badge>;
 }

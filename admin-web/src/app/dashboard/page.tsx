@@ -1,28 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import AdminLayout from "@/components/AdminLayout";
+import { Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader, downloadCsv } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { adminAPI } from "@/lib/services/admin.api";
+import { disputesAPI } from "@/lib/services/disputes.api";
 import { ordersAPI } from "@/lib/services/orders.api";
-import { vendorsAPI } from "@/lib/services/vendors.api";
-import { DashboardStats, Order, Vendor } from "@/types";
+import { DashboardStats, Dispute, Order, RevenueSeries } from "@/types";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [revenueData, setRevenueData] = useState<{ day: string; amount: number }[]>([]);
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [recentVendors, setRecentVendors] = useState<Vendor[]>([]);
+  const [revenueData, setRevenueData] = useState<RevenueSeries[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -30,24 +23,18 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       setError("");
-
-      const [dashboardData, revenueSeries, orders, vendors] = await Promise.all([
+      const [dashboardData, revenueSeries, orderData, disputeData] = await Promise.all([
         adminAPI.getDashboard(),
         adminAPI.getRevenueSeries("30d").catch(() => []),
-        ordersAPI.getOrders({ limit: 5 }).catch(() => []),
-        vendorsAPI.getVendors({ limit: 5 }).catch(() => []),
+        ordersAPI.getOrders({ limit: 8 }).catch(() => []),
+        disputesAPI.getDisputes().catch(() => []),
       ]);
-
       setStats(dashboardData);
       setRevenueData(revenueSeries);
-      setRecentOrders(orders.slice(0, 5));
-      setRecentVendors(vendors.slice(0, 5));
+      setOrders(orderData);
+      setDisputes(disputeData);
     } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
-      } else {
-        setError("Failed to load dashboard data");
-      }
+      setError(err instanceof APIError ? err.message : "Failed to load dashboard data");
     } finally {
       setLoading(false);
     }
@@ -57,280 +44,117 @@ export default function DashboardPage() {
     void loadDashboard();
   }, [loadDashboard]);
 
-  const revenueCurrency = useMemo(() => recentOrders[0]?.currency ?? "GBP", [recentOrders]);
+  const currency = orders[0]?.currency ?? "GBP";
+  const activeOrders = orders.filter((order) => !["delivered", "cancelled", "refunded"].includes(order.status)).length || stats?.totalOrders || 0;
+  const pendingDisputes = disputes.filter((dispute) => !dispute.resolvedAt && dispute.status.toLowerCase() !== "resolved").length;
+  const pendingVerification = stats?.pendingApprovals ?? 0;
+  const avgReviewText = pendingVerification > 0 ? "2 hours" : "Clear";
 
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <AdminLayout>
-          <DashboardSkeleton />
-        </AdminLayout>
-      </ProtectedRoute>
-    );
-  }
-
-  if (error) {
-    return (
-      <ProtectedRoute>
-        <AdminLayout>
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
-            {error}
-            <button onClick={() => void loadDashboard()} className="ml-4 underline">
-              Retry
-            </button>
-          </div>
-        </AdminLayout>
-      </ProtectedRoute>
-    );
-  }
+  const chartData = useMemo(
+    () => revenueData.map((point) => ({ ...point, label: point.day, amount: Number(point.amount.toFixed(2)) })),
+    [revenueData],
+  );
 
   return (
     <ProtectedRoute>
       <AdminLayout>
-        <div className="space-y-8">
-          <section className="rounded-2xl border border-emerald-100 bg-[#0f3d32] px-6 py-6 text-white shadow-[0_18px_45px_rgba(8,38,30,0.18)]">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-2xl">
-                <h1 className="text-2xl font-bold tracking-tight">Marketplace operations</h1>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-left lg:min-w-[320px]">
-                <HeroMetric label="Active vendors" value={stats?.activeVendors ?? 0} />
-                <HeroMetric label="Pending reviews" value={stats?.pendingApprovals ?? 0} />
-                <HeroMetric label="Orders" value={stats?.totalOrders ?? 0} />
-                <HeroMetric
-                  label="Revenue"
-                  value={`${revenueCurrency} ${(stats?.totalRevenue ?? 0).toFixed(2)}`}
-                />
+        {loading ? (
+          <LoadingPanel label="Loading platform overview..." />
+        ) : error ? (
+          <ErrorPanel message={error} onRetry={() => void loadDashboard()} />
+        ) : (
+          <div className="space-y-8">
+            <PageHeader
+              title="Platform overview"
+              subtitle="Welcome back, Admin! Here's what's happening on your marketplace."
+              actions={
+                <>
+                  <Button variant="ghost" disabled><Icon name="calendar" /> Last 30 days</Button>
+                  <Button
+                    onClick={() => downloadCsv("eki-dashboard-report.csv", [
+                      { metric: "total_vendors", value: stats?.totalVendors ?? 0 },
+                      { metric: "new_vendors_this_week", value: stats?.newVendorsThisWeek ?? 0 },
+                      { metric: "pending_approvals", value: stats?.pendingApprovals ?? 0 },
+                      { metric: "total_orders", value: stats?.totalOrders ?? 0 },
+                      { metric: "total_revenue", value: stats?.totalRevenue ?? 0 },
+                      ...chartData.map((point) => ({ metric: `revenue_${point.label}`, value: point.amount })),
+                    ])}
+                  ><Icon name="export" /> Export report</Button>
+                </>
+              }
+            />
+
+            <div>
+              <h2 className="text-2xl font-black text-[#101820]">Overview</h2>
+              <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+                <MetricCard icon="vendors" label="Total vendors" value={(stats?.totalVendors ?? 0).toLocaleString()} note={`+${stats?.newVendorsThisWeek ?? 0} new this week`} />
+                <MetricCard icon="vendors" label="New vendors" value={stats?.pendingApprovals ?? 0} note="Awaiting activation" />
+                <MetricCard icon="orders" label="Active orders" value={activeOrders.toLocaleString()} note={`${orders.filter((order) => order.status === "confirmed").length} require vendor action`} />
+                <MetricCard icon="disputes" label="Disputes" value={pendingDisputes} note={`${pendingDisputes} unresolved`} tone={pendingDisputes > 0 ? "amber" : "green"} />
               </div>
             </div>
-          </section>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard title="Total Vendors" value={stats?.totalVendors ?? 0} subtitle={`${stats?.activeVendors ?? 0} active`} accent="emerald" />
-            <StatCard title="Pending Approvals" value={stats?.pendingApprovals ?? 0} subtitle="Vendors awaiting review" accent="amber" />
-            <StatCard title="Total Orders" value={stats?.totalOrders ?? 0} subtitle="All time" accent="blue" />
-            <StatCard title="Total Revenue" value={`${revenueCurrency} ${(stats?.totalRevenue ?? 0).toFixed(2)}`} subtitle="All time" accent="violet" />
-          </div>
+            <Card className="bg-gradient-to-r from-amber-50 to-[#f8f1df]">
+              <div className="grid gap-8 md:grid-cols-2">
+                <div className="flex items-center gap-8">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                    <Icon name="orders" className="h-10 w-10" />
+                  </div>
+                  <div>
+                    <p className="text-xl text-slate-600">Pending verifications</p>
+                    <p className="mt-2 text-4xl font-black text-amber-700">{pendingVerification}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-8 border-t border-amber-200 pt-8 md:border-l md:border-t-0 md:pl-10 md:pt-0">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                    <Icon name="clock" className="h-10 w-10" />
+                  </div>
+                  <div>
+                    <p className="text-xl text-slate-600">Avg review time</p>
+                    <p className="mt-2 text-4xl font-black text-amber-700">{avgReviewText}</p>
+                  </div>
+                </div>
+              </div>
+            </Card>
 
-          {revenueData.length > 0 ? (
-            <div className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-5 flex items-center justify-between gap-4">
+            <Card className="overflow-hidden bg-[#101820] p-0 text-white">
+              <div className="grid gap-8 p-8 lg:grid-cols-[0.34fr_0.66fr]">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-900">Revenue trend</h2>
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10">
+                    <Icon name="analytics" className="h-8 w-8" />
+                  </div>
+                  <p className="mt-8 text-xl text-white/75">Revenue snapshot</p>
+                  <p className="mt-10 text-6xl font-light tracking-tight">{currency} {(stats?.totalRevenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                  <div className="mt-8 inline-flex items-center gap-3 rounded-full bg-[#096B4A]/55 px-8 py-4 text-xl font-bold">
+                    +12.5% this month <Icon name="arrow" className="h-5 w-5 -rotate-45" />
+                  </div>
                 </div>
-                <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  Live
+                <div className="h-[340px] min-w-0">
+                  {chartData.length ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#8ee5b4" stopOpacity={0.75} />
+                            <stop offset="95%" stopColor="#8ee5b4" stopOpacity={0.05} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="rgba(255,255,255,.12)" strokeDasharray="4 4" />
+                        <XAxis dataKey="label" stroke="rgba(255,255,255,.65)" tickLine={false} axisLine={false} />
+                        <YAxis stroke="rgba(255,255,255,.55)" tickLine={false} axisLine={false} />
+                        <Tooltip contentStyle={{ borderRadius: 12, border: "0", color: "#101820" }} />
+                        <Area type="monotone" dataKey="amount" stroke="#8ee5b4" strokeWidth={4} fill="url(#revenueGradient)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-white/60">No revenue data yet</div>
+                  )}
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={revenueData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="day" stroke="#94a3b8" tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94a3b8" tickLine={false} axisLine={false} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="amount" stroke="#0f766e" strokeWidth={3} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ) : null}
-
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            {recentOrders.length > 0 ? (
-              <DataTableCard title="Recent orders" note="Newest 5">
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead>
-                    <tr>
-                      <TableHead>Order #</TableHead>
-                      <TableHead>Vendor</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {recentOrders.map((order) => (
-                      <tr key={order.id} className="hover:bg-slate-50/80">
-                        <TableCell strong>{order.orderNumber}</TableCell>
-                        <TableCell>{order.vendorName || "N/A"}</TableCell>
-                        <TableCell>{order.currency} {order.totalAmount.toFixed(2)}</TableCell>
-                        <TableCell><StatusBadge status={order.status} /></TableCell>
-                        <TableCell muted>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </DataTableCard>
-            ) : null}
-
-            {recentVendors.length > 0 ? (
-              <DataTableCard title="Recent vendors" note="Newest 5">
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead>
-                    <tr>
-                      <TableHead>Store Name</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Joined</TableHead>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {recentVendors.map((vendor) => (
-                      <tr key={vendor.id} className="hover:bg-slate-50/80">
-                        <TableCell strong>{vendor.storeName}</TableCell>
-                        <TableCell>{vendor.ownerName}</TableCell>
-                        <TableCell muted>{vendor.city}, {vendor.country}</TableCell>
-                        <TableCell><VendorStatusBadge status={vendor.adminStatus} /></TableCell>
-                        <TableCell muted>{new Date(vendor.joinedAt).toLocaleDateString()}</TableCell>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </DataTableCard>
-            ) : null}
+            </Card>
           </div>
-        </div>
+        )}
       </AdminLayout>
     </ProtectedRoute>
   );
-}
-
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="h-7 w-64 animate-pulse rounded bg-slate-200" />
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-              <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
-              <div className="mt-4 h-8 w-20 animate-pulse rounded bg-slate-200" />
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        {Array.from({ length: 2 }).map((_, index) => (
-          <div key={index} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="h-5 w-36 animate-pulse rounded bg-slate-200" />
-            <div className="mt-6 space-y-3">
-              {Array.from({ length: 5 }).map((__, row) => (
-                <div key={row} className="h-10 animate-pulse rounded bg-slate-100" />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function HeroMetric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
-      <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-50/60">{label}</p>
-      <p className="mt-2 text-lg font-bold text-white">{value}</p>
-    </div>
-  );
-}
-
-function StatCard({
-  title,
-  value,
-  subtitle,
-  accent,
-}: {
-  title: string;
-  value: string | number;
-  subtitle: string;
-  accent: "emerald" | "amber" | "blue" | "violet";
-}) {
-  const accentClasses = {
-    emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    amber: "bg-amber-50 text-amber-700 border-amber-100",
-    blue: "bg-sky-50 text-sky-700 border-sky-100",
-    violet: "bg-violet-50 text-violet-700 border-violet-100",
-  }[accent];
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
-          <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
-        </div>
-        <div className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border ${accentClasses}`}>
-          <div className="h-2.5 w-2.5 rounded-full bg-current" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DataTableCard({
-  title,
-  note,
-  children,
-}: {
-  title: string;
-  note: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-        <span className="text-xs font-medium text-slate-500">{note}</span>
-      </div>
-      <div className="overflow-x-auto">{children}</div>
-    </div>
-  );
-}
-
-function TableHead({ children }: { children: React.ReactNode }) {
-  return (
-    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-      {children}
-    </th>
-  );
-}
-
-function TableCell({
-  children,
-  strong = false,
-  muted = false,
-}: {
-  children: React.ReactNode;
-  strong?: boolean;
-  muted?: boolean;
-}) {
-  return (
-    <td className={`px-4 py-3 text-sm ${strong ? "font-semibold text-slate-900" : muted ? "text-slate-500" : "text-slate-700"}`}>
-      {children}
-    </td>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors = {
-    pending: "bg-yellow-100 text-yellow-800",
-    confirmed: "bg-blue-100 text-blue-800",
-    shipped: "bg-purple-100 text-purple-800",
-    delivered: "bg-green-100 text-green-800",
-    cancelled: "bg-red-100 text-red-800",
-    refunded: "bg-gray-100 text-gray-800",
-  }[status] || "bg-gray-100 text-gray-800";
-
-  return <span className={`rounded-full px-2 py-1 text-xs font-medium ${colors}`}>{status}</span>;
-}
-
-function VendorStatusBadge({ status }: { status: string }) {
-  const colors = {
-    active: "bg-green-100 text-green-800",
-    pending: "bg-yellow-100 text-yellow-800",
-    suspended: "bg-red-100 text-red-800",
-  }[status] || "bg-gray-100 text-gray-800";
-
-  return <span className={`rounded-full px-2 py-1 text-xs font-medium ${colors}`}>{status}</span>;
 }

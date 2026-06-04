@@ -94,17 +94,17 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
-        name="analytics"
+        name="disputes"
         options={{
-          title: "Analytics",
-          tabBarIcon: ({ color, size }) => <Ionicons name="pie-chart-outline" size={size} color={color} />,
+          title: "Resolve",
+          tabBarIcon: ({ color, size }) => <Ionicons name="shield-checkmark-outline" size={size} color={color} />,
         }}
       />
+      <Tabs.Screen name="analytics" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="buyers" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="reward-rules" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="settings" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="vendor-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
-      <Tabs.Screen name="disputes" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="create-message" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="message-chat" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="order-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />

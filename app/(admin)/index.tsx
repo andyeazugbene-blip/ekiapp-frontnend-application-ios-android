@@ -78,6 +78,33 @@ export default function AdminDashboardScreen() {
               <StatCard icon="alert-circle-outline" label="Suspended" value={dashboard?.suspendedVendors ?? 0} sub="Blocked accounts" />
             </View>
 
+            <View style={styles.commandGrid}>
+              <CommandCard
+                icon="shield-checkmark-outline"
+                label="Resolution centre"
+                sub="Disputes, escrow, refunds"
+                onPress={() => router.push("/(admin)/disputes" as any)}
+              />
+              <CommandCard
+                icon="megaphone-outline"
+                label="Admin broadcast"
+                sub="Push and in-app notices"
+                onPress={() => router.push("/(admin)/create-message" as any)}
+              />
+              <CommandCard
+                icon="people-outline"
+                label="Users"
+                sub="Suspend, restore, delete"
+                onPress={() => router.push("/(admin)/buyers" as any)}
+              />
+              <CommandCard
+                icon="pie-chart-outline"
+                label="Analytics"
+                sub="Revenue and trends"
+                onPress={() => router.push("/(admin)/analytics" as any)}
+              />
+            </View>
+
             <View style={styles.verificationBar}>
               <View style={styles.verificationLeft}>
                 <View style={styles.verificationIcon}>
@@ -131,6 +158,31 @@ function StatCard({ icon, label, value, sub }: { icon: any; label: string; value
   );
 }
 
+function CommandCard({
+  icon,
+  label,
+  sub,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  label: string;
+  sub: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.commandCard}>
+      <View style={styles.commandIcon}>
+        <Ionicons name={icon} size={18} color="#076B51" />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.commandLabel}>{label}</Text>
+        <Text style={styles.commandSub}>{sub}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color="#9AA3A0" />
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F9F9F9" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, gap: 12 },
@@ -146,6 +198,11 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 12, fontWeight: "400", color: "#858585" },
   statValue: { fontSize: 26, fontWeight: "700", color: "#282828", marginTop: 4 },
   statChange: { fontSize: 12, fontWeight: "500", color: "#076B51", marginTop: 4 },
+  commandGrid: { gap: 10, marginBottom: 16 },
+  commandCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#FFFFFF", borderRadius: 16, borderWidth: 1, borderColor: "#F0F0F0", padding: 14 },
+  commandIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(7,107,81,0.08)", alignItems: "center", justifyContent: "center" },
+  commandLabel: { fontSize: 14, fontWeight: "700", color: "#282828" },
+  commandSub: { fontSize: 12, fontWeight: "400", color: "#858585", marginTop: 2 },
   verificationBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFF8E8", borderRadius: 16, padding: 16, marginBottom: 16 },
   verificationLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   verificationIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "rgba(217,119,6,0.1)", alignItems: "center", justifyContent: "center" },

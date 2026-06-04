@@ -3,6 +3,7 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { adminService, type AdminBroadcastAudience, type AdminBroadcastChannel } from "../../services/adminService";
 
 const AUDIENCES = [
   { id: "all", label: "All Users" },
@@ -10,20 +11,42 @@ const AUDIENCES = [
   { id: "buyers", label: "All Buyers" },
   { id: "active_vendors", label: "Active Vendors" },
   { id: "new_vendors", label: "New Vendors (< 7 days)" },
-];
+] satisfies { id: AdminBroadcastAudience; label: string }[];
+
+const CHANNELS = [
+  { id: "in_app_push", label: "In-app + push", icon: "notifications-outline" },
+  { id: "push", label: "Push only", icon: "phone-portrait-outline" },
+  { id: "in_app", label: "In-app only", icon: "mail-outline" },
+] satisfies { id: AdminBroadcastChannel; label: string; icon: React.ComponentProps<typeof Ionicons>["name"] }[];
 
 export default function CreateMessageScreen() {
   const router = useRouter();
-  const [audience, setAudience] = useState("all");
+  const [audience, setAudience] = useState<AdminBroadcastAudience>("all");
+  const [channel, setChannel] = useState<AdminBroadcastChannel>("in_app_push");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!subject.trim() || !body.trim()) return;
-    Alert.alert(
-      "Broadcast unavailable",
-      "Admin broadcast messaging is not connected to a mobile backend endpoint yet. Use the web admin or backend support flow for announcements.",
-    );
+    setSending(true);
+    try {
+      const result = await adminService.sendBroadcast({
+        audience,
+        channel,
+        subject: subject.trim(),
+        body: body.trim(),
+      });
+      Alert.alert(
+        "Broadcast sent",
+        result.message ?? `Message queued for ${result.sent ?? result.notified ?? result.queued ?? 0} recipients.`,
+        [{ text: "OK", onPress: () => router.back() }],
+      );
+    } catch (err) {
+      Alert.alert("Broadcast failed", err instanceof Error ? err.message : "Could not send this broadcast.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -33,17 +56,10 @@ export default function CreateMessageScreen() {
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Broadcast Composer</Text>
-        <Text style={styles.headerSubtitle}>Draft a platform message with a clear mobile fallback</Text>
+        <Text style={styles.headerSubtitle}>Send admin announcements, push alerts, and in-app notices</Text>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.noticeCard}>
-          <Ionicons name="information-circle-outline" size={18} color="#B8860B" />
-          <Text style={styles.noticeText}>
-            This mobile screen can prepare the message content, but sending a broadcast is not yet exposed by the admin mobile API.
-          </Text>
-        </View>
-
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Audience</Text>
           <View style={styles.audienceList}>
@@ -58,6 +74,26 @@ export default function CreateMessageScreen() {
                 {audience === entry.id && <Ionicons name="checkmark" size={16} color="#076B51" />}
               </TouchableOpacity>
             ))}
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Delivery channel</Text>
+          <View style={styles.channelGrid}>
+            {CHANNELS.map((entry) => {
+              const selected = channel === entry.id;
+              return (
+                <TouchableOpacity
+                  key={entry.id}
+                  onPress={() => setChannel(entry.id)}
+                  activeOpacity={0.85}
+                  style={[styles.channelItem, selected && styles.channelItemActive]}
+                >
+                  <Ionicons name={entry.icon} size={18} color={selected ? "#076B51" : "#858585"} />
+                  <Text style={[styles.channelText, selected && styles.channelTextActive]}>{entry.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -93,10 +129,11 @@ export default function CreateMessageScreen() {
         <TouchableOpacity
           onPress={handleSend}
           activeOpacity={0.85}
-          style={[styles.primaryButton, (!subject.trim() || !body.trim()) && styles.primaryButtonDisabled]}
+          disabled={sending || !subject.trim() || !body.trim()}
+          style={[styles.primaryButton, (sending || !subject.trim() || !body.trim()) && styles.primaryButtonDisabled]}
         >
-          <Ionicons name="send" size={18} color="#FFFFFF" />
-          <Text style={styles.primaryButtonText}>Attempt Send</Text>
+          <Ionicons name={sending ? "hourglass-outline" : "send"} size={18} color="#FFFFFF" />
+          <Text style={styles.primaryButtonText}>{sending ? "Sending..." : "Send Broadcast"}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -110,8 +147,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 28, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   headerSubtitle: { fontSize: 14, fontFamily: "Outfit-Light", color: "rgba(255,255,255,0.8)" },
   scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 },
-  noticeCard: { flexDirection: "row", gap: 10, alignItems: "flex-start", backgroundColor: "#FFF8E8", borderRadius: 18, padding: 16, marginBottom: 16 },
-  noticeText: { flex: 1, fontSize: 13, fontFamily: "Outfit-Regular", color: "#7C6515", lineHeight: 18 },
   card: { backgroundColor: "#FFFFFF", borderRadius: 30, padding: 20, marginBottom: 16 },
   sectionTitle: { fontSize: 18, fontFamily: "Manrope-Bold", color: "#282828", marginBottom: 14 },
   audienceList: { gap: 8 },
@@ -119,6 +154,11 @@ const styles = StyleSheet.create({
   audienceItemActive: { borderColor: "#076B51", backgroundColor: "rgba(7,107,81,0.05)" },
   audienceText: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#282828" },
   audienceTextActive: { fontFamily: "Manrope-Bold", color: "#076B51" },
+  channelGrid: { gap: 10 },
+  channelItem: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: "#EEEEEE", backgroundColor: "#FFFFFF" },
+  channelItemActive: { borderColor: "#076B51", backgroundColor: "rgba(7,107,81,0.05)" },
+  channelText: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#282828" },
+  channelTextActive: { fontFamily: "Manrope-Bold", color: "#076B51" },
   fieldGroup: { marginBottom: 16 },
   fieldLabel: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#858585", marginBottom: 6 },
   inputWrap: { backgroundColor: "#F4F4F4", borderRadius: 10 },

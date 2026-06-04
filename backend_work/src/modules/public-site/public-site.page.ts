@@ -412,25 +412,6 @@ function renderHomeLayout(page: PageDefinition): string {
       align-items:center;
       justify-content:center;
     }
-    .phone-stage::before{
-      content:"";
-      position:absolute;
-      inset:auto 5% 7% 18%;
-      height:210px;
-      border-radius:34px;
-      background:#2E8658;
-      opacity:.78;
-    }
-    .phone-stage::after{
-      content:"";
-      position:absolute;
-      width:110px;
-      height:110px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.2);
-      right:10px;
-      top:18px;
-    }
     .phone{
       position:relative;
       z-index:2;
@@ -550,7 +531,7 @@ function renderHomeLayout(page: PageDefinition): string {
         <p class="helper">Or scan the QR code in the app to get started instantly</p>
       </section>
       <section class="phone-stage" aria-label="Eki app preview">
-        <img class="phone" src="/assets/public-site/hero-phone-mockup.jpg" alt="Eki vendor dashboard phone mockup" />
+        <img class="phone" src="/assets/public-site/hero-phone-mockup.png" alt="Eki vendor dashboard phone mockup" />
       </section>
     </main>
   </div>

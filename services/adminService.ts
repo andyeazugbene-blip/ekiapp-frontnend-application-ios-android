@@ -23,7 +23,26 @@ export interface AdminUser {
   email: string;
   role: "buyer" | "vendor" | "admin";
   status: "active" | "suspended" | "pending";
+  suspendedReason?: string;
+  trustScore?: number;
   createdAt: string;
+}
+
+export type AdminBroadcastAudience = "all" | "vendors" | "buyers" | "active_vendors" | "new_vendors";
+export type AdminBroadcastChannel = "in_app" | "push" | "in_app_push";
+
+export interface AdminBroadcastInput {
+  audience: AdminBroadcastAudience;
+  channel: AdminBroadcastChannel;
+  subject: string;
+  body: string;
+}
+
+export interface AdminBroadcastResult {
+  sent?: number;
+  notified?: number;
+  queued?: number;
+  message?: string;
 }
 
 export interface VerificationDocument {
@@ -125,6 +144,8 @@ function normalizeUser(raw: any): AdminUser {
     email: raw.email ?? "",
     role: (raw.role ?? "BUYER").toString().toLowerCase(),
     status: raw.isSuspended ? "suspended" : "active",
+    suspendedReason: raw.suspendedReason ?? undefined,
+    trustScore: typeof raw.trustScore === "number" ? raw.trustScore : undefined,
     createdAt: raw.createdAt ?? "",
   } as AdminUser;
 }
@@ -230,7 +251,41 @@ export const adminService = {
     if (params?.role) query.set("role", params.role.toUpperCase());
     query.set("limit", "100");
     const res = await apiClient.get<ListResponse<any>>(`/api/admin/users?${query.toString()}`);
-    return (res.items ?? res.users ?? []).map(normalizeUser);
+    let users = (res.items ?? res.users ?? []).map(normalizeUser);
+    if (params?.status) users = users.filter((user) => user.status === params.status);
+    return users;
+  },
+
+  async suspendUser(userId: string, input?: { reason?: string; twoFactorCode?: string }): Promise<AdminUser> {
+    const headers = input?.twoFactorCode ? { "x-2fa-code": input.twoFactorCode } : undefined;
+    const res = await apiClient.patch<{ user?: any }>(
+      `/api/admin/users/${userId}/suspend`,
+      { reason: input?.reason },
+      headers ? { headers } : undefined,
+    );
+    return normalizeUser(res.user ?? { id: userId, isSuspended: true });
+  },
+
+  async unsuspendUser(userId: string, input?: { twoFactorCode?: string }): Promise<AdminUser> {
+    const headers = input?.twoFactorCode ? { "x-2fa-code": input.twoFactorCode } : undefined;
+    const res = await apiClient.patch<{ user?: any }>(
+      `/api/admin/users/${userId}/unsuspend`,
+      {},
+      headers ? { headers } : undefined,
+    );
+    return normalizeUser(res.user ?? { id: userId, isSuspended: false });
+  },
+
+  async deleteUser(userId: string, input?: { reason?: string; twoFactorCode?: string }): Promise<{ message?: string }> {
+    const headers = input?.twoFactorCode ? { "x-2fa-code": input.twoFactorCode } : undefined;
+    return apiClient.delete<{ message?: string }>(
+      `/api/admin/users/${userId}?reason=${encodeURIComponent(input?.reason ?? "Deleted by admin")}`,
+      headers ? { headers } : undefined,
+    );
+  },
+
+  async sendBroadcast(input: AdminBroadcastInput): Promise<AdminBroadcastResult> {
+    return apiClient.post<AdminBroadcastResult>("/api/admin/broadcasts", input);
   },
 
   async getVendors(params?: { status?: VendorAdminStatus; search?: string }): Promise<VendorSummary[]> {
