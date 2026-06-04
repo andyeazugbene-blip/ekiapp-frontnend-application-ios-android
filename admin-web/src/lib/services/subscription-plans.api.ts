@@ -23,8 +23,6 @@ function normalizePlan(raw: any): AdminSubscriptionPlan {
     canReceiveOrders: Boolean(raw.canReceiveOrders ?? true),
     isActive: Boolean(raw.isActive ?? true),
     displayOrder: raw.displayOrder ?? 0,
-    appleProductId: raw.appleProductId ?? null,
-    googleProductId: raw.googleProductId ?? null,
   };
 }
 

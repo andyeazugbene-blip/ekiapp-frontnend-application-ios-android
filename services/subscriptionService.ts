@@ -49,6 +49,12 @@ export interface SubscriptionLimits {
   marketingTools?: boolean;
 }
 
+export interface WebSubscriptionCheckout {
+  checkoutUrl: string;
+}
+
+export type PaidSubscriptionPlan = "GROWTH" | "PRO";
+
 const PLAN_NAMES: Record<string, string> = {
   FREE: "Free Plan",
   BASIC: "Basic Plan",
@@ -57,26 +63,10 @@ const PLAN_NAMES: Record<string, string> = {
   PRO: "Pro Plan",
 };
 
-export const SUBSCRIPTIONS_NOT_AVAILABLE_CODE = "SUBSCRIPTIONS_NOT_AVAILABLE";
-
-export class PaidPlanActivationNotAvailableError extends Error {
-  status = 409;
-  code = SUBSCRIPTIONS_NOT_AVAILABLE_CODE;
-
-  constructor() {
-    super("This feature is not available on your current plan.");
-    this.name = "PaidPlanActivationNotAvailableError";
-  }
-}
-
 function planSlug(plan: string): SubscriptionPlan["slug"] {
   if (plan === "FREE") return "free";
   if (plan === "PRO" || plan === "PREMIUM") return "pro";
   return "growth";
-}
-
-function backendPlan(planId: string): string {
-  return planId.replace(/^plan_/, "").toUpperCase();
 }
 
 function normalizePlan(raw: any): SubscriptionPlan {
@@ -168,6 +158,14 @@ export const subscriptionService = {
     return (res.plans ?? []).map(normalizePlan);
   },
 
+  async createWebCheckout(email: string, plan: PaidSubscriptionPlan): Promise<WebSubscriptionCheckout> {
+    return apiClient.post<WebSubscriptionCheckout>(
+      "/api/subscriptions/web-checkout",
+      { email: email.trim().toLowerCase(), plan },
+      { skipAuth: true },
+    );
+  },
+
   async getCurrentSubscription(): Promise<ActiveSubscription | null> {
     const res = await apiClient.get<any>("/api/subscriptions/me");
     return normalizeSubscription(res.subscription ?? res);
@@ -178,18 +176,4 @@ export const subscriptionService = {
     return normalizeLimits(res);
   },
 
-  async activatePlan(planId: string): Promise<ActiveSubscription> {
-    const plan = backendPlan(planId);
-    if (plan !== "FREE") {
-      throw new PaidPlanActivationNotAvailableError();
-    }
-
-    const res = await apiClient.post<any>("/api/subscriptions/activate", { plan });
-    return normalizeSubscription(res.subscription ?? res);
-  },
-
-  async cancel(): Promise<{ cancelAtPeriodEnd: boolean }> {
-    const res = await apiClient.post<any>("/api/subscriptions/cancel", {});
-    return { cancelAtPeriodEnd: Boolean(res.subscription?.cancelledAt ?? res.cancelAtPeriodEnd) };
-  },
 };

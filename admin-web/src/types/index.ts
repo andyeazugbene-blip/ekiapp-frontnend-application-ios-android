@@ -211,8 +211,6 @@ export interface AdminSubscriptionPlan {
   canReceiveOrders: boolean;
   isActive: boolean;
   displayOrder: number;
-  appleProductId?: string | null;
-  googleProductId?: string | null;
 }
 
 export interface EscrowProviderConfig {

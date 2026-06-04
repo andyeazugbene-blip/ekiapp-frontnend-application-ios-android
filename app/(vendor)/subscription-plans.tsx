@@ -96,12 +96,19 @@ export default function SubscriptionPlansScreen() {
                 </View>
               </View>
               <Text style={styles.statusBody}>
-                Available features refresh automatically when your account status changes.
+                Paid plans are purchased and managed on the Eki website using your vendor account email. This app does not process subscription payments.
               </Text>
               <View style={styles.feeBanner}>
                 <Text style={styles.feeBannerLabel}>Platform fee per order</Text>
                 <Text style={styles.feeBannerValue}>{limits?.platformFeePercent ?? subscription?.platformFeePercent ?? "Unavailable"}</Text>
               </View>
+            </View>
+
+            <View style={styles.statusCard}>
+              <Text style={styles.sectionTitle}>Website-managed billing</Text>
+              <Text style={styles.statusBody}>
+                After paying on the website with the same email used for this vendor account, return here and refresh. Your paid plan and features will unlock after Stripe confirms payment.
+              </Text>
             </View>
 
             <View style={styles.statusCard}>

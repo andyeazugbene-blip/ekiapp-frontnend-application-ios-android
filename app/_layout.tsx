@@ -80,6 +80,7 @@ export default function RootLayout() {
             <Stack.Screen name="privacy" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="support" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="how-eki-works" options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="vendor/subscription" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="(vendor-onboarding)" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="(vendor-verification)" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="store/[slug]" options={{ animation: "slide_from_right" }} />

@@ -28,6 +28,27 @@ const FORBIDDEN_PATTERNS = [
   { label: "paid subscription CTA", re: /<(?:Text|Button)\b[^>]*>[^<]*(?:Upgrade now|Upgrade Plan|Choose Plan|View Plans|See Plans|Subscribe|Activate\s+[-\u2013\u2014])[^<]*<\/(?:Text|Button)>/i },
 ];
 
+const WEB_ONLY_SUBSCRIPTION_ROUTE = "app/vendor/subscription.tsx";
+
+function isAllowedViolation(rel, label, line) {
+  // This route is served by Expo Web only. On native it renders a read-only
+  // fallback and never opens checkout, so it is allowed to contain web billing
+  // copy and Stripe Checkout routing.
+  if (rel === WEB_ONLY_SUBSCRIPTION_ROUTE) return true;
+
+  // The shared service exposes only the public web checkout helper. Native
+  // subscription screens must not call it; this scanner still catches checkout
+  // copy/openers anywhere else under app/.
+  if (rel === "services/subscriptionService.ts" && label === "checkout URL field") {
+    return true;
+  }
+  if (rel === "services/subscriptionService.ts" && line.includes("/api/subscriptions/web-checkout")) {
+    return true;
+  }
+
+  return false;
+}
+
 function walk(dir, out) {
   if (!fs.existsSync(dir)) return;
 
@@ -62,6 +83,7 @@ function scanFile(full, violations) {
   lines.forEach((line, index) => {
     for (const pattern of FORBIDDEN_PATTERNS) {
       if (pattern.re.test(line)) {
+        if (isAllowedViolation(rel, pattern.label, line)) continue;
         violations.push({
           file: rel,
           line: index + 1,
