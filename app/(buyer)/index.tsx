@@ -198,10 +198,13 @@ export default function BuyerHomeScreen() {
     return deals;
   }, [featuredProduct, firstSymbol, router]);
 
+  const openSearch = (value = searchQuery) => {
+    router.push({ pathname: "/(buyer)/explore", params: value.trim() ? { search: value.trim() } : {} } as any);
+  };
+
   const handleSearch = () => {
     const value = searchQuery.trim();
-    if (!value) return;
-    router.push({ pathname: "/(buyer)/explore", params: { search: value } } as any);
+    openSearch(value);
   };
 
   const handleAddToCart = (item: Product) => {
@@ -262,6 +265,7 @@ export default function BuyerHomeScreen() {
                 placeholderTextColor="#9AA3A0"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                onFocus={() => openSearch()}
                 onSubmitEditing={handleSearch}
                 returnKeyType="search"
               />

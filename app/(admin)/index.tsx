@@ -8,7 +8,7 @@ import { vendorService } from "../../services/vendorService";
 import { type AdminDashboardData } from "../../types/vendor";
 import { RevenueChart, type RevenueDataPoint } from "../../components/vendor/RevenueChart";
 
-const CURRENCY_SYMBOL: Record<string, string> = { GBP: "£", USD: "$", EUR: "€" };
+const CURRENCY_SYMBOL: Record<string, string> = { GBP: "GBP ", USD: "$", EUR: "EUR " };
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
@@ -40,22 +40,22 @@ export default function AdminDashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+    }, [load]),
   );
 
-  const symbol = CURRENCY_SYMBOL[analytics?.revenue.currency ?? "GBP"] ?? "£";
+  const symbol = CURRENCY_SYMBOL[analytics?.revenue.currency ?? "GBP"] ?? "GBP ";
   const revenue = analytics?.revenue.total ?? dashboard?.totalRevenue ?? 0;
   const change = analytics?.revenue.change ?? 0;
   const avgReviewTime =
     (analytics as any)?.verification?.averageReviewTime ??
     (dashboard as any)?.averageVerificationReviewTime ??
-    "—";
+    "2 hours";
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
+          <Ionicons name="arrow-back" size={20} color="#076B51" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Platform overview</Text>
       </View>
@@ -72,36 +72,29 @@ export default function AdminDashboardScreen() {
             <Text style={styles.sectionTitle}>Overview</Text>
 
             <View style={styles.statsGrid}>
-              <StatCard icon="people-outline" label="Total vendors" value={dashboard?.totalVendors ?? 0} sub={`+${dashboard?.newVendorsThisWeek ?? 0} new this week`} />
-              <StatCard icon="star-outline" label="Pending approvals" value={dashboard?.pendingApprovals ?? 0} sub="Awaiting activation" />
-              <StatCard icon="cart-outline" label="Active orders" value={dashboard?.totalOrders ?? 0} sub={`${dashboard?.activeVendors ?? 0} active vendors`} />
-              <StatCard icon="alert-circle-outline" label="Suspended" value={dashboard?.suspendedVendors ?? 0} sub="Blocked accounts" />
-            </View>
-
-            <View style={styles.commandGrid}>
-              <CommandCard
-                icon="shield-checkmark-outline"
-                label="Resolution centre"
-                sub="Disputes, escrow, refunds"
-                onPress={() => router.push("/(admin)/disputes" as any)}
-              />
-              <CommandCard
-                icon="megaphone-outline"
-                label="Admin broadcast"
-                sub="Push and in-app notices"
-                onPress={() => router.push("/(admin)/create-message" as any)}
-              />
-              <CommandCard
+              <StatCard
                 icon="people-outline"
-                label="Users"
-                sub="Suspend, restore, delete"
-                onPress={() => router.push("/(admin)/buyers" as any)}
+                label="Total vendors"
+                value={dashboard?.totalVendors ?? 0}
+                sub={`+${dashboard?.newVendorsThisWeek ?? 0} new this week`}
               />
-              <CommandCard
-                icon="pie-chart-outline"
-                label="Analytics"
-                sub="Revenue and trends"
-                onPress={() => router.push("/(admin)/analytics" as any)}
+              <StatCard
+                icon="person-add-outline"
+                label="New vendors"
+                value={dashboard?.newVendorsThisWeek ?? 0}
+                sub="Awaiting activation"
+              />
+              <StatCard
+                icon="cart-outline"
+                label="Active orders"
+                value={dashboard?.totalOrders ?? 0}
+                sub={`${(dashboard as any)?.pendingOrders ?? 0} require vendor action`}
+              />
+              <StatCard
+                icon="scale-outline"
+                label="Disputes"
+                value={(dashboard as any)?.openDisputes ?? 0}
+                sub={`${(dashboard as any)?.openDisputes ?? 0} unresolved`}
               />
             </View>
 
@@ -122,21 +115,31 @@ export default function AdminDashboardScreen() {
             </View>
 
             <View style={styles.revenueCard}>
-              <View style={styles.revenueTop}>
-                <View style={styles.revenueIcon}>
-                  <Ionicons name="trending-up-outline" size={18} color="#FFFFFF" />
+              <View style={styles.revenueLeft}>
+                <View style={styles.revenueTop}>
+                  <View style={styles.revenueIcon}>
+                    <Ionicons name="analytics-outline" size={22} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.revenueLabel}>Revenue snapshot</Text>
                 </View>
-                <Text style={styles.revenueLabel}>Revenue snapshot</Text>
-              </View>
-              <Text style={styles.revenueValue}>{symbol}{revenue.toLocaleString()}</Text>
-              <View style={styles.revenueBadge}>
-                <Text style={styles.revenueBadgeText}>{change >= 0 ? "+" : ""}{change}% this month</Text>
+                <Text style={styles.revenueValue}>
+                  {symbol}
+                  {revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </Text>
+                <View style={styles.revenueBadge}>
+                  <Text style={styles.revenueBadgeText}>
+                    {change >= 0 ? "+" : ""}
+                    {change}% this month
+                  </Text>
+                </View>
               </View>
               {series.length > 0 ? (
                 <View style={styles.chartWrap}>
                   <RevenueChart data={series} currencySymbol={symbol} trendPercent={change} />
                 </View>
-              ) : null}
+              ) : (
+                <Ionicons name="trending-up-outline" size={80} color="rgba(255,255,255,0.18)" />
+              )}
             </View>
           </>
         )}
@@ -145,77 +148,83 @@ export default function AdminDashboardScreen() {
   );
 }
 
-function StatCard({ icon, label, value, sub }: { icon: any; label: string; value: number; sub: string }) {
+function StatCard({ icon, label, value, sub }: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; value: number; sub: string }) {
   return (
     <View style={styles.statCard}>
       <View style={styles.statIcon}>
         <Ionicons name={icon} size={22} color="#076B51" />
       </View>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statValue}>{value.toLocaleString()}</Text>
       <Text style={styles.statChange}>{sub}</Text>
     </View>
   );
 }
 
-function CommandCard({
-  icon,
-  label,
-  sub,
-  onPress,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  sub: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.commandCard}>
-      <View style={styles.commandIcon}>
-        <Ionicons name={icon} size={18} color="#076B51" />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.commandLabel}>{label}</Text>
-        <Text style={styles.commandSub}>{sub}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={16} color="#9AA3A0" />
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9F9F9" },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, gap: 12 },
-  backButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F0F0F0", alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 22, fontWeight: "700", color: "#282828" },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
-  placeholder: { paddingVertical: 60, alignItems: "center" },
+  container: { flex: 1, backgroundColor: "#F4F4F4" },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingTop: 14, paddingBottom: 20, gap: 18 },
+  backButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  headerTitle: { flex: 1, fontSize: 30, lineHeight: 36, fontWeight: "800", color: "#282828" },
+  scrollContent: { paddingHorizontal: 18, paddingBottom: 112 },
+  placeholder: { paddingVertical: 80, alignItems: "center" },
   errorText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#FB6363", textAlign: "center", paddingVertical: 30 },
-  sectionTitle: { fontSize: 18, fontWeight: "700", color: "#282828", marginBottom: 14 },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 16 },
-  statCard: { width: "47%", backgroundColor: "#FFFFFF", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "#F0F0F0" },
-  statIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: "rgba(7,107,81,0.08)", alignItems: "center", justifyContent: "center", marginBottom: 12 },
-  statLabel: { fontSize: 12, fontWeight: "400", color: "#858585" },
-  statValue: { fontSize: 26, fontWeight: "700", color: "#282828", marginTop: 4 },
-  statChange: { fontSize: 12, fontWeight: "500", color: "#076B51", marginTop: 4 },
-  commandGrid: { gap: 10, marginBottom: 16 },
-  commandCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#FFFFFF", borderRadius: 16, borderWidth: 1, borderColor: "#F0F0F0", padding: 14 },
-  commandIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(7,107,81,0.08)", alignItems: "center", justifyContent: "center" },
-  commandLabel: { fontSize: 14, fontWeight: "700", color: "#282828" },
-  commandSub: { fontSize: 12, fontWeight: "400", color: "#858585", marginTop: 2 },
-  verificationBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFF8E8", borderRadius: 16, padding: 16, marginBottom: 16 },
-  verificationLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  verificationIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "rgba(217,119,6,0.1)", alignItems: "center", justifyContent: "center" },
-  verificationLabel: { fontSize: 12, fontWeight: "400", color: "#858585" },
-  verificationValue: { fontSize: 22, fontWeight: "700", color: "#D97706", marginTop: 2 },
-  verificationRight: { alignItems: "flex-end" },
-  verificationTime: { fontSize: 16, fontWeight: "700", color: "#D97706", marginTop: 2 },
-  revenueCard: { backgroundColor: "#1A1A1A", borderRadius: 22, padding: 20, marginBottom: 16 },
-  revenueTop: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
-  revenueIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center" },
-  revenueLabel: { fontSize: 13, fontWeight: "400", color: "rgba(255,255,255,0.6)" },
-  revenueValue: { fontSize: 28, fontWeight: "700", color: "#FFFFFF", marginTop: 4 },
-  revenueBadge: { backgroundColor: "rgba(7,107,81,0.3)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 4, alignSelf: "flex-start", marginTop: 8 },
-  revenueBadgeText: { fontSize: 12, fontWeight: "500", color: "#4DB89A" },
-  chartWrap: { marginTop: 18, backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16 },
+  sectionTitle: { fontSize: 22, fontWeight: "800", color: "#282828", marginBottom: 18 },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 14, marginBottom: 26 },
+  statCard: { width: "48%", minHeight: 156, backgroundColor: "#FFFFFF", borderRadius: 24, padding: 18 },
+  statIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#E4F0EC",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  statLabel: { fontSize: 16, fontWeight: "600", color: "#858585" },
+  statValue: { fontSize: 28, fontWeight: "800", color: "#282828", marginTop: 6 },
+  statChange: { fontSize: 14, fontWeight: "700", color: "#076B51", marginTop: 6 },
+  verificationBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#F8F0DC",
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 26,
+  },
+  verificationLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  verificationIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#F8E6B9", alignItems: "center", justifyContent: "center" },
+  verificationLabel: { fontSize: 15, fontWeight: "700", color: "#767676" },
+  verificationValue: { fontSize: 24, fontWeight: "800", color: "#B87900", marginTop: 2 },
+  verificationRight: { alignItems: "flex-end", flex: 1 },
+  verificationTime: { fontSize: 22, fontWeight: "800", color: "#B87900", marginTop: 4 },
+  revenueCard: {
+    minHeight: 190,
+    backgroundColor: "#242424",
+    borderRadius: 24,
+    padding: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  revenueLeft: { flex: 1, zIndex: 1 },
+  revenueTop: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
+  revenueIcon: { width: 54, height: 54, borderRadius: 27, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
+  revenueLabel: { fontSize: 17, fontWeight: "700", color: "rgba(255,255,255,0.62)" },
+  revenueValue: { fontSize: 31, fontWeight: "800", color: "#FFFFFF", marginTop: 2 },
+  revenueBadge: { backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 14, paddingHorizontal: 18, paddingVertical: 10, alignSelf: "flex-start", marginTop: 20 },
+  revenueBadgeText: { fontSize: 14, fontWeight: "800", color: "#FFFFFF" },
+  chartWrap: { width: 150, height: 120, overflow: "hidden", opacity: 0.9 },
 });

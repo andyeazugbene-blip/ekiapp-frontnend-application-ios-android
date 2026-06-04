@@ -46,6 +46,39 @@ export default function MarkShippedScreen() {
 
   const isEscrowOrder = (order?.escrowType ?? "").toLowerCase() === "domestic_africa";
 
+  const ensureShipment = async () => {
+    if (!order) return;
+    const payload = {
+      carrier: carrier.trim(),
+      trackingNumber: trackingNumber.trim() || undefined,
+    };
+
+    try {
+      await orderService.createShipment(order.id, payload);
+    } catch (shipmentErr) {
+      const message = shipmentErr instanceof Error ? shipmentErr.message.toLowerCase() : "";
+      if (!message.includes("already exists")) {
+        throw shipmentErr;
+      }
+
+      const existing = await orderService.getShipmentByOrder(order.id);
+      if (existing?.id) {
+        await orderService.updateShipment(existing.id, payload);
+      }
+    }
+  };
+
+  const dispatchStandardOrder = async () => {
+    if (!order) return;
+
+    if (order.status === "confirmed") {
+      await orderService.updateOrderStatus(order.id, "processing");
+    }
+
+    await orderService.updateOrderStatus(order.id, "dispatched");
+    await ensureShipment();
+  };
+
   const handleConfirm = async () => {
     if (!order) return;
     if (!canVendorMarkShipped(order)) {
@@ -65,10 +98,7 @@ export default function MarkShippedScreen() {
         const dispatch = await orderService.dispatchVendorEscrowOrder(order.id);
 
         try {
-          await orderService.createShipment(order.id, {
-            carrier: carrier.trim(),
-            trackingNumber: trackingNumber.trim() || undefined,
-          });
+          await ensureShipment();
         } catch (shipmentErr) {
           Alert.alert(
             "Dispatch succeeded",
@@ -85,14 +115,7 @@ export default function MarkShippedScreen() {
         return;
       }
 
-      await orderService.createShipment(order.id, {
-        carrier: carrier.trim(),
-        trackingNumber: trackingNumber.trim() || undefined,
-      });
-      await orderService.updateOrderStatus(order.id, "dispatched", {
-        carrier: carrier.trim(),
-        trackingNumber: trackingNumber.trim() || undefined,
-      });
+      await dispatchStandardOrder();
       router.push({ pathname: "/(vendor)/order-completed", params: { id: order.id } } as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not mark as shipped.");

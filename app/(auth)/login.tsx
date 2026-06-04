@@ -29,9 +29,9 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (user.role !== resolvedRole) return;
-      if (user.role === "vendor") router.replace("/(vendor)");
-      else if (user.role === "admin") router.replace("/(admin)");
+      if (user.role === "admin") router.replace("/(admin)");
+      else if (user.role !== resolvedRole) return;
+      else if (user.role === "vendor") router.replace("/(vendor)");
       else if (redirect) router.replace(redirect as any);
       else router.replace("/(buyer)");
     }
@@ -45,7 +45,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
-    if (user.role !== resolvedRole) {
+    if (user.role !== resolvedRole && user.role !== "admin") {
       beginFreshAuthFlow().catch(() => {});
     }
   }, [beginFreshAuthFlow, isAuthenticated, resolvedRole, user]);
@@ -86,6 +86,69 @@ export default function LoginScreen() {
       expectedRole: resolvedRole as any,
     });
   };
+
+  if (isAdmin) {
+    return (
+      <SafeAreaView style={styles.adminPage} edges={["top", "bottom"]}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.adminKeyboard}>
+          <ScrollView
+            contentContainerStyle={styles.adminContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.adminPanel}>
+              <View style={styles.adminIcon}>
+                <Ionicons name="person-outline" size={56} color="#076B51" />
+              </View>
+              <Text style={styles.adminTitle}>Admin sign in</Text>
+              <Text style={styles.adminSubtitle}>Eki Marketplace Control Portal</Text>
+
+              {error ? (
+                <View style={styles.errorBanner}>
+                  <Ionicons name="alert-circle-outline" size={18} color="#FB6363" style={{ marginTop: 1 }} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
+              <Input
+                label="Email"
+                placeholder="admin@eki.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="off"
+                autoCorrect={false}
+                value={email}
+                onChangeText={(t) => {
+                  setEmail(t);
+                  setEmailError("");
+                  if (error) clearError();
+                }}
+                error={emailError}
+              />
+
+              <Input
+                label="Password"
+                placeholder="Enter your password"
+                isPassword
+                autoComplete="off"
+                autoCorrect={false}
+                value={password}
+                onChangeText={(t) => {
+                  setPassword(t);
+                  setPasswordError("");
+                  if (error) clearError();
+                }}
+                error={passwordError}
+              />
+
+              <Button title="Sign In  ->" fullWidth loading={isLoading} onPress={handleLogin} />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <View style={styles.page}>
@@ -185,6 +248,55 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  adminPage: {
+    flex: 1,
+    backgroundColor: "#F4F4F4",
+  },
+  adminKeyboard: {
+    flex: 1,
+  },
+  adminContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 42,
+  },
+  adminPanel: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 26,
+    paddingHorizontal: 28,
+    paddingVertical: 40,
+    shadowColor: "#282828",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  adminIcon: {
+    width: 86,
+    height: 86,
+    borderRadius: 28,
+    backgroundColor: "#E4F0EC",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginBottom: 28,
+  },
+  adminTitle: {
+    color: "#282828",
+    fontSize: 38,
+    lineHeight: 44,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  adminSubtitle: {
+    color: "#858585",
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 12,
+    marginBottom: 34,
+  },
   page: {
     flex: 1,
     backgroundColor: "#F4F4F4",

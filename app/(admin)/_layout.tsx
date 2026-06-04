@@ -83,7 +83,7 @@ export default function AdminLayout() {
         name="orders"
         options={{
           title: "Orders",
-          tabBarIcon: ({ color, size }) => <Ionicons name="receipt-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="bag-handle-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -94,13 +94,13 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
-        name="disputes"
+        name="analytics"
         options={{
-          title: "Resolve",
-          tabBarIcon: ({ color, size }) => <Ionicons name="shield-checkmark-outline" size={size} color={color} />,
+          title: "Analytics",
+          tabBarIcon: ({ color, size }) => <Ionicons name="pie-chart-outline" size={size} color={color} />,
         }}
       />
-      <Tabs.Screen name="analytics" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="disputes" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="buyers" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="reward-rules" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="settings" options={{ href: null, tabBarStyle: { display: "none" } }} />

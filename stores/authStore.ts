@@ -172,7 +172,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         const { user, token } = await authService.login(credentials);
         const expected = credentials.expectedRole;
 
-        if (expected && user.role !== expected) {
+        if (expected && user.role !== expected && user.role !== "admin") {
           await authService.logout();
           const roleLabels: Record<string, string> = {
             buyer: "a buyer",
