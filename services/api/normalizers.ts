@@ -285,6 +285,8 @@ const FOLDER_TO_CATEGORY: Record<string, string> = {
   cover: "cover",
   store: "cover",
   verification: "verification",
+  messages: "message",
+  message: "message",
 };
 
 /**
@@ -292,7 +294,9 @@ const FOLDER_TO_CATEGORY: Record<string, string> = {
  * "product" | "avatar" | "cover" | "verification"
  */
 export function mapUploadCategory(folder: string): string {
-  return FOLDER_TO_CATEGORY[folder?.toLowerCase()] ?? "product";
+  const normalized = folder?.toLowerCase().replace(/\\/g, "/") ?? "";
+  const root = normalized.split("/")[0];
+  return FOLDER_TO_CATEGORY[normalized] ?? FOLDER_TO_CATEGORY[root] ?? "product";
 }
 
 // ─── Payout ────────────────────────────────────────────────────────────────────

@@ -231,6 +231,12 @@ export default function VendorSettingsScreen() {
             onPress={() => router.push("/(vendor)/earnings" as any)}
           />
           <SettingRow
+            icon="shield-checkmark-outline"
+            label="How Escrow Works"
+            description="Understand protected payments, delivery OTPs, disputes, and payout release"
+            onPress={() => router.push("/(vendor)/escrow-guide" as any)}
+          />
+          <SettingRow
             icon="card-outline"
             label="Payout Methods"
             description="Add the bank, Stripe, or PayPal account used for withdrawals"
@@ -262,6 +268,12 @@ export default function VendorSettingsScreen() {
             label="Notifications"
             description="Control order, payout, and marketing alerts"
             onPress={() => router.push("/(vendor)/notifications" as any)}
+          />
+          <SettingRow
+            icon="document-text-outline"
+            label="Terms, Privacy & Support"
+            description="Open app policies, support, and how Eki works"
+            onPress={() => router.push("/how-eki-works" as any)}
           />
           <SettingRow
             icon="trash-outline"

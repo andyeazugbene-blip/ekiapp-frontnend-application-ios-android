@@ -211,6 +211,42 @@ export interface AdminSubscriptionPlan {
   canReceiveOrders: boolean;
   isActive: boolean;
   displayOrder: number;
+  appleProductId?: string | null;
+  googleProductId?: string | null;
+}
+
+export interface EscrowProviderConfig {
+  id: string;
+  country: string;
+  countryCode: string;
+  currency: string;
+  provider: string;
+  enabled: boolean;
+  payoutSupported: boolean;
+  otpChannel: "SMS" | "EMAIL" | "SMS_EMAIL";
+  protectionWindowHours: number;
+  notes?: string | null;
+}
+
+export interface AdminEscrowHealth {
+  smsConfigured: boolean;
+  providers: EscrowProviderConfig[];
+  outstandingAmount?: number;
+  expectedBalance?: number;
+  healthy?: boolean;
+}
+
+export interface UploadAsset {
+  id: string;
+  ownerId: string;
+  category: string;
+  key: string;
+  publicUrl?: string | null;
+  contentType: string;
+  sizeBytes?: number | null;
+  status: "REQUESTED" | "COMPLETED" | "FAILED";
+  completedAt?: string | null;
+  createdAt: string;
 }
 
 export interface AuditLogEntry {

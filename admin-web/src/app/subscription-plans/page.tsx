@@ -29,6 +29,8 @@ const EMPTY_PLAN = (): AdminSubscriptionPlan => ({
   canReceiveOrders: true,
   isActive: true,
   displayOrder: 0,
+  appleProductId: null,
+  googleProductId: null,
 });
 
 export default function SubscriptionPlansPage() {
@@ -164,6 +166,8 @@ export default function SubscriptionPlansPage() {
                 <Field label="Display order" value={String(draft.displayOrder)} onChange={(value) => setDraft((current) => ({ ...current, displayOrder: Number(value || 0) }))} type="number" />
                 <Field label="Max products" value={String(draft.maxProducts)} onChange={(value) => setDraft((current) => ({ ...current, maxProducts: Number(value || 0) }))} type="number" />
                 <Field label="Max images / product" value={String(draft.maxImagesPerProduct)} onChange={(value) => setDraft((current) => ({ ...current, maxImagesPerProduct: Number(value || 0) }))} type="number" />
+                <Field label="Apple product ID" value={draft.appleProductId ?? ""} onChange={(value) => setDraft((current) => ({ ...current, appleProductId: value || null }))} />
+                <Field label="Google Play product ID" value={draft.googleProductId ?? ""} onChange={(value) => setDraft((current) => ({ ...current, googleProductId: value || null }))} />
               </div>
 
               <p className="mt-3 text-xs text-gray-500">

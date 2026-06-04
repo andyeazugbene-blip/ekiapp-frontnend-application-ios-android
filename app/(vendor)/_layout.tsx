@@ -140,6 +140,7 @@ export default function VendorLayout() {
       <Tabs.Screen name="withdraw-payout" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="payout-requested" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="subscription-plans" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="escrow-guide" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="plan-free" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="plan-growth" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="plan-pro" options={{ href: null, tabBarStyle: { display: "none" } }} />

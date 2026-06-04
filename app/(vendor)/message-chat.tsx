@@ -98,7 +98,7 @@ export default function VendorMessageChatScreen() {
 
     setSendingImage(true);
     try {
-      const remoteImageUrl = await uploadService.uploadImage(localUri, fileName, contentType, "product");
+      const remoteImageUrl = await uploadService.uploadImage(localUri, fileName, contentType, "message");
 
       await sendMessage(conversation.id, {
         text: input.trim(),

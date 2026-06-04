@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -37,13 +37,20 @@ export default function NotificationsScreen() {
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [smsMarketing, setSmsMarketing] = useState(false);
+  const [smsTransactional, setSmsTransactional] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const list = await notificationService.getNotifications();
+      const [list, preferences] = await Promise.all([
+        notificationService.getNotifications(),
+        notificationService.getPreferences(),
+      ]);
       setItems(list ?? []);
+      setSmsMarketing(preferences.smsMarketing);
+      setSmsTransactional(preferences.smsTransactional);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load notifications.");
     } finally {
@@ -75,6 +82,18 @@ export default function NotificationsScreen() {
 
   const hasUnread = items.some((n) => !n.read);
 
+  const updatePreferences = async (next: { smsMarketing?: boolean; smsTransactional?: boolean }) => {
+    if (next.smsMarketing !== undefined) setSmsMarketing(next.smsMarketing);
+    if (next.smsTransactional !== undefined) setSmsTransactional(next.smsTransactional);
+    try {
+      const saved = await notificationService.updatePreferences(next);
+      setSmsMarketing(saved.smsMarketing);
+      setSmsTransactional(saved.smsTransactional);
+    } catch {
+      await load();
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
@@ -92,6 +111,14 @@ export default function NotificationsScreen() {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.preferenceCard}>
+          <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Transactional SMS</Text><Text style={styles.preferenceBody}>Delivery OTP, escrow, payout, and security updates.</Text></View>
+          <Switch value={smsTransactional} onValueChange={(value) => void updatePreferences({ smsTransactional: value })} trackColor={{ true: "#85C5AE" }} thumbColor={smsTransactional ? "#076B51" : "#F4F4F4"} />
+        </View>
+        <View style={styles.preferenceCard}>
+          <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Admin marketing SMS</Text><Text style={styles.preferenceBody}>Optional targeted updates and marketplace campaigns.</Text></View>
+          <Switch value={smsMarketing} onValueChange={(value) => void updatePreferences({ smsMarketing: value })} trackColor={{ true: "#85C5AE" }} thumbColor={smsMarketing ? "#076B51" : "#F4F4F4"} />
+        </View>
         {loading && items.length === 0 ? (
           <View style={styles.placeholder}>
             <ActivityIndicator color="#076B51" />
@@ -135,6 +162,10 @@ const styles = StyleSheet.create({
   markAllBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: "#F4F4F4", borderRadius: 12 },
   markAllText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#076B51" },
   scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100, gap: 10 },
+  preferenceCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#FFFFFF", borderRadius: 16, padding: 14 },
+  preferenceCopy: { flex: 1 },
+  preferenceTitle: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
+  preferenceBody: { marginTop: 3, fontSize: 12, lineHeight: 17, fontFamily: "Outfit-Regular", color: "#858585" },
   placeholder: { paddingVertical: 60, alignItems: "center" },
   emptyText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", paddingVertical: 60 },
   errorText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#FB6363", textAlign: "center", paddingVertical: 30 },

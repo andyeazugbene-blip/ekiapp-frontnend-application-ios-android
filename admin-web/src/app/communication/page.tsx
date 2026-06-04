@@ -83,7 +83,7 @@ export default function CommunicationPage() {
         channels,
         vendorId: audience === "individual_vendor" ? selectedVendorId : undefined,
       });
-      setSuccess(`Message sent to ${result.recipients ?? "selected"} recipient(s).`);
+      setSuccess(`Message sent to ${result.sent ?? result.recipients ?? "selected"} recipient(s). SMS queued: ${result.smsQueued ?? 0}; skipped without consent: ${result.smsSkipped ?? 0}.`);
       setTitle("");
       setBody("");
     } catch (err) {
@@ -155,7 +155,7 @@ export default function CommunicationPage() {
                 <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <ChannelCard active={channels.includes("in_app")} title="In-app" text="Creates app notification and admin message" icon="messages" onClick={() => toggleChannel("in_app")} />
                   <ChannelCard active={channels.includes("push")} title="Push" text="Sends Expo push to registered devices" icon="communication" onClick={() => toggleChannel("push")} />
-                  <ChannelCard disabled title="WhatsApp / SMS" text="Provider endpoint not enabled yet" icon="messages" onClick={() => undefined} />
+                  <ChannelCard active={channels.includes("sms")} title="SMS" text="Africa's Talking, opted-in users only" icon="messages" onClick={() => toggleChannel("sms")} />
                   <ChannelCard disabled title="Email" text="Provider endpoint not enabled yet" icon="messages" onClick={() => undefined} />
                 </div>
               </div>

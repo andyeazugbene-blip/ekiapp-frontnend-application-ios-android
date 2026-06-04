@@ -93,7 +93,17 @@ export default function Index() {
               <Text style={styles.ctaText}>Get Started</Text>
               <Ionicons name="arrow-forward" size={16} color="#076B51" />
             </TouchableOpacity>
-            <Text style={styles.legal}>By continuing you agree to our Terms & Privacy.</Text>
+            <View style={styles.legalRow}>
+              <Text style={styles.legal}>By continuing you agree to our </Text>
+              <TouchableOpacity onPress={() => router.push("/terms" as any)} activeOpacity={0.8}>
+                <Text style={styles.legalLink}>Terms</Text>
+              </TouchableOpacity>
+              <Text style={styles.legal}> & </Text>
+              <TouchableOpacity onPress={() => router.push("/privacy" as any)} activeOpacity={0.8}>
+                <Text style={styles.legalLink}>Privacy</Text>
+              </TouchableOpacity>
+              <Text style={styles.legal}>.</Text>
+            </View>
           </View>
         ) : (
           <View style={styles.loadingBlock}>
@@ -152,6 +162,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Outfit-Regular",
     textAlign: "center",
+  },
+  legalRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  legalLink: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontFamily: "Manrope-Bold",
+    textDecorationLine: "underline",
   },
   loadingBlock: {
     paddingVertical: 28,

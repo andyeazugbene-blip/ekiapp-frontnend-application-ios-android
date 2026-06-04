@@ -17,9 +17,12 @@ const navigation: NavItem[] = [
   { name: "Vendors", href: "/vendors", icon: "vendors" },
   { name: "Orders", href: "/orders", icon: "orders" },
   { name: "Disputes", href: "/disputes", icon: "disputes" },
+  { name: "Escrow", href: "/escrow", icon: "verification" },
   { name: "Verifications", href: "/verification", icon: "verification" },
+  { name: "Uploads", href: "/uploads", icon: "products" },
   { name: "Messages", href: "/users", icon: "messages" },
   { name: "Communication", href: "/communication", icon: "communication" },
+  { name: "Subscriptions", href: "/subscription-plans", icon: "orders" },
   { name: "Analytics", href: "/analytics", icon: "analytics" },
   { name: "Settings", href: "/settings", icon: "settings" },
 ];

@@ -5,9 +5,17 @@ import { apiClient } from "./api";
 import { mapUploadCategory } from "./api/normalizers";
 
 interface PresignedUrlResponse {
+  assetId: string;
   uploadUrl: string;
-  publicUrl: string;
+  publicUrl?: string;
   key: string;
+}
+
+interface CompletedUploadResponse {
+  assetId: string;
+  key: string;
+  publicUrl?: string;
+  privateReadUrl?: string;
 }
 
 export const uploadService = {
@@ -19,7 +27,7 @@ export const uploadService = {
     });
   },
 
-  async uploadFile(uploadUrl: string, fileUri: string, contentType: string): Promise<boolean> {
+  async uploadFile(uploadUrl: string, fileUri: string, contentType: string): Promise<{ ok: boolean; sizeBytes: number }> {
     const response = await fetch(fileUri);
     const blob = await response.blob();
 
@@ -29,13 +37,22 @@ export const uploadService = {
       body: blob,
     });
 
-    return uploadResponse.ok;
+    return { ok: uploadResponse.ok, sizeBytes: blob.size };
   },
 
   async uploadImage(fileUri: string, fileName: string, contentType = "image/jpeg", folder = "products"): Promise<string> {
-    const { uploadUrl, publicUrl } = await this.requestUploadUrl(fileName, contentType, folder);
-    const success = await this.uploadFile(uploadUrl, fileUri, contentType);
-    if (!success) throw new Error("Failed to upload image. Please try again.");
-    return publicUrl;
+    const { assetId, uploadUrl, key } = await this.requestUploadUrl(fileName, contentType, folder);
+    const upload = await this.uploadFile(uploadUrl, fileUri, contentType);
+    if (!upload.ok) throw new Error("Failed to upload image. Please try again.");
+
+    const completed = await apiClient.post<CompletedUploadResponse>("/api/uploads/complete", {
+      assetId,
+      key,
+      sizeBytes: upload.sizeBytes,
+    });
+
+    // Private verification documents are stored by stable key. Admin review
+    // receives a short-lived read URL from the backend when needed.
+    return completed.publicUrl ?? completed.key;
   },
 };

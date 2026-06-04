@@ -54,6 +54,14 @@ export const notificationService = {
   async markAllAsRead(): Promise<void> {
     await apiClient.patch<void>("/api/notifications/read-all", {});
   },
+
+  async getPreferences(): Promise<{ smsMarketing: boolean; smsTransactional: boolean }> {
+    return apiClient.get("/api/notifications/preferences");
+  },
+
+  async updatePreferences(input: { smsMarketing?: boolean; smsTransactional?: boolean }): Promise<{ smsMarketing: boolean; smsTransactional: boolean }> {
+    return apiClient.patch("/api/notifications/preferences", input);
+  },
 };
 
 export const pushTokenService = {
