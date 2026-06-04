@@ -63,6 +63,8 @@ workflows:
         script: npm ci
       - name: Patch Stripe iOS PaymentSheet build
         script: node scripts/patch-stripe-react-native-ios.js
+      - name: Set iOS build number
+        script: node scripts/set-ios-build-number.js
       - name: Generate iOS project from Expo config
         script: npx expo prebuild --platform ios --clean --non-interactive
       - name: Initialize keychain

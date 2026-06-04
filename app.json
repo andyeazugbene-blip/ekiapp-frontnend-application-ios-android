@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ekiapp.mobilee",
-      "buildNumber": "7",
+      "buildNumber": "8",
       "associatedDomains": [
         "applinks:culinarytales.app",
         "applinks:www.culinarytales.app"
