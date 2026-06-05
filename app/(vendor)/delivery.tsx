@@ -114,7 +114,7 @@ export default function DeliveryScreen() {
         costPerKg: 4.0,
         minimumFee: 12.0,
         maxWeightKg: 10,
-        estimatedDays: "3–5 days",
+        estimatedDays: "3-5 days",
         active: true,
       };
       const created = await deliveryService.createZone(payload);
@@ -175,7 +175,9 @@ export default function DeliveryScreen() {
                 <View style={styles.zoneCardHeader}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                     <Text style={{ fontSize: 24 }}>{flagFor(zone)}</Text>
-                    <Text style={styles.zoneCountryName}>{zone.country}</Text>
+                    <Text style={styles.zoneCountryName}>
+                      {zone.countryCode === "EU" ? "Europe (EU countries)" : zone.country}
+                    </Text>
                   </View>
                   <View style={[styles.statusBadge, !zone.active && styles.statusBadgePaused]}>
                     <Text style={[styles.statusText, !zone.active && styles.statusTextPaused]}>
@@ -301,7 +303,9 @@ export default function DeliveryScreen() {
                   activeOpacity={0.8}
                   style={styles.countryOptionRow}
                 >
-                  <Text style={styles.countryOptionText}>{COUNTRY_LABEL[code]}</Text>
+                  <Text style={styles.countryOptionText}>
+                    {code === "EU" ? "Europe (France, Spain, Italy and more)" : COUNTRY_LABEL[code]}
+                  </Text>
                   <Ionicons name="chevron-forward" size={16} color="#858585" />
                 </TouchableOpacity>
               ))}

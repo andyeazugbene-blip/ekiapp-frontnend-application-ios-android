@@ -147,7 +147,7 @@ export default function BuyerProfileScreen() {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.replace("/(vendor)/buyers" as any)} activeOpacity={0.85} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#282828" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Buyer profile</Text>
@@ -163,7 +163,7 @@ export default function BuyerProfileScreen() {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.replace("/(vendor)/buyers" as any)} activeOpacity={0.85} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#282828" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Buyer profile</Text>
@@ -178,7 +178,7 @@ export default function BuyerProfileScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.replace("/(vendor)/buyers" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Buyer profile</Text>

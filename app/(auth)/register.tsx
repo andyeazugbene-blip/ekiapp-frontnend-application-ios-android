@@ -23,7 +23,7 @@ import {
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { role, redirect } = useLocalSearchParams<{ role?: string; redirect?: string }>();
+  const { role, redirect, ref } = useLocalSearchParams<{ role?: string; redirect?: string; ref?: string }>();
   const { register, isLoading, error, isAuthenticated, user, clearError, beginFreshAuthFlow } =
     useAuthStore();
 
@@ -98,6 +98,7 @@ export default function RegisterScreen() {
       email: email.trim().toLowerCase(),
       password,
       role: resolvedRole,
+      referralCode: typeof ref === "string" ? ref.trim() || undefined : undefined,
     });
   };
 

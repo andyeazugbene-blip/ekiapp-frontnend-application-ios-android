@@ -51,6 +51,7 @@ export const authService = {
         role: payload.role,
         storeName: payload.storeName,
         country: payload.country,
+        referralCode: payload.referralCode,
       },
       { skipAuth: true }
     );

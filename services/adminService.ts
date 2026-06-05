@@ -111,6 +111,7 @@ function normalizeVendor(raw: any): VendorSummary {
 
   return {
     id: raw.id,
+    userId: raw.userId ?? raw.user?.id,
     storeName: raw.storeName ?? "",
     storeSlug: raw.storeSlug,
     shareUrl: raw.shareUrl,

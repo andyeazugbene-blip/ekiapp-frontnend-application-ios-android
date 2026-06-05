@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 type Role = "vendor" | "buyer";
@@ -14,10 +14,17 @@ type Role = "vendor" | "buyer";
  */
 export default function RoleSelectScreen() {
   const router = useRouter();
+  const { ref } = useLocalSearchParams<{ ref?: string }>();
   const [selected, setSelected] = useState<Role>("vendor");
 
   const handleContinue = () => {
-    router.push({ pathname: "/(auth)/welcome", params: { role: selected } });
+    router.push({
+      pathname: "/(auth)/welcome",
+      params: {
+        role: selected,
+        ...(typeof ref === "string" && ref.trim() ? { ref } : {}),
+      },
+    });
   };
 
   return (

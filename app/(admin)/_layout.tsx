@@ -3,7 +3,7 @@ import { ActivityIndicator, View } from "react-native";
 import { Redirect, Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { TAB_BAR_HEIGHT, TAB_BAR_GAP } from "../../components/layout/tabBarConstants";
+import { TAB_BAR_HEIGHT } from "../../components/layout/tabBarConstants";
 import { useAuthStore } from "../../stores/authStore";
 
 export default function AdminLayout() {
@@ -40,28 +40,29 @@ export default function AdminLayout() {
         tabBarInactiveTintColor: "#9AA3A0",
         tabBarStyle: {
           position: "absolute",
-          left: 14,
-          right: 14,
-          bottom: Math.max(insets.bottom, TAB_BAR_GAP),
-          height: TAB_BAR_HEIGHT,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: TAB_BAR_HEIGHT + Math.max(insets.bottom - 4, 0),
           paddingTop: 8,
-          paddingBottom: 8,
+          paddingBottom: Math.max(insets.bottom, 10),
           backgroundColor: "#FFFFFF",
-          borderTopWidth: 0,
-          borderRadius: 24,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.12,
-          shadowRadius: 18,
-          elevation: 14,
+          borderTopWidth: 1,
+          borderTopColor: "#E8EAE9",
+          borderRadius: 0,
+          shadowColor: "#08140F",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 10,
+          elevation: 10,
         },
         tabBarItemStyle: {
           paddingVertical: 4,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontFamily: "Manrope-Bold",
-          marginTop: 2,
+          fontSize: 11,
+          fontFamily: "Manrope-SemiBold",
+          marginTop: 3,
         },
       }}
     >

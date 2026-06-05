@@ -7,7 +7,14 @@ import { canVendorMarkShipped, deriveEscrowStatus, getEscrowStatusLabel } from "
 import { orderService } from "../../services/orderService";
 import { Order } from "../../types/order";
 
-const CURRENCY_SYMBOL: Record<string, string> = { GBP: "£", USD: "$", EUR: "€", NGN: "₦", GHS: "GH₵", KES: "KSh" };
+const CURRENCY_SYMBOL: Record<string, string> = {
+  GBP: "\u00A3",
+  USD: "$",
+  EUR: "\u20AC",
+  NGN: "\u20A6",
+  GHS: "GH\u20B5",
+  KES: "KSh",
+};
 
 export default function MarkShippedScreen() {
   const router = useRouter();
@@ -46,15 +53,16 @@ export default function MarkShippedScreen() {
 
   const isEscrowOrder = (order?.escrowType ?? "").toLowerCase() === "domestic_africa";
 
+  const shipmentPayload = () => ({
+    carrier: carrier.trim(),
+    trackingNumber: trackingNumber.trim() || undefined,
+  });
+
   const ensureShipment = async () => {
     if (!order) return;
-    const payload = {
-      carrier: carrier.trim(),
-      trackingNumber: trackingNumber.trim() || undefined,
-    };
 
     try {
-      await orderService.createShipment(order.id, payload);
+      await orderService.createShipment(order.id, shipmentPayload());
     } catch (shipmentErr) {
       const message = shipmentErr instanceof Error ? shipmentErr.message.toLowerCase() : "";
       if (!message.includes("already exists")) {
@@ -63,7 +71,7 @@ export default function MarkShippedScreen() {
 
       const existing = await orderService.getShipmentByOrder(order.id);
       if (existing?.id) {
-        await orderService.updateShipment(existing.id, payload);
+        await orderService.updateShipment(existing.id, shipmentPayload());
       }
     }
   };
@@ -71,12 +79,26 @@ export default function MarkShippedScreen() {
   const dispatchStandardOrder = async () => {
     if (!order) return;
 
+    await ensureShipment();
+
     if (order.status === "confirmed") {
-      await orderService.updateOrderStatus(order.id, "processing");
+      await orderService.updateOrderStatus(order.id, "processing", shipmentPayload());
     }
 
-    await orderService.updateOrderStatus(order.id, "dispatched");
-    await ensureShipment();
+    try {
+      await orderService.updateOrderStatus(order.id, "dispatched", shipmentPayload());
+    } catch (dispatchErr) {
+      const message = dispatchErr instanceof Error ? dispatchErr.message.toLowerCase() : "";
+      const alreadyDispatched =
+        message.includes("already dispatched") ||
+        message.includes("already shipped") ||
+        message.includes("invalid transition") ||
+        message.includes("current status");
+
+      if (!alreadyDispatched) {
+        throw dispatchErr;
+      }
+    }
   };
 
   const handleConfirm = async () => {
@@ -95,18 +117,8 @@ export default function MarkShippedScreen() {
 
     try {
       if (isEscrowOrder) {
+        await ensureShipment();
         const dispatch = await orderService.dispatchVendorEscrowOrder(order.id);
-
-        try {
-          await ensureShipment();
-        } catch (shipmentErr) {
-          Alert.alert(
-            "Dispatch succeeded",
-            shipmentErr instanceof Error
-              ? `The delivery code was created, but the shipment record could not be saved: ${shipmentErr.message}`
-              : "The delivery code was created, but the shipment record could not be saved.",
-          );
-        }
 
         router.push({
           pathname: "/(vendor)/order-completed",
@@ -127,7 +139,7 @@ export default function MarkShippedScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.replace({ pathname: "/(vendor)/order-detail", params: { id } } as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Mark as Shipped</Text>
@@ -149,7 +161,7 @@ export default function MarkShippedScreen() {
               <View style={styles.orderBanner}>
                 <Ionicons name="cube-outline" size={18} color="#076B51" />
                 <Text style={styles.orderBannerText}>
-                  {order.orderNumber || `#${order.id}`} • {order.items?.length ?? 0} items • {CURRENCY_SYMBOL[order.currency] ?? "£"}{order.total.toFixed(2)}
+                  {order.orderNumber || `#${order.id}`} • {order.items?.length ?? 0} items • {CURRENCY_SYMBOL[order.currency] ?? "\u00A3"}{order.total.toFixed(2)}
                 </Text>
               </View>
 
@@ -208,7 +220,7 @@ export default function MarkShippedScreen() {
               <Text style={styles.primaryButtonText}>{submitting ? "Processing..." : isEscrowOrder ? "Dispatch Escrow Order" : "Mark as Shipped"}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.secondaryButton} disabled={submitting}>
+            <TouchableOpacity onPress={() => router.replace({ pathname: "/(vendor)/order-detail", params: { id: order.id } } as any)} activeOpacity={0.85} style={styles.secondaryButton} disabled={submitting}>
               <Text style={styles.secondaryButtonText}>Cancel</Text>
             </TouchableOpacity>
           </>

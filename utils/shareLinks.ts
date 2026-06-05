@@ -61,7 +61,7 @@ export function getPublicStoreUrl(input: {
  */
 export function getPublicReferralUrl(code: string | undefined | null): string {
   const safe = (code ?? "").trim();
-  return safe ? `${PUBLIC_DOMAIN}/invite/${encodeURIComponent(safe)}` : PUBLIC_DOMAIN;
+  return safe ? `${PUBLIC_DOMAIN}/?ref=${encodeURIComponent(safe)}` : PUBLIC_DOMAIN;
 }
 
 /**

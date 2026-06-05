@@ -7,21 +7,22 @@ import { orderService } from "../../services/orderService";
 import { useAuthStore } from "../../stores/authStore";
 import { Order } from "../../types/order";
 
-type TabKey = "New" | "Accepted" | "Shipped" | "Disputed";
+type TabKey = "New" | "Accepted" | "Shipped" | "Disputed" | "Cancelled";
 
-const TABS: TabKey[] = ["New", "Accepted", "Shipped", "Disputed"];
+const TABS: TabKey[] = ["New", "Accepted", "Shipped", "Disputed", "Cancelled"];
 
 const TAB_TO_STATUSES: Record<TabKey, string[]> = {
   New: ["pending"],
   Accepted: ["confirmed", "processing"],
   Shipped: ["dispatched", "in_transit", "delivered"],
-  Disputed: ["disputed", "refunded", "cancelled"],
+  Disputed: ["disputed", "refunded"],
+  Cancelled: ["cancelled"],
 };
 
 const CURRENCY_SYMBOL: Record<string, string> = {
   GBP: "£",
   USD: "$",
-  EUR: "€",
+  EUR: "\u20AC",
 };
 
 export default function OrdersScreen() {
@@ -94,7 +95,7 @@ export default function OrdersScreen() {
           </View>
         ) : (
           filtered.map((order) => {
-            const symbol = CURRENCY_SYMBOL[order.currency] ?? "£";
+            const symbol = CURRENCY_SYMBOL[order.currency] ?? "\u00A3";
             const escrowStatus = deriveEscrowStatus(order);
             const escrowColor = getEscrowStatusColor(escrowStatus);
             const isEscrowOrder = (order.escrowType ?? "").toLowerCase() === "domestic_africa";
@@ -174,3 +175,4 @@ const styles = StyleSheet.create({
   openButton: { marginTop: 16, height: 50, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
   openButtonText: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
 });
+

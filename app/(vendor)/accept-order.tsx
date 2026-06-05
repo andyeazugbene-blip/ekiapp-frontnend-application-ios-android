@@ -8,7 +8,14 @@ import { orderService } from "../../services/orderService";
 import { Order } from "../../types/order";
 import { goBackOrReplace } from "../../utils/navigation";
 
-const CURRENCY_SYMBOL: Record<string, string> = { GBP: "£", USD: "$", EUR: "€", NGN: "₦", GHS: "GH₵", KES: "KSh" };
+const CURRENCY_SYMBOL: Record<string, string> = {
+  GBP: "\u00A3",
+  USD: "$",
+  EUR: "\u20AC",
+  NGN: "\u20A6",
+  GHS: "GH\u20B5",
+  KES: "KSh",
+};
 
 export default function AcceptOrderScreen() {
   const router = useRouter();
@@ -47,10 +54,7 @@ export default function AcceptOrderScreen() {
 
   const handleAccept = async () => {
     if (!order) return;
-    if (isEscrowOrder && !canConfirmEscrow) {
-      setError("Funds are held, but this order is not yet in the backend PAYMENT_SECURED state required for vendor confirmation.");
-      return;
-    }
+
     setSubmitting(true);
     setError("");
     try {
@@ -61,7 +65,14 @@ export default function AcceptOrderScreen() {
       }
       goBackOrReplace(router, { pathname: "/(vendor)/order-detail", params: { id: order.id } } as any);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not accept order.");
+      const message = err instanceof Error ? err.message : "Could not accept order.";
+      setError(message);
+      if (isEscrowOrder && !canConfirmEscrow) {
+        Alert.alert(
+          "Escrow not ready yet",
+          `${message}\n\nThe order still needs backend secure-payment confirmation before vendor acceptance can complete.`,
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -78,34 +89,34 @@ export default function AcceptOrderScreen() {
       return;
     }
 
-    Alert.alert(
-      "Decline this order?",
-      "The buyer will be notified and refunded.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Decline",
-          style: "destructive",
-          onPress: async () => {
-            setSubmitting(true);
-            try {
-              await orderService.updateOrderStatus(order.id, "cancelled");
-              router.back();
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Could not decline order.");
-            } finally {
-              setSubmitting(false);
-            }
-          },
+    Alert.alert("Decline this order?", "The buyer will be notified and refunded.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Decline",
+        style: "destructive",
+        onPress: async () => {
+          setSubmitting(true);
+          try {
+            await orderService.updateOrderStatus(order.id, "cancelled");
+            goBackOrReplace(router, "/(vendor)/orders" as any);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Could not decline order.");
+          } finally {
+            setSubmitting(false);
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => goBackOrReplace(router, { pathname: "/(vendor)/order-detail", params: { id } } as any)}
+          activeOpacity={0.85}
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Accept Order</Text>
@@ -140,7 +151,7 @@ export default function AcceptOrderScreen() {
                 {isEscrowOrder
                   ? canConfirmEscrow
                     ? "Accepting moves this order into the vendor-confirmed escrow stage so you can prepare shipment."
-                    : "This order is protected, but the backend has not exposed the PAYMENT_SECURED state yet. Wait for the escrow state to advance before confirming."
+                    : "This order looks paid, but backend secure-payment confirmation may still be syncing. You can try again once the status refreshes."
                   : "You have 24 hours to accept new orders. Once accepted, begin processing the foodstuff for delivery."}
               </Text>
             </View>
@@ -148,7 +159,7 @@ export default function AcceptOrderScreen() {
             <View style={styles.orderInfo}>
               <InfoRow label="Order" value={order.orderNumber || `#${order.id}`} />
               <InfoRow label="Items" value={`${order.items?.length ?? 0} products`} />
-              <InfoRow label="Total" value={`${CURRENCY_SYMBOL[order.currency] ?? "£"}${order.total.toFixed(2)}`} />
+              <InfoRow label="Total" value={`${CURRENCY_SYMBOL[order.currency] ?? "\u00A3"}${order.total.toFixed(2)}`} />
               <InfoRow label="Escrow status" value={escrowLabel} />
             </View>
           </View>
@@ -159,11 +170,11 @@ export default function AcceptOrderScreen() {
             <TouchableOpacity
               onPress={handleAccept}
               activeOpacity={0.85}
-              style={[styles.acceptButton, (submitting || (isEscrowOrder && !canConfirmEscrow)) && styles.disabled]}
-              disabled={submitting || (isEscrowOrder && !canConfirmEscrow)}
+              style={[styles.acceptButton, submitting && styles.disabled]}
+              disabled={submitting}
             >
               <Text style={styles.acceptButtonText}>
-                {submitting ? "Accepting..." : isEscrowOrder ? (canConfirmEscrow ? "Confirm Escrow Order" : "Awaiting Escrow Secure") : "Accept Order"}
+                {submitting ? "Accepting..." : isEscrowOrder ? "Confirm Escrow Order" : "Accept Order"}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleDecline} activeOpacity={0.85} style={[styles.declineButton, submitting && styles.disabled]} disabled={submitting}>

@@ -5,7 +5,7 @@
  * state, not seeded local examples.
  */
 import { Order, OrderStatus, PayoutMode, VendorEarnings } from "../types/order";
-import { apiClient } from "./api";
+import { apiClient, ApiRequestError } from "./api";
 import {
   normalizeDashboardEarnings,
   normalizeOrder,
@@ -116,11 +116,29 @@ export const orderService = {
     status: OrderStatus,
     meta?: { carrier?: string; trackingNumber?: string },
   ): Promise<Order> {
-    const response = await apiClient.patch<OrderResponse>(
-      `/api/vendors/me/orders/${orderId}/status`,
-      { status: toBackendOrderStatus(status), ...meta },
-    );
-    return normalizeOrder(response.order);
+    try {
+      const response = await apiClient.patch<OrderResponse>(
+        `/api/vendors/me/orders/${orderId}/status`,
+        { status: toBackendOrderStatus(status), ...meta },
+      );
+      return normalizeOrder(response.order);
+    } catch (err) {
+      const canRetryAsProcessing =
+        status === "confirmed" &&
+        (err instanceof ApiRequestError
+          ? [400, 404, 405, 409, 422].includes(err.status)
+          : true);
+
+      if (!canRetryAsProcessing) {
+        throw err;
+      }
+
+      const response = await apiClient.patch<OrderResponse>(
+        `/api/vendors/me/orders/${orderId}/status`,
+        { status: toBackendOrderStatus("processing"), ...meta },
+      );
+      return normalizeOrder(response.order);
+    }
   },
 
   async confirmBuyerDelivery(orderId: string, code: string): Promise<ConfirmDeliveryResponse> {

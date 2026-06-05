@@ -19,17 +19,18 @@ import { Ionicons } from "@expo/vector-icons";
  */
 export default function WelcomeScreen() {
   const router = useRouter();
-  const { role } = useLocalSearchParams<{ role?: string }>();
+  const { role, ref } = useLocalSearchParams<{ role?: string; ref?: string }>();
   const resolvedRole = role ?? "vendor";
   const alternateRole = resolvedRole === "buyer" ? "vendor" : "buyer";
   const otherRoleLabel = resolvedRole === "vendor" ? "Buyer" : "Vendor";
+  const sharedParams = typeof ref === "string" && ref.trim() ? { ref } : {};
 
   const goCreate = () =>
-    router.push({ pathname: "/(auth)/register", params: { role: resolvedRole } });
+    router.push({ pathname: "/(auth)/register", params: { role: resolvedRole, ...sharedParams } });
   const goLogin = () =>
-    router.push({ pathname: "/(auth)/login", params: { role: resolvedRole } });
+    router.push({ pathname: "/(auth)/login", params: { role: resolvedRole, ...sharedParams } });
   const goSwitch = () =>
-    router.replace({ pathname: "/(auth)/welcome", params: { role: alternateRole } });
+    router.replace({ pathname: "/(auth)/welcome", params: { role: alternateRole, ...sharedParams } });
 
   return (
     <View style={styles.container}>

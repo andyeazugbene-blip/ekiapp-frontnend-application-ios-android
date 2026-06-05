@@ -8,7 +8,7 @@ import { buyerService, type VendorBuyerSummary } from "../../services/buyerServi
 const CURRENCY_SYMBOL: Record<string, string> = {
   GBP: "£",
   USD: "$",
-  EUR: "€",
+  EUR: "\u20AC",
 };
 
 function formatLastOrder(value: string | null): string {
@@ -94,7 +94,7 @@ export default function BuyersScreen() {
         ) : null}
 
         {!loading && filtered.map((buyer) => {
-          const symbol = CURRENCY_SYMBOL[buyer.currency] ?? "£";
+          const symbol = CURRENCY_SYMBOL[buyer.currency] ?? "\u00A3";
           return (
             <View key={buyer.id} style={styles.buyerCard}>
               <View style={styles.buyerTop}>
@@ -172,3 +172,4 @@ const styles = StyleSheet.create({
   viewButton: { height: 44, borderRadius: 12, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
   viewButtonText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
 });
+

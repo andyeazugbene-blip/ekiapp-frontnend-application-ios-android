@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { reviewService } from "../../services/reviewService";
 import { deliveryService } from "../../services/deliveryService";
+import { matchesDeliveryZoneCountry } from "../../services/deliveryService";
 import { useCartStore } from "../../stores/cartStore";
 import { useAuthStore } from "../../stores/authStore";
 import { RemoteImage } from "../../components/ui/RemoteImage";
@@ -56,9 +57,7 @@ export default function ProductDetailScreen() {
       setReviews(nextReviews ?? []);
 
       const match = zones.find((zone) =>
-        buyerCountry
-          ? zone.country.toLowerCase() === buyerCountry.toLowerCase()
-          : zone.countryCode === "UK",
+        buyerCountry ? matchesDeliveryZoneCountry(zone, buyerCountry) : zone.countryCode === "UK",
       );
       if (match?.estimatedDays) {
         setEstimatedDays(match.estimatedDays);

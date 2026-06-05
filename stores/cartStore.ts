@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { CartItem, Product } from "../types/product";
 import { cartService, ServerCartItem, DeliveryEstimate, CheckoutIntent } from "../services/cartService";
-import { deliveryService } from "../services/deliveryService";
+import { deliveryService, matchesDeliveryZoneCountry } from "../services/deliveryService";
 
 export interface VendorGroup {
   vendorId: string;
@@ -38,10 +38,6 @@ interface CartStore {
   reset: () => void;
 }
 
-function normalizeCountryToken(value: string): string {
-  return value.trim().toLowerCase();
-}
-
 function inferCountryFromCurrency(currency?: string): string {
   switch ((currency ?? "").toUpperCase()) {
     case "EUR":
@@ -71,25 +67,6 @@ function resolveDeliveryCountry(currentCountry: string | undefined, currency?: s
   }
 
   return current;
-}
-
-function countryMatches(zone: { countryCode?: string; country?: string }, country: string): boolean {
-  const normalized = normalizeCountryToken(country);
-  const shortCode =
-    normalized === "uk" || normalized.includes("united kingdom")
-      ? "uk"
-      : normalized === "us" || normalized === "usa" || normalized.includes("united states")
-        ? "us"
-        : normalized.includes("canada")
-          ? "ca"
-          : normalized.includes("europe") || normalized === "eu"
-            ? "eu"
-            : normalized;
-
-  const zoneCode = normalizeCountryToken(zone.countryCode ?? "");
-  const zoneCountry = normalizeCountryToken(zone.country ?? "");
-
-  return zoneCode === normalized || zoneCode === shortCode || zoneCountry.includes(normalized) || zoneCountry.includes(shortCode);
 }
 
 function productFromServerItem(item: ServerCartItem): Product {
@@ -244,7 +221,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
       }
 
       const zones = await deliveryService.listAllZones();
-      const match = zones.find((z) => countryMatches(z, country));
+      const match = zones.find((z) => matchesDeliveryZoneCountry(z, country));
       if (!match) throw new Error("Delivery is not available for this country yet.");
 
       const firstItem = cart.items[0];
@@ -284,7 +261,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
       const zones = await deliveryService.listAllZones();
       const cartCurrency = get().items[0]?.product.currency ?? get().serverItems[0]?.currency;
       const country = resolveDeliveryCountry(get().deliveryCountry, cartCurrency, deliveryCountryOverride);
-      const match = zones.find((z) => countryMatches(z, country));
+      const match = zones.find((z) => matchesDeliveryZoneCountry(z, country));
       destinationZoneId = match?.id;
       if (!destinationZoneId) throw new Error("Delivery is not available for this country yet.");
 

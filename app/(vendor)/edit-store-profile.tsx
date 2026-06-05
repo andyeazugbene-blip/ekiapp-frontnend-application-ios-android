@@ -31,7 +31,9 @@ export default function EditStoreProfileScreen() {
   const [city, setCity] = useState(user?.city ?? "");
   const [country, setCountry] = useState(user?.country ?? "");
   const [avatar, setAvatar] = useState(user?.avatar ?? "");
+  const [coverImage, setCoverImage] = useState(user?.coverImage ?? "");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -41,6 +43,7 @@ export default function EditStoreProfileScreen() {
     setCity(user?.city ?? "");
     setCountry(user?.country ?? "");
     setAvatar(user?.avatar ?? "");
+    setCoverImage(user?.coverImage ?? "");
   }, [user]);
 
   const handlePickAvatar = async () => {
@@ -72,6 +75,35 @@ export default function EditStoreProfileScreen() {
     }
   };
 
+  const handlePickCoverImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Allow photo access to update your store cover image.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.9,
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    setUploadingCover(true);
+    setError("");
+    try {
+      const asset = result.assets[0];
+      const contentType = asset.mimeType ?? "image/jpeg";
+      const fileName = `store-cover-${Date.now()}.${contentType.includes("png") ? "png" : "jpg"}`;
+      setCoverImage(await uploadService.uploadImage(asset.uri, fileName, contentType, "cover"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not upload your store cover image.");
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!storeName.trim()) {
       setError("Store name is required.");
@@ -87,9 +119,10 @@ export default function EditStoreProfileScreen() {
         city: city.trim(),
         country: country.trim(),
         avatar: avatar || null,
+        coverImage: coverImage || null,
       } as any);
       await checkAuth().catch(() => undefined);
-      router.back();
+      router.replace("/(vendor)/settings" as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update your store profile.");
     } finally {
@@ -100,7 +133,7 @@ export default function EditStoreProfileScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.replace("/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -128,6 +161,31 @@ export default function EditStoreProfileScreen() {
                 <Text style={styles.avatarCopy}>Shown on your store, products, and buyer messages.</Text>
               </View>
             </View>
+
+            <View style={styles.coverSection}>
+              <TouchableOpacity onPress={handlePickCoverImage} activeOpacity={0.85} style={styles.coverButton}>
+                {coverImage ? (
+                  <Image source={{ uri: coverImage }} style={styles.coverImage} />
+                ) : (
+                  <View style={styles.coverPlaceholder}>
+                    <Ionicons name="image-outline" size={28} color="#076B51" />
+                    <Text style={styles.coverPlaceholderText}>Upload store cover</Text>
+                  </View>
+                )}
+                <View style={styles.coverBadge}>
+                  {uploadingCover ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Ionicons name="camera-outline" size={14} color="#FFFFFF" />
+                  )}
+                </View>
+              </TouchableOpacity>
+              <Text style={styles.coverTitle}>Store cover image</Text>
+              <Text style={styles.coverCopy}>
+                Buyers see this large banner first when they open your public store link.
+              </Text>
+            </View>
+
             <Field label="Store name" value={storeName} onChangeText={setStoreName} placeholder="Queen African Foods" />
             <Field
               label="Store description"
@@ -197,6 +255,14 @@ const styles = StyleSheet.create({
   avatarBadge: { position: "absolute", right: 0, bottom: 0, width: 25, height: 25, borderRadius: 13, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFFFFF" },
   avatarTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
   avatarCopy: { fontSize: 12, lineHeight: 17, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 3 },
+  coverSection: { marginBottom: 18 },
+  coverButton: { width: "100%", height: 180, borderRadius: 22, overflow: "hidden", backgroundColor: "#EAF5F0", alignItems: "center", justifyContent: "center", position: "relative" },
+  coverImage: { width: "100%", height: "100%" },
+  coverPlaceholder: { alignItems: "center", justifyContent: "center", gap: 10 },
+  coverPlaceholderText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  coverBadge: { position: "absolute", right: 12, bottom: 12, width: 34, height: 34, borderRadius: 17, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFFFFF" },
+  coverTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 12 },
+  coverCopy: { fontSize: 12, lineHeight: 17, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 4 },
   fieldGroup: { marginBottom: 14 },
   fieldLabel: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#687076", marginBottom: 6 },
   input: { minHeight: 52, borderRadius: 14, backgroundColor: "#F6F7F7", paddingHorizontal: 14, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },

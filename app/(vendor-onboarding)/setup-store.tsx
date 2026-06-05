@@ -61,7 +61,12 @@ export default function SetupStoreScreen() {
     updateStoreDetails({ storeName: storeName.trim(), description: description.trim() });
 
     try {
-      if (!isVendor) {
+      const shouldCreateProfile =
+        !isVendor ||
+        !vendorUser?.storeName ||
+        !vendorUser?.storeSlug;
+
+      if (shouldCreateProfile) {
         await vendorService.createVendorProfile({
           storeName: storeName.trim(),
           description: description.trim() || undefined,
@@ -69,12 +74,26 @@ export default function SetupStoreScreen() {
         });
         await checkAuth();
       } else {
-        await vendorService.updateMyProfile({
-          storeName: storeName.trim(),
-          description: description.trim() || undefined,
-          country: country || undefined,
-          city: city || undefined,
-        });
+        try {
+          await vendorService.updateMyProfile({
+            storeName: storeName.trim(),
+            description: description.trim() || undefined,
+            country: country || undefined,
+            city: city || undefined,
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message.toLowerCase() : "";
+          if (!message.includes("vendor profile")) {
+            throw err;
+          }
+
+          await vendorService.createVendorProfile({
+            storeName: storeName.trim(),
+            description: description.trim() || undefined,
+            country: country || undefined,
+          });
+          await checkAuth();
+        }
       }
       router.push("/(vendor-onboarding)/business-info" as any);
     } catch (err) {
@@ -138,7 +157,7 @@ export default function SetupStoreScreen() {
                   options={cityOptions}
                   onChange={setCity}
                   title="Select city"
-                  placeholder={cityOptions.length ? "Select city" : "—"}
+                  placeholder={cityOptions.length ? "Select city" : "-"}
                   disabled={cityOptions.length === 0}
                 />
               </View>
@@ -206,3 +225,4 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
 });
+

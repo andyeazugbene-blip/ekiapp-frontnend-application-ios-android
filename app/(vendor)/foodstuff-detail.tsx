@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
+  Animated,
   StyleSheet,
   Switch,
   Text,
@@ -26,10 +26,13 @@ const STATUS_LABEL: Record<ProductStatus, string> = {
   draft: "Draft",
 };
 
+const HEADER_COLLAPSE_DISTANCE = 120;
+
 export default function FoodstuffDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { selectedProduct, setSelectedProduct } = useInventoryStore();
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const [product, setProduct] = useState<Product | null>(selectedProduct);
   const [loading, setLoading] = useState(!selectedProduct);
@@ -43,17 +46,19 @@ export default function FoodstuffDetailScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const p = await productService.getById(id);
+        const nextProduct = await productService.getById(id);
         if (cancelled) return;
-        setProduct(p);
-        setSelectedProduct(p);
+        setProduct(nextProduct);
+        setSelectedProduct(nextProduct);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Could not load product.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [id, selectedProduct, setSelectedProduct]);
 
   const persistStatusChange = async (next: { isPublished?: boolean; isAvailable?: boolean }) => {
@@ -75,14 +80,10 @@ export default function FoodstuffDetailScreen() {
       setSelectedProduct(merged);
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 403 && next.isPublished) {
-        Alert.alert(
-          "Verification required",
-          "You need to verify your account before publishing.",
-          [
-            { text: "Verify now", onPress: () => router.push("/(vendor-verification)" as any) },
-            { text: "Cancel", style: "cancel" },
-          ]
-        );
+        Alert.alert("Verification required", "You need to verify your account before publishing.", [
+          { text: "Verify now", onPress: () => router.push("/(vendor-verification)" as any) },
+          { text: "Cancel", style: "cancel" },
+        ]);
         return;
       }
       setError(err instanceof Error ? err.message : "Could not update.");
@@ -108,37 +109,84 @@ export default function FoodstuffDetailScreen() {
 
   const handleDelete = () => {
     if (!product) return;
-    Alert.alert(
-      "Delete this product?",
-      `“${product.name}” will be permanently removed from your store.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            setDeleting(true);
-            try {
-              await productService.deleteProduct(product.id);
-              setSelectedProduct(null);
-              router.back();
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Could not delete product.");
-            } finally {
-              setDeleting(false);
-            }
-          },
+    Alert.alert("Delete this product?", `"${product.name}" will be permanently removed from your store.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await productService.deleteProduct(product.id);
+            setSelectedProduct(null);
+            router.replace("/(vendor)/foodstuff" as any);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Could not delete product.");
+          } finally {
+            setDeleting(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
+
+  const animatedHeaderStyle = useMemo(
+    () => ({
+      paddingBottom: scrollY.interpolate({
+        inputRange: [0, HEADER_COLLAPSE_DISTANCE],
+        outputRange: [30, 16],
+        extrapolate: "clamp",
+      }),
+      borderBottomLeftRadius: scrollY.interpolate({
+        inputRange: [0, HEADER_COLLAPSE_DISTANCE],
+        outputRange: [35, 22],
+        extrapolate: "clamp",
+      }),
+      borderBottomRightRadius: scrollY.interpolate({
+        inputRange: [0, HEADER_COLLAPSE_DISTANCE],
+        outputRange: [35, 22],
+        extrapolate: "clamp",
+      }),
+    }),
+    [scrollY],
+  );
+
+  const subtitleOpacity = useMemo(
+    () =>
+      scrollY.interpolate({
+        inputRange: [0, 60, HEADER_COLLAPSE_DISTANCE],
+        outputRange: [1, 0.55, 0],
+        extrapolate: "clamp",
+      }),
+    [scrollY],
+  );
+
+  const headerMetaOpacity = useMemo(
+    () =>
+      scrollY.interpolate({
+        inputRange: [0, 40, HEADER_COLLAPSE_DISTANCE],
+        outputRange: [1, 0.75, 0.2],
+        extrapolate: "clamp",
+      }),
+    [scrollY],
+  );
+
+  const editTranslateY = useMemo(
+    () =>
+      scrollY.interpolate({
+        inputRange: [0, HEADER_COLLAPSE_DISTANCE],
+        outputRange: [0, -8],
+        extrapolate: "clamp",
+      }),
+    [scrollY],
+  );
 
   if (loading || !product) {
     return (
       <View style={styles.page}>
         <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity onPress={() => router.replace("/(vendor)/foodstuff" as any)} style={styles.backButton}>
               <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Foodstuff detail</Text>
@@ -156,31 +204,39 @@ export default function FoodstuffDetailScreen() {
   return (
     <View style={styles.page}>
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <Animated.View style={[styles.header, animatedHeaderStyle]}>
+          <TouchableOpacity onPress={() => router.replace("/(vendor)/foodstuff" as any)} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{product.name}</Text>
-          <Text style={styles.headerSubtitle}>{product.category}</Text>
-          <View style={styles.headerMeta}>
+          <Text style={styles.headerTitle} numberOfLines={2}>
+            {product.name}
+          </Text>
+          <Animated.Text style={[styles.headerSubtitle, { opacity: subtitleOpacity }]} numberOfLines={1}>
+            {product.category}
+          </Animated.Text>
+          <Animated.View style={[styles.headerMeta, { opacity: headerMetaOpacity }]}>
             <Text style={styles.headerPrice}>{formatCurrency(product.price)}</Text>
             <View style={styles.statusBadge}>
               <Text style={styles.statusBadgeText}>{STATUS_LABEL[product.status]}</Text>
             </View>
-          </View>
-          <TouchableOpacity
-            onPress={() =>
-              router.push({ pathname: "/(vendor)/foodstuff-edit", params: { id: product.id } } as any)
-            }
-            style={styles.editButton}
-          >
-            <Text style={styles.editButtonText}>Edit</Text>
-          </TouchableOpacity>
-        </View>
+          </Animated.View>
+          <Animated.View style={{ transform: [{ translateY: editTranslateY }], opacity: headerMetaOpacity }}>
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: "/(vendor)/foodstuff-edit", params: { id: product.id } } as any)}
+              style={styles.editButton}
+            >
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
       </SafeAreaView>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Photo preview */}
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+        scrollEventThrottle={16}
+      >
         <View style={styles.photoCard}>
           <RemoteImage uri={product.images?.[0]} style={styles.photo} />
         </View>
@@ -202,7 +258,7 @@ export default function FoodstuffDetailScreen() {
             <Text style={styles.toggleLabel}>Published</Text>
             <Switch
               value={isPublished}
-              onValueChange={(v) => persistStatusChange({ isPublished: v })}
+              onValueChange={(value) => persistStatusChange({ isPublished: value })}
               trackColor={{ false: "#D7E4DC", true: "#076B51" }}
               thumbColor="#FFFFFF"
               disabled={savingFlag}
@@ -212,7 +268,7 @@ export default function FoodstuffDetailScreen() {
             <Text style={styles.toggleLabel}>Available for sale</Text>
             <Switch
               value={isAvailable}
-              onValueChange={(v) => persistStatusChange({ isAvailable: v })}
+              onValueChange={(value) => persistStatusChange({ isAvailable: value })}
               trackColor={{ false: "#D7E4DC", true: "#076B51" }}
               thumbColor="#FFFFFF"
               disabled={savingFlag}
@@ -223,7 +279,7 @@ export default function FoodstuffDetailScreen() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Inventory</Text>
           <View style={styles.stockRow}>
-            <View>
+            <View style={styles.stockInfo}>
               <Text style={styles.toggleLabel}>Stock quantity</Text>
               <Text style={styles.bodyText}>Adjust stock as orders come in.</Text>
             </View>
@@ -265,10 +321,10 @@ export default function FoodstuffDetailScreen() {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <TouchableOpacity onPress={handleDelete} style={[styles.deleteButton, deleting && { opacity: 0.6 }]} disabled={deleting}>
+        <TouchableOpacity onPress={handleDelete} style={[styles.deleteButton, deleting && styles.disabled]} disabled={deleting}>
           <Text style={styles.deleteButtonText}>{deleting ? "Deleting..." : "Delete this product"}</Text>
         </TouchableOpacity>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -280,9 +336,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#076B51",
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 35,
-    borderBottomRightRadius: 35,
   },
   backButton: {
     width: 38,
@@ -293,7 +346,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 12,
   },
-  headerTitle: { fontSize: 30, fontFamily: "Manrope-Bold", lineHeight: 30, color: "#FFFFFF" },
+  headerTitle: { fontSize: 30, fontFamily: "Manrope-Bold", lineHeight: 34, color: "#FFFFFF" },
   headerSubtitle: { fontSize: 16, fontFamily: "Outfit-Light", color: "#FFFFFF", marginTop: 6 },
   headerMeta: { flexDirection: "row", alignItems: "center", marginTop: 12, gap: 10 },
   headerPrice: { fontSize: 16, fontFamily: "Outfit-Light", color: "#FFFFFF" },
@@ -312,8 +365,8 @@ const styles = StyleSheet.create({
   editButtonText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
   scrollContent: { padding: 20, paddingBottom: 40 },
   placeholder: { paddingVertical: 40, alignItems: "center" },
-  photoCard: { backgroundColor: "#FFFFFF", borderRadius: 30, padding: 14, marginBottom: 20 },
-  photo: { width: "100%", height: 200, borderRadius: 18 },
+  photoCard: { backgroundColor: "#FFFFFF", borderRadius: 30, padding: 14, marginBottom: 20, marginTop: 2 },
+  photo: { width: "100%", height: 220, borderRadius: 20 },
   statsRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
   statCard: { flex: 1, backgroundColor: "#FFFFFF", borderRadius: 30, padding: 20 },
   statLabel: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#858585" },
@@ -322,8 +375,9 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontFamily: "Manrope-Bold", color: "#282828", marginBottom: 16 },
   toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   toggleLabel: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#282828" },
-  bodyText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 4 },
-  stockRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  bodyText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 4, lineHeight: 20 },
+  stockRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 },
+  stockInfo: { flex: 1 },
   stepperRow: { flexDirection: "row", alignItems: "center" },
   stepperButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
   stepperButtonActive: { backgroundColor: "#076B51" },
@@ -334,4 +388,5 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#FB6363", marginBottom: 12, textAlign: "center" },
   deleteButton: { height: 56, borderRadius: 14, borderWidth: 1, borderColor: "#FB6363", backgroundColor: "transparent", alignItems: "center", justifyContent: "center" },
   deleteButtonText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#FB6363" },
+  disabled: { opacity: 0.6 },
 });

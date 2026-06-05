@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   type NativeScrollEvent,
@@ -108,7 +107,6 @@ export default function BuyerHomeScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [vendors, setVendors] = useState<VendorSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const [activeDealIndex, setActiveDealIndex] = useState(0);
 
   const loadData = useCallback(async () => {
@@ -198,13 +196,9 @@ export default function BuyerHomeScreen() {
     return deals;
   }, [featuredProduct, firstSymbol, router]);
 
-  const openSearch = (value = searchQuery) => {
-    router.push({ pathname: "/(buyer)/explore", params: value.trim() ? { search: value.trim() } : {} } as any);
-  };
-
-  const handleSearch = () => {
-    const value = searchQuery.trim();
-    openSearch(value);
+  const openSearch = (value = "") => {
+    const trimmed = value.trim();
+    router.push({ pathname: "/(buyer)/explore", params: trimmed ? { search: trimmed } : {} } as any);
   };
 
   const handleAddToCart = (item: Product) => {
@@ -257,19 +251,10 @@ export default function BuyerHomeScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.searchShell}>
+            <TouchableOpacity onPress={() => openSearch()} activeOpacity={0.9} style={styles.searchShell}>
               <Ionicons name="search-outline" size={20} color="#9AA3A0" />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search for foodstuff"
-                placeholderTextColor="#9AA3A0"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onFocus={() => openSearch()}
-                onSubmitEditing={handleSearch}
-                returnKeyType="search"
-              />
-            </View>
+              <Text style={styles.searchPlaceholder}>Search for foodstuff</Text>
+            </TouchableOpacity>
           </LinearGradient>
         </View>
 
@@ -534,9 +519,9 @@ const styles = StyleSheet.create({
     height: 58,
     marginTop: 18,
   },
-  searchInput: {
+  searchPlaceholder: {
     flex: 1,
-    color: "#2B2B2B",
+    color: "#9AA3A0",
     fontSize: 14,
     fontFamily: "Outfit-Regular",
   },

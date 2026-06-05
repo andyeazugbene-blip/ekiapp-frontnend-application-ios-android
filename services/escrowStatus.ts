@@ -205,7 +205,13 @@ export function canBuyerConfirmDelivery(order?: Partial<Order> | null): boolean 
     return false;
   }
 
-  return statuses.has("DISPATCHED") || upper(order.status) === "DISPATCHED";
+  return (
+    statuses.has("DISPATCHED") ||
+    statuses.has("IN_TRANSIT") ||
+    statusSet(order).has("SHIPPED") ||
+    upper(order.status) === "DISPATCHED" ||
+    upper(order.status) === "IN_TRANSIT"
+  );
 }
 
 export function canBuyerOpenDispute(order?: Partial<Order> | null): boolean {
@@ -220,7 +226,13 @@ export function canBuyerOpenDispute(order?: Partial<Order> | null): boolean {
     return false;
   }
 
-  return statuses.has("DISPATCHED") || upper(order.status) === "DISPATCHED";
+  return (
+    statuses.has("DISPATCHED") ||
+    statuses.has("IN_TRANSIT") ||
+    statusSet(order).has("SHIPPED") ||
+    upper(order.status) === "DISPATCHED" ||
+    upper(order.status) === "IN_TRANSIT"
+  );
 }
 
 export function canVendorMarkShipped(order?: Partial<Order> | null): boolean {
@@ -232,7 +244,7 @@ export function canVendorMarkShipped(order?: Partial<Order> | null): boolean {
   }
 
   if (toEscrowType(order.escrowType) === "DOMESTIC_AFRICA") {
-    return statuses.has("VENDOR_CONFIRMED");
+    return statuses.has("VENDOR_CONFIRMED") || statuses.has("CONFIRMED") || statuses.has("PROCESSING");
   }
 
   return statuses.has("CONFIRMED") || statuses.has("PROCESSING");
@@ -247,7 +259,7 @@ export function canVendorConfirmEscrowOrder(order?: Partial<Order> | null): bool
     return false;
   }
 
-  return statuses.has("PAYMENT_SECURED");
+  return statuses.has("PAYMENT_SECURED") || statuses.has("PAID") || upper(order.paymentStatus) === "PAID";
 }
 
 export function canAdminResolveDispute(dispute?: { status?: string | null } | null): boolean {

@@ -3,7 +3,7 @@ import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } fr
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../stores/authStore";
 
@@ -17,6 +17,7 @@ import { useAuthStore } from "../stores/authStore";
  */
 export default function Index() {
   const router = useRouter();
+  const { ref } = useLocalSearchParams<{ ref?: string }>();
   const hasNavigated = useRef(false);
   const [ready, setReady] = useState(false);
 
@@ -45,7 +46,7 @@ export default function Index() {
       // Not signed in — if onboarding has been seen, go straight to role-select.
       if (state.hasSeenOnboarding) {
         hasNavigated.current = true;
-        router.replace("/(auth)/role-select" as any);
+        router.replace({ pathname: "/(auth)/role-select", params: typeof ref === "string" && ref.trim() ? { ref } : {} } as any);
         return;
       }
 
@@ -58,7 +59,7 @@ export default function Index() {
   const handleGetStarted = () => {
     if (hasNavigated.current) return;
     hasNavigated.current = true;
-    router.replace("/(auth)/onboarding" as any);
+    router.replace({ pathname: "/(auth)/onboarding", params: typeof ref === "string" && ref.trim() ? { ref } : {} } as any);
   };
 
   return (

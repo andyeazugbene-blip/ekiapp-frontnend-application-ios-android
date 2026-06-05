@@ -48,6 +48,39 @@ export const COUNTRY_LABEL: Record<DeliveryCountryCode, string> = {
   EU: "Europe",
 };
 
+export const EUROPEAN_REGION_LABEL = "Europe (EU countries)";
+
+export const EUROPEAN_COUNTRY_NAMES = [
+  "austria",
+  "belgium",
+  "bulgaria",
+  "croatia",
+  "cyprus",
+  "czech republic",
+  "czechia",
+  "denmark",
+  "estonia",
+  "finland",
+  "france",
+  "germany",
+  "greece",
+  "hungary",
+  "ireland",
+  "italy",
+  "latvia",
+  "lithuania",
+  "luxembourg",
+  "malta",
+  "netherlands",
+  "poland",
+  "portugal",
+  "romania",
+  "slovakia",
+  "slovenia",
+  "spain",
+  "sweden",
+].sort();
+
 export const COUNTRY_CURRENCY: Record<DeliveryCountryCode, string> = {
   UK: "GBP",
   US: "USD",
@@ -55,10 +88,50 @@ export const COUNTRY_CURRENCY: Record<DeliveryCountryCode, string> = {
   EU: "EUR",
 };
 
+export function isEuropeanCountry(rawCountry: string | undefined): boolean {
+  const country = (rawCountry ?? "").trim().toLowerCase();
+  if (!country) return false;
+  if (country === "eu" || country.includes("europe")) return true;
+  return EUROPEAN_COUNTRY_NAMES.includes(country);
+}
+
 function countryCodeFor(rawCountry: string | undefined): DeliveryCountryCode {
   const country = (rawCountry ?? "").toLowerCase();
+  if (isEuropeanCountry(country)) return "EU";
   const match = Object.entries(COUNTRY_LABEL).find(([, label]) => label.toLowerCase() === country);
   return (match?.[0] ?? "UK") as DeliveryCountryCode;
+}
+
+export function matchesDeliveryZoneCountry(
+  zone: { countryCode?: string; country?: string },
+  country: string,
+): boolean {
+  const normalizedCountry = country.trim().toLowerCase();
+  const zoneCode = (zone.countryCode ?? "").trim().toLowerCase();
+  const zoneCountry = (zone.country ?? "").trim().toLowerCase();
+
+  if (!normalizedCountry) return false;
+
+  if (isEuropeanCountry(normalizedCountry)) {
+    return zoneCode === "eu" || zoneCountry === "eu" || zoneCountry.includes("europe");
+  }
+
+  const shortCode =
+    normalizedCountry === "uk" || normalizedCountry.includes("united kingdom")
+      ? "uk"
+      : normalizedCountry === "us" || normalizedCountry === "usa" || normalizedCountry.includes("united states")
+        ? "us"
+        : normalizedCountry.includes("canada")
+          ? "ca"
+          : normalizedCountry;
+
+  return (
+    zoneCode === normalizedCountry ||
+    zoneCode === shortCode ||
+    zoneCountry === normalizedCountry ||
+    zoneCountry.includes(normalizedCountry) ||
+    zoneCountry.includes(shortCode)
+  );
 }
 
 function normalizeZone(raw: any): DeliveryZone {

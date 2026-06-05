@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,7 +11,7 @@ import { Product } from "../../types/product";
 import { VendorSummary } from "../../types/vendor";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 
-const CURRENCY_SYMBOL: Record<string, string> = { GBP: "£", USD: "$", EUR: "€", NGN: "₦" };
+const CURRENCY_SYMBOL: Record<string, string> = { GBP: "\u00A3", USD: "$", EUR: "\u20AC", NGN: "\u20A6" };
 
 export default function ExploreScreen() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function ExploreScreen() {
   const [vendors, setVendors] = useState<VendorSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(params.search ?? "");
-  const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadData = useCallback(async (query?: string) => {
     setLoading(true);
@@ -36,15 +36,24 @@ export default function ExploreScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadData(params.search);
+      loadData((params.search ?? "").trim());
     }, [loadData, params.search])
   );
 
+  useEffect(() => {
+    setSearch(params.search ?? "");
+  }, [params.search]);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, []);
+
   const handleSearch = (text: string) => {
     setSearch(text);
-    if (searchTimeout) clearTimeout(searchTimeout);
-    const timeout = setTimeout(() => loadData(text), 400);
-    setSearchTimeout(timeout);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => loadData(text.trim()), 250);
   };
 
   const handleAddToCart = (product: Product) => {
@@ -70,7 +79,7 @@ export default function ExploreScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.replace("/(buyer)" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Browse foodstuff</Text>
@@ -80,6 +89,7 @@ export default function ExploreScreen() {
       <View style={styles.searchBar}>
         <Ionicons name="search-outline" size={18} color="#858585" />
         <TextInput
+          autoFocus
           style={styles.searchInput}
           placeholder="Search for foodstuff"
           placeholderTextColor="#858585"
@@ -113,7 +123,7 @@ export default function ExploreScreen() {
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productScroll}>
                   {popular.map((product) => {
-                    const sym = CURRENCY_SYMBOL[product.currency] ?? "£";
+                    const sym = CURRENCY_SYMBOL[product.currency] ?? "\u00A3";
                     return (
                       <TouchableOpacity
                         key={product.id}
@@ -191,7 +201,7 @@ export default function ExploreScreen() {
                 <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Best Sellers</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productScroll}>
                   {bestSellers.map((product) => {
-                    const sym = CURRENCY_SYMBOL[product.currency] ?? "£";
+                    const sym = CURRENCY_SYMBOL[product.currency] ?? "\u00A3";
                     return (
                       <TouchableOpacity
                         key={product.id}
@@ -320,3 +330,4 @@ const styles = StyleSheet.create({
   supportBtn: { height: 36, borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" },
   supportBtnText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
 });
+

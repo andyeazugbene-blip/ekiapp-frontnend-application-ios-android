@@ -2,7 +2,7 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useAuthStore } from "../../stores/authStore";
@@ -14,11 +14,12 @@ import { useAuthStore } from "../../stores/authStore";
  */
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { ref } = useLocalSearchParams<{ ref?: string }>();
   const setHasSeenOnboarding = useAuthStore((s) => s.setHasSeenOnboarding);
 
   const handleGetStarted = () => {
     setHasSeenOnboarding();
-    router.replace("/(auth)/role-select" as any);
+    router.replace({ pathname: "/(auth)/role-select", params: typeof ref === "string" && ref.trim() ? { ref } : {} } as any);
   };
 
   return (
