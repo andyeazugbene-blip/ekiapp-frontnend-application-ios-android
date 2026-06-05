@@ -6,7 +6,7 @@ const appJson = JSON.parse(fs.readFileSync(appJsonPath, "utf8"));
 
 const current = Number(appJson.expo?.ios?.buildNumber || 0);
 const ciBuildNumber = Number(process.env.CM_BUILD_NUMBER || process.env.BUILD_NUMBER || 0);
-const nextBuildNumber = Math.max(current, ciBuildNumber, 8);
+const nextBuildNumber = Math.max(current, ciBuildNumber, 9);
 
 appJson.expo.ios = {
   ...appJson.expo.ios,
