@@ -23,6 +23,12 @@ function formatDate(iso: string) {
   }
 }
 
+function displayOrderNumber(order: Order) {
+  if (order.orderNumber?.startsWith("EKI-")) return order.orderNumber;
+  const tail = (order.orderNumber || order.id || "").slice(-8).toUpperCase();
+  return `EKI-${tail}`;
+}
+
 export default function AdminOrdersScreen() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -52,15 +58,19 @@ export default function AdminOrdersScreen() {
     }, []),
   );
 
-  const pendingCount = orders.filter((order) => order.status === "pending").length;
-  const shippedCount = orders.filter((order) => order.status === "dispatched" || order.status === "in_transit").length;
-  const disputedCount = orders.filter((order) => order.status === "disputed" || order.status === "refunded").length;
+  const totalOrders = orders.length;
+  const shippedCount = orders.filter((order) =>
+    ["dispatched", "in_transit", "delivered"].includes(order.status) || ["DISPATCHED", "IN_TRANSIT", "DELIVERED", "COMPLETED", "AUTO_RELEASED"].includes((order.backendStatus ?? "").toUpperCase()),
+  ).length;
+  const disputedCount = orders.filter((order) =>
+    ["disputed", "refunded"].includes(order.status) || ["DISPUTED", "REFUNDED"].includes((order.backendStatus ?? "").toUpperCase()),
+  ).length;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Order Monitoring</Text>
-        <Text style={styles.headerSubtitle}>Track marketplace escrow and order states</Text>
+        <Text style={styles.headerSubtitle}>Track marketplace escrow and order states across {totalOrders} orders</Text>
       </View>
 
       {loading ? (
@@ -72,7 +82,7 @@ export default function AdminOrdersScreen() {
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <View style={styles.statsRow}>
-            <StatCard label="Pending" value={pendingCount} />
+            <StatCard label="All orders" value={totalOrders} />
             <StatCard label="Shipped" value={shippedCount} />
             <StatCard label="Disputed" value={disputedCount} />
           </View>
@@ -91,10 +101,10 @@ export default function AdminOrdersScreen() {
                     key={order.id}
                     onPress={() => router.push({ pathname: "/(admin)/order-detail", params: { id: order.id } } as any)}
                     activeOpacity={0.85}
-                    style={[styles.orderItem, index < Math.min(orders.length, 25) - 1 && styles.orderBorder]}
+                      style={[styles.orderItem, index < Math.min(orders.length, 25) - 1 && styles.orderBorder]}
                   >
                     <View style={styles.orderTop}>
-                      <Text style={styles.orderId}>{order.orderNumber || order.id?.slice(0, 8)}</Text>
+                      <Text style={styles.orderId} numberOfLines={1}>{displayOrderNumber(order)}</Text>
                       <Text style={[styles.orderStatus, { color }]}>{getEscrowStatusLabel(escrowStatus)}</Text>
                     </View>
                     <Text style={styles.orderParties}>{order.vendorName ?? "Vendor"} → {order.buyerName ?? "Buyer"}</Text>

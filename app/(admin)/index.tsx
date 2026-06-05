@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,16 +7,23 @@ import { adminService, type AdminAnalytics } from "../../services/adminService";
 import { vendorService } from "../../services/vendorService";
 import { type AdminDashboardData } from "../../types/vendor";
 import { RevenueChart, type RevenueDataPoint } from "../../components/vendor/RevenueChart";
+import { useAuthStore } from "../../stores/authStore";
 
 const CURRENCY_SYMBOL: Record<string, string> = { GBP: "GBP ", USD: "$", EUR: "EUR " };
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const CARD_GAP = 14;
+const HORIZONTAL_PADDING = 18;
+const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
+  const logout = useAuthStore((s) => s.logout);
   const [dashboard, setDashboard] = useState<AdminDashboardData | null>(null);
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
   const [series, setSeries] = useState<RevenueDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -51,13 +58,47 @@ export default function AdminDashboardScreen() {
     (dashboard as any)?.averageVerificationReviewTime ??
     "2 hours";
 
+  const handleLogout = () => {
+    Alert.alert("Sign out", "Do you want to sign out of the admin panel?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign out",
+        style: "destructive",
+        onPress: async () => {
+          setSigningOut(true);
+          try {
+            await logout();
+            router.replace("/(auth)/role-select");
+          } finally {
+            setSigningOut(false);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#076B51" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Platform overview</Text>
+        <View style={styles.headerTop}>
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.headerEyebrow}>Eki Admin</Text>
+            <Text style={styles.headerTitle}>Platform overview</Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => router.push("/(admin)/settings" as any)}
+              activeOpacity={0.85}
+              style={styles.actionButton}
+            >
+              <Ionicons name="settings-outline" size={20} color="#076B51" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleLogout} activeOpacity={0.85} style={styles.actionButton}>
+              {signingOut ? <ActivityIndicator size="small" color="#FB6363" /> : <Ionicons name="log-out-outline" size={20} color="#FB6363" />}
+            </TouchableOpacity>
+          </View>
+        </View>
+        <Text style={styles.headerSubcopy}>Overview of vendors, orders, disputes, and revenue.</Text>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -163,11 +204,17 @@ function StatCard({ icon, label, value, sub }: { icon: React.ComponentProps<type
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingTop: 14, paddingBottom: 22, gap: 18 },
-  backButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  header: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 18 },
+  headerTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 16 },
+  headerTextWrap: { flex: 1 },
+  headerEyebrow: { fontSize: 12, lineHeight: 16, fontFamily: "Manrope-Bold", color: "#076B51", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 },
+  headerTitle: { fontSize: 30, lineHeight: 36, fontFamily: "Manrope-ExtraBold", color: "#282828" },
+  headerSubcopy: { marginTop: 8, fontSize: 14, lineHeight: 20, fontFamily: "Outfit-Regular", color: "#6E7774" },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  actionButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -176,13 +223,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  headerTitle: { flex: 1, fontSize: 30, lineHeight: 36, fontFamily: "Manrope-ExtraBold", color: "#282828" },
   scrollContent: { paddingHorizontal: 18, paddingBottom: 118 },
   placeholder: { paddingVertical: 80, alignItems: "center" },
   errorText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#FB6363", textAlign: "center", paddingVertical: 30 },
   sectionTitle: { fontSize: 22, fontFamily: "Manrope-ExtraBold", color: "#282828", marginBottom: 18 },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 14, marginBottom: 26 },
-  statCard: { width: "48%", minHeight: 156, backgroundColor: "#FFFFFF", borderRadius: 26, padding: 18, borderWidth: 1, borderColor: "#F0F1F0" },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", columnGap: CARD_GAP, rowGap: CARD_GAP, marginBottom: 26 },
+  statCard: { width: CARD_WIDTH, minHeight: 156, backgroundColor: "#FFFFFF", borderRadius: 26, padding: 18, borderWidth: 1, borderColor: "#F0F1F0" },
   statIcon: {
     width: 56,
     height: 56,
