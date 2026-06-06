@@ -17,19 +17,8 @@ import type { Order, VendorEarnings } from "../../types/order";
 import { openConversationThread } from "../../utils/messaging";
 import { goBackOrReplace } from "../../utils/navigation";
 
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "\u00A3",
-  USD: "$",
-  EUR: "\u20AC",
-  NGN: "\u20A6",
-  GHS: "GH\u20B5",
-  KES: "KSh",
-};
-
-function formatMoney(order?: Order | null, amount?: number) {
-  const symbol = CURRENCY_SYMBOL[order?.currency ?? "GBP"] ?? "\u00A3";
-  return `${symbol}${Number(amount ?? 0).toFixed(2)}`;
-}
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { formatDisplayMoney } from "../../utils/currency";
 
 function paymentProviderLabel(order?: Order | null) {
   const provider = (order?.paymentProvider ?? "").toLowerCase();
@@ -57,6 +46,15 @@ function deriveDeliveryLabel(order: Order, shipment: Shipment | null): string {
 }
 
 export default function OrderDetailScreen() {
+  const { selectedCurrency } = useCurrencyStore();
+
+  const formatMoney = (orderOrCurrency: any, amount?: number) => {
+    const sourceCurrency = typeof orderOrCurrency === "string"
+      ? orderOrCurrency
+      : (orderOrCurrency?.currency ?? "GBP");
+    return formatDisplayMoney(amount ?? 0, sourceCurrency, selectedCurrency);
+  };
+
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const [order, setOrder] = useState<Order | null>(null);

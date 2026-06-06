@@ -7,6 +7,8 @@ import { deriveEscrowStatus, getEscrowStatusColor, getEscrowStatusLabel } from "
 import { orderService } from "../../services/orderService";
 import { Order } from "../../types/order";
 import { goBackOrReplace } from "../../utils/navigation";
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { formatDisplayMoney } from "../../utils/currency";
 
 const STATUS_COLOR: Record<string, string> = {
   pending: "#858585",
@@ -18,15 +20,6 @@ const STATUS_COLOR: Record<string, string> = {
   disputed: "#FB6363",
   cancelled: "#FB6363",
   refunded: "#FB6363",
-};
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "£",
-  USD: "$",
-  EUR: "€",
-  NGN: "₦",
-  GHS: "GH₵",
-  KES: "KSh",
 };
 
 function formatDate(value: string): string {
@@ -49,6 +42,7 @@ function statusLabel(status: string): string {
 
 export default function OrdersScreen() {
   const router = useRouter();
+  const { selectedCurrency } = useCurrencyStore();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -114,7 +108,7 @@ export default function OrdersScreen() {
                     <Text style={styles.orderMeta}>
                       {order.items.length} item{order.items.length !== 1 ? "s" : ""} • {formatDate(order.createdAt)}
                     </Text>
-                      <Text style={styles.orderAmount}>{CURRENCY_SYMBOL[order.currency] ?? "£"}{order.total.toFixed(2)}</Text>
+                    <Text style={styles.orderAmount}>{formatDisplayMoney(order.total, order.currency, selectedCurrency)}</Text>
                   </View>
                   {isEscrowOrder ? <Text style={styles.escrowHint}>Protected payment</Text> : null}
                   {order.status === "delivered" && (

@@ -6,6 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../stores/authStore";
 import { publicStoreService, type PublicStoreAnalyticsDetail } from "../../services/publicStoreService";
 import { toCompactStoreSlug } from "../../utils/shareLinks";
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { formatDisplayMoney } from "../../utils/currency";
 
 function emptyAnalytics(storeSlug: string): PublicStoreAnalyticsDetail {
   return {
@@ -57,11 +59,13 @@ function emptyAnalytics(storeSlug: string): PublicStoreAnalyticsDetail {
   };
 }
 
-function formatCurrency(value: number): string {
-  return `GBP ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 export default function VendorAnalyticsScreen() {
+  const { selectedCurrency } = useCurrencyStore();
+
+  const formatCurrency = (value: number): string => {
+    return formatDisplayMoney(value, "GBP", selectedCurrency);
+  };
+
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const vendor = user?.role === "vendor" ? user : null;

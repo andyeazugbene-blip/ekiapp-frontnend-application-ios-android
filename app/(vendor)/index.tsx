@@ -34,23 +34,8 @@ import { Product } from "../../types/product";
 import { Order } from "../../types/order";
 import { VendorDrawer } from "../../components/vendor/Drawer";
 import { TAB_BAR_RESERVED_SPACE } from "../../components/layout/tabBarConstants";
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "£",
-  USD: "$",
-  EUR: "€",
-};
-
-const formatCurrency = (n: number, currencyCode = "GBP") => {
-  const symbol = CURRENCY_SYMBOL[String(currencyCode || "GBP").toUpperCase()] ?? "£";
-  const amount = Number(n);
-  return `${symbol}${(Number.isFinite(amount) ? amount : 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
-
-const fmtNgn = (n: number) => {
-  const amount = Number(n);
-  return `≈ ₦${(Number.isFinite(amount) ? amount : 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-};
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { formatDisplayMoney } from "../../utils/currency";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -104,6 +89,10 @@ interface AggregatedDashboard {
  * No hardcoded numbers. Missing values render as `0` / `—` / empty state.
  */
 export default function VendorDashboardScreen() {
+  const { selectedCurrency } = useCurrencyStore();
+  const formatCurrency = (n: number, currencyCode = "GBP") => {
+    return formatDisplayMoney(n, currencyCode, selectedCurrency);
+  };
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
@@ -302,68 +291,66 @@ export default function VendorDashboardScreen() {
           dashboardSurfaceStyle,
         ]}
       >
-      {/* ── Green hero ─────────────────────────────────────────────────── */}
-      <LinearGradient
-        colors={["#064E3B", "#076B51", "#0B8E6B"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.hero}
-      >
-        <SafeAreaView edges={["top"]}>
-          <View style={styles.heroTopRow}>
-            <View style={styles.datePill}>
-              <Text style={styles.dateText}>{formatToday()}</Text>
-            </View>
-            <View style={styles.heroIconsRow}>
-              <TouchableOpacity
-                accessibilityLabel="Open menu"
-                accessibilityRole="button"
-                activeOpacity={0.8}
-                onPress={() => setDrawerOpen(true)}
-                style={styles.headerIconPill}
-              >
-                <Ionicons name="menu" size={20} color="#282828" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                accessibilityLabel="Notifications"
-                accessibilityRole="button"
-                activeOpacity={0.8}
-                onPress={() => navigate("/(vendor)/notifications")}
-                style={styles.headerIconPill}
-              >
-                <Ionicons name="notifications" size={18} color="#282828" />
-                {unreadMessages > 0 || alertUnreadMessages > 0 ? (
-                  <View style={styles.headerIconBadge} />
-                ) : null}
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <Text style={styles.welcome}>
-            {asText(data?.greeting).trim() || "Welcome back,"}
-          </Text>
-          <Text style={styles.storeName} numberOfLines={1}>
-            {storeName} <Text style={styles.wave}>👑</Text>
-          </Text>
-        </SafeAreaView>
-      </LinearGradient>
-
       <ScrollView
-        contentContainerStyle={[
-          styles.body,
-          { paddingBottom: TAB_BAR_RESERVED_SPACE + insets.bottom + 24 },
-        ]}
+        contentContainerStyle={{ paddingBottom: TAB_BAR_RESERVED_SPACE + insets.bottom + 24 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#076B51" />
         }
         showsVerticalScrollIndicator={false}
       >
-        {loading ? (
-          <View style={styles.loadingBlock}>
-            <ActivityIndicator color="#076B51" />
-          </View>
-        ) : (
-          <>
+        {/* ── Green hero ─────────────────────────────────────────────────── */}
+        <LinearGradient
+          colors={["#064E3B", "#076B51", "#0B8E6B"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
+          <SafeAreaView edges={["top"]}>
+            <View style={styles.heroTopRow}>
+              <View style={styles.datePill}>
+                <Text style={styles.dateText}>{formatToday()}</Text>
+              </View>
+              <View style={styles.heroIconsRow}>
+                <TouchableOpacity
+                  accessibilityLabel="Open menu"
+                  accessibilityRole="button"
+                  activeOpacity={0.8}
+                  onPress={() => setDrawerOpen(true)}
+                  style={styles.headerIconPill}
+                >
+                  <Ionicons name="menu" size={20} color="#282828" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  accessibilityLabel="Notifications"
+                  accessibilityRole="button"
+                  activeOpacity={0.8}
+                  onPress={() => navigate("/(vendor)/notifications")}
+                  style={styles.headerIconPill}
+                >
+                  <Ionicons name="notifications" size={18} color="#282828" />
+                  {unreadMessages > 0 || alertUnreadMessages > 0 ? (
+                    <View style={styles.headerIconBadge} />
+                  ) : null}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <Text style={styles.welcome}>
+              {asText(data?.greeting).trim() || "Welcome back,"}
+            </Text>
+            <Text style={styles.storeName} numberOfLines={1}>
+              {storeName} <Text style={styles.wave}>👑</Text>
+            </Text>
+          </SafeAreaView>
+        </LinearGradient>
+
+        <View style={styles.body}>
+          {loading ? (
+            <View style={styles.loadingBlock}>
+              <ActivityIndicator color="#076B51" />
+            </View>
+          ) : (
+            <>
             {/* ── Alerts ──────────────────────────────────────────────── */}
             <View style={styles.alertsCard}>
               <AlertRow
@@ -698,6 +685,7 @@ export default function VendorDashboardScreen() {
             </View>
           </>
         )}
+        </View>
       </ScrollView>
       </Animated.View>
 

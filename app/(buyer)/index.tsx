@@ -248,6 +248,14 @@ export default function BuyerHomeScreen() {
               </View>
 
               <TouchableOpacity
+                onPress={() => router.push("/(buyer)/notifications" as any)}
+                activeOpacity={0.86}
+                style={styles.notificationButton}
+              >
+                <Ionicons name="notifications-outline" size={24} color="#076B51" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 onPress={() => router.push("/(buyer)/profile" as any)}
                 activeOpacity={0.86}
                 style={styles.avatarButton}
@@ -517,6 +525,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.22)",
+  },
+  notificationButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.22)",
   },

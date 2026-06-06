@@ -35,19 +35,8 @@ const DISPUTE_OPTIONS = [
   { id: "other", label: "Other" },
 ];
 
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "\u00A3",
-  USD: "$",
-  EUR: "\u20AC",
-  NGN: "₦",
-  GHS: "GH₵",
-  KES: "KSh",
-};
-
-function formatMoney(order?: Order | null, amount?: number): string {
-  const symbol = CURRENCY_SYMBOL[order?.currency ?? "GBP"] ?? "\u00A3";
-  return `${symbol}${Number(amount ?? 0).toFixed(2)}`;
-}
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { formatDisplayMoney } from "../../utils/currency";
 
 function paymentProviderLabel(order?: Order | null): string {
   const provider = (order?.paymentProvider ?? "").toLowerCase();
@@ -66,6 +55,15 @@ function supportCopy(order?: Order | null): string {
 }
 
 export default function TrackOrderScreen() {
+  const { selectedCurrency } = useCurrencyStore();
+
+  const formatMoney = (orderOrCurrency: any, amount?: number): string => {
+    const sourceCurrency = typeof orderOrCurrency === "string"
+      ? orderOrCurrency
+      : (orderOrCurrency?.currency ?? "GBP");
+    return formatDisplayMoney(amount ?? 0, sourceCurrency, selectedCurrency);
+  };
+
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string; orderId?: string }>();
   const resolvedOrderId = typeof params.orderId === "string" && params.orderId.length > 0 ? params.orderId : params.id;

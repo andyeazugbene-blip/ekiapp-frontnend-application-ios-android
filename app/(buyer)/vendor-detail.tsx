@@ -13,18 +13,13 @@ import type { Product, Review } from "../../types/product";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { openConversationThread } from "../../utils/messaging";
 import { goBackOrReplace } from "../../utils/navigation";
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "\u00A3",
-  USD: "$",
-  EUR: "\u20AC",
-  NGN: "\u20A6",
-  CAD: "C$",
-};
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { formatDisplayMoney } from "../../utils/currency";
 
 export default function VendorDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
+  const { selectedCurrency } = useCurrencyStore();
   const addItem = useCartStore((state) => state.addItem);
 
   const [vendor, setVendor] = useState<VendorSummary | null>(null);
@@ -159,7 +154,6 @@ export default function VendorDetailScreen() {
           <Text style={styles.sectionTitle}>Available foodstuff</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productsScroll}>
             {products.map((product) => {
-              const symbol = CURRENCY_SYMBOL[product.currency] ?? "\u00A3";
               return (
                 <TouchableOpacity
                   key={product.id}
@@ -169,7 +163,7 @@ export default function VendorDetailScreen() {
                 >
                   <RemoteImage uri={product.images?.[0]} style={styles.productImage} borderRadius={18} fallbackIcon="cube-outline" />
                   <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
-                  <Text style={styles.productPrice}>{symbol}{product.price.toFixed(2)}</Text>
+                  <Text style={styles.productPrice}>{formatDisplayMoney(product.price, product.currency, selectedCurrency)}</Text>
                   <TouchableOpacity onPress={() => handleAddToCart(product)} activeOpacity={0.86} style={styles.addButton}>
                     <Text style={styles.addButtonText}>Add to cart</Text>
                     <Ionicons name="cart-outline" size={14} color="#FFFFFF" />

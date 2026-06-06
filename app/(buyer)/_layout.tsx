@@ -125,6 +125,7 @@ export default function BuyerLayout() {
       <Tabs.Screen name="invite-friend" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="reward-history" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="leave-review" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>
   );
 }
