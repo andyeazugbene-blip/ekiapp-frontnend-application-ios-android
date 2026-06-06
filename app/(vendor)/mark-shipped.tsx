@@ -6,15 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { canVendorMarkShipped, deriveEscrowStatus, getEscrowStatusLabel } from "../../services/escrowStatus";
 import { orderService } from "../../services/orderService";
 import { Order } from "../../types/order";
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "\u00A3",
-  USD: "$",
-  EUR: "\u20AC",
-  NGN: "\u20A6",
-  GHS: "GH\u20B5",
-  KES: "KSh",
-};
+import { formatDisplayMoney } from "../../utils/currency";
+import { goBackOrReplace } from "../../utils/navigation";
 
 export default function MarkShippedScreen() {
   const router = useRouter();
@@ -161,7 +154,7 @@ export default function MarkShippedScreen() {
               <View style={styles.orderBanner}>
                 <Ionicons name="cube-outline" size={18} color="#076B51" />
                 <Text style={styles.orderBannerText}>
-                  {order.orderNumber || `#${order.id}`} • {order.items?.length ?? 0} items • {CURRENCY_SYMBOL[order.currency] ?? "\u00A3"}{order.total.toFixed(2)}
+                  {order.orderNumber || `#${order.id}`} • {order.items?.length ?? 0} items • {formatDisplayMoney(order.total, order.currency, order.currency)}
                 </Text>
               </View>
 

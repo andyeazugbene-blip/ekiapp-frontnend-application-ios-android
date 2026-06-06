@@ -4,12 +4,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { walletService, type Wallet, type WalletTransaction } from "../../services/walletService";
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
+import { formatDisplayMoney } from "../../utils/currency";
 
 export default function RewardHistoryScreen() {
   const router = useRouter();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const selectedCurrency = useCurrencyStore((state) => state.selectedCurrency);
+  const ensureCurrency = useCurrencyStore((state) => state.ensureCurrency);
+  const setSelectedCurrency = useCurrencyStore((state) => state.setSelectedCurrency);
 
   useFocusEffect(
     useCallback(() => {
@@ -39,6 +46,10 @@ export default function RewardHistoryScreen() {
     } catch { return iso; }
   };
 
+  React.useEffect(() => {
+    ensureCurrency(wallet?.currency).catch(() => undefined);
+  }, [ensureCurrency, wallet?.currency]);
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
@@ -46,6 +57,9 @@ export default function RewardHistoryScreen() {
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Reward History</Text>
+        <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
+          <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+        </TouchableOpacity>
         <Text style={styles.headerSubtitle}>Your earnings and spending</Text>
       </View>
 
@@ -53,7 +67,7 @@ export default function RewardHistoryScreen() {
         {/* Balance summary */}
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Total Balance</Text>
-          <Text style={styles.balanceValue}>£{wallet?.balance?.toFixed(2) ?? "0.00"}</Text>
+          <Text style={styles.balanceValue}>{formatDisplayMoney(wallet?.balance ?? 0, wallet?.currency, selectedCurrency)}</Text>
         </View>
 
         {loading ? (
@@ -83,7 +97,7 @@ export default function RewardHistoryScreen() {
                     <Text style={styles.rewardDate}>{formatDate(tx.createdAt)}</Text>
                   </View>
                   <Text style={[styles.rewardAmount, !isCredit && { color: "#FB6363" }]}>
-                    {isCredit ? "+" : "-"}£{Math.abs(tx.amount).toFixed(2)}
+                    {isCredit ? "+" : "-"}{formatDisplayMoney(Math.abs(tx.amount), tx.currency ?? wallet?.currency, selectedCurrency)}
                   </Text>
                 </View>
               );
@@ -91,6 +105,13 @@ export default function RewardHistoryScreen() {
           </View>
         )}
       </ScrollView>
+
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -100,6 +121,8 @@ const styles = StyleSheet.create({
   header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 30, borderBottomLeftRadius: 35, borderBottomRightRadius: 35, gap: 4 },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 8 },
   headerTitle: { fontSize: 28, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  currencyButton: { position: "absolute", right: 20, top: 18, minWidth: 58, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  currencyButtonText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   headerSubtitle: { fontSize: 14, fontFamily: "Outfit-Light", color: "rgba(255,255,255,0.8)" },
   scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 },
   balanceCard: { backgroundColor: "#076B51", borderRadius: 20, padding: 20, alignItems: "center", marginBottom: 16 },

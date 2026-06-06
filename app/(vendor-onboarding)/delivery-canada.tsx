@@ -12,7 +12,7 @@ export default function DeliveryCanadaScreen() {
       title="Set Canada delivery"
       saveLabel="Save Canada Delivery"
       onSaved={(next) => router.push(next as any)}
-      onBack={() => router.back()}
+      onBack={() => router.replace("/(vendor-onboarding)/delivery-countries" as any)}
       afterCountry="Canada"
     />
   );

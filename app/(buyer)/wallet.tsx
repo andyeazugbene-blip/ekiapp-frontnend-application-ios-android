@@ -20,13 +20,9 @@ import { referralService, type ReferralInfo } from "../../services/referralServi
 import { isPaymentSheetAvailable, presentPayment } from "../../services/stripePayment";
 import { getPublicReferralUrl } from "../../utils/shareLinks";
 import { useAuthStore } from "../../stores/authStore";
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "\u00A3",
-  USD: "$",
-  EUR: "\u20AC",
-  NGN: "\u20A6",
-};
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
+import { formatDisplayMoney } from "../../utils/currency";
 
 function formatDate(value: string): string {
   try {
@@ -50,6 +46,10 @@ export default function WalletScreen() {
   const [rewardOpen, setRewardOpen] = useState(true);
   const [referralOpen, setReferralOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(true);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const selectedCurrency = useCurrencyStore((state) => state.selectedCurrency);
+  const ensureCurrency = useCurrencyStore((state) => state.ensureCurrency);
+  const setSelectedCurrency = useCurrencyStore((state) => state.setSelectedCurrency);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -77,13 +77,16 @@ export default function WalletScreen() {
   );
 
   const currency = wallet?.currency ?? referralInfo?.currency ?? "GBP";
-  const symbol = CURRENCY_SYMBOL[currency] ?? "\u00A3";
   const referralCode = referralInfo?.referralCode || userReferralCode || "";
   const referralUrl = referralCode ? getPublicReferralUrl(referralCode) : "";
   const creditTransactions = useMemo(
     () => transactions.filter((item) => item.type === "credit").slice(0, 3),
     [transactions],
   );
+
+  React.useEffect(() => {
+    ensureCurrency(currency).catch(() => undefined);
+  }, [currency, ensureCurrency]);
 
   const handleTopUp = async () => {
     const amount = Number(topUpAmount);
@@ -147,12 +150,17 @@ export default function WalletScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.heroWrap}>
           <LinearGradient colors={["#084E39", "#076B51", "#085F48"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroCard}>
-            <View style={styles.heroChip}>
-              <Text style={styles.heroChipText}>Eki Wallet</Text>
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroChip}>
+                <Text style={styles.heroChipText}>Eki Wallet</Text>
+              </View>
+              <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.86} style={styles.currencyButton}>
+                <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+              </TouchableOpacity>
             </View>
             <Text style={styles.heroLabel}>Wallet Balance</Text>
             <Text style={styles.heroBalance}>
-              {loading && !wallet ? "..." : `${symbol}${(wallet?.balance ?? 0).toFixed(2)}`}
+              {loading && !wallet ? "..." : formatDisplayMoney(wallet?.balance ?? 0, currency, selectedCurrency)}
             </Text>
             <Text style={styles.heroCaption}>
               Rewards come from completed referral bonuses and approved wallet credits on your live Eki account.
@@ -169,7 +177,7 @@ export default function WalletScreen() {
               <TextInput
                 value={topUpAmount}
                 onChangeText={setTopUpAmount}
-                placeholder={`Enter amount (${symbol})`}
+                placeholder={`Enter amount (${selectedCurrency})`}
                 placeholderTextColor="#9AA3A0"
                 keyboardType="decimal-pad"
                 style={styles.topUpInput}
@@ -225,7 +233,7 @@ export default function WalletScreen() {
                         <Text style={styles.transactionTitle}>{transaction.label}</Text>
                         <Text style={styles.transactionDescription}>{transaction.description || "Automatically added to your wallet"}</Text>
                       </View>
-                      <Text style={styles.creditAmount}>+{symbol}{transaction.amount.toFixed(2)}</Text>
+                      <Text style={styles.creditAmount}>+{formatDisplayMoney(transaction.amount, transaction.currency ?? currency, selectedCurrency)}</Text>
                     </View>
                   ))
                 )}
@@ -276,7 +284,7 @@ export default function WalletScreen() {
                     <Text style={styles.referralStatLabel}>Invited</Text>
                   </View>
                   <View style={styles.referralStat}>
-                    <Text style={styles.referralStatValue}>{symbol}{(referralInfo?.totalEarned ?? 0).toFixed(2)}</Text>
+                    <Text style={styles.referralStatValue}>{formatDisplayMoney(referralInfo?.totalEarned ?? 0, referralInfo?.currency ?? currency, selectedCurrency)}</Text>
                     <Text style={styles.referralStatLabel}>Earned</Text>
                   </View>
                 </View>
@@ -329,7 +337,7 @@ export default function WalletScreen() {
                           <Text style={styles.transactionDescription}>{formatDate(transaction.createdAt)}</Text>
                         </View>
                         <Text style={[styles.historyAmount, !isCredit && styles.debitAmount]}>
-                          {isCredit ? "+" : "-"}{symbol}{transaction.amount.toFixed(2)}
+                          {isCredit ? "+" : "-"}{formatDisplayMoney(transaction.amount, transaction.currency ?? currency, selectedCurrency)}
                         </Text>
                       </View>
                     );
@@ -340,6 +348,13 @@ export default function WalletScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -366,6 +381,13 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontFamily: "Manrope-Bold",
+  },
+  heroTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 18,
   },
   heroLabel: {
     color: "rgba(255,255,255,0.84)",
@@ -690,5 +712,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     fontFamily: "Outfit-Regular",
+  },
+  currencyButton: {
+    minWidth: 62,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  currencyButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontFamily: "Manrope-Bold",
   },
 });

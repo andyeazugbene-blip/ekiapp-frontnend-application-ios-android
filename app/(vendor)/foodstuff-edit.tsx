@@ -150,7 +150,7 @@ export default function FoodstuffEditScreen() {
       };
       const updated = await productService.updateProduct(product.id, patch);
       setSelectedProduct(updated);
-      router.back();
+      router.replace("/(vendor)/foodstuff" as any);
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 403) {
         Alert.alert(
@@ -185,7 +185,7 @@ export default function FoodstuffEditScreen() {
         images: imageRemoteUrl ? [imageRemoteUrl] : product.images,
       });
       setSelectedProduct(updated);
-      router.back();
+      router.replace("/(vendor)/foodstuff" as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save draft.");
     } finally {
@@ -197,7 +197,7 @@ export default function FoodstuffEditScreen() {
     if (!product) return;
     Alert.alert(
       "Delete this product?",
-      `“${product.name}” will be permanently removed from your store.`,
+      `"${product.name}" will be permanently removed from your store.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -208,7 +208,7 @@ export default function FoodstuffEditScreen() {
             try {
               await productService.deleteProduct(product.id);
               setSelectedProduct(null);
-              router.back();
+              router.replace("/(vendor)/foodstuff" as any);
             } catch (err) {
               setError(err instanceof Error ? err.message : "Could not delete product.");
             } finally {
@@ -225,7 +225,7 @@ export default function FoodstuffEditScreen() {
       <View style={styles.page}>
         <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity onPress={() => router.replace("/(vendor)/foodstuff" as any)} style={styles.backButton}>
               <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Foodstuff</Text>
@@ -243,7 +243,7 @@ export default function FoodstuffEditScreen() {
     <View style={styles.page}>
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.replace("/(vendor)/foodstuff" as any)} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Edit Foodstuff</Text>

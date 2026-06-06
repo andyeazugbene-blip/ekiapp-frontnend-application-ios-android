@@ -189,7 +189,7 @@ export default function CreateDiscountScreen() {
 
           {/* Centered Close Button below card matching mockup */}
           <TouchableOpacity 
-            onPress={() => router.back()} 
+            onPress={() => router.replace("/(vendor)/grow-sales" as any)} 
             activeOpacity={0.85} 
             style={styles.closeButton}
           >

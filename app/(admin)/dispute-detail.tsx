@@ -1,16 +1,26 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { ApiRequestError } from "../../services/api";
 import { adminService, type AdminDispute } from "../../services/adminService";
 import { canAdminResolveDispute } from "../../services/escrowStatus";
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { formatDisplayMoney } from "../../utils/currency";
 
 function formatDate(iso?: string) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   try {
-    return new Date(iso).toLocaleString("en-GB", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return new Date(iso).toLocaleString("en-GB", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
     return iso;
   }
@@ -25,6 +35,15 @@ export default function DisputeDetailScreen() {
   const [refundAmount, setRefundAmount] = useState("");
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
+  const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
+  const hydrateCurrency = useCurrencyStore((s) => s.hydrate);
+  const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
+  const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
+
+  useEffect(() => {
+    void hydrateCurrency();
+  }, [hydrateCurrency]);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -35,12 +54,15 @@ export default function DisputeDetailScreen() {
     try {
       const nextDispute = await adminService.getDispute(id);
       setDispute(nextDispute);
+      if (nextDispute.order?.currency) {
+        await ensureCurrency(nextDispute.order.currency);
+      }
     } catch {
       setDispute(null);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [ensureCurrency, id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -87,7 +109,9 @@ export default function DisputeDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.stateScreen}><ActivityIndicator color="#076B51" /></View>
+        <View style={styles.stateScreen}>
+          <ActivityIndicator color="#076B51" />
+        </View>
       </SafeAreaView>
     );
   }
@@ -95,12 +119,15 @@ export default function DisputeDetailScreen() {
   if (!dispute) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.stateScreen}><Text style={styles.errorText}>Dispute not found.</Text></View>
+        <View style={styles.stateScreen}>
+          <Text style={styles.errorText}>Dispute not found.</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   const resolvable = canAdminResolveDispute(dispute);
+  const disputeCurrency = dispute.order?.currency ?? "GBP";
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -109,6 +136,9 @@ export default function DisputeDetailScreen() {
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Dispute Detail</Text>
+        <TouchableOpacity onPress={() => setCurrencyModalVisible(true)} activeOpacity={0.85} style={styles.currencyButton}>
+          <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -129,8 +159,20 @@ export default function DisputeDetailScreen() {
           <Text style={styles.sectionTitle}>Escrow Case</Text>
           <InfoRow label="Payment provider" value="Paystack escrow" />
           <InfoRow label="Order" value={dispute.order?.orderNumber ?? dispute.orderId} />
-          <InfoRow label="Order amount" value={dispute.order ? `${dispute.order.totalAmount.toFixed(2)} ${dispute.order.currency}` : "—"} />
-          <InfoRow label="Vendor earnings" value={dispute.order?.vendorEarnings !== undefined ? `${dispute.order.vendorEarnings.toFixed(2)} ${dispute.order.currency}` : "—"} />
+          <InfoRow
+            label="Order amount"
+            value={
+              dispute.order ? formatDisplayMoney(dispute.order.totalAmount, disputeCurrency, selectedCurrency) : "-"
+            }
+          />
+          <InfoRow
+            label="Vendor earnings"
+            value={
+              dispute.order?.vendorEarnings !== undefined
+                ? formatDisplayMoney(dispute.order.vendorEarnings, disputeCurrency, selectedCurrency)
+                : "-"
+            }
+          />
           <InfoRow label="Delivery address" value={dispute.order?.deliveryAddress ?? "Unavailable"} />
         </View>
 
@@ -142,7 +184,9 @@ export default function DisputeDetailScreen() {
             dispute.order?.items?.map((item, index) => (
               <View key={`${item.productTitle}-${index}`} style={[styles.itemRow, index > 0 && styles.itemBorder]}>
                 <Text style={styles.itemName}>{item.productTitle}</Text>
-                <Text style={styles.itemMeta}>{item.quantity} × {(item.totalAmount ?? 0).toFixed(2)}</Text>
+                <Text style={styles.itemMeta}>
+                  {item.quantity} x {formatDisplayMoney(item.totalAmount ?? 0, disputeCurrency, selectedCurrency)}
+                </Text>
               </View>
             ))
           )}
@@ -210,6 +254,13 @@ export default function DisputeDetailScreen() {
           </View>
         )}
       </ScrollView>
+
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyModalVisible}
+        onClose={() => setCurrencyModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -227,9 +278,21 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
   stateScreen: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   errorText: { color: "#FB6363", fontSize: 14, fontFamily: "Outfit-Regular" },
-  header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 30, borderBottomLeftRadius: 35, borderBottomRightRadius: 35, flexDirection: "row", alignItems: "center", gap: 12 },
+  header: {
+    backgroundColor: "#076B51",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 35,
+    borderBottomRightRadius: 35,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  headerTitle: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#FFFFFF", flex: 1 },
+  currencyButton: { minWidth: 66, height: 36, borderRadius: 18, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  currencyButtonText: { color: "#076B51", fontSize: 12, fontFamily: "Manrope-Bold" },
   scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40, gap: 16 },
   card: { backgroundColor: "#FFFFFF", borderRadius: 30, padding: 20 },
   statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8 },

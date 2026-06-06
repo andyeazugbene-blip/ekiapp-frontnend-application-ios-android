@@ -61,7 +61,7 @@ export default function AcceptOrderScreen() {
       if (isEscrowOrder) {
         await orderService.confirmVendorEscrowOrder(order.id);
       } else {
-        await orderService.updateOrderStatus(order.id, "confirmed");
+        await orderService.acceptVendorOrder(order.id);
       }
       goBackOrReplace(router, { pathname: "/(vendor)/order-detail", params: { id: order.id } } as any);
     } catch (err) {

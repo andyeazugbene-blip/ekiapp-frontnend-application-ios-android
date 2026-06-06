@@ -17,18 +17,14 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { useCartStore } from "../../stores/cartStore";
+import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
 import { type Product } from "../../types/product";
 import { type VendorSummary } from "../../types/vendor";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { vendorService } from "../../services/vendorService";
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "\u00A3",
-  USD: "$",
-  EUR: "\u20AC",
-  NGN: "\u20A6",
-};
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
+import { CURRENCY_SYMBOLS, formatDisplayMoney } from "../../utils/currency";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const DEAL_CARD_WIDTH = Math.min(SCREEN_WIDTH - 96, 280);
@@ -101,6 +97,9 @@ function rankVendors(vendors: VendorSummary[], products: Product[]): VendorSumma
 export default function BuyerHomeScreen() {
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
+  const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
+  const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
+  const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
   const user = useAuthStore((s) => s.user);
   const deliveryCountry = user && "country" in user ? user.country : undefined;
 
@@ -108,6 +107,7 @@ export default function BuyerHomeScreen() {
   const [vendors, setVendors] = useState<VendorSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDealIndex, setActiveDealIndex] = useState(0);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -134,6 +134,15 @@ export default function BuyerHomeScreen() {
     [products],
   );
 
+  const userCurrency =
+    user && typeof user === "object" && "currency" in user && typeof user.currency === "string"
+      ? user.currency
+      : undefined;
+
+  React.useEffect(() => {
+    ensureCurrency(activeProducts[0]?.currency ?? userCurrency).catch(() => undefined);
+  }, [activeProducts, ensureCurrency, userCurrency]);
+
   const categoryItems = useMemo(() => {
     const seen = new Set<string>();
     return activeProducts
@@ -150,7 +159,7 @@ export default function BuyerHomeScreen() {
   const bestSellers = useMemo(() => rankProducts(activeProducts, vendors).slice(0, 6), [activeProducts, vendors]);
   const featuredProduct = activeProducts[0];
   const firstCurrency = featuredProduct?.currency ?? "GBP";
-  const firstSymbol = CURRENCY_SYMBOL[firstCurrency] ?? "\u00A3";
+  const firstSymbol = CURRENCY_SYMBOLS[selectedCurrency] ?? CURRENCY_SYMBOLS[firstCurrency];
 
   const hotDeals = useMemo<HomeDeal[]>(() => {
     const deals: HomeDeal[] = [
@@ -184,7 +193,7 @@ export default function BuyerHomeScreen() {
         colors: ["#E59A00", "#F4C01B"],
         badge: "Fresh Pick",
         title: featuredProduct.name,
-        highlight: `${CURRENCY_SYMBOL[featuredProduct.currency] ?? "\u00A3"}${featuredProduct.price.toFixed(2)}`,
+        highlight: formatDisplayMoney(featuredProduct.price, featuredProduct.currency, selectedCurrency),
         body: featuredProduct.description?.trim() || "Now available to order from the buyer marketplace.",
         cta: "View Product",
         icon: "cube",
@@ -251,10 +260,15 @@ export default function BuyerHomeScreen() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity onPress={() => openSearch()} activeOpacity={0.9} style={styles.searchShell}>
-              <Ionicons name="search-outline" size={20} color="#9AA3A0" />
-              <Text style={styles.searchPlaceholder}>Search for foodstuff</Text>
-            </TouchableOpacity>
+            <View style={styles.searchRow}>
+              <TouchableOpacity onPress={() => openSearch()} activeOpacity={0.9} style={styles.searchShell}>
+                <Ionicons name="search-outline" size={20} color="#9AA3A0" />
+                <Text style={styles.searchPlaceholder}>Search for foodstuff</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.86} style={styles.currencyButton}>
+                <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+              </TouchableOpacity>
+            </View>
           </LinearGradient>
         </View>
 
@@ -366,7 +380,6 @@ export default function BuyerHomeScreen() {
             <Text style={styles.sectionTitle}>Best Sellers</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bestSellerScroll}>
               {bestSellers.map((product) => {
-                const symbol = CURRENCY_SYMBOL[product.currency] ?? "\u00A3";
                 return (
                   <TouchableOpacity
                     key={product.id}
@@ -387,7 +400,7 @@ export default function BuyerHomeScreen() {
                     <Text style={styles.bestName} numberOfLines={1}>
                       {product.name}
                     </Text>
-                    <Text style={styles.bestPrice}>{symbol}{product.price.toFixed(2)}</Text>
+                    <Text style={styles.bestPrice}>{formatDisplayMoney(product.price, product.currency, selectedCurrency)}</Text>
                     <TouchableOpacity onPress={() => handleAddToCart(product)} activeOpacity={0.86} style={styles.addToCartButton}>
                       <Text style={styles.addToCartText}>Add to cart</Text>
                       <Ionicons name="cart-outline" size={16} color="#FFFFFF" />
@@ -442,6 +455,13 @@ export default function BuyerHomeScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -510,6 +530,7 @@ const styles = StyleSheet.create({
     color: "#076B51",
   },
   searchShell: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -517,6 +538,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
     height: 58,
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     marginTop: 18,
   },
   searchPlaceholder: {
@@ -524,6 +550,20 @@ const styles = StyleSheet.create({
     color: "#9AA3A0",
     fontSize: 14,
     fontFamily: "Outfit-Regular",
+  },
+  currencyButton: {
+    minWidth: 66,
+    height: 58,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  currencyButtonText: {
+    color: "#076B51",
+    fontSize: 13,
+    fontFamily: "Manrope-Bold",
   },
   sectionBlock: {
     marginTop: 24,

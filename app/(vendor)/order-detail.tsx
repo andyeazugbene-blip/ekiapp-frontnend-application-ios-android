@@ -119,7 +119,7 @@ export default function OrderDetailScreen() {
       if (isEscrowOrder) {
         await orderService.confirmVendorEscrowOrder(order.id);
       } else {
-        await orderService.updateOrderStatus(order.id, "confirmed");
+        await orderService.acceptVendorOrder(order.id);
       }
       await load();
     } catch (err) {

@@ -1,16 +1,26 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { deriveEscrowStatus, getEscrowStatusColor, getEscrowStatusLabel } from "../../services/escrowStatus";
 import { orderService } from "../../services/orderService";
+import { useCurrencyStore } from "../../stores/currencyStore";
 import type { Order } from "../../types/order";
+import { formatDisplayMoney } from "../../utils/currency";
 
 function formatDate(iso?: string) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   try {
-    return new Date(iso).toLocaleString("en-GB", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return new Date(iso).toLocaleString("en-GB", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
     return iso;
   }
@@ -30,6 +40,15 @@ export default function AdminOrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
+  const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
+  const hydrateCurrency = useCurrencyStore((s) => s.hydrate);
+  const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
+  const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
+
+  useEffect(() => {
+    void hydrateCurrency();
+  }, [hydrateCurrency]);
 
   useFocusEffect(
     useCallback(() => {
@@ -39,9 +58,13 @@ export default function AdminOrderDetailScreen() {
       }
       let cancelled = false;
       setLoading(true);
-      orderService.getOrderById(id)
+      orderService
+        .getOrderById(id)
         .then((nextOrder) => {
-          if (!cancelled) setOrder(nextOrder);
+          if (!cancelled) {
+            setOrder(nextOrder);
+            void ensureCurrency(nextOrder.currency);
+          }
         })
         .catch(() => {
           if (!cancelled) setOrder(null);
@@ -52,13 +75,15 @@ export default function AdminOrderDetailScreen() {
       return () => {
         cancelled = true;
       };
-    }, [id]),
+    }, [ensureCurrency, id]),
   );
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.stateScreen}><ActivityIndicator color="#076B51" /></View>
+        <View style={styles.stateScreen}>
+          <ActivityIndicator color="#076B51" />
+        </View>
       </SafeAreaView>
     );
   }
@@ -66,7 +91,9 @@ export default function AdminOrderDetailScreen() {
   if (!order) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.stateScreen}><Text style={styles.errorText}>Order not found.</Text></View>
+        <View style={styles.stateScreen}>
+          <Text style={styles.errorText}>Order not found.</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -81,6 +108,9 @@ export default function AdminOrderDetailScreen() {
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Order Details</Text>
+        <TouchableOpacity onPress={() => setCurrencyModalVisible(true)} activeOpacity={0.85} style={styles.currencyButton}>
+          <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -98,15 +128,15 @@ export default function AdminOrderDetailScreen() {
           <Text style={styles.sectionTitle}>Escrow Summary</Text>
           <InfoRow label="Payment provider" value={paymentProviderLabel(order)} />
           <InfoRow label="Payment status" value={order.paymentStatus.replace(/\b\w/g, (char) => char.toUpperCase())} />
-          <InfoRow label="Vendor earnings" value={`£${(order.vendorEarnings ?? 0).toFixed(2)}`} />
+          <InfoRow label="Vendor earnings" value={formatDisplayMoney(order.vendorEarnings ?? 0, order.currency, selectedCurrency)} />
           <InfoRow label="Protection window" value={order.escrowExpiresAt ? formatDate(order.escrowExpiresAt) : "Unavailable"} />
         </View>
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Parties</Text>
-          <InfoRow label="Vendor" value={order.vendorName ?? "—"} />
-          <InfoRow label="Buyer" value={order.buyerName ?? "—"} />
-          <InfoRow label="Delivery country" value={order.deliveryDetails?.country ?? "—"} />
+          <InfoRow label="Vendor" value={order.vendorName ?? "-"} />
+          <InfoRow label="Buyer" value={order.buyerName ?? "-"} />
+          <InfoRow label="Delivery country" value={order.deliveryDetails?.country ?? "-"} />
         </View>
 
         <View style={styles.card}>
@@ -120,7 +150,9 @@ export default function AdminOrderDetailScreen() {
                   <Text style={styles.itemName}>{item.product.name}</Text>
                   <Text style={styles.itemMeta}>Qty {item.quantity}</Text>
                 </View>
-                <Text style={styles.itemTotal}>£{(item.product.price * item.quantity).toFixed(2)}</Text>
+                <Text style={styles.itemTotal}>
+                  {formatDisplayMoney(item.product.price * item.quantity, order.currency, selectedCurrency)}
+                </Text>
               </View>
             ))
           )}
@@ -128,7 +160,16 @@ export default function AdminOrderDetailScreen() {
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Admin Actions</Text>
-          <TouchableOpacity onPress={() => Alert.alert("Refund route", "Use the dispute detail flow for escrow buyer/vendor resolutions. Direct order refund UI is not connected in mobile yet.")} activeOpacity={0.85} style={styles.actionButton}>
+          <TouchableOpacity
+            onPress={() =>
+              Alert.alert(
+                "Refund route",
+                "Use the dispute detail flow for escrow buyer/vendor resolutions. Direct order refund UI is not connected in mobile yet.",
+              )
+            }
+            activeOpacity={0.85}
+            style={styles.actionButton}
+          >
             <Ionicons name="cash-outline" size={16} color="#076B51" />
             <Text style={styles.actionText}>Refund Buyer</Text>
           </TouchableOpacity>
@@ -138,6 +179,13 @@ export default function AdminOrderDetailScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyModalVisible}
+        onClose={() => setCurrencyModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -155,9 +203,36 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
   stateScreen: { flex: 1, alignItems: "center", justifyContent: "center" },
   errorText: { color: "#FB6363", fontFamily: "Outfit-Regular", fontSize: 14 },
-  header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 30, borderBottomLeftRadius: 35, borderBottomRightRadius: 35, flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  header: {
+    backgroundColor: "#076B51",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 35,
+    borderBottomRightRadius: 35,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#FFFFFF", flex: 1 },
+  currencyButton: {
+    minWidth: 66,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  currencyButtonText: { color: "#076B51", fontSize: 12, fontFamily: "Manrope-Bold" },
   scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40, gap: 16 },
   card: { backgroundColor: "#FFFFFF", borderRadius: 30, padding: 20 },
   statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 6 },

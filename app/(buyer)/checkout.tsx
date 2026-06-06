@@ -6,9 +6,12 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { useAuthStore } from "../../stores/authStore";
 import { useCartStore } from "../../stores/cartStore";
+import { useCurrencyStore } from "../../stores/currencyStore";
 import { walletService, type Wallet } from "../../services/walletService";
 import { presentPayment, isPaymentSheetAvailable } from "../../services/stripePayment";
 import { orderService } from "../../services/orderService";
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
+import { convertMoney, formatDisplayMoney } from "../../utils/currency";
 
 type PaymentMethod = "stripe" | "wallet" | "wallet_stripe";
 
@@ -47,6 +50,9 @@ export default function CheckoutScreen() {
   const clearCart = useCartStore((s) => s.clearCart);
   const storeDeliveryCountry = useCartStore((s) => s.deliveryCountry);
   const setDeliveryCountry = useCartStore((s) => s.setDeliveryCountry);
+  const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
+  const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
+  const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
   const user = useAuthStore((s) => s.user);
 
   const [address, setAddress] = useState("");
@@ -58,11 +64,14 @@ export default function CheckoutScreen() {
   const [error, setError] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [createdOrderIds, setCreatedOrderIds] = useState<string[]>([]);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
 
   const walletBalance = wallet?.balance ?? 0;
-  const parsedWalletAmount = Number(walletAmount) || 0;
-  const canPayFullyWithWallet = walletBalance >= grandTotal;
   const checkoutCurrency = items[0]?.product.currency ?? wallet?.currency ?? "GBP";
+  const walletCurrency = wallet?.currency ?? checkoutCurrency;
+  const parsedWalletAmount = Number(walletAmount) || 0;
+  const parsedWalletAmountInCheckoutCurrency = convertMoney(parsedWalletAmount, selectedCurrency, checkoutCurrency);
+  const canPayFullyWithWallet = walletBalance >= grandTotal;
   const currencySymbol = CURRENCY_SYMBOLS[checkoutCurrency] ?? "\u00A3";
 
   useEffect(() => {
@@ -71,6 +80,10 @@ export default function CheckoutScreen() {
       .then((nextWallet) => setWallet(nextWallet))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    ensureCurrency(checkoutCurrency).catch(() => undefined);
+  }, [checkoutCurrency, ensureCurrency]);
 
   useEffect(() => {
     const profileCountry =
@@ -108,11 +121,11 @@ export default function CheckoutScreen() {
       setError("Insufficient wallet balance for full payment. Use Wallet + Card instead.");
       return;
     }
-    if (paymentMethod === "wallet_stripe" && parsedWalletAmount > walletBalance) {
+    if (paymentMethod === "wallet_stripe" && parsedWalletAmountInCheckoutCurrency > walletBalance) {
       setError("Wallet amount exceeds your balance.");
       return;
     }
-    if (paymentMethod === "wallet_stripe" && parsedWalletAmount > grandTotal) {
+    if (paymentMethod === "wallet_stripe" && parsedWalletAmountInCheckoutCurrency > grandTotal) {
       setError("Wallet amount exceeds order total.");
       return;
     }
@@ -126,8 +139,8 @@ export default function CheckoutScreen() {
       const walletAmountCents =
         paymentMethod === "wallet"
           ? Math.round(grandTotal * 100)
-          : paymentMethod === "wallet_stripe" && parsedWalletAmount > 0
-            ? Math.round(parsedWalletAmount * 100)
+          : paymentMethod === "wallet_stripe" && parsedWalletAmountInCheckoutCurrency > 0
+            ? Math.round(parsedWalletAmountInCheckoutCurrency * 100)
             : undefined;
 
       const intent = await createCheckout(address.trim(), walletAmountCents, country.trim());
@@ -178,6 +191,9 @@ export default function CheckoutScreen() {
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Complete your order</Text>
+        <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
+          <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -229,14 +245,14 @@ export default function CheckoutScreen() {
           <TouchableOpacity
             onPress={() => {
               setPaymentMethod("wallet");
-              setWalletAmount(String(grandTotal));
+              setWalletAmount(String(convertMoney(grandTotal, checkoutCurrency, selectedCurrency).toFixed(2)));
             }}
             style={[styles.paymentOption, paymentMethod === "wallet" && styles.paymentOptionActive, !canPayFullyWithWallet && styles.paymentOptionDisabled]}
             disabled={!canPayFullyWithWallet}
           >
             <Ionicons name="wallet-outline" size={18} color={paymentMethod === "wallet" ? "#076B51" : "#858585"} />
             <Text style={[styles.paymentOptionText, paymentMethod === "wallet" && styles.paymentOptionTextActive]}>
-              Wallet ({currencySymbol}{walletBalance.toFixed(2)})
+              Wallet ({formatDisplayMoney(walletBalance, walletCurrency, selectedCurrency)})
             </Text>
           </TouchableOpacity>
 
@@ -261,7 +277,9 @@ export default function CheckoutScreen() {
 
         {paymentMethod === "wallet_stripe" ? (
           <View style={{ marginBottom: 20 }}>
-            <Text style={styles.fieldLabel}>Amount from wallet (max {currencySymbol}{walletBalance.toFixed(2)})</Text>
+            <Text style={styles.fieldLabel}>
+              Amount from wallet (max {formatDisplayMoney(walletBalance, walletCurrency, selectedCurrency)})
+            </Text>
             <View style={styles.inputWrap}>
               <TextInput
                 style={styles.input}
@@ -271,7 +289,8 @@ export default function CheckoutScreen() {
                 value={walletAmount}
                 onChangeText={(value) => {
                   const amount = Number(value) || 0;
-                  if (amount <= walletBalance && amount <= grandTotal) {
+                  const amountInCheckoutCurrency = convertMoney(amount, selectedCurrency, checkoutCurrency);
+                  if (amountInCheckoutCurrency <= walletBalance && amountInCheckoutCurrency <= grandTotal) {
                     setWalletAmount(value);
                     if (error) setError("");
                   }
@@ -279,7 +298,11 @@ export default function CheckoutScreen() {
               />
             </View>
             <Text style={styles.helpText}>
-              Remaining {currencySymbol}{(grandTotal - (Number(walletAmount) || 0)).toFixed(2)} will be charged to your card.
+              Remaining {formatDisplayMoney(
+                Math.max(0, grandTotal - parsedWalletAmountInCheckoutCurrency),
+                checkoutCurrency,
+                selectedCurrency,
+              )} will be charged to your card.
             </Text>
           </View>
         ) : null}
@@ -287,21 +310,23 @@ export default function CheckoutScreen() {
         <View style={styles.summarySection}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Items total</Text>
-            <Text style={styles.summaryValue}>{currencySymbol}{subtotal.toFixed(2)}</Text>
+            <Text style={styles.summaryValue}>{formatDisplayMoney(subtotal, checkoutCurrency, selectedCurrency)}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Shipping</Text>
-            <Text style={styles.summaryValue}>{currencySymbol}{deliveryTotal.toFixed(2)}</Text>
+            <Text style={styles.summaryValue}>{formatDisplayMoney(deliveryTotal, checkoutCurrency, selectedCurrency)}</Text>
           </View>
-          {paymentMethod === "wallet_stripe" && parsedWalletAmount > 0 ? (
+          {paymentMethod === "wallet_stripe" && parsedWalletAmountInCheckoutCurrency > 0 ? (
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Wallet applied</Text>
-              <Text style={[styles.summaryValue, { color: "#076B51" }]}>-{currencySymbol}{parsedWalletAmount.toFixed(2)}</Text>
+              <Text style={[styles.summaryValue, { color: "#076B51" }]}>
+                -{formatDisplayMoney(parsedWalletAmountInCheckoutCurrency, checkoutCurrency, selectedCurrency)}
+              </Text>
             </View>
           ) : null}
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Final total</Text>
-            <Text style={styles.totalValue}>{currencySymbol}{grandTotal.toFixed(2)}</Text>
+            <Text style={styles.totalValue}>{formatDisplayMoney(grandTotal, checkoutCurrency, selectedCurrency)}</Text>
           </View>
         </View>
 
@@ -334,6 +359,13 @@ export default function CheckoutScreen() {
           </View>
         </View>
       </Modal>
+
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -342,7 +374,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, gap: 12 },
   backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828" },
+  headerTitle: { flex: 1, fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828" },
+  currencyButton: { minWidth: 58, height: 38, borderRadius: 19, backgroundColor: "#EAF5F0", alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  currencyButtonText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#076B51" },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
   protectionBanner: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F4F4F4", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 24 },
   protectionText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#282828" },

@@ -1,14 +1,14 @@
 /**
  * Shared form for the four onboarding delivery-country screens
- * (UK / US / Canada / Europe). Pixel-matched to the provided screenshots.
+ * (UK / US / Canada / Europe).
  *
- * Captures the same fields, posts to `POST /api/vendors/me/delivery-zones`,
- * and routes to the next selected country (or to the summary).
+ * Vendors can choose either a weight-based fee or a flat delivery fee.
  */
 import React, { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+
 import {
   deliveryService,
   COUNTRY_CURRENCY,
@@ -40,15 +41,17 @@ interface Props {
   currencySymbol: string;
   title: string;
   saveLabel: string;
-  /** The label used by `useOnboardingStore.getNextDeliveryRoute(...)` */
   afterCountry: DeliveryCountry;
   onSaved: (nextRoute: string) => void;
   onBack: () => void;
 }
 
 const COST_PER_KG_OPTIONS = ["2", "3", "4", "5", "6", "7", "8", "10", "12", "15"];
+const FLAT_FEE_OPTIONS = ["5", "7", "10", "12", "15", "20", "25", "30"];
 const MAX_WEIGHT_OPTIONS = ["5", "10", "15", "20", "25", "30"];
-const DELIVERY_TIME_OPTIONS = ["1–2 days", "2–3 days", "3–5 days", "5–7 days", "7–10 days", "10–14 days"];
+const DELIVERY_TIME_OPTIONS = ["1-2 days", "2-3 days", "3-5 days", "5-7 days", "7-10 days", "10-14 days"];
+
+type PricingModel = "weight" | "flat";
 
 export default function DeliveryCountryForm({
   countryCode,
@@ -62,28 +65,39 @@ export default function DeliveryCountryForm({
 }: Props) {
   const { getNextDeliveryRoute } = useOnboardingStore();
 
+  const [pricingModel, setPricingModel] = useState<PricingModel>("weight");
   const [costPerKg, setCostPerKg] = useState("");
+  const [flatFee, setFlatFee] = useState("");
   const [minFee, setMinFee] = useState("");
   const [maxWeight, setMaxWeight] = useState("");
-  const [deliveryTime, setDeliveryTime] = useState("3–5 days");
+  const [deliveryTime, setDeliveryTime] = useState("3-5 days");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSave = async () => {
     setError("");
+
     const parsedCostPerKg = Number(costPerKg.replace(/[^\d.]/g, ""));
+    const parsedFlatFee = Number(flatFee.replace(/[^\d.]/g, ""));
     const parsedMinFee = Number(minFee.replace(/[^\d.]/g, ""));
     const parsedMaxWeight = Number(maxWeight.replace(/[^\d.]/g, ""));
 
-    if (!Number.isFinite(parsedCostPerKg) || parsedCostPerKg <= 0) {
+    if (pricingModel === "weight" && (!Number.isFinite(parsedCostPerKg) || parsedCostPerKg <= 0)) {
       setError("Please select a delivery cost per kg.");
       return;
     }
-    if (!Number.isFinite(parsedMinFee) || parsedMinFee < 0) {
+
+    if (pricingModel === "flat" && (!Number.isFinite(parsedFlatFee) || parsedFlatFee <= 0)) {
+      setError("Please select a flat delivery fee.");
+      return;
+    }
+
+    if (pricingModel === "weight" && (!Number.isFinite(parsedMinFee) || parsedMinFee < 0)) {
       setError("Please enter a minimum delivery fee.");
       return;
     }
+
     if (!Number.isFinite(parsedMaxWeight) || parsedMaxWeight <= 0) {
       setError("Please select the max order weight.");
       return;
@@ -95,13 +109,21 @@ export default function DeliveryCountryForm({
         country: countryLabel,
         countryCode,
         currency: COUNTRY_CURRENCY[countryCode],
-        costPerKg: parsedCostPerKg,
-        minimumFee: parsedMinFee,
+        costPerKg: pricingModel === "weight" ? parsedCostPerKg : 0,
+        minimumFee: pricingModel === "weight" ? parsedMinFee : parsedFlatFee,
         maxWeightKg: parsedMaxWeight,
         estimatedDays: deliveryTime,
-        notes: notes.trim() || undefined,
+        notes:
+          [
+            pricingModel === "flat" ? "Flat delivery fee enabled." : "Weight-based delivery fee enabled.",
+            notes.trim(),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .trim() || undefined,
         active: true,
       });
+
       onSaved(getNextDeliveryRoute(afterCountry));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save delivery zone. Please try again.");
@@ -119,7 +141,7 @@ export default function DeliveryCountryForm({
       >
         <OnboardingHeader
           activeSegments={6}
-          subtitle={"Buyer delivery cost will be calculated from\norder weight"}
+          subtitle={"Choose how you want buyers charged for\nthis delivery zone"}
           title={title}
         />
 
@@ -132,30 +154,69 @@ export default function DeliveryCountryForm({
             <Text style={styles.sectionTitle}>Delivery Setup</Text>
 
             <View style={styles.fieldGroup}>
+              <FieldLabel>Delivery pricing model</FieldLabel>
+              <View style={styles.modeRow}>
+                <ModeChip
+                  label="Weight based"
+                  selected={pricingModel === "weight"}
+                  onPress={() => {
+                    setPricingModel("weight");
+                    setError("");
+                  }}
+                />
+                <ModeChip
+                  label="Flat fee"
+                  selected={pricingModel === "flat"}
+                  onPress={() => {
+                    setPricingModel("flat");
+                    setError("");
+                  }}
+                />
+              </View>
+            </View>
+
+            <View style={styles.fieldGroup}>
               <FieldLabel>Delivery cost per kg</FieldLabel>
-              <SelectBox
-                value={costPerKg ? `${currencySymbol}${costPerKg}` : ""}
-                options={COST_PER_KG_OPTIONS.map((v) => `${currencySymbol}${v}`)}
-                onChange={(picked) => setCostPerKg(picked.replace(/[^\d.]/g, ""))}
-                title="Select cost per kg"
-                placeholder="Select"
-              />
+              {pricingModel === "weight" ? (
+                <SelectBox
+                  value={costPerKg ? `${currencySymbol}${costPerKg}` : ""}
+                  options={COST_PER_KG_OPTIONS.map((v) => `${currencySymbol}${v}`)}
+                  onChange={(picked) => setCostPerKg(picked.replace(/[^\d.]/g, ""))}
+                  title="Select cost per kg"
+                  placeholder="Select"
+                />
+              ) : (
+                <View style={styles.disabledField}>
+                  <Text style={styles.disabledFieldText}>Not used for flat-fee delivery</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.row}>
               <View style={styles.halfField}>
-                <FieldLabel>Minimum delivery fee</FieldLabel>
-                <View style={styles.input}>
-                  <TextInput
-                    keyboardType="decimal-pad"
-                    onChangeText={setMinFee}
-                    placeholder="0.00"
-                    placeholderTextColor="#858585"
-                    style={styles.inputText}
-                    value={minFee}
+                <FieldLabel>{pricingModel === "weight" ? "Minimum delivery fee" : "Flat delivery fee"}</FieldLabel>
+                {pricingModel === "weight" ? (
+                  <View style={styles.input}>
+                    <TextInput
+                      keyboardType="decimal-pad"
+                      onChangeText={setMinFee}
+                      placeholder="0.00"
+                      placeholderTextColor="#858585"
+                      style={styles.inputText}
+                      value={minFee}
+                    />
+                  </View>
+                ) : (
+                  <SelectBox
+                    value={flatFee ? `${currencySymbol}${flatFee}` : ""}
+                    options={FLAT_FEE_OPTIONS.map((v) => `${currencySymbol}${v}`)}
+                    onChange={(picked) => setFlatFee(picked.replace(/[^\d.]/g, ""))}
+                    title="Select flat delivery fee"
+                    placeholder="Select"
                   />
-                </View>
+                )}
               </View>
+
               <View style={styles.halfField}>
                 <FieldLabel>Max order weight</FieldLabel>
                 <SelectBox
@@ -184,7 +245,7 @@ export default function DeliveryCountryForm({
               <TextInput
                 multiline
                 onChangeText={setNotes}
-                placeholder="Optional note for buyers.."
+                placeholder="Optional note for buyers..."
                 placeholderTextColor="#858585"
                 style={styles.notes}
                 textAlignVertical="top"
@@ -212,6 +273,22 @@ export default function DeliveryCountryForm({
   );
 }
 
+function ModeChip({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={[styles.modeChip, selected && styles.modeChipActive]}>
+      <Text style={[styles.modeChipText, selected && styles.modeChipTextActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#076B51" },
   flex: { flex: 1 },
@@ -223,6 +300,29 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   fieldGroup: { marginBottom: 16 },
+  modeRow: { flexDirection: "row", gap: 10 },
+  modeChip: {
+    flex: 1,
+    height: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#DDE3DF",
+    backgroundColor: "#F4F4F4",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modeChipActive: {
+    backgroundColor: "#076B51",
+    borderColor: "#076B51",
+  },
+  modeChipText: {
+    color: "#4A4F54",
+    fontFamily: "Outfit-Medium",
+    fontSize: 14,
+  },
+  modeChipTextActive: {
+    color: "#FFFFFF",
+  },
   row: { flexDirection: "row", gap: 12, marginBottom: 16 },
   halfField: { flex: 1 },
   input: {
@@ -237,6 +337,18 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Regular",
     fontSize: 14,
   },
+  disabledField: {
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: "#ECEFEE",
+    paddingHorizontal: 18,
+    justifyContent: "center",
+  },
+  disabledFieldText: {
+    color: "#7A8084",
+    fontFamily: "Outfit-Regular",
+    fontSize: 14,
+  },
   notes: {
     minHeight: 110,
     borderRadius: 12,
@@ -247,6 +359,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 14,
   },
-  errorText: { color: "#FB6363", fontSize: 13, fontFamily: "Outfit-Regular", marginTop: -4, marginBottom: 8 },
+  errorText: {
+    color: "#FB6363",
+    fontSize: 13,
+    fontFamily: "Outfit-Regular",
+    marginTop: -4,
+    marginBottom: 8,
+  },
   buttons: { gap: 12 },
 });

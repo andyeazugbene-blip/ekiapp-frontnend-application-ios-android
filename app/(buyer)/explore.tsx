@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,26 +7,32 @@ import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { vendorService } from "../../services/vendorService";
 import { useCartStore } from "../../stores/cartStore";
+import { useCurrencyStore } from "../../stores/currencyStore";
 import { Product } from "../../types/product";
 import { VendorSummary } from "../../types/vendor";
 import { RemoteImage } from "../../components/ui/RemoteImage";
-
-const CURRENCY_SYMBOL: Record<string, string> = { GBP: "\u00A3", USD: "$", EUR: "\u20AC", NGN: "\u20A6" };
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
+import { formatDisplayMoney } from "../../utils/currency";
+import { goBackOrReplace } from "../../utils/navigation";
 
 export default function ExploreScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ search?: string; category?: string }>();
   const addItem = useCartStore((s) => s.addItem);
+  const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
+  const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
+  const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
   const [products, setProducts] = useState<Product[]>([]);
   const [vendors, setVendors] = useState<VendorSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(params.search ?? "");
+  const [currencyOpen, setCurrencyOpen] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadData = useCallback(async (query?: string) => {
     setLoading(true);
     const [prods, vends] = await Promise.all([
-      productService.getAll({ search: query || undefined, category: params.category || undefined }).catch(() => [] as Product[]),
+      productService.getAll({ category: params.category || undefined, limit: 80 }).catch(() => [] as Product[]),
       vendorService.getAllVendors().catch(() => [] as VendorSummary[]),
     ]);
     setProducts(prods ?? []);
@@ -50,6 +56,11 @@ export default function ExploreScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    const firstCurrency = products[0]?.currency;
+    ensureCurrency(firstCurrency).catch(() => undefined);
+  }, [ensureCurrency, products]);
+
   const handleSearch = (text: string) => {
     setSearch(text);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -71,18 +82,61 @@ export default function ExploreScreen() {
     router.push({ pathname: "/(buyer)/vendor-detail", params: { id: vendorId } } as any);
   };
 
-  const popular = (products ?? []).filter((p) => p && p.status === "active").slice(0, 8);
-  const bestSellers = (products ?? []).filter((p) => p && p.status === "active").slice(0, 6);
-  const vendorList = (vendors ?? []).slice(0, 5);
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredProducts = useMemo(
+    () =>
+      (products ?? []).filter((product) => {
+        if (!product || product.status !== "active") return false;
+        if (!normalizedSearch) return true;
+        const haystack = [
+          product.name,
+          product.category,
+          product.description,
+          product.vendorName,
+          product.vendorCity,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(normalizedSearch);
+      }),
+    [normalizedSearch, products],
+  );
+
+  const vendorList = useMemo(
+    () =>
+      (vendors ?? [])
+        .filter((vendor) => {
+          if (!normalizedSearch) return true;
+          const haystack = [
+            vendor.storeName,
+            vendor.description,
+            vendor.city,
+            vendor.country,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(normalizedSearch);
+        })
+        .slice(0, 5),
+    [normalizedSearch, vendors],
+  );
+
+  const popular = filteredProducts.slice(0, 8);
+  const bestSellers = filteredProducts.slice(0, 6);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/(buyer)" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Browse foodstuff</Text>
+        <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
+          <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search */}
@@ -104,7 +158,7 @@ export default function ExploreScreen() {
           <View style={{ paddingVertical: 60, alignItems: "center" }}>
             <ActivityIndicator color="#076B51" />
           </View>
-        ) : products.length === 0 && vendors.length === 0 ? (
+        ) : filteredProducts.length === 0 && vendorList.length === 0 ? (
           <View style={{ paddingVertical: 60, alignItems: "center" }}>
             <Ionicons name="search-outline" size={48} color="#858585" />
             <Text style={{ fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 }}>No products found</Text>
@@ -123,7 +177,6 @@ export default function ExploreScreen() {
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productScroll}>
                   {popular.map((product) => {
-                    const sym = CURRENCY_SYMBOL[product.currency] ?? "\u00A3";
                     return (
                       <TouchableOpacity
                         key={product.id}
@@ -144,7 +197,9 @@ export default function ExploreScreen() {
                           </TouchableOpacity>
                         </View>
                         <Text style={styles.productName} numberOfLines={1}>{product.name ?? "Product"}</Text>
-                        <Text style={styles.productPrice}>{sym}{(product.price ?? 0).toFixed(2)}</Text>
+                        <Text style={styles.productPrice}>
+                          {formatDisplayMoney(product.price ?? 0, product.currency, selectedCurrency)}
+                        </Text>
                         <TouchableOpacity
                           onPress={() => handleAddToCart(product)}
                           activeOpacity={0.85}
@@ -201,7 +256,6 @@ export default function ExploreScreen() {
                 <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Best Sellers</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productScroll}>
                   {bestSellers.map((product) => {
-                    const sym = CURRENCY_SYMBOL[product.currency] ?? "\u00A3";
                     return (
                       <TouchableOpacity
                         key={product.id}
@@ -222,7 +276,9 @@ export default function ExploreScreen() {
                           </TouchableOpacity>
                         </View>
                         <Text style={styles.productName} numberOfLines={1}>{product.name ?? "Product"}</Text>
-                        <Text style={styles.productPrice}>{sym}{(product.price ?? 0).toFixed(2)}</Text>
+                        <Text style={styles.productPrice}>
+                          {formatDisplayMoney(product.price ?? 0, product.currency, selectedCurrency)}
+                        </Text>
                         <TouchableOpacity
                           onPress={() => handleAddToCart(product)}
                           activeOpacity={0.85}
@@ -288,6 +344,13 @@ export default function ExploreScreen() {
           </>
         )}
       </ScrollView>
+
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -296,7 +359,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F9F9F9" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
   backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 20, fontFamily: "Manrope-Bold", color: "#282828" },
+  headerTitle: { flex: 1, fontSize: 20, fontFamily: "Manrope-Bold", color: "#282828" },
+  currencyButton: {
+    minWidth: 56,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#EAF5F0",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  currencyButtonText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#076B51" },
   searchBar: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, backgroundColor: "#FFFFFF", borderRadius: 12, height: 44, paddingHorizontal: 12, gap: 8, borderWidth: 1, borderColor: "#EEEEEE", marginBottom: 16 },
   searchInput: { flex: 1, fontSize: 13, fontFamily: "Outfit-Regular", color: "#282828" },
   scrollContent: { paddingBottom: 100 },

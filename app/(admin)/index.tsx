@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -8,8 +8,9 @@ import { vendorService } from "../../services/vendorService";
 import { type AdminDashboardData } from "../../types/vendor";
 import { RevenueChart, type RevenueDataPoint } from "../../components/vendor/RevenueChart";
 import { useAuthStore } from "../../stores/authStore";
-
-const CURRENCY_SYMBOL: Record<string, string> = { GBP: "GBP ", USD: "$", EUR: "EUR " };
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
+import { formatDisplayMoney, getCurrencySymbol } from "../../utils/currency";
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_GAP = 14;
 const HORIZONTAL_PADDING = 18;
@@ -24,6 +25,15 @@ export default function AdminDashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [signingOut, setSigningOut] = useState(false);
+  const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
+  const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
+  const hydrateCurrency = useCurrencyStore((s) => s.hydrate);
+  const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
+  const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
+
+  useEffect(() => {
+    void hydrateCurrency();
+  }, [hydrateCurrency]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,6 +47,7 @@ export default function AdminDashboardScreen() {
       setDashboard(d);
       setAnalytics(a);
       setSeries(s);
+      await ensureCurrency(a.revenue.currency);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load dashboard.");
     } finally {
@@ -50,9 +61,10 @@ export default function AdminDashboardScreen() {
     }, [load]),
   );
 
-  const symbol = CURRENCY_SYMBOL[analytics?.revenue.currency ?? "GBP"] ?? "GBP ";
+  const sourceCurrency = analytics?.revenue.currency ?? "GBP";
   const revenue = analytics?.revenue.total ?? dashboard?.totalRevenue ?? 0;
   const change = analytics?.revenue.change ?? 0;
+  const displayRevenue = formatDisplayMoney(revenue, sourceCurrency, selectedCurrency);
   const avgReviewTime =
     (analytics as any)?.verification?.averageReviewTime ??
     (dashboard as any)?.averageVerificationReviewTime ??
@@ -86,6 +98,13 @@ export default function AdminDashboardScreen() {
             <Text style={styles.headerTitle}>Platform overview</Text>
           </View>
           <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => setCurrencyModalVisible(true)}
+              activeOpacity={0.85}
+              style={[styles.actionButton, styles.currencyButton]}
+            >
+              <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push("/(admin)/settings" as any)}
               activeOpacity={0.85}
@@ -164,8 +183,7 @@ export default function AdminDashboardScreen() {
                   <Text style={styles.revenueLabel}>Revenue snapshot</Text>
                 </View>
                 <Text style={styles.revenueValue}>
-                  {symbol}
-                  {revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {displayRevenue}
                 </Text>
                 <View style={styles.revenueBadge}>
                   <Text style={styles.revenueBadgeText}>
@@ -176,7 +194,7 @@ export default function AdminDashboardScreen() {
               </View>
               {series.length > 0 ? (
                 <View style={styles.chartWrap}>
-                  <RevenueChart data={series} currencySymbol={symbol} trendPercent={change} />
+                  <RevenueChart data={series} currencySymbol={getCurrencySymbol(selectedCurrency)} trendPercent={change} />
                 </View>
               ) : (
                 <Ionicons name="trending-up-outline" size={80} color="rgba(255,255,255,0.18)" />
@@ -185,6 +203,12 @@ export default function AdminDashboardScreen() {
           </>
         )}
       </ScrollView>
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyModalVisible}
+        onClose={() => setCurrencyModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -222,6 +246,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  currencyButton: {
+    width: 72,
+  },
+  currencyButtonText: {
+    fontSize: 13,
+    fontFamily: "Manrope-Bold",
+    color: "#076B51",
   },
   scrollContent: { paddingHorizontal: 18, paddingBottom: 118 },
   placeholder: { paddingVertical: 80, alignItems: "center" },

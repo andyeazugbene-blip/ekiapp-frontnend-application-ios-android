@@ -6,6 +6,7 @@ import AdminLayout from "@/components/AdminLayout";
 import { Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader, downloadCsv } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
+import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
 import { adminAPI } from "@/lib/services/admin.api";
 import { disputesAPI } from "@/lib/services/disputes.api";
 import { ordersAPI } from "@/lib/services/orders.api";
@@ -45,6 +46,7 @@ export default function DashboardPage() {
   }, [loadDashboard]);
 
   const currency = orders[0]?.currency ?? "GBP";
+  const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency(currency);
   const activeOrders = orders.filter((order) => !["delivered", "cancelled", "refunded"].includes(order.status)).length || stats?.totalOrders || 0;
   const pendingDisputes = disputes.filter((dispute) => !dispute.resolvedAt && dispute.status.toLowerCase() !== "resolved").length;
   const pendingVerification = stats?.pendingApprovals ?? 0;
@@ -70,6 +72,17 @@ export default function DashboardPage() {
               actions={
                 <>
                   <Button variant="ghost" disabled><Icon name="calendar" /> Last 30 days</Button>
+                  <select
+                    value={selectedCurrency}
+                    onChange={(event) => setSelectedCurrency(event.target.value as (typeof SUPPORTED_CURRENCIES)[number])}
+                    className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none"
+                  >
+                    {SUPPORTED_CURRENCIES.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
                   <Button
                     onClick={() => downloadCsv("eki-dashboard-report.csv", [
                       { metric: "total_vendors", value: stats?.totalVendors ?? 0 },
@@ -124,7 +137,9 @@ export default function DashboardPage() {
                     <Icon name="analytics" className="h-8 w-8" />
                   </div>
                   <p className="mt-8 text-xl text-white/75">Revenue snapshot</p>
-                  <p className="mt-10 text-6xl font-light tracking-tight">{currency} {(stats?.totalRevenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                  <p className="mt-10 text-6xl font-light tracking-tight">
+                    {formatDisplayMoney(stats?.totalRevenue ?? 0, currency, selectedCurrency)}
+                  </p>
                   <div className="mt-8 inline-flex items-center gap-3 rounded-full bg-[#096B4A]/55 px-8 py-4 text-xl font-bold">
                     +12.5% this month <Icon name="arrow" className="h-5 w-5 -rotate-45" />
                   </div>

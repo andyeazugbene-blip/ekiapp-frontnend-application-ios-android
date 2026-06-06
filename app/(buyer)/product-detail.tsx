@@ -9,19 +9,14 @@ import { deliveryService } from "../../services/deliveryService";
 import { matchesDeliveryZoneCountry } from "../../services/deliveryService";
 import { useCartStore } from "../../stores/cartStore";
 import { useAuthStore } from "../../stores/authStore";
+import { useCurrencyStore } from "../../stores/currencyStore";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { type Product, type Review } from "../../types/product";
 import { openConversationThread } from "../../utils/messaging";
 import { vendorService } from "../../services/vendorService";
 import { goBackOrReplace } from "../../utils/navigation";
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "\u00A3",
-  USD: "$",
-  EUR: "\u20AC",
-  NGN: "\u20A6",
-  CAD: "C$",
-};
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
+import { formatDisplayMoney } from "../../utils/currency";
 
 export default function ProductDetailScreen() {
   const router = useRouter();
@@ -31,12 +26,16 @@ export default function ProductDetailScreen() {
     const user = s.user;
     return user && "country" in user ? user.country : undefined;
   });
+  const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
+  const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
+  const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
 
   const [product, setProduct] = useState<Product | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [estimatedDays, setEstimatedDays] = useState("Calculated at checkout");
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -70,6 +69,10 @@ export default function ProductDetailScreen() {
       cancelled = true;
     };
   }, [buyerCountry, id]);
+
+  useEffect(() => {
+    ensureCurrency(product?.currency).catch(() => undefined);
+  }, [ensureCurrency, product?.currency]);
 
   const ratingText = useMemo(() => {
     if (reviews.length === 0) return "No reviews yet";
@@ -140,8 +143,6 @@ export default function ProductDetailScreen() {
     );
   }
 
-  const symbol = CURRENCY_SYMBOL[product.currency] ?? "\u00A3";
-
   return (
     <View style={styles.container}>
       <View style={styles.hero}>
@@ -160,12 +161,15 @@ export default function ProductDetailScreen() {
         <View style={styles.heroCopy}>
           <Text style={styles.productName}>{product.name}</Text>
           <View style={styles.heroMetaRow}>
-            <Text style={styles.priceText}>{symbol}{product.price.toFixed(2)}</Text>
+            <Text style={styles.priceText}>{formatDisplayMoney(product.price, product.currency, selectedCurrency)}</Text>
             <View style={styles.ratingRow}>
               <Text style={styles.ratingText}>{ratingText}</Text>
               {reviews.length > 0 ? <Ionicons name="star" size={18} color="#F4B400" /> : null}
             </View>
           </View>
+          <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.86} style={styles.currencyBadge}>
+            <Text style={styles.currencyBadgeText}>{selectedCurrency}</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -258,6 +262,13 @@ export default function ProductDetailScreen() {
           <Ionicons name="cart-outline" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       </SafeAreaView>
+
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+      />
     </View>
   );
 }
@@ -331,6 +342,19 @@ const styles = StyleSheet.create({
     left: 24,
     right: 24,
     bottom: 34,
+  },
+  currencyBadge: {
+    alignSelf: "flex-start",
+    marginTop: 14,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  currencyBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontFamily: "Manrope-Bold",
   },
   productName: {
     color: "#FFFFFF",

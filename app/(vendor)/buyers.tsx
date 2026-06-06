@@ -4,12 +4,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { buyerService, type VendorBuyerSummary } from "../../services/buyerService";
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "£",
-  USD: "$",
-  EUR: "\u20AC",
-};
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
+import { formatDisplayMoney } from "../../utils/currency";
 
 function formatLastOrder(value: string | null): string {
   if (!value) return "No orders yet";
@@ -26,6 +23,10 @@ export default function BuyersScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const selectedCurrency = useCurrencyStore((state) => state.selectedCurrency);
+  const ensureCurrency = useCurrencyStore((state) => state.ensureCurrency);
+  const setSelectedCurrency = useCurrencyStore((state) => state.setSelectedCurrency);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,6 +47,10 @@ export default function BuyersScreen() {
     }, [load])
   );
 
+  React.useEffect(() => {
+    ensureCurrency(buyers[0]?.currency).catch(() => undefined);
+  }, [buyers, ensureCurrency]);
+
   const filtered = (buyers ?? []).filter((b) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
@@ -60,6 +65,9 @@ export default function BuyersScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your buyers</Text>
+        <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
+          <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+        </TouchableOpacity>
         <Text style={styles.headerSubtitle}>View your buyers, track orders, and understand their purchase behavior.</Text>
       </View>
 
@@ -94,7 +102,6 @@ export default function BuyersScreen() {
         ) : null}
 
         {!loading && filtered.map((buyer) => {
-          const symbol = CURRENCY_SYMBOL[buyer.currency] ?? "\u00A3";
           return (
             <View key={buyer.id} style={styles.buyerCard}>
               <View style={styles.buyerTop}>
@@ -123,7 +130,7 @@ export default function BuyersScreen() {
                 </View>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Total spent</Text>
-                  <Text style={styles.detailValue}>{symbol}{buyer.totalSpent.toFixed(2)}</Text>
+                  <Text style={styles.detailValue}>{formatDisplayMoney(buyer.totalSpent, buyer.currency, selectedCurrency)}</Text>
                 </View>
               </View>
 
@@ -140,6 +147,13 @@ export default function BuyersScreen() {
           );
         })}
       </ScrollView>
+
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -148,6 +162,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
   header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 20, paddingBottom: 28, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
   headerTitle: { fontSize: 26, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  currencyButton: { position: "absolute", right: 20, top: 18, minWidth: 58, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  currencyButtonText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   headerSubtitle: { fontSize: 13, fontFamily: "Outfit-Light", color: "rgba(255,255,255,0.8)", marginTop: 6, lineHeight: 18 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 100 },
   sectionTitle: { fontSize: 18, fontFamily: "Manrope-Bold", color: "#282828", marginBottom: 12 },

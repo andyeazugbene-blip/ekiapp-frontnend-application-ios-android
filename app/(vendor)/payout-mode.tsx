@@ -33,7 +33,7 @@ export default function PayoutModeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.replace("/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={22} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Payout Settings</Text>

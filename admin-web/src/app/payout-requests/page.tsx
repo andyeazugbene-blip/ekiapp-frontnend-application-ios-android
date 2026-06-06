@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { API2FARequiredError, APIError } from "@/lib/api";
+import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
 import { payoutRequestsAPI } from "@/lib/services/payout-requests.api";
 import { vendorsAPI } from "@/lib/services/vendors.api";
 import { AdminPayoutRequest, Vendor } from "@/types";
@@ -22,6 +23,7 @@ export default function PayoutRequestsPage() {
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [rejectingRequest, setRejectingRequest] = useState<AdminPayoutRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency(items[0]?.currency ?? "GBP");
 
   const vendorNameMap = useMemo(
     () =>
@@ -135,18 +137,36 @@ export default function PayoutRequestsPage() {
           ) : null}
 
           <section className="rounded-lg bg-white p-4 shadow">
-            <label className="mb-2 block text-sm font-medium text-gray-700">Filter by status</label>
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as PayoutStatusFilter)}
-              className="max-w-xs rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-            >
-              <option value="ALL">All</option>
-              <option value="PENDING">Pending</option>
-              <option value="APPROVED">Approved</option>
-              <option value="REJECTED">Rejected</option>
-              <option value="PAID">Paid</option>
-            </select>
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Filter by status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value as PayoutStatusFilter)}
+                  className="max-w-xs rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                >
+                  <option value="ALL">All</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="REJECTED">Rejected</option>
+                  <option value="PAID">Paid</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Display Currency</label>
+                <select
+                  value={selectedCurrency}
+                  onChange={(event) => setSelectedCurrency(event.target.value as (typeof SUPPORTED_CURRENCIES)[number])}
+                  className="max-w-xs rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                >
+                  {SUPPORTED_CURRENCIES.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </section>
 
           <section className="rounded-lg bg-white p-6 shadow">
@@ -177,7 +197,7 @@ export default function PayoutRequestsPage() {
                             <div className="text-xs text-gray-500">{vendorMeta?.ownerName ?? "Unknown owner"}</div>
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
-                            {item.currency} {item.amount.toFixed(2)}
+                            {formatDisplayMoney(item.amount, item.currency, selectedCurrency)}
                           </td>
                           <td className="px-4 py-3 text-sm">
                             <span

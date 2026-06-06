@@ -5,7 +5,7 @@
  * state, not seeded local examples.
  */
 import { Order, OrderStatus, PayoutMode, VendorEarnings } from "../types/order";
-import { apiClient, ApiRequestError } from "./api";
+import { apiClient } from "./api";
 import {
   normalizeDashboardEarnings,
   normalizeOrder,
@@ -122,23 +122,42 @@ export const orderService = {
         { status: toBackendOrderStatus(status), ...meta },
       );
       return normalizeOrder(response.order);
-    } catch (err) {
-      const canRetryAsProcessing =
-        status === "confirmed" &&
-        (err instanceof ApiRequestError
-          ? [400, 404, 405, 409, 422].includes(err.status)
-          : true);
-
-      if (!canRetryAsProcessing) {
-        throw err;
+    } catch (error) {
+      if (status === "confirmed" || status === "processing") {
+        try {
+          const latest = await orderService.getVendorOrderById(orderId);
+          if (latest.status === status || (status === "confirmed" && latest.status === "processing")) {
+            return latest;
+          }
+        } catch {
+          // Ignore refresh failures and rethrow the original mutation error below.
+        }
       }
-
-      const response = await apiClient.patch<OrderResponse>(
-        `/api/vendors/me/orders/${orderId}/status`,
-        { status: toBackendOrderStatus("processing"), ...meta },
-      );
-      return normalizeOrder(response.order);
+      throw error;
     }
+  },
+
+  async acceptVendorOrder(orderId: string): Promise<Order> {
+    const attempts: OrderStatus[] = ["confirmed", "processing"];
+    let lastError: unknown = null;
+
+    for (const status of attempts) {
+      try {
+        return await orderService.updateOrderStatus(orderId, status);
+      } catch (error) {
+        lastError = error;
+        try {
+          const latest = await orderService.getVendorOrderById(orderId);
+          if (latest.status === "confirmed" || latest.status === "processing") {
+            return latest;
+          }
+        } catch {
+          // Ignore refresh failures and keep trying the next compatible state.
+        }
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error("Could not accept order.");
   },
 
   async confirmBuyerDelivery(orderId: string, code: string): Promise<ConfirmDeliveryResponse> {

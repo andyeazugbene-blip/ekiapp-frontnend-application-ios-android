@@ -1,12 +1,14 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { adminService, type AdminAnalytics } from "../../services/adminService";
 import type { Product } from "../../types/product";
 import type { VendorSummary } from "../../types/vendor";
 import { isEuropeanCountry } from "../../services/deliveryService";
+import { useCurrencyStore } from "../../stores/currencyStore";
 
 type CategoryInsight = { label: string; value: number; color: string };
 type CountryInsight = { label: string; percent: number };
@@ -92,6 +94,15 @@ export default function AdminAnalyticsScreen() {
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
   const [vendors, setVendors] = useState<VendorSummary[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
+  const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
+  const hydrateCurrency = useCurrencyStore((s) => s.hydrate);
+  const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
+  const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
+
+  useEffect(() => {
+    void hydrateCurrency();
+  }, [hydrateCurrency]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,6 +116,7 @@ export default function AdminAnalyticsScreen() {
       setAnalytics(nextAnalytics);
       setVendors(nextVendors);
       setProducts(nextProducts);
+      await ensureCurrency(nextAnalytics.revenue.currency);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load analytics.");
     } finally {
@@ -131,7 +143,12 @@ export default function AdminAnalyticsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.headerTitle}>Marketplace analytics</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Marketplace analytics</Text>
+          <TouchableOpacity onPress={() => setCurrencyModalVisible(true)} activeOpacity={0.85} style={styles.currencyButton}>
+            <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+          </TouchableOpacity>
+        </View>
 
         {loading ? (
           <View style={styles.stateCard}>
@@ -227,6 +244,12 @@ export default function AdminAnalyticsScreen() {
           </>
         )}
       </ScrollView>
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyModalVisible}
+        onClose={() => setCurrencyModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -238,13 +261,16 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 118,
   },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 18 },
   headerTitle: {
     fontSize: 30,
     lineHeight: 36,
     fontFamily: "Manrope-ExtraBold",
     color: "#282828",
-    marginBottom: 18,
+    flex: 1,
   },
+  currencyButton: { minWidth: 66, height: 36, borderRadius: 18, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", paddingHorizontal: 12, borderWidth: 1, borderColor: "#E6ECE8" },
+  currencyButtonText: { color: "#0A6C52", fontSize: 12, fontFamily: "Manrope-Bold" },
   stateCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 28,

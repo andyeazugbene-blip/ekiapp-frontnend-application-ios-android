@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { productsAPI } from "@/lib/services/products.api";
+import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
 import { Product } from "@/types";
 import { APIError } from "@/lib/api";
 
@@ -12,6 +13,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency(products[0]?.currency ?? "GBP");
 
   const loadProducts = useCallback(async () => {
     try {
@@ -64,17 +66,33 @@ export default function ProductsPage() {
             </div>
           )}
 
-          <div className="bg-white p-4 rounded-lg shadow">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-            >
-              <option value="all">All Products</option>
-              <option value="active">Active</option>
-              <option value="disabled">Disabled</option>
-            </select>
+          <div className="bg-white p-4 rounded-lg shadow flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+              >
+                <option value="all">All Products</option>
+                <option value="active">Active</option>
+                <option value="disabled">Disabled</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Display Currency</label>
+              <select
+                value={selectedCurrency}
+                onChange={(event) => setSelectedCurrency(event.target.value as (typeof SUPPORTED_CURRENCIES)[number])}
+                className="w-full md:w-40 px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+              >
+                {SUPPORTED_CURRENCIES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -100,7 +118,7 @@ export default function ProductsPage() {
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{product.title}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{product.vendorName || "N/A"}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {product.currency} {product.price.toFixed(2)}
+                        {formatDisplayMoney(product.price, product.currency, selectedCurrency)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">{product.stock}</td>
                       <td className="px-6 py-4 text-sm">

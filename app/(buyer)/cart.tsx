@@ -6,14 +6,9 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { TAB_BAR_RESERVED_SPACE } from "../../components/layout/tabBarConstants";
 import { useCartStore } from "../../stores/cartStore";
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "\u00A3",
-  USD: "$",
-  EUR: "\u20AC",
-  NGN: "\u20A6",
-  CAD: "C$",
-};
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
+import { formatDisplayMoney } from "../../utils/currency";
 
 export default function CartScreen() {
   const router = useRouter();
@@ -30,6 +25,10 @@ export default function CartScreen() {
   const calculateDelivery = useCartStore((state) => state.calculateDelivery);
   const deliveryCountry = useCartStore((state) => state.deliveryCountry);
   const syncWithServer = useCartStore((state) => state.syncWithServer);
+  const selectedCurrency = useCurrencyStore((state) => state.selectedCurrency);
+  const ensureCurrency = useCurrencyStore((state) => state.ensureCurrency);
+  const setSelectedCurrency = useCurrencyStore((state) => state.setSelectedCurrency);
+  const [currencyOpen, setCurrencyOpen] = React.useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -42,7 +41,10 @@ export default function CartScreen() {
 
   const totalWeight = items.reduce((sum, item) => sum + (item.product.weight ?? 0) * item.quantity, 0);
   const checkoutCurrency = items[0]?.product.currency ?? "GBP";
-  const currencySymbol = CURRENCY_SYMBOL[checkoutCurrency] ?? "\u00A3";
+
+  React.useEffect(() => {
+    ensureCurrency(checkoutCurrency).catch(() => undefined);
+  }, [checkoutCurrency, ensureCurrency]);
 
   const handleQuantityChange = (productId: string, quantity: number) => {
     updateQuantity(productId, quantity).catch((err) => {
@@ -57,6 +59,9 @@ export default function CartScreen() {
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Your cart</Text>
+        <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
+          <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -92,8 +97,7 @@ export default function CartScreen() {
               <View key={group.vendorId} style={styles.vendorSection}>
                 <Text style={styles.vendorName}>{group.vendorName || "Vendor"}</Text>
                 <Text style={styles.vendorMeta}>
-                  {group.items.length} item{group.items.length === 1 ? "" : "s"} · {currencySymbol}
-                  {group.subtotal.toFixed(2)}
+                  {group.items.length} item{group.items.length === 1 ? "" : "s"} · {formatDisplayMoney(group.subtotal, checkoutCurrency, selectedCurrency)}
                 </Text>
 
                 {group.items.map((item) => (
@@ -106,10 +110,7 @@ export default function CartScreen() {
                     <View style={styles.itemInfo}>
                       <Text style={styles.itemName}>{item.product.name}</Text>
                       <Text style={styles.itemCategory}>{item.product.category || group.vendorName}</Text>
-                      <Text style={styles.itemPrice}>
-                        {currencySymbol}
-                        {item.product.price.toFixed(2)}
-                      </Text>
+                      <Text style={styles.itemPrice}>{formatDisplayMoney(item.product.price, item.product.currency, selectedCurrency)}</Text>
                     </View>
                     <View style={styles.qtyControl}>
                       <TouchableOpacity
@@ -141,8 +142,7 @@ export default function CartScreen() {
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Total item price</Text>
                 <Text style={styles.summaryValue}>
-                  {currencySymbol}
-                  {subtotal.toFixed(2)}
+                  {formatDisplayMoney(subtotal, checkoutCurrency, selectedCurrency)}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
@@ -160,16 +160,12 @@ export default function CartScreen() {
               <View style={[styles.summaryRow, styles.summaryRowBorder]}>
                 <Text style={styles.summaryLabel}>Shipping cost</Text>
                 <Text style={styles.summaryValue}>
-                  {currencySymbol}
-                  {deliveryTotal.toFixed(2)}
+                  {formatDisplayMoney(deliveryTotal, checkoutCurrency, selectedCurrency)}
                 </Text>
               </View>
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>
-                  {currencySymbol}
-                  {grandTotal.toFixed(2)}
-                </Text>
+                <Text style={styles.totalValue}>{formatDisplayMoney(grandTotal, checkoutCurrency, selectedCurrency)}</Text>
               </View>
             </View>
           </>
@@ -180,10 +176,7 @@ export default function CartScreen() {
         <View style={styles.bottomSummaryRow}>
           <View>
             <Text style={styles.bottomSummaryLabel}>Ready to checkout</Text>
-            <Text style={styles.bottomSummaryValue}>
-              {totalItems} items · {currencySymbol}
-              {grandTotal.toFixed(2)}
-            </Text>
+            <Text style={styles.bottomSummaryValue}>{totalItems} items · {formatDisplayMoney(grandTotal, checkoutCurrency, selectedCurrency)}</Text>
           </View>
           <Ionicons name="arrow-forward-circle" size={28} color="#076B51" />
         </View>
@@ -196,6 +189,13 @@ export default function CartScreen() {
           <Text style={styles.checkoutText}>Proceed to Checkout</Text>
         </TouchableOpacity>
       </View>
+
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -204,7 +204,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, gap: 12 },
   backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828" },
+  headerTitle: { flex: 1, fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828" },
+  currencyButton: { minWidth: 58, height: 38, borderRadius: 19, backgroundColor: "#EAF5F0", alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  currencyButtonText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#076B51" },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
   stateWrap: { paddingVertical: 60, alignItems: "center" },
   emptyTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 },

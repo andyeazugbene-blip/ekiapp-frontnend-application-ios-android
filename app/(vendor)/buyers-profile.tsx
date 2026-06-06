@@ -14,14 +14,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { buyerService, type VendorBuyerProfile } from "../../services/buyerService";
 import { Order } from "../../types/order";
+import { useCurrencyStore } from "../../stores/currencyStore";
 import { openConversationThread } from "../../utils/messaging";
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "\u00A3",
-  USD: "$",
-  EUR: "\u20AC",
-  NGN: "\u20A6",
-};
+import { formatDisplayMoney } from "../../utils/currency";
 
 function formatDate(value: string | null | undefined, fallback = "No date"): string {
   if (!value) return fallback;
@@ -91,6 +86,8 @@ export default function BuyerProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [startingChat, setStartingChat] = useState(false);
+  const selectedCurrency = useCurrencyStore((state) => state.selectedCurrency);
+  const ensureCurrency = useCurrencyStore((state) => state.ensureCurrency);
 
   useEffect(() => {
     if (!resolvedBuyerId) {
@@ -116,10 +113,13 @@ export default function BuyerProfileScreen() {
     };
   }, [resolvedBuyerId]);
 
-  const symbol = CURRENCY_SYMBOL[profile?.currency ?? "GBP"] ?? "\u00A3";
+  useEffect(() => {
+    ensureCurrency(profile?.currency).catch(() => undefined);
+  }, [ensureCurrency, profile?.currency]);
+
   const recentOrders = profile?.recentOrders ?? [];
   const mostRecent = recentOrders[0];
-  const totalSpentText = `${symbol}${(profile?.totalSpent ?? 0).toFixed(2)}`;
+  const totalSpentText = formatDisplayMoney(profile?.totalSpent ?? 0, profile?.currency, selectedCurrency);
   const lastOrderText = formatDate(profile?.lastOrderAt, "No orders yet");
   const joinedText = formatDate(profile?.joinedAt, "Unknown");
   const topProductText = profile?.topProductName?.trim() || "Not enough data yet";
@@ -252,7 +252,7 @@ export default function BuyerProfileScreen() {
                   </Text>
                 </View>
                 <Text style={[styles.orderAmount, index === 0 && styles.orderAmountInverse]}>
-                  {symbol}{order.total.toFixed(2)}
+                  {formatDisplayMoney(order.total, order.currency, selectedCurrency)}
                 </Text>
               </View>
 

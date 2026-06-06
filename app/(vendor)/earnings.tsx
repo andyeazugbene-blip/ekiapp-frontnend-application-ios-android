@@ -5,15 +5,9 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { payoutService } from "../../services/payoutService";
 import { VendorEarnings, Payout } from "../../types/order";
-
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "£",
-  USD: "$",
-  EUR: "€",
-  NGN: "₦",
-  GHS: "GH₵",
-  KES: "KSh",
-};
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
+import { formatDisplayMoney } from "../../utils/currency";
 
 function formatPayoutDate(value: string): string {
   try {
@@ -30,6 +24,10 @@ export default function EarningsScreen() {
   const [error, setError] = useState("");
   const [payoutsOpen, setPayoutsOpen] = useState(true);
   const [modeOpen, setModeOpen] = useState(true);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const selectedCurrency = useCurrencyStore((state) => state.selectedCurrency);
+  const ensureCurrency = useCurrencyStore((state) => state.ensureCurrency);
+  const setSelectedCurrency = useCurrencyStore((state) => state.setSelectedCurrency);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,13 +48,15 @@ export default function EarningsScreen() {
     }, [load]),
   );
 
-
-  const symbol = CURRENCY_SYMBOL[earnings?.currency ?? "GBP"] ?? "£";
   const available = earnings?.availableBalance ?? 0;
   const pending = earnings?.pendingPayout ?? 0;
   const recentPayouts: Payout[] = earnings?.recentPayouts ?? [];
   const payoutEligible = available > 0;
   const payoutModeLabel = earnings?.payoutMode === "weekly" ? "Weekly release" : "Per order release";
+
+  React.useEffect(() => {
+    ensureCurrency(earnings?.currency).catch(() => undefined);
+  }, [earnings?.currency, ensureCurrency]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -65,12 +65,12 @@ export default function EarningsScreen() {
           <View style={styles.earningsLabel}>
             <Text style={styles.earningsLabelText}>Your Earnings</Text>
           </View>
-          <TouchableOpacity activeOpacity={0.85} style={styles.walletButton} onPress={() => router.push("/(vendor)/payout-mode" as any)}>
-            <Ionicons name="card" size={18} color="#FFFFFF" />
+          <TouchableOpacity activeOpacity={0.85} style={styles.walletButton} onPress={() => setCurrencyOpen(true)}>
+            <Text style={styles.walletButtonText}>{selectedCurrency}</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.balanceLabel}>Available Balance</Text>
-        <Text style={styles.balanceValue}>{symbol}{available.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+        <Text style={styles.balanceValue}>{formatDisplayMoney(available, earnings?.currency, selectedCurrency)}</Text>
         <View style={styles.readyBadge}>
           <Text style={styles.readyBadgeText}>{payoutEligible ? "Eligible for release" : "Waiting for release"}</Text>
         </View>
@@ -90,7 +90,7 @@ export default function EarningsScreen() {
                 <Text style={styles.pendingLabel}>Pending Balance</Text>
                 <Ionicons name="time-outline" size={18} color="#FFFFFF" />
               </View>
-              <Text style={styles.pendingValue}>{symbol}{pending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+              <Text style={styles.pendingValue}>{formatDisplayMoney(pending, earnings?.currency, selectedCurrency)}</Text>
               <View style={styles.progressBarWrapper}>
                 <View style={styles.progressBarTrack} />
                 <View style={[styles.progressBarFill, { width: pending > 0 ? "75%" : "0%" }]} />
@@ -114,14 +114,13 @@ export default function EarningsScreen() {
                     <Text style={styles.emptyText}>No payouts yet — request a payout when your available balance is ready.</Text>
                   ) : (
                     recentPayouts.map((payout) => {
-                      const payoutSymbol = CURRENCY_SYMBOL[payout.currency] ?? "£";
                       return (
                         <View key={payout.id} style={styles.payoutItem}>
                           <View style={styles.payoutLeft}>
                             <View style={styles.payoutIconWrap}>
                               <Ionicons name="checkmark" size={16} color="#076B51" />
                             </View>
-                            <Text style={styles.payoutAmount}>{payoutSymbol}{payout.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                            <Text style={styles.payoutAmount}>{formatDisplayMoney(payout.amount, payout.currency, selectedCurrency)}</Text>
                           </View>
                           <View style={styles.payoutRight}>
                             <Text style={styles.payoutStatus}>{payout.status.replace(/\b\w/g, (char) => char.toUpperCase())}</Text>
@@ -179,6 +178,13 @@ export default function EarningsScreen() {
           </>
         )}
       </ScrollView>
+
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -190,6 +196,7 @@ const styles = StyleSheet.create({
   earningsLabel: { backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 },
   earningsLabelText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#FFFFFF" },
   walletButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center" },
+  walletButtonText: { fontSize: 11, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   balanceLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.55)" },
   balanceValue: { fontSize: 34, fontFamily: "Manrope-Bold", color: "#FFFFFF", marginTop: 4 },
   readyBadge: { backgroundColor: "rgba(7,107,81,0.18)", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 5, alignSelf: "flex-start", marginTop: 10 },

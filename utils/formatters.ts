@@ -1,22 +1,14 @@
+import { formatMoney, normalizeCurrencyCode } from "./currency";
+
 export function formatCurrency(
   amount: number,
-  currency: "GBP" | "USD" | "EUR" | "NGN" = "GBP"
+  currency: string = "GBP"
 ): string {
-  const symbols: Record<string, string> = {
-    GBP: "£",
-    USD: "$",
-    EUR: "€",
-    NGN: "₦",
-  };
-  const symbol = symbols[currency] ?? currency;
-  return `${symbol}${amount.toLocaleString("en-GB", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatMoney(amount, normalizeCurrencyCode(currency));
 }
 
 export function formatNaira(amount: number): string {
-  return `₦${amount.toLocaleString("en-NG")}`;
+  return formatMoney(amount, "NGN", 0);
 }
 
 export function formatDate(iso: string, style: "short" | "long" | "relative" = "short"): string {

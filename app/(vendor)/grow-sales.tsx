@@ -59,7 +59,7 @@ export default function GrowSalesScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header section with curves */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.replace("/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#076B51" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Grow your sales</Text>

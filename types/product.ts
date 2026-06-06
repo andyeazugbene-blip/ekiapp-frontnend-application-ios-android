@@ -5,7 +5,7 @@ export interface Product {
   name: string;
   description: string;
   price: number;
-  currency: "GBP" | "USD" | "EUR" | "NGN";
+  currency: "GBP" | "USD" | "EUR" | "NGN" | "GHS" | "KES" | "CAD";
   priceNgn?: number;
   images: string[];
   category: string;

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
 import { ordersAPI } from "@/lib/services/orders.api";
 import { Order } from "@/types";
 import { APIError, API2FARequiredError } from "@/lib/api";
@@ -24,6 +25,7 @@ export default function OrderDetailPage() {
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundError, setRefundError] = useState("");
   const [refundSuccess, setRefundSuccess] = useState(false);
+  const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency(order?.currency ?? "GBP");
 
   const loadOrder = useCallback(async () => {
     try {
@@ -150,6 +152,17 @@ export default function OrderDetailPage() {
               <p className="mt-1 text-sm text-gray-600">Order ID: {order.id}</p>
             </div>
             <div className="flex space-x-3">
+              <select
+                value={selectedCurrency}
+                onChange={(event) => setSelectedCurrency(event.target.value as (typeof SUPPORTED_CURRENCIES)[number])}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900"
+              >
+                {SUPPORTED_CURRENCIES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
               {order.status !== "refunded" && order.status !== "cancelled" && (
                 <button
                   onClick={() => setShowRefundModal(true)}
@@ -181,7 +194,7 @@ export default function OrderDetailPage() {
               <h2 className="text-lg font-semibold text-gray-900">Order Information</h2>
               <div className="space-y-3">
                 <InfoRow label="Status" value={<StatusBadge status={order.status} />} />
-                <InfoRow label="Total Amount" value={`${order.currency} ${order.totalAmount.toFixed(2)}`} />
+                <InfoRow label="Total Amount" value={formatDisplayMoney(order.totalAmount, order.currency, selectedCurrency)} />
                 <InfoRow label="Payment Status" value={order.paymentStatus || "N/A"} />
                 <InfoRow label="Order Date" value={new Date(order.createdAt).toLocaleString()} />
               </div>
@@ -216,10 +229,10 @@ export default function OrderDetailPage() {
                         <td className="px-4 py-3 text-sm text-gray-900">{item.productTitle}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{item.quantity}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">
-                          {order.currency} {item.price.toFixed(2)}
+                          {formatDisplayMoney(item.price, order.currency, selectedCurrency)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">
-                          {order.currency} {item.totalAmount.toFixed(2)}
+                          {formatDisplayMoney(item.totalAmount, order.currency, selectedCurrency)}
                         </td>
                       </tr>
                     ))}
@@ -246,7 +259,7 @@ export default function OrderDetailPage() {
                 <input
                   type="number"
                   step="0.01"
-                  placeholder={`Full amount: ${order.totalAmount.toFixed(2)}`}
+                  placeholder={`Full amount: ${formatDisplayMoney(order.totalAmount, order.currency, selectedCurrency)}`}
                   value={refundAmount}
                   onChange={(e) => setRefundAmount(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-gray-900"

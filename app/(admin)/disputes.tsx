@@ -1,9 +1,12 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { adminService, type AdminDispute, type AdminEscrowHealth, type AdminUser } from "../../services/adminService";
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { formatDisplayMoney } from "../../utils/currency";
 
 function formatDateTime(value?: string) {
   if (!value) return "Awaiting review";
@@ -17,8 +20,8 @@ function formatDateTime(value?: string) {
   });
 }
 
-function formatSummaryAmount(value: number, currency = "GBP") {
-  return `${currency.toUpperCase()} ${(value / 100).toFixed(2)}`;
+function formatSummaryAmount(value: number, sourceCurrency: string, displayCurrency: string) {
+  return formatDisplayMoney(value, sourceCurrency, displayCurrency);
 }
 
 function toTitleCase(value: string) {
@@ -50,6 +53,15 @@ export default function AdminDisputesScreen() {
   const [disputes, setDisputes] = useState<AdminDispute[]>([]);
   const [escrowHealth, setEscrowHealth] = useState<AdminEscrowHealth | null>(null);
   const [buyers, setBuyers] = useState<AdminUser[]>([]);
+  const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
+  const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
+  const hydrateCurrency = useCurrencyStore((s) => s.hydrate);
+  const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
+  const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
+
+  useEffect(() => {
+    void hydrateCurrency();
+  }, [hydrateCurrency]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,6 +75,9 @@ export default function AdminDisputesScreen() {
       setDisputes(nextDisputes);
       setEscrowHealth(nextHealth);
       setBuyers(nextBuyers);
+      if (nextHealth?.currency) {
+        await ensureCurrency(nextHealth.currency);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load disputes.");
     } finally {
@@ -97,6 +112,9 @@ export default function AdminDisputesScreen() {
           <Ionicons name="arrow-back" size={22} color="#0A6C52" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Disputes</Text>
+        <TouchableOpacity onPress={() => setCurrencyModalVisible(true)} activeOpacity={0.85} style={styles.currencyButton}>
+          <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -184,7 +202,11 @@ export default function AdminDisputesScreen() {
             label="Payments on hold"
             value={String(paymentsOnHold).padStart(2, "0")}
             tone="soft"
-            footer={escrowHealth ? formatSummaryAmount(escrowHealth.outstandingAmount, escrowHealth.currency) : undefined}
+            footer={
+              escrowHealth
+                ? formatSummaryAmount(escrowHealth.outstandingAmount, escrowHealth.currency, selectedCurrency)
+                : undefined
+            }
           />
           <SummaryCard
             icon="rocket-outline"
@@ -194,6 +216,12 @@ export default function AdminDisputesScreen() {
           />
         </View>
       </ScrollView>
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyModalVisible}
+        onClose={() => setCurrencyModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -303,7 +331,20 @@ const styles = StyleSheet.create({
     lineHeight: 36,
     fontFamily: "Manrope-ExtraBold",
     color: "#282828",
+    flex: 1,
   },
+  currencyButton: {
+    minWidth: 66,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#ECEFEC",
+    paddingHorizontal: 12,
+  },
+  currencyButtonText: { color: "#0A6C52", fontSize: 12, fontFamily: "Manrope-Bold" },
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 118,

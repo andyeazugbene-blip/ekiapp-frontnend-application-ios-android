@@ -6,7 +6,9 @@ import { deriveEscrowStatus, getEscrowStatusColor, getEscrowStatusLabel } from "
 import { orderService } from "../../services/orderService";
 import { useAuthStore } from "../../stores/authStore";
 import { Order } from "../../types/order";
-
+import { useCurrencyStore } from "../../stores/currencyStore";
+import { CurrencySelector } from "../../components/ui/CurrencySelector";
+import { formatDisplayMoney } from "../../utils/currency";
 type TabKey = "New" | "Accepted" | "Shipped" | "Disputed" | "Cancelled";
 
 const TABS: TabKey[] = ["New", "Accepted", "Shipped", "Disputed", "Cancelled"];
@@ -19,12 +21,6 @@ const TAB_TO_STATUSES: Record<TabKey, string[]> = {
   Cancelled: ["cancelled"],
 };
 
-const CURRENCY_SYMBOL: Record<string, string> = {
-  GBP: "£",
-  USD: "$",
-  EUR: "\u20AC",
-};
-
 export default function OrdersScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
@@ -34,6 +30,10 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const selectedCurrency = useCurrencyStore((state) => state.selectedCurrency);
+  const ensureCurrency = useCurrencyStore((state) => state.ensureCurrency);
+  const setSelectedCurrency = useCurrencyStore((state) => state.setSelectedCurrency);
 
   const load = useCallback(async () => {
     if (!vendor) return;
@@ -60,10 +60,17 @@ export default function OrdersScreen() {
     [activeTab, orders],
   );
 
+  React.useEffect(() => {
+    ensureCurrency(orders[0]?.currency).catch(() => undefined);
+  }, [ensureCurrency, orders]);
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Orders</Text>
+        <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
+          <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+        </TouchableOpacity>
         <Text style={styles.headerSubtitle}>Manage your escrow and shipment workflow.</Text>
       </View>
 
@@ -95,7 +102,6 @@ export default function OrdersScreen() {
           </View>
         ) : (
           filtered.map((order) => {
-            const symbol = CURRENCY_SYMBOL[order.currency] ?? "\u00A3";
             const escrowStatus = deriveEscrowStatus(order);
             const escrowColor = getEscrowStatusColor(escrowStatus);
             const isEscrowOrder = (order.escrowType ?? "").toLowerCase() === "domestic_africa";
@@ -124,7 +130,7 @@ export default function OrdersScreen() {
                 </View>
                 <View style={styles.orderRow}>
                   <Text style={styles.orderLabel}>Total</Text>
-                  <Text style={styles.orderValue}>{symbol}{order.total.toFixed(2)}</Text>
+                  <Text style={styles.orderValue}>{formatDisplayMoney(order.total, order.currency, selectedCurrency)}</Text>
                 </View>
 
                 {isEscrowOrder ? (
@@ -143,6 +149,13 @@ export default function OrdersScreen() {
           })
         )}
       </ScrollView>
+
+      <CurrencySelector
+        selectedCurrency={selectedCurrency}
+        onChange={setSelectedCurrency}
+        visible={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -151,6 +164,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
   header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
   headerTitle: { fontSize: 26, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  currencyButton: { position: "absolute", right: 20, top: 18, minWidth: 58, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  currencyButtonText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   headerSubtitle: { fontSize: 14, fontFamily: "Outfit-Light", color: "rgba(255,255,255,0.8)", marginTop: 4 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 },
   tabContainer: { marginBottom: 16 },
