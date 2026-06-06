@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
+import { goBackOrReplace } from "../../utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../stores/authStore";
 import { publicStoreService, type PublicStoreAnalyticsDetail } from "../../services/publicStoreService";
@@ -127,7 +128,7 @@ export default function VendorAnalyticsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={18} color="#202124" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Analytics</Text>

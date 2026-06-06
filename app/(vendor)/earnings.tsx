@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
+import { goBackOrReplace } from "../../utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
 import { payoutService } from "../../services/payoutService";
 import { VendorEarnings, Payout } from "../../types/order";
@@ -62,6 +63,9 @@ export default function EarningsScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)" as any)} activeOpacity={0.85} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#F0F0F0", alignItems: "center", justifyContent: "center", marginRight: 8 }}>
+            <Ionicons name="arrow-back" size={18} color="#202124" />
+          </TouchableOpacity>
           <View style={styles.earningsLabel}>
             <Text style={styles.earningsLabelText}>Your Earnings</Text>
           </View>
