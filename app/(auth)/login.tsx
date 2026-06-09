@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { useAuthStore } from "../../stores/authStore";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const ROLE_LABELS: Record<string, string> = {
   buyer: "Buyer",
@@ -154,7 +155,7 @@ export default function LoginScreen() {
     <View style={styles.page}>
       <SafeAreaView edges={["top"]} style={styles.heroSafe}>
         <View style={styles.hero}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.86} style={styles.backButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(auth)/role-select" as any)} activeOpacity={0.86} style={styles.backButton}>
             <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
           </TouchableOpacity>
 

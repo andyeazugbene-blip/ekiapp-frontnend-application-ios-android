@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ApiRequestError } from "../../services/api";
 import { orderService } from "../../services/orderService";
 import type { Order } from "../../types/order";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const ISSUES = [
   { id: "not_received", label: "Order not received", detail: "The order has not arrived as expected." },
@@ -90,7 +91,7 @@ export default function ReportIssueScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/orders" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Report an issue</Text>

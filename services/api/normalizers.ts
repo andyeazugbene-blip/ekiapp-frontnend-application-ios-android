@@ -36,6 +36,14 @@ function isoString(v: Date | string | undefined | null): string {
  */
 export function normalizeProduct(raw: Record<string, any>): Product {
   const priceGBP = centsToUnit(raw.priceInCents ?? raw.price);
+  const costPrice =
+    raw.costPriceInCents !== undefined
+      ? centsToUnit(raw.costPriceInCents)
+      : raw.costAmount !== undefined
+      ? centsToUnit(raw.costAmount)
+      : raw.costPrice !== undefined
+      ? Number(raw.costPrice)
+      : undefined;
 
   let status: ProductStatus = "active";
   if (raw.isActive === false) {
@@ -51,7 +59,9 @@ export function normalizeProduct(raw: Record<string, any>): Product {
     name: raw.title ?? raw.name ?? "",
     description: raw.description ?? "",
     price: priceGBP,
+    costPrice,
     currency: (raw.currency?.toUpperCase() ?? "GBP") as Product["currency"],
+    costCurrency: (raw.costCurrency?.toUpperCase() ?? raw.currency?.toUpperCase() ?? "GBP") as Product["costCurrency"],
     images: Array.isArray(raw.images) ? raw.images.filter(Boolean) : [],
     category: raw.category ?? "",
     vendorId: raw.vendorId ?? "",
@@ -88,9 +98,13 @@ export function toBackendProductInput(
   if (data.name !== undefined) out.title = data.name;
   if (data.description !== undefined) out.description = data.description;
   if (data.price !== undefined) out.priceAmount = Math.round(data.price * 100);
+  if (data.costPrice !== undefined) {
+    out.costAmount = data.costPrice === null ? null : Math.round(data.costPrice * 100);
+  }
   if ((data as any).priceAmount !== undefined)
     out.priceAmount = (data as any).priceAmount;
   if (data.currency !== undefined) out.currency = data.currency.toLowerCase();
+  if (data.costCurrency !== undefined) out.costCurrency = data.costCurrency.toLowerCase();
   if (data.images !== undefined) out.images = data.images;
   if (data.category !== undefined) out.category = data.category;
   if (data.stock !== undefined) out.stock = data.stock;
@@ -259,6 +273,7 @@ export function normalizeDashboardEarnings(raw: {
   const salesThisWeek = centsToUnit(raw.salesThisWeek);
   const salesThisMonth = centsToUnit(raw.salesThisMonth);
   const pendingPayout = centsToUnit(raw.pendingPayout);
+  const availableBalance = centsToUnit(raw.availableBalance);
 
   return {
     salesToday,
@@ -270,7 +285,8 @@ export function normalizeDashboardEarnings(raw: {
     pendingPayout,
     pendingPayoutNgn: Math.round(pendingPayout * NGN_RATE),
     currency: (raw.currency ?? "GBP").toUpperCase(),
-    availableBalance: centsToUnit(raw.availableBalance),
+    availableBalance,
+    availableBalanceNgn: Math.round(availableBalance * NGN_RATE),
   };
 }
 

@@ -7,6 +7,7 @@ import * as Clipboard from "expo-clipboard";
 import { getPublicReferralUrl } from "../../utils/shareLinks";
 import { referralService, type ReferralInfo } from "../../services/referralService";
 import { useAuthStore } from "../../stores/authStore";
+import { goBackOrReplace } from "../../utils/navigation";
 
 export default function InviteFriendScreen() {
   const router = useRouter();
@@ -64,7 +65,7 @@ export default function InviteFriendScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/wallet" as any)} activeOpacity={0.85} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Invite a Friend</Text>

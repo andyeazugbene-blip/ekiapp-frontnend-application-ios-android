@@ -13,10 +13,6 @@ interface ProductResponse {
   product: any;
 }
 
-interface VendorMeResponse {
-  vendor?: any;
-}
-
 export const productService = {
   async getAll(params?: { category?: string; vendorId?: string; search?: string; page?: number; limit?: number }) {
     const query = new URLSearchParams();
@@ -36,18 +32,18 @@ export const productService = {
     return normalizeProduct(response.product);
   },
 
+  async getMyProductById(id: string) {
+    const response = await apiClient.get<ProductResponse>(`/api/products/me/${id}`);
+    return normalizeProduct(response.product);
+  },
+
   async getVendorProducts(vendorId: string) {
     const response = await apiClient.get<ProductListResponse>(`/api/products?vendorId=${vendorId}`, { skipAuth: true });
     return normalizeProducts(response?.items ?? response?.products ?? []);
   },
 
   async getMyVendorProducts() {
-    const vendorResponse = await apiClient.get<VendorMeResponse>("/api/vendors/me");
-    const vendorId = vendorResponse.vendor?.id;
-    if (!vendorId) {
-      throw new Error("Vendor profile not found.");
-    }
-    const response = await apiClient.get<ProductListResponse>(`/api/products?vendorId=${vendorId}`, { skipAuth: true });
+    const response = await apiClient.get<ProductListResponse>("/api/products/me");
     return normalizeProducts(response?.items ?? response?.products ?? []);
   },
 

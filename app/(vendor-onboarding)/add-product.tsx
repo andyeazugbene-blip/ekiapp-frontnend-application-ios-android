@@ -33,6 +33,11 @@ import {
 const CATEGORY_OPTIONS: string[] = PRODUCT_CATEGORIES.map((c) => c.name);
 const STOCK_OPTIONS: string[] = ["1", "5", "10", "20", "50", "100", "250", "500"];
 
+function parseMoneyInput(value: string): number {
+  const normalized = value.replace(",", ".").replace(/[^\d.]/g, "");
+  return Number(normalized) || 0;
+}
+
 export default function AddProductScreen() {
   const router = useRouter();
   const { updateFirstProduct, setFirstProductPublished } = useOnboardingStore();
@@ -42,6 +47,7 @@ export default function AddProductScreen() {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [price, setPrice] = useState("");
+  const [costPrice, setCostPrice] = useState("");
   const [stock, setStock] = useState("");
   const [weight, setWeight] = useState("");
   const [description, setDescription] = useState("");
@@ -107,7 +113,8 @@ export default function AddProductScreen() {
 
     setSubmitting(true);
     try {
-      const parsedPrice = Number(price.trim()) || 0;
+      const parsedPrice = parseMoneyInput(price);
+      const parsedCostPrice = costPrice.trim() ? parseMoneyInput(costPrice) : undefined;
       const parsedStock = Number(stock.trim()) || 0;
       const parsedWeight = Number(weight.replace(/[^\d.]/g, "")) || 0;
 
@@ -115,6 +122,7 @@ export default function AddProductScreen() {
         name: name.trim(),
         description: description.trim(),
         price: parsedPrice,
+        costPrice: parsedCostPrice,
         currency: "GBP",
         images: imageRemoteUrl ? [imageRemoteUrl] : [],
         category: category || "General",
@@ -239,6 +247,19 @@ export default function AddProductScreen() {
                   placeholder="Select"
                 />
               </View>
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <FieldLabel>Product cost (optional)</FieldLabel>
+              <TextInput
+                keyboardType="decimal-pad"
+                onChangeText={setCostPrice}
+                placeholder="What this item costs you"
+                placeholderTextColor="#858585"
+                style={styles.input}
+                value={costPrice}
+              />
+              <Text style={styles.helper}>Used only for estimated profit. Buyers never see this.</Text>
             </View>
 
             <View style={styles.fieldGroup}>

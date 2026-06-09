@@ -7,6 +7,7 @@ export type DeliveryCountryCode = "UK" | "US" | "CA" | "EU";
 
 export interface DeliveryZone {
   id: string;
+  vendorId?: string;
   country: string;
   countryCode: DeliveryCountryCode;
   currency: string;
@@ -98,6 +99,9 @@ export function isEuropeanCountry(rawCountry: string | undefined): boolean {
 function countryCodeFor(rawCountry: string | undefined): DeliveryCountryCode {
   const country = (rawCountry ?? "").toLowerCase();
   if (isEuropeanCountry(country)) return "EU";
+  if (country === "gb" || country === "great britain" || country === "england" || country === "scotland" || country === "wales") {
+    return "UK";
+  }
   const match = Object.entries(COUNTRY_LABEL).find(([, label]) => label.toLowerCase() === country);
   return (match?.[0] ?? "UK") as DeliveryCountryCode;
 }
@@ -117,7 +121,13 @@ export function matchesDeliveryZoneCountry(
   }
 
   const shortCode =
-    normalizedCountry === "uk" || normalizedCountry.includes("united kingdom")
+    normalizedCountry === "uk" ||
+    normalizedCountry === "gb" ||
+    normalizedCountry === "great britain" ||
+    normalizedCountry === "england" ||
+    normalizedCountry === "scotland" ||
+    normalizedCountry === "wales" ||
+    normalizedCountry.includes("united kingdom")
       ? "uk"
       : normalizedCountry === "us" || normalizedCountry === "usa" || normalizedCountry.includes("united states")
         ? "us"
@@ -135,9 +145,14 @@ export function matchesDeliveryZoneCountry(
 }
 
 function normalizeZone(raw: any): DeliveryZone {
-  const countryCode = countryCodeFor(raw.country);
+  const rawCode = (raw.countryCode ?? raw.code ?? "").toString().trim().toUpperCase();
+  const countryCode =
+    rawCode === "UK" || rawCode === "US" || rawCode === "CA" || rawCode === "EU"
+      ? (rawCode as DeliveryCountryCode)
+      : countryCodeFor(raw.country);
   return {
     id: raw.id,
+    vendorId: raw.vendorId ?? raw.vendor?.id ?? undefined,
     country: raw.country ?? COUNTRY_LABEL[countryCode],
     countryCode,
     currency: (raw.currency ?? COUNTRY_CURRENCY[countryCode]).toUpperCase(),

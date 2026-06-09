@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { goBackOrReplace } from "../../utils/navigation";
 
 export default function PayoutRequestedScreen() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function PayoutRequestedScreen() {
       ) : null}
 
       <TouchableOpacity
-        onPress={() => router.push("/(vendor)/earnings" as any)}
+        onPress={() => goBackOrReplace(router, "/(vendor)/earnings" as any)}
         activeOpacity={0.85}
         style={styles.primaryButton}
       >

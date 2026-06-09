@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { CartItem, Product } from "../types/product";
 import { cartService, ServerCartItem, DeliveryEstimate, CheckoutIntent } from "../services/cartService";
-import { deliveryService, matchesDeliveryZoneCountry } from "../services/deliveryService";
+import { DeliveryZone, deliveryService, matchesDeliveryZoneCountry } from "../services/deliveryService";
 
 export interface VendorGroup {
   vendorId: string;
@@ -54,6 +54,63 @@ function inferCountryFromCurrency(currency?: string): string {
   }
 }
 
+function normalizeCurrency(currency?: string): string {
+  return (currency ?? "").trim().toUpperCase();
+}
+
+function cartCurrencyFromServer(items: ServerCartItem[]): string | undefined {
+  const currencies = items.map((item) => normalizeCurrency(item.currency)).filter(Boolean);
+  return currencies[0];
+}
+
+function findCompatibleDeliveryZone(
+  zones: DeliveryZone[],
+  country: string,
+  currency?: string,
+  vendorId?: string,
+): DeliveryZone | null {
+  const countryMatches = zones.filter((zone) => {
+    if (zone.active === false || !matchesDeliveryZoneCountry(zone, country)) return false;
+    return !vendorId || !zone.vendorId || zone.vendorId === vendorId;
+  });
+  const expectedCurrency = normalizeCurrency(currency);
+  if (!expectedCurrency) return countryMatches[0] ?? null;
+  return countryMatches.find((zone) => normalizeCurrency(zone.currency) === expectedCurrency) ?? null;
+}
+
+function deliveryZoneError(
+  country: string,
+  currency: string | undefined,
+  zones: DeliveryZone[],
+  vendorId?: string,
+): string {
+  const expectedCurrency = normalizeCurrency(currency);
+  const countryMatches = zones.filter((zone) => {
+    if (zone.active === false || !matchesDeliveryZoneCountry(zone, country)) return false;
+    return !vendorId || !zone.vendorId || zone.vendorId === vendorId;
+  });
+
+  if (expectedCurrency && countryMatches.length > 0) {
+    const configuredCurrencies = Array.from(
+      new Set(countryMatches.map((zone) => normalizeCurrency(zone.currency)).filter(Boolean)),
+    ).join(", ");
+    return `Delivery zone currency mismatch. This cart is ${expectedCurrency}, but ${country} delivery is configured for ${configuredCurrencies || "another currency"}. Ask the vendor to add a ${expectedCurrency} delivery zone or choose a matching delivery country.`;
+  }
+
+  return `Delivery is not available for ${country || "this country"} yet.`;
+}
+
+function assertDeliveryEstimateCurrency(estimates: DeliveryEstimate[], expectedCurrency?: string) {
+  const expected = normalizeCurrency(expectedCurrency);
+  if (!expected) return;
+  const mismatch = estimates.find((estimate) => normalizeCurrency(estimate.currency) !== expected);
+  if (mismatch) {
+    throw new Error(
+      `Delivery zone currency mismatch. This cart is ${expected}, but delivery returned ${normalizeCurrency(mismatch.currency) || "another currency"}.`,
+    );
+  }
+}
+
 function resolveDeliveryCountry(currentCountry: string | undefined, currency?: string, override?: string): string {
   const explicit = override?.trim();
   if (explicit) return explicit;
@@ -62,7 +119,7 @@ function resolveDeliveryCountry(currentCountry: string | undefined, currency?: s
   const current = currentCountry?.trim();
   if (!current) return fallbackCountry;
 
-  if (current.toLowerCase() === "uk" && (currency ?? "").toUpperCase() !== "GBP") {
+  if (current.toLowerCase() === "uk" && normalizeCurrency(currency) !== "GBP") {
     return fallbackCountry;
   }
 
@@ -106,8 +163,8 @@ export const useCartStore = create<CartStore>((set, get) => ({
   deliveryCountry: "UK",
 
   addItem: async (product, quantity = 1) => {
-    const existingCurrency = get().items[0]?.product.currency ?? get().serverItems[0]?.currency;
-    if (existingCurrency && existingCurrency !== product.currency) {
+    const existingCurrency = normalizeCurrency(get().items[0]?.product.currency ?? get().serverItems[0]?.currency);
+    if (existingCurrency && existingCurrency !== normalizeCurrency(product.currency)) {
       const message = "Your cart can only contain products with the same currency. Clear the cart or checkout first.";
       set({ error: message });
       throw new Error(message);
@@ -220,11 +277,12 @@ export const useCartStore = create<CartStore>((set, get) => ({
         return;
       }
 
-      const zones = await deliveryService.listAllZones();
-      const match = zones.find((z) => matchesDeliveryZoneCountry(z, country));
-      if (!match) throw new Error("Delivery is not available for this country yet.");
-
+      const cartCurrency = cartCurrencyFromServer(cart.items);
       const firstItem = cart.items[0];
+      const zones = await deliveryService.listAllZones();
+      const match = findCompatibleDeliveryZone(zones, country, cartCurrency, firstItem?.vendorId);
+      if (!match) throw new Error(deliveryZoneError(country, cartCurrency, zones, firstItem?.vendorId));
+
       const estimates = await cartService.calculateDelivery({
         cartId: cart.id,
         destinationZoneId: match.id,
@@ -232,6 +290,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
         vendorId: firstItem?.vendorId,
         vendorName: firstItem?.vendorName,
       });
+      assertDeliveryEstimateCurrency(estimates, cartCurrency);
       set({ deliveryEstimates: estimates, isLoading: false });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not calculate delivery.";
@@ -249,21 +308,30 @@ export const useCartStore = create<CartStore>((set, get) => ({
   createCheckout: async (address, walletAmount, deliveryCountryOverride) => {
     set({ isLoading: true, error: null });
     try {
-      const uniqueCurrencies = new Set(get().items.map((item) => item.product.currency).filter(Boolean));
+      const uniqueCurrencies = new Set(get().items.map((item) => normalizeCurrency(item.product.currency)).filter(Boolean));
       if (uniqueCurrencies.size > 1) {
         throw new Error("Your cart contains multiple currencies. Clear the cart and place one currency at a time.");
       }
 
       const cart = await cartService.getCart();
       if (!cart.id) throw new Error("Your cart is not available on the server.");
+      if (cart.items.length === 0) throw new Error("Your cart is empty.");
+
+      const serverCurrencies = new Set(cart.items.map((item) => normalizeCurrency(item.currency)).filter(Boolean));
+      if (serverCurrencies.size > 1) {
+        throw new Error("Your cart contains multiple currencies. Clear the cart and place one currency at a time.");
+      }
 
       let destinationZoneId: string | undefined;
       const zones = await deliveryService.listAllZones();
-      const cartCurrency = get().items[0]?.product.currency ?? get().serverItems[0]?.currency;
+      const cartCurrency =
+        Array.from(serverCurrencies)[0] ??
+        normalizeCurrency(get().items[0]?.product.currency ?? get().serverItems[0]?.currency);
       const country = resolveDeliveryCountry(get().deliveryCountry, cartCurrency, deliveryCountryOverride);
-      const match = zones.find((z) => matchesDeliveryZoneCountry(z, country));
+      const firstItem = cart.items[0];
+      const match = findCompatibleDeliveryZone(zones, country, cartCurrency, firstItem?.vendorId);
       destinationZoneId = match?.id;
-      if (!destinationZoneId) throw new Error("Delivery is not available for this country yet.");
+      if (!destinationZoneId) throw new Error(deliveryZoneError(country, cartCurrency, zones, firstItem?.vendorId));
 
       set({ deliveryCountry: country });
       const intent = await cartService.createPaymentIntent({

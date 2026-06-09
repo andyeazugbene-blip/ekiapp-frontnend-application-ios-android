@@ -7,6 +7,7 @@ import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import { useAuthStore } from "../../stores/authStore";
 import { uploadService } from "../../services/uploadService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 interface MenuItem {
   icon: keyof typeof Ionicons.glyphMap;
@@ -104,6 +105,9 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.85} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={22} color="#076B51" />
+        </TouchableOpacity>
         <View style={styles.profileRow}>
           <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.85} style={styles.avatar}>
             {user?.avatar ? (
@@ -170,6 +174,15 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
     borderBottomLeftRadius: 35,
     borderBottomRightRadius: 35,
+  },
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
   },
   profileRow: { flexDirection: "row", alignItems: "center", gap: 14 },
   avatar: {

@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, ScrollView, Text, TextInput, TouchableOpac
 import { useFocusEffect, useRouter } from "expo-router";
 import { FloatingCard, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { orderService, Shipment } from "../../services/orderService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 type FilterTab = "all" | "in_transit" | "delivered" | "delayed" | "processing";
 
@@ -54,7 +55,7 @@ export default function DeliveryTrackingScreen() {
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title="Shipment tracking" subtitle={`${allShipments.length} total shipments`} onBack={() => router.back()} />
+      <PremiumHeader title="Shipment tracking" subtitle={`${allShipments.length} total shipments`} onBack={() => goBackOrReplace(router, "/(vendor)/orders" as any)} />
       <FlatList
         data={shipments}
         keyExtractor={(item) => item.id}

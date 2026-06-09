@@ -12,6 +12,7 @@ import { presentPayment, isPaymentSheetAvailable } from "../../services/stripePa
 import { orderService } from "../../services/orderService";
 import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { convertMoney, formatDisplayMoney } from "../../utils/currency";
+import { goBackOrReplace } from "../../utils/navigation";
 
 type PaymentMethod = "stripe" | "wallet" | "wallet_stripe";
 
@@ -69,9 +70,10 @@ export default function CheckoutScreen() {
   const walletBalance = wallet?.balance ?? 0;
   const checkoutCurrency = items[0]?.product.currency ?? wallet?.currency ?? "GBP";
   const walletCurrency = wallet?.currency ?? checkoutCurrency;
+  const walletBalanceInCheckoutCurrency = convertMoney(walletBalance, walletCurrency, checkoutCurrency);
   const parsedWalletAmount = Number(walletAmount) || 0;
   const parsedWalletAmountInCheckoutCurrency = convertMoney(parsedWalletAmount, selectedCurrency, checkoutCurrency);
-  const canPayFullyWithWallet = walletBalance >= grandTotal;
+  const canPayFullyWithWallet = walletBalanceInCheckoutCurrency >= grandTotal;
   const currencySymbol = CURRENCY_SYMBOLS[checkoutCurrency] ?? "\u00A3";
 
   useEffect(() => {
@@ -121,7 +123,7 @@ export default function CheckoutScreen() {
       setError("Insufficient wallet balance for full payment. Use Wallet + Card instead.");
       return;
     }
-    if (paymentMethod === "wallet_stripe" && parsedWalletAmountInCheckoutCurrency > walletBalance) {
+    if (paymentMethod === "wallet_stripe" && parsedWalletAmountInCheckoutCurrency > walletBalanceInCheckoutCurrency) {
       setError("Wallet amount exceeds your balance.");
       return;
     }
@@ -187,7 +189,7 @@ export default function CheckoutScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/cart" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Complete your order</Text>
@@ -290,7 +292,7 @@ export default function CheckoutScreen() {
                 onChangeText={(value) => {
                   const amount = Number(value) || 0;
                   const amountInCheckoutCurrency = convertMoney(amount, selectedCurrency, checkoutCurrency);
-                  if (amountInCheckoutCurrency <= walletBalance && amountInCheckoutCurrency <= grandTotal) {
+                  if (amountInCheckoutCurrency <= walletBalanceInCheckoutCurrency && amountInCheckoutCurrency <= grandTotal) {
                     setWalletAmount(value);
                     if (error) setError("");
                   }

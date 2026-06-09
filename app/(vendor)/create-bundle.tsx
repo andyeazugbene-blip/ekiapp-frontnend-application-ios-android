@@ -7,6 +7,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { productService } from "../../services/productService";
 import { marketingService } from "../../services/marketingService";
 import { Product } from "../../types/product";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const CURRENCY_SYMBOL: Record<string, string> = { GBP: "£", USD: "$", EUR: "€" };
 
@@ -175,7 +176,7 @@ export default function CreateBundleScreen() {
 
           {/* Centered Close Button below card matching mockup */}
           <TouchableOpacity 
-            onPress={() => router.back()} 
+            onPress={() => goBackOrReplace(router, "/(vendor)/grow-sales" as any)} 
             activeOpacity={0.85} 
             style={styles.closeButton}
           >

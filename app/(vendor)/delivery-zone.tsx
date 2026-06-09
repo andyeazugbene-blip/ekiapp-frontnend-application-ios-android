@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { deliveryService, type DeliveryZone } from "../../services/deliveryService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const CURRENCY_SYMBOL: Record<string, string> = {
   GBP: "£",
@@ -82,7 +83,7 @@ export default function DeliveryZoneScreen() {
         active: isActive,
       });
       Alert.alert("Success", "Delivery settings updated successfully.", [
-        { text: "OK", onPress: () => router.replace("/(vendor)/delivery" as any) },
+        { text: "OK", onPress: () => goBackOrReplace(router, "/(vendor)/delivery" as any) },
       ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save delivery settings.");
@@ -96,7 +97,7 @@ export default function DeliveryZoneScreen() {
       <View style={styles.page}>
         <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.replace("/(vendor)/delivery" as any)} style={styles.backButton}>
+            <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/delivery" as any)} style={styles.backButton}>
               <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit delivery</Text>
@@ -114,7 +115,7 @@ export default function DeliveryZoneScreen() {
       <View style={styles.page}>
         <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.replace("/(vendor)/delivery" as any)} style={styles.backButton}>
+            <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/delivery" as any)} style={styles.backButton}>
               <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit delivery</Text>
@@ -133,7 +134,7 @@ export default function DeliveryZoneScreen() {
     <View style={styles.page}>
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.replace("/(vendor)/delivery" as any)} style={styles.backButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/delivery" as any)} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Edit delivery</Text>

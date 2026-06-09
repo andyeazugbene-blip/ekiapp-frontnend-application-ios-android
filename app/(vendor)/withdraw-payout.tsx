@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { payoutService } from "../../services/payoutService";
 import { payoutMethodService, type PayoutMethod } from "../../services/payoutMethodService";
 import { VendorEarnings } from "../../types/order";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const CURRENCY_SYMBOL: Record<string, string> = { GBP: "£", USD: "$", EUR: "€" };
 const MIN_WITHDRAWAL = 50;
@@ -84,7 +85,7 @@ export default function WithdrawPayoutScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/earnings" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={22} color="#282828" />
         </TouchableOpacity>
         <View style={styles.headerInfo}>

@@ -1,4 +1,13 @@
-import { VendorSummary, VendorAdminStatus, VendorDashboardData, AdminDashboardData } from "../types/vendor";
+import {
+  VendorSummary,
+  VendorAdminStatus,
+  VendorDashboardData,
+  AdminDashboardData,
+  VendorAnalyticsData,
+  VendorAnalyticsRange,
+  VendorAnalyticsInsight,
+  VendorAnalyticsTopProduct,
+} from "../types/vendor";
 import { apiClient } from "./api";
 import { normalizeDashboardEarnings } from "./api/normalizers";
 import { tokenStorage } from "./api/tokenStorage";
@@ -24,6 +33,105 @@ function toText(value: unknown, fallback = ""): string {
   if (typeof value === "string") return value;
   if (value === null || value === undefined) return fallback;
   return String(value);
+}
+
+function centsToUnit(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed / 100 : 0;
+}
+
+function pickNumber(value: Record<string, unknown>, unitKeys: string[], centKeys: string[], fallback = 0): number {
+  for (const key of centKeys) {
+    if (value[key] !== undefined && value[key] !== null) {
+      return centsToUnit(value[key]);
+    }
+  }
+
+  for (const key of unitKeys) {
+    if (value[key] !== undefined && value[key] !== null) {
+      return toNumber(value[key], fallback);
+    }
+  }
+
+  return fallback;
+}
+
+function normalizeVendorAnalytics(raw: any, range: VendorAnalyticsRange): VendorAnalyticsData {
+  const value = raw?.analytics && typeof raw.analytics === "object" ? raw.analytics : raw ?? {};
+  const summary = value.summary && typeof value.summary === "object" ? value.summary : value;
+  const funnel = value.salesFunnel && typeof value.salesFunnel === "object" ? value.salesFunnel : value.funnel ?? {};
+  const customers =
+    value.customerInsights && typeof value.customerInsights === "object"
+      ? value.customerInsights
+      : value.customers ?? {};
+
+  const topProducts: VendorAnalyticsTopProduct[] = Array.isArray(value.topProducts)
+    ? value.topProducts.map((entry: any) => ({
+        productId: toText(entry.productId ?? entry.id),
+        name: toText(entry.name ?? entry.title, "Product"),
+        orders: toNumber(entry.orders ?? entry.orderCount),
+        unitsSold: toNumber(entry.unitsSold ?? entry.quantity),
+        revenue: pickNumber(entry, ["revenue"], ["revenueAmount", "revenueInCents"]),
+        estimatedProfit:
+          entry.estimatedProfit !== undefined || entry.estimatedProfitAmount !== undefined
+            ? pickNumber(entry, ["estimatedProfit"], ["estimatedProfitAmount", "estimatedProfitInCents"])
+            : undefined,
+        hasCost: Boolean(entry.hasCost ?? entry.costPrice ?? entry.costAmount ?? entry.costPriceInCents),
+      }))
+    : [];
+
+  const insights: VendorAnalyticsInsight[] = Array.isArray(value.insights)
+    ? value.insights.map((entry: any, index: number) => ({
+        id: toText(entry.id, `insight-${index}`),
+        title: toText(entry.title, "Recommended action"),
+        body: toText(entry.body ?? entry.description),
+        action: toText(entry.action, "view_buyers") as VendorAnalyticsInsight["action"],
+        actionLabel: toText(entry.actionLabel, "Review"),
+        productId: entry.productId ? toText(entry.productId) : undefined,
+        severity: entry.severity,
+      }))
+    : [];
+
+  return {
+    range,
+    summary: {
+      currency: toText(summary.currency ?? value.currency, "GBP").toUpperCase(),
+      totalRevenue: pickNumber(summary, ["totalRevenue", "revenue"], ["totalRevenueAmount", "revenueAmount"]),
+      estimatedProfit: pickNumber(
+        summary,
+        ["estimatedProfit", "profit"],
+        ["estimatedProfitAmount", "profitAmount"],
+      ),
+      estimatedProfitAvailable: Boolean(
+        summary.estimatedProfitAvailable ?? summary.hasProductCosts ?? summary.hasCostData,
+      ),
+      availableForPayout: pickNumber(
+        summary,
+        ["availableForPayout", "availableBalance"],
+        ["availableForPayoutAmount", "availableBalanceAmount"],
+      ),
+      pendingBalance: pickNumber(
+        summary,
+        ["pendingBalance", "pendingPayout", "pendingRevenue"],
+        ["pendingBalanceAmount", "pendingPayoutAmount", "pendingRevenueAmount"],
+      ),
+    },
+    salesFunnel: {
+      storeVisits: toNumber(funnel.storeVisits ?? funnel.opens ?? funnel.visits),
+      checkoutStarted: toNumber(funnel.checkoutStarted ?? funnel.checkoutStarts),
+      ordersCompleted: toNumber(funnel.ordersCompleted ?? funnel.completedOrders),
+      conversionRate: toNumber(funnel.conversionRate),
+      repeatOrders: toNumber(funnel.repeatOrders ?? funnel.reorders),
+      storeSaves: toNumber(funnel.storeSaves ?? funnel.saveVendorCount),
+    },
+    customerInsights: {
+      newBuyers: toNumber(customers.newBuyers),
+      repeatBuyers: toNumber(customers.repeatBuyers),
+      inactiveBuyers30d: toNumber(customers.inactiveBuyers30d ?? customers.inactiveBuyers),
+    },
+    topProducts,
+    insights,
+  };
 }
 
 function normalizeVendor(raw: any): VendorSummary {
@@ -70,6 +178,7 @@ export const vendorService = {
     contactEmail?: string;
     contactPhone?: string;
     country?: string;
+    city?: string;
   }): Promise<{ vendor: VendorSummary; token: string }> {
     const response = await apiClient.post<{ vendor: any; token: string }>("/api/vendors", input);
     await tokenStorage.setToken(response.token);
@@ -188,6 +297,11 @@ export const vendorService = {
     return res.series ?? [];
   },
 
+  async getVendorAnalytics(range: VendorAnalyticsRange = "month"): Promise<VendorAnalyticsData> {
+    const raw = await apiClient.get<any>(`/api/vendors/me/analytics?range=${encodeURIComponent(range)}`);
+    return normalizeVendorAnalytics(raw, range);
+  },
+
   async getAdminDashboard(): Promise<AdminDashboardData> {
     return apiClient.get<AdminDashboardData>("/api/admin/dashboard");
   },
@@ -206,7 +320,12 @@ export const vendorService = {
     backUrl?: string;
     idSubtype?: "passport" | "drivers" | "national";
   }) {
-    const docType = payload.type === "id" ? "GOVERNMENT_ID" : "BUSINESS_REGISTRATION";
+    const docType =
+      payload.type === "id"
+        ? "GOVERNMENT_ID"
+        : payload.type === "selfie"
+          ? "SELFIE"
+          : "BUSINESS_REGISTRATION";
     const ID_SUBTYPE_MAP: Record<string, string> = {
       passport: "passport",
       drivers: "drivers_license",

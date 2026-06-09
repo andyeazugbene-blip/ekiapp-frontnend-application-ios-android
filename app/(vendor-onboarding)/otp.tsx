@@ -44,7 +44,7 @@ export default function OtpScreen() {
     let cancelled = false;
     (async () => {
       try {
-        await authService.sendOtp(contact, OTP_PURPOSE);
+        await authService.sendOtp(contact, OTP_PURPOSE, "email");
       } catch {
         if (cancelled) return;
       }
@@ -57,7 +57,7 @@ export default function OtpScreen() {
   const handleVerify = useCallback(async () => {
     const trimmed = code.trim();
     if (!trimmed) {
-      Alert.alert("Missing code", "Please enter the code we sent to your account.");
+      Alert.alert("Missing code", "Please enter the code we sent to your email.");
       return;
     }
     if (!/^\d{4,6}$/.test(trimmed)) {
@@ -65,7 +65,7 @@ export default function OtpScreen() {
       return;
     }
     if (!contact) {
-      Alert.alert("Missing contact", "Please go back and re-enter your phone number or email.");
+      Alert.alert("Missing email", "Please go back and re-enter your email address.");
       return;
     }
 
@@ -76,12 +76,6 @@ export default function OtpScreen() {
       router.push("/(vendor-onboarding)/setup-store" as any);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      // If the backend hasn't deployed OTP yet (404), allow user to proceed
-      if (msg.includes("404") || msg.toLowerCase().includes("not found")) {
-        setOtpVerified(true);
-        router.push("/(vendor-onboarding)/setup-store" as any);
-        return;
-      }
       Alert.alert("Verification failed", msg || "Please try again.");
     } finally {
       setVerifying(false);
@@ -91,13 +85,13 @@ export default function OtpScreen() {
   const handleResend = useCallback(async () => {
     if (sending) return;
     if (!contact) {
-      Alert.alert("Missing contact", "Please go back and re-enter your phone number or email.");
+      Alert.alert("Missing email", "Please go back and re-enter your email address.");
       return;
     }
 
     setSending(true);
     try {
-      await authService.sendOtp(contact, OTP_PURPOSE);
+      await authService.sendOtp(contact, OTP_PURPOSE, "email");
       setCode("");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not resend code. Please try again.";
@@ -121,7 +115,7 @@ export default function OtpScreen() {
             <View style={styles.fakeInput} />
           </View>
           <View style={styles.ghostField}>
-            <FieldLabel>Phone number or email</FieldLabel>
+            <FieldLabel>Email address</FieldLabel>
             <View style={styles.fakeInput} />
           </View>
           <View style={styles.ghostField}>
@@ -139,8 +133,8 @@ export default function OtpScreen() {
 
       {/* Centered modal */}
       <View style={styles.modal}>
-        <Text style={styles.modalTitle}>Confirm Your Phone Or Email</Text>
-        <Text style={styles.modalSubtitle}>We sent you a code to confirm your account</Text>
+        <Text style={styles.modalTitle}>Confirm Your Email</Text>
+        <Text style={styles.modalSubtitle}>We sent a code to your email to confirm your account</Text>
 
         <TextInput
           autoFocus
@@ -174,7 +168,7 @@ export default function OtpScreen() {
         </TouchableOpacity>
 
         <Text style={styles.editText}>
-          Wrong number or email?{" "}
+          Wrong email?{" "}
           <Text onPress={() => router.back()} style={styles.editLink}>
             Edit details
           </Text>

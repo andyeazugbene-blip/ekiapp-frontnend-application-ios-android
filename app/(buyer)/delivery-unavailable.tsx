@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { goBackOrReplace } from "../../utils/navigation";
 
 export default function DeliveryUnavailableScreen() {
   const router = useRouter();
@@ -10,7 +11,7 @@ export default function DeliveryUnavailableScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/cart" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
@@ -22,7 +23,7 @@ export default function DeliveryUnavailableScreen() {
         <Text style={styles.title}>Delivery Unavailable</Text>
         <Text style={styles.subtitle}>Sorry, this vendor doesn't deliver to your location yet. Try a different vendor or check back later.</Text>
 
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.primaryButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/explore" as any)} activeOpacity={0.85} style={styles.primaryButton}>
           <Text style={styles.primaryButtonText}>Browse Other Vendors</Text>
         </TouchableOpacity>
 

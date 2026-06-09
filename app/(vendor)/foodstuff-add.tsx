@@ -23,9 +23,15 @@ import { productService } from "../../services/productService";
 import { uploadService } from "../../services/uploadService";
 import { ApiRequestError } from "../../services/api";
 import { deliveryService } from "../../services/deliveryService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 
 const UNITS = ["kg", "g", "lb", "oz", "pack", "bunch", "piece", "litre", "ml"];
+
+function parseMoneyInput(value: string): number {
+  const normalized = value.replace(",", ".").replace(/[^\d.]/g, "");
+  return Number(normalized) || 0;
+}
 
 export default function FoodstuffAddScreen() {
   const router = useRouter();
@@ -36,6 +42,7 @@ export default function FoodstuffAddScreen() {
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [costPrice, setCostPrice] = useState("");
   const [weight, setWeight] = useState("");
   const [unit, setUnit] = useState("kg");
   const [stock, setStock] = useState("");
@@ -104,7 +111,8 @@ export default function FoodstuffAddScreen() {
 
     setSubmitting(true);
     try {
-      const parsedPrice = Number(price) || 0;
+      const parsedPrice = parseMoneyInput(price);
+      const parsedCostPrice = costPrice.trim() ? parseMoneyInput(costPrice) : undefined;
       const parsedStock = Number(stock) || 0;
       const parsedWeight = Number(weight) || 0;
 
@@ -112,6 +120,7 @@ export default function FoodstuffAddScreen() {
         name: name.trim(),
         description: description.trim(),
         price: parsedPrice,
+        costPrice: parsedCostPrice,
         currency: "GBP",
         images: imageRemoteUrl ? [imageRemoteUrl] : [],
         category: category || "General",
@@ -128,7 +137,7 @@ export default function FoodstuffAddScreen() {
       Alert.alert(
         publish ? "Published" : "Saved as Draft",
         `“${payload.name}” has been ${publish ? "published" : "saved as a draft"}.`,
-        [{ text: "OK", onPress: () => router.back() }]
+        [{ text: "OK", onPress: () => goBackOrReplace(router, "/(vendor)/foodstuff" as any) }]
       );
     } catch (err) {
       // 403 → vendor needs verification before listing publicly
@@ -154,13 +163,15 @@ export default function FoodstuffAddScreen() {
     if (!vendor) return;
     setSubmitting(true);
     try {
-      const parsedPrice = Number(price) || 0;
+      const parsedPrice = parseMoneyInput(price);
+      const parsedCostPrice = costPrice.trim() ? parseMoneyInput(costPrice) : undefined;
       const parsedStock = Number(stock) || 0;
       const parsedWeight = Number(weight) || 0;
       await productService.createProduct({
         name: name.trim(),
         description: description.trim(),
         price: parsedPrice,
+        costPrice: parsedCostPrice,
         currency: "GBP",
         images: imageRemoteUrl ? [imageRemoteUrl] : [],
         category: category || "General",
@@ -172,7 +183,7 @@ export default function FoodstuffAddScreen() {
         weight: parsedWeight,
         unit,
       });
-      router.back();
+      goBackOrReplace(router, "/(vendor)/foodstuff" as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save draft.");
     } finally {
@@ -184,7 +195,7 @@ export default function FoodstuffAddScreen() {
     <View style={styles.page}>
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/foodstuff" as any)} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Add Foodstuff</Text>
@@ -211,11 +222,11 @@ export default function FoodstuffAddScreen() {
 
             <View style={styles.checklistItem}>
               <Ionicons
-                name={Number(price) > 0 ? "checkmark-circle" : "ellipse-outline"}
+                name={parseMoneyInput(price) > 0 ? "checkmark-circle" : "ellipse-outline"}
                 size={18}
-                color={Number(price) > 0 ? "#076B51" : "#858585"}
+                color={parseMoneyInput(price) > 0 ? "#076B51" : "#858585"}
               />
-              <Text style={[styles.checklistText, Number(price) > 0 && styles.checklistTextDone]}>Price added</Text>
+              <Text style={[styles.checklistText, parseMoneyInput(price) > 0 && styles.checklistTextDone]}>Price added</Text>
             </View>
 
             <View style={styles.checklistItem}>
@@ -310,6 +321,12 @@ export default function FoodstuffAddScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Price</Text>
               <TextInput value={price} onChangeText={setPrice} placeholder="£10" placeholderTextColor="#858585" keyboardType="decimal-pad" style={styles.input} />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Product cost (optional)</Text>
+              <TextInput value={costPrice} onChangeText={setCostPrice} placeholder="What this item costs you" placeholderTextColor="#858585" keyboardType="decimal-pad" style={styles.input} />
+              <Text style={styles.helperText}>Used only for your estimated profit. Buyers never see this.</Text>
             </View>
 
             <View style={styles.rowFields}>
@@ -643,5 +660,11 @@ const styles = StyleSheet.create({
     color: "#FB6363",
     marginTop: -8,
     marginBottom: 12,
+  },
+  helperText: {
+    fontSize: 12,
+    fontFamily: "Outfit-Regular",
+    color: "#858585",
+    marginTop: 6,
   },
 });

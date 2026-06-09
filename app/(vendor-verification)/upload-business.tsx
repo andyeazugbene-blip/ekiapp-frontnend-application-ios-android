@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
 import { uploadService } from "../../services/uploadService";
 import { vendorService } from "../../services/vendorService";
 import { useOnboardingStore } from "../../stores/onboardingStore";
@@ -21,6 +22,8 @@ interface UploadState {
   localUri: string | null;
   remoteUrl: string | null;
   uploading: boolean;
+  fileName?: string;
+  isImage?: boolean;
 }
 const initialUpload: UploadState = { localUri: null, remoteUrl: null, uploading: false };
 
@@ -33,6 +36,24 @@ export default function UploadBusinessScreen() {
   const [selfie, setSelfie] = useState<UploadState>(initialUpload);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  const uploadPickedFile = async (
+    setter: React.Dispatch<React.SetStateAction<UploadState>>,
+    folder: string,
+    fileUri: string,
+    fileName: string,
+    contentType: string,
+    isImage: boolean,
+  ) => {
+    setter({ localUri: fileUri, remoteUrl: null, uploading: true, fileName, isImage });
+    try {
+      const remoteUrl = await uploadService.uploadImage(fileUri, fileName, contentType, folder);
+      setter({ localUri: fileUri, remoteUrl, uploading: false, fileName, isImage });
+    } catch (err) {
+      setter({ localUri: null, remoteUrl: null, uploading: false });
+      setError(err instanceof Error ? err.message : "Could not upload the file. Please try again.");
+    }
+  };
 
   const pickAndUpload = async (
     setter: React.Dispatch<React.SetStateAction<UploadState>>,
@@ -58,16 +79,34 @@ export default function UploadBusinessScreen() {
     const result = await launcher;
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
-    setter({ localUri: asset.uri, remoteUrl: null, uploading: true });
-    try {
-      const fileName = asset.fileName ?? `${folder}_${Date.now()}.jpg`;
-      const contentType = asset.mimeType ?? "image/jpeg";
-      const publicUrl = await uploadService.uploadImage(asset.uri, fileName, contentType, folder);
-      setter({ localUri: asset.uri, remoteUrl: publicUrl, uploading: false });
-    } catch (err) {
-      setter({ localUri: null, remoteUrl: null, uploading: false });
-      setError(err instanceof Error ? err.message : "Could not upload the image. Please try again.");
+    const fileName = asset.fileName ?? `${folder}_${Date.now()}.jpg`;
+    const contentType = asset.mimeType ?? "image/jpeg";
+    await uploadPickedFile(setter, folder, asset.uri, fileName, contentType, true);
+  };
+
+  const pickBusinessDocument = async () => {
+    setError("");
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["application/pdf", "image/jpeg", "image/png"],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const asset = result.assets[0];
+    const contentType = asset.mimeType ?? "application/octet-stream";
+    if (!["application/pdf", "image/jpeg", "image/png"].includes(contentType)) {
+      setError("Please upload a PDF, JPG, or PNG document.");
+      return;
     }
+    await uploadPickedFile(
+      setDoc,
+      "verification/business",
+      asset.uri,
+      asset.name ?? `business_${Date.now()}`,
+      contentType,
+      contentType.startsWith("image/"),
+    );
   };
 
   const canSubmit =
@@ -140,7 +179,7 @@ export default function UploadBusinessScreen() {
               <UploadArea
                 state={doc}
                 height={176}
-                onPick={() => pickAndUpload(setDoc, "verification/business")}
+                onPick={pickBusinessDocument}
                 placeholderTitle="Tap to upload document"
                 placeholderSubtitle="PDF, JPG, PNG up to 10MB"
                 uploadedTitle="Document Uploaded"
@@ -216,7 +255,7 @@ function UploadArea({ state, height, onPick, placeholderTitle, placeholderSubtit
         state.remoteUrl ? styles.uploadAreaUploaded : styles.uploadAreaEmpty,
       ]}
     >
-      {state.localUri ? (
+      {state.localUri && state.isImage !== false ? (
         <>
           <Image source={{ uri: state.localUri }} style={styles.uploadedImage} resizeMode="cover" />
           {state.uploading ? (
@@ -230,6 +269,26 @@ function UploadArea({ state, height, onPick, placeholderTitle, placeholderSubtit
               <Text style={styles.uploadedBadgeText}>{uploadedTitle}</Text>
             </View>
           )}
+        </>
+      ) : state.localUri ? (
+        <>
+          <View style={styles.uploadEmpty}>
+            <View style={styles.uploadIconCircleEmpty}>
+              <Ionicons name="document-attach-outline" size={28} color="#076B51" />
+            </View>
+            <Text style={styles.uploadEmptyTitle} numberOfLines={1}>
+              {state.fileName ?? uploadedTitle}
+            </Text>
+            <Text style={styles.uploadEmptySubtitle}>
+              {state.uploading ? "Uploading..." : uploadedTitle}
+            </Text>
+          </View>
+          {state.uploading ? (
+            <View style={styles.uploadOverlay}>
+              <ActivityIndicator color="#FFFFFF" />
+              <Text style={styles.uploadOverlayText}>Uploading...</Text>
+            </View>
+          ) : null}
         </>
       ) : (
         <View style={styles.uploadEmpty}>

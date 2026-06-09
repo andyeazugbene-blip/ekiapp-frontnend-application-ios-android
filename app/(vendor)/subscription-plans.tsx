@@ -8,6 +8,7 @@ import {
   type ActiveSubscription,
   type SubscriptionLimits,
 } from "../../services/subscriptionService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const PLAN_LABELS: Record<string, string> = {
   free: "Free",
@@ -65,7 +66,7 @@ export default function SubscriptionPlansScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <View>

@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { payoutMethodService, type PayoutMethodType } from "../../services/payoutMethodService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const TYPES: { id: PayoutMethodType; label: string; icon: any }[] = [
   { id: "bank", label: "Bank Transfer", icon: "business-outline" },
@@ -62,7 +63,7 @@ export default function PaymentDetailsScreen() {
         email: email.trim() || undefined,
         isDefault: makeDefault,
       });
-      router.replace("/(vendor)/settings" as any);
+      goBackOrReplace(router, "/(vendor)/settings" as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save payout method.");
     } finally {
@@ -73,7 +74,7 @@ export default function PaymentDetailsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Add payout method</Text>

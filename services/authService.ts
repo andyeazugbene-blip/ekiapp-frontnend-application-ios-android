@@ -51,6 +51,9 @@ export const authService = {
         role: payload.role,
         storeName: payload.storeName,
         country: payload.country,
+        city: payload.city,
+        postcode: payload.postcode,
+        deliveryAddress: payload.deliveryAddress,
         referralCode: payload.referralCode,
       },
       { skipAuth: true }
@@ -96,10 +99,10 @@ export const authService = {
     );
   },
 
-  async sendOtp(contact: string, purpose = "vendor_onboarding_email") {
+  async sendOtp(contact: string, purpose = "vendor_onboarding_email", channel: "email" | "sms" = "email") {
     return apiClient.post<{ message: string }>(
       "/api/auth/send-otp",
-      { contact, purpose },
+      { contact, purpose, channel },
       { skipAuth: true }
     );
   },

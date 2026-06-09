@@ -20,6 +20,7 @@ import { vendorService } from "../../services/vendorService";
 import { uploadService } from "../../services/uploadService";
 import { useAuthStore } from "../../stores/authStore";
 import type { VendorProfile } from "../../types/auth";
+import { goBackOrReplace } from "../../utils/navigation";
 
 export default function EditStoreProfileScreen() {
   const router = useRouter();
@@ -122,7 +123,7 @@ export default function EditStoreProfileScreen() {
         coverImage: coverImage || null,
       } as any);
       await checkAuth().catch(() => undefined);
-      router.replace("/(vendor)/settings" as any);
+      goBackOrReplace(router, "/(vendor)/settings" as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update your store profile.");
     } finally {
@@ -133,7 +134,7 @@ export default function EditStoreProfileScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>

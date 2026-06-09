@@ -7,6 +7,7 @@ import { walletService, type Wallet, type WalletTransaction } from "../../servic
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { formatDisplayMoney } from "../../utils/currency";
+import { goBackOrReplace } from "../../utils/navigation";
 
 export default function RewardHistoryScreen() {
   const router = useRouter();
@@ -53,7 +54,7 @@ export default function RewardHistoryScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/wallet" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Reward History</Text>

@@ -19,6 +19,7 @@ import { useAuthStore } from "../../stores/authStore";
 import type { VendorProfile } from "../../types/auth";
 import type { Product } from "../../types/product";
 import { getPublicStoreUrl } from "../../utils/shareLinks";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const CURRENCY_SYMBOL = "\u00A3";
 
@@ -149,7 +150,7 @@ export default function CouponHistoryScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.replace("/(vendor)/settings" as any)}
+          onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)}
           activeOpacity={0.85}
           style={styles.backButton}
         >

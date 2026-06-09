@@ -68,5 +68,8 @@ export interface RegisterPayload {
   role: UserRole;
   storeName?: string;
   country?: string;
+  city?: string;
+  postcode?: string;
+  deliveryAddress?: string;
   referralCode?: string;
 }

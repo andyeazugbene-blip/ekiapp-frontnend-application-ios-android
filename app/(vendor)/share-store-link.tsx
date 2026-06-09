@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../stores/authStore";
 import { getPublicStoreUrl, toCompactStoreSlug } from "../../utils/shareLinks";
 import { publicStoreService, type PublicStoreAnalyticsDetail } from "../../services/publicStoreService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 function emptyAnalytics(storeSlug: string): PublicStoreAnalyticsDetail {
   return {
@@ -171,11 +172,11 @@ export default function ShareStoreLinkScreen() {
           </View>
           <Text style={styles.topTitle}>My Store</Text>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)}
             activeOpacity={0.85}
             style={styles.moreButton}
           >
-            <Ionicons name="ellipsis-horizontal" size={18} color="#4A4A4A" />
+            <Ionicons name="arrow-back" size={18} color="#0A6C52" />
           </TouchableOpacity>
         </View>
 

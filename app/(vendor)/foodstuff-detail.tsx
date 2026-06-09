@@ -18,6 +18,7 @@ import { Product, ProductStatus } from "../../types/product";
 import { productService } from "../../services/productService";
 import { ApiRequestError } from "../../services/api";
 import { RemoteImage } from "../../components/ui/RemoteImage";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const STATUS_LABEL: Record<ProductStatus, string> = {
   active: "Active",
@@ -186,7 +187,7 @@ export default function FoodstuffDetailScreen() {
       <View style={styles.page}>
         <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.replace("/(vendor)/foodstuff" as any)} style={styles.backButton}>
+            <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/foodstuff" as any)} style={styles.backButton}>
               <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Foodstuff detail</Text>
@@ -205,7 +206,7 @@ export default function FoodstuffDetailScreen() {
     <View style={styles.page}>
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
         <Animated.View style={[styles.header, animatedHeaderStyle]}>
-          <TouchableOpacity onPress={() => router.replace("/(vendor)/foodstuff" as any)} style={styles.backButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/foodstuff" as any)} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={2}>

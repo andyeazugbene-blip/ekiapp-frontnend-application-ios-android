@@ -132,7 +132,7 @@ export default function MarkShippedScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace({ pathname: "/(vendor)/order-detail", params: { id } } as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, { pathname: "/(vendor)/order-detail", params: { id } } as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Mark as Shipped</Text>
@@ -213,7 +213,7 @@ export default function MarkShippedScreen() {
               <Text style={styles.primaryButtonText}>{submitting ? "Processing..." : isEscrowOrder ? "Dispatch Escrow Order" : "Mark as Shipped"}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => router.replace({ pathname: "/(vendor)/order-detail", params: { id: order.id } } as any)} activeOpacity={0.85} style={styles.secondaryButton} disabled={submitting}>
+            <TouchableOpacity onPress={() => goBackOrReplace(router, { pathname: "/(vendor)/order-detail", params: { id: order.id } } as any)} activeOpacity={0.85} style={styles.secondaryButton} disabled={submitting}>
               <Text style={styles.secondaryButtonText}>Cancel</Text>
             </TouchableOpacity>
           </>

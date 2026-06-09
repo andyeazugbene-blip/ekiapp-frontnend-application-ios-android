@@ -348,13 +348,23 @@ function normalizePublicProduct(raw: unknown): Product {
   const stock = asNumber(value.stock);
   const priceInCents = asNumber(value.priceInCents);
   const weightGrams = asNumber(value.weightGrams);
+  const costPrice =
+    value.costPriceInCents !== undefined
+      ? asNumber(value.costPriceInCents) / 100
+      : value.costAmount !== undefined
+        ? asNumber(value.costAmount) / 100
+        : value.costPrice !== undefined
+          ? asNumber(value.costPrice)
+          : undefined;
 
   return {
     id: asString(value.id),
     name: asString(value.title) || asString(value.name),
     description: asString(value.description),
     price: priceInCents > 0 ? priceInCents / 100 : asNumber(value.price),
+    costPrice,
     currency: (asString(value.currency) || "GBP").toUpperCase() as Product["currency"],
+    costCurrency: (asString(value.costCurrency) || asString(value.currency) || "GBP").toUpperCase() as Product["costCurrency"],
     images,
     category: asString(value.category),
     vendorId: asString(value.vendorId),

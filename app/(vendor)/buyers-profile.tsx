@@ -17,6 +17,7 @@ import { Order } from "../../types/order";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { openConversationThread } from "../../utils/messaging";
 import { formatDisplayMoney } from "../../utils/currency";
+import { goBackOrReplace } from "../../utils/navigation";
 
 function formatDate(value: string | null | undefined, fallback = "No date"): string {
   if (!value) return fallback;
@@ -147,7 +148,7 @@ export default function BuyerProfileScreen() {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.replace("/(vendor)/buyers" as any)} activeOpacity={0.85} style={styles.backButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/buyers" as any)} activeOpacity={0.85} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#282828" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Buyer profile</Text>
@@ -163,7 +164,7 @@ export default function BuyerProfileScreen() {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.replace("/(vendor)/buyers" as any)} activeOpacity={0.85} style={styles.backButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/buyers" as any)} activeOpacity={0.85} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#282828" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Buyer profile</Text>
@@ -178,7 +179,7 @@ export default function BuyerProfileScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/(vendor)/buyers" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/buyers" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Buyer profile</Text>

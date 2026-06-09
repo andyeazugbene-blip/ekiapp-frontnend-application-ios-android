@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const GRID_TOOLS = [
   { 
@@ -59,7 +60,7 @@ export default function GrowSalesScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header section with curves */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#076B51" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Grow your sales</Text>

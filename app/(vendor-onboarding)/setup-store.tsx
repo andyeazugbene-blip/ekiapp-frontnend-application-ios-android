@@ -71,6 +71,7 @@ export default function SetupStoreScreen() {
           storeName: storeName.trim(),
           description: description.trim() || undefined,
           country: country || undefined,
+          city: city || undefined,
         });
         await checkAuth();
       } else {
@@ -91,6 +92,7 @@ export default function SetupStoreScreen() {
             storeName: storeName.trim(),
             description: description.trim() || undefined,
             country: country || undefined,
+            city: city || undefined,
           });
           await checkAuth();
         }

@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { subscriptionService, type ActiveSubscription } from "../../services/subscriptionService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const PLAN_LABELS: Record<string, string> = {
   free: "Free",
@@ -44,7 +45,7 @@ export default function UpgradePromptScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/subscription-plans" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Plan Status</Text>
@@ -79,7 +80,7 @@ export default function UpgradePromptScreen() {
             {refreshing ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
             <Text style={styles.primaryButtonText}>Refresh plan status</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.secondaryButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/subscription-plans" as any)} activeOpacity={0.85} style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>Back</Text>
           </TouchableOpacity>
         </View>

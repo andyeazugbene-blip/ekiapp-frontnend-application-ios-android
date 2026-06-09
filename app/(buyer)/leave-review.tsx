@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { reviewService } from "../../services/reviewService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 export default function LeaveReviewScreen() {
   const router = useRouter();
@@ -43,7 +44,7 @@ export default function LeaveReviewScreen() {
         comment: comment.trim(),
       });
       Alert.alert("Review Submitted", "Thank you for your feedback!", [
-        { text: "OK", onPress: () => router.back() },
+        { text: "OK", onPress: () => goBackOrReplace(router, "/(buyer)/orders" as any) },
       ]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not submit review.";
@@ -69,7 +70,7 @@ export default function LeaveReviewScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/orders" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Leave a Review</Text>

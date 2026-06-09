@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { buyerService, type VendorBuyerSummary } from "../../services/buyerService";
 import { marketingService, type OfferAudience } from "../../services/marketingService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const AUDIENCES: { id: OfferAudience; label: string }[] = [
   { id: "all_buyers", label: "All buyers" },
@@ -61,7 +62,7 @@ export default function SendOfferScreen() {
         buyerId: audience === "specific_buyer" ? selectedBuyerId : undefined,
         message: message.trim(),
       });
-      router.back();
+      goBackOrReplace(router, "/(vendor)/buyers" as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send offer.");
     } finally {
@@ -73,7 +74,7 @@ export default function SendOfferScreen() {
     <View style={styles.page}>
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/buyers" as any)} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Send Offer</Text>

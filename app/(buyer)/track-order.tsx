@@ -302,6 +302,36 @@ export default function TrackOrderScreen() {
           ))}
         </View>
 
+        {isEscrowOrder ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Delivery OTP</Text>
+            <Text style={styles.deliveryText}>
+              When the vendor dispatches this order, Eki sends a 6-digit delivery OTP to your phone. Enter it here after
+              you receive the goods so the backend can confirm delivery and release escrow safely.
+            </Text>
+            {otpDeliveryHint ? <Text style={styles.otpHintText}>{otpDeliveryHint}</Text> : null}
+            <TouchableOpacity
+              activeOpacity={0.86}
+              onPress={() => setConfirmModalVisible(true)}
+              disabled={!confirmDeliveryEnabled}
+              style={[styles.otpActionButton, !confirmDeliveryEnabled && styles.buttonDisabled]}
+            >
+              <Ionicons name="keypad-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.otpActionButtonText}>
+                {confirmDeliveryEnabled ? "Enter delivery OTP" : "Waiting for dispatch OTP"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.86}
+              onPress={handleResendOtp}
+              disabled={!confirmDeliveryEnabled || resendingOtp}
+              style={[styles.otpResendButton, (!confirmDeliveryEnabled || resendingOtp) && styles.buttonDisabled]}
+            >
+              <Text style={styles.otpResendText}>{resendingOtp ? "Sending OTP..." : "Resend OTP to phone"}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Delivery details</Text>
           <Text style={styles.deliveryText}>
@@ -659,6 +689,34 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontFamily: "Outfit-Regular",
     marginTop: 10,
+  },
+  otpActionButton: {
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: "#076B51",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 16,
+  },
+  otpActionButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    lineHeight: 21,
+    fontFamily: "Manrope-Bold",
+  },
+  otpResendButton: {
+    alignSelf: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 6,
+  },
+  otpResendText: {
+    color: "#076B51",
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: "Manrope-SemiBold",
   },
   bottomActions: {
     paddingHorizontal: 20,

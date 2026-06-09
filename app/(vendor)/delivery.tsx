@@ -19,6 +19,7 @@ import {
   type DeliveryZone,
   type DeliveryCountryCode,
 } from "../../services/deliveryService";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const CURRENCY_SYMBOL: Record<string, string> = {
   GBP: "£",
@@ -133,7 +134,7 @@ export default function DeliveryScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-          <TouchableOpacity onPress={() => router.replace("/(vendor)/settings" as any)} activeOpacity={0.85} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#F4F4F4', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#F4F4F4', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
             <Ionicons name="arrow-back" size={22} color="#282828" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manage delivery</Text>

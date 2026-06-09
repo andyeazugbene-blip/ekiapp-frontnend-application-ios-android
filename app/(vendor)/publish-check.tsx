@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { FakeStatusBar } from "../../components/onboarding/FigmaNativeUI";
+import { goBackOrReplace } from "../../utils/navigation";
 
 const CHECKS = [
   { label: "Image added", done: true },
@@ -75,7 +76,7 @@ export default function PublishCheckScreen() {
           accessibilityRole="button"
           activeOpacity={allDone ? 0.86 : 1}
           disabled={!allDone}
-          onPress={() => router.back()}
+          onPress={() => goBackOrReplace(router, "/(vendor)/foodstuff-add" as any)}
           style={[styles.publishButton, !allDone && styles.publishDisabled]}
         >
           <Text style={styles.publishText}>Publish</Text>
@@ -84,7 +85,7 @@ export default function PublishCheckScreen() {
         <TouchableOpacity
           accessibilityRole="button"
           activeOpacity={0.86}
-          onPress={() => router.back()}
+          onPress={() => goBackOrReplace(router, "/(vendor)/foodstuff-add" as any)}
           style={styles.fixButton}
         >
           <Ionicons name="arrow-back" size={16} color="#076B51" />
