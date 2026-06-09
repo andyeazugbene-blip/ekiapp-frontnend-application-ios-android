@@ -64,6 +64,49 @@ export interface AdminEscrowHealth {
   statusBreakdown: Record<string, { count: number; amount: number }>;
 }
 
+export interface AdminCommissionTier {
+  id?: string;
+  label?: string | null;
+  minSubtotalCents: number;
+  maxSubtotalCents?: number | null;
+  platformFeeBps: number;
+  platformFeePercent?: string;
+  isActive: boolean;
+  displayOrder: number;
+}
+
+export interface AdminSellerPlan {
+  id: string;
+  plan?: string;
+  legacyPlan?: string | null;
+  slug: string;
+  name: string;
+  description?: string | null;
+  monthlyPriceCents: number;
+  currency: string;
+  stripePriceId?: string | null;
+  stripeProductId?: string | null;
+  defaultPlatformFeeBps: number;
+  platformFeeBps: number;
+  platformFeePercent: string;
+  withdrawalFeeBps: number;
+  withdrawalFeePercent: string;
+  maxProducts: number;
+  maxImagesPerProduct: number;
+  maxOrders?: number | null;
+  analytics: boolean;
+  prioritySupport: boolean;
+  flashSales: boolean;
+  bundles: boolean;
+  discounts: boolean;
+  marketingTools: boolean;
+  canReceiveOrders: boolean;
+  isActive: boolean;
+  displayOrder: number;
+  deletedAt?: string | null;
+  commissionTiers: AdminCommissionTier[];
+}
+
 export interface AdminDispute {
   id: string;
   orderId: string;
@@ -200,6 +243,49 @@ function normalizeDispute(raw: any): AdminDispute {
   };
 }
 
+function normalizeSellerPlan(raw: any): AdminSellerPlan {
+  return {
+    id: raw.id,
+    plan: raw.plan,
+    legacyPlan: raw.legacyPlan ?? null,
+    slug: raw.slug ?? raw.id,
+    name: raw.name ?? raw.slug ?? "Seller plan",
+    description: raw.description ?? null,
+    monthlyPriceCents: raw.monthlyPriceCents ?? Math.round((raw.price ?? 0) * 100),
+    currency: (raw.currency ?? "GBP").toUpperCase(),
+    stripePriceId: raw.stripePriceId ?? null,
+    stripeProductId: raw.stripeProductId ?? null,
+    defaultPlatformFeeBps: raw.defaultPlatformFeeBps ?? raw.platformFeeBps ?? 0,
+    platformFeeBps: raw.platformFeeBps ?? raw.defaultPlatformFeeBps ?? 0,
+    platformFeePercent: raw.platformFeePercent ?? `${((raw.platformFeeBps ?? raw.defaultPlatformFeeBps ?? 0) / 100).toFixed(2).replace(/\.00$/, "")}%`,
+    withdrawalFeeBps: raw.withdrawalFeeBps ?? 0,
+    withdrawalFeePercent: raw.withdrawalFeePercent ?? `${((raw.withdrawalFeeBps ?? 0) / 100).toFixed(2).replace(/\.00$/, "")}%`,
+    maxProducts: raw.maxProducts ?? 0,
+    maxImagesPerProduct: raw.maxImagesPerProduct ?? 1,
+    maxOrders: raw.maxOrders ?? null,
+    analytics: Boolean(raw.analytics),
+    prioritySupport: Boolean(raw.prioritySupport),
+    flashSales: Boolean(raw.flashSales),
+    bundles: Boolean(raw.bundles),
+    discounts: Boolean(raw.discounts),
+    marketingTools: Boolean(raw.marketingTools),
+    canReceiveOrders: Boolean(raw.canReceiveOrders ?? true),
+    isActive: Boolean(raw.isActive ?? true),
+    displayOrder: raw.displayOrder ?? 0,
+    deletedAt: raw.deletedAt ?? null,
+    commissionTiers: (raw.commissionTiers ?? []).map((tier: any) => ({
+      id: tier.id,
+      label: tier.label ?? null,
+      minSubtotalCents: tier.minSubtotalCents ?? 0,
+      maxSubtotalCents: tier.maxSubtotalCents ?? null,
+      platformFeeBps: tier.platformFeeBps ?? 0,
+      platformFeePercent: tier.platformFeePercent,
+      isActive: Boolean(tier.isActive ?? true),
+      displayOrder: tier.displayOrder ?? 0,
+    })),
+  };
+}
+
 export const adminService = {
   async getDashboard(): Promise<AdminDashboardData> {
     const raw = await apiClient.get<any>("/api/admin/dashboard");
@@ -302,6 +388,25 @@ export const adminService = {
       vendors = vendors.filter((vendor) => vendor.storeName.toLowerCase().includes(search) || vendor.ownerName.toLowerCase().includes(search));
     }
     return vendors;
+  },
+
+  async getSellerPlans(): Promise<AdminSellerPlan[]> {
+    const res = await apiClient.get<{ plans?: any[] }>("/api/admin/subscription-plans");
+    return (res.plans ?? []).map(normalizeSellerPlan);
+  },
+
+  async saveSellerPlan(input: Partial<AdminSellerPlan> & { slug: string; name: string }): Promise<AdminSellerPlan> {
+    const res = await apiClient.post<{ plan?: any }>("/api/admin/subscription-plans", input);
+    return normalizeSellerPlan(res.plan ?? res);
+  },
+
+  async deleteSellerPlan(planId: string): Promise<AdminSellerPlan> {
+    const res = await apiClient.delete<{ plan?: any }>(`/api/admin/subscription-plans/${planId}`);
+    return normalizeSellerPlan(res.plan ?? res);
+  },
+
+  async assignVendorSellerPlan(vendorId: string, plan: string): Promise<void> {
+    await apiClient.patch(`/api/admin/vendors/${vendorId}/seller-plan`, { plan });
   },
 
   async approveVendor(vendorId: string): Promise<{ vendorId: string; status: VendorAdminStatus }> {

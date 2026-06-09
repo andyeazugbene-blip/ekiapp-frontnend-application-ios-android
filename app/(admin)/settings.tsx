@@ -182,10 +182,10 @@ export default function AdminSettingsScreen() {
             onPress={() => router.push("/(admin)/create-message" as any)}
           />
           <SettingRow
-            icon="globe-outline"
-            label="Platform Config"
-            description="Fees, currencies, delivery zones"
-            onPress={() => handleUnavailable("Platform config unavailable", "Marketplace configuration remains web-admin only for now.")}
+            icon="card-outline"
+            label="Seller Plans"
+            description="Stripe web plans, commission tiers, limits, and withdrawal fees"
+            onPress={() => router.push("/(admin)/seller-plans" as any)}
           />
           <SettingRow
             icon="information-circle-outline"

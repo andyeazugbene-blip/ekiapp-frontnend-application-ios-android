@@ -16,6 +16,11 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.ekiapp.mobilee",
       "buildNumber": "11",
+      "splash": {
+        "image": "./assets/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#045242"
+      },
       "associatedDomains": [
         "applinks:culinarytales.app",
         "applinks:www.culinarytales.app",
@@ -32,6 +37,11 @@
     "android": {
       "package": "com.ekiapp.mobile",
       "versionCode": 14,
+      "splash": {
+        "image": "./assets/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#045242"
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#045242"

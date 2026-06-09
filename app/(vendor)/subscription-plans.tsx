@@ -11,7 +11,8 @@ import {
 import { goBackOrReplace } from "../../utils/navigation";
 
 const PLAN_LABELS: Record<string, string> = {
-  free: "Free",
+  starter: "Starter",
+  free: "Starter",
   growth: "Growth",
   pro: "Pro",
 };
@@ -70,8 +71,8 @@ export default function SubscriptionPlansScreen() {
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>Plan Status</Text>
-          <Text style={styles.headerSubtitle}>Current plan and usage limits</Text>
+          <Text style={styles.headerTitle}>Seller Plan</Text>
+          <Text style={styles.headerSubtitle}>Website billing, commission, and limits</Text>
         </View>
       </View>
 
@@ -87,7 +88,7 @@ export default function SubscriptionPlansScreen() {
             <View style={styles.statusCard}>
               <View style={styles.statusHeader}>
                 <View>
-                  <Text style={styles.sectionLabel}>Current plan</Text>
+                <Text style={styles.sectionLabel}>Current seller plan</Text>
                   <Text style={styles.planName}>{planName}</Text>
                 </View>
                 <View style={[styles.statusBadge, !isActive && styles.statusBadgeInactive]}>
@@ -97,19 +98,41 @@ export default function SubscriptionPlansScreen() {
                 </View>
               </View>
               <Text style={styles.statusBody}>
-                Paid plans are purchased and managed on the Eki website using your vendor account email. This app does not process subscription payments.
+                Paid seller plans are purchased and managed on the Eki website using your vendor account email. This app does not process plan payments.
               </Text>
               <View style={styles.feeBanner}>
                 <Text style={styles.feeBannerLabel}>Platform fee per order</Text>
                 <Text style={styles.feeBannerValue}>{limits?.platformFeePercent ?? subscription?.platformFeePercent ?? "Unavailable"}</Text>
+              </View>
+              <View style={styles.feeBannerAlt}>
+                <Text style={styles.feeBannerLabel}>Withdrawal fee</Text>
+                <Text style={styles.feeBannerValue}>{limits?.withdrawalFeePercent ?? subscription?.withdrawalFeePercent ?? "Unavailable"}</Text>
               </View>
             </View>
 
             <View style={styles.statusCard}>
               <Text style={styles.sectionTitle}>Website-managed billing</Text>
               <Text style={styles.statusBody}>
-                After paying on the website with the same email used for this vendor account, return here and refresh. Your paid plan and features will unlock after Stripe confirms payment.
+                After paying on the website with the same email used for this vendor account, return here and refresh. Your paid seller plan and features unlock after Stripe confirms payment.
               </Text>
+            </View>
+
+            <View style={styles.statusCard}>
+              <Text style={styles.sectionTitle}>Commission rules</Text>
+              {(limits?.commissionTiers ?? subscription?.commissionTiers ?? []).filter((tier) => tier.isActive !== false).length === 0 ? (
+                <Text style={styles.statusBody}>No commission tiers are configured for this seller plan.</Text>
+              ) : (
+                (limits?.commissionTiers ?? subscription?.commissionTiers ?? [])
+                  .filter((tier) => tier.isActive !== false)
+                  .map((tier) => (
+                    <LimitRow
+                      key={tier.id ?? `${tier.minSubtotalCents}-${tier.platformFeeBps}`}
+                      icon="pricetag-outline"
+                      label={tier.label ?? "Order subtotal tier"}
+                      value={`${tier.platformFeePercent ?? `${tier.platformFeeBps / 100}%`} from ${(tier.minSubtotalCents / 100).toLocaleString("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 })}${tier.maxSubtotalCents ? ` to ${(tier.maxSubtotalCents / 100).toLocaleString("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 })}` : "+"}`}
+                    />
+                  ))
+              )}
             </View>
 
             <View style={styles.statusCard}>
@@ -211,6 +234,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#EEF8F0",
     borderWidth: 1,
     borderColor: "#D9EDE0",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  feeBannerAlt: {
+    marginTop: 10,
+    borderRadius: 14,
+    backgroundColor: "#F6F8F7",
+    borderWidth: 1,
+    borderColor: "#E2EAE6",
     paddingHorizontal: 14,
     paddingVertical: 12,
   },

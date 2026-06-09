@@ -237,7 +237,8 @@ export default function VendorDashboardScreen() {
   // Onboarding progress: 4 steps (foodstuff / delivery / verify / share).
   const stepFoodstuff = productsCount > 0;
   const stepDelivery = zones.length > 0;
-  const stepVerify = profile?.verificationStatus === "verified";
+  const isVerifiedVendor = profile?.verificationStatus === "verified";
+  const stepVerify = isVerifiedVendor;
   // Share is tracked by the onboarding store; we treat "any unread message
   // received" or "any past order" as a strong signal that the link has been shared.
   const stepShare = orders.length > 0 || buyers.length > 0;
@@ -339,7 +340,8 @@ export default function VendorDashboardScreen() {
               {asText(data?.greeting).trim() || "Welcome back,"}
             </Text>
             <Text style={styles.storeName} numberOfLines={1}>
-              {storeName} <Text style={styles.wave}>👑</Text>
+              {storeName}
+              {isVerifiedVendor ? <Text style={styles.wave}> ✓</Text> : null}
             </Text>
           </SafeAreaView>
         </LinearGradient>

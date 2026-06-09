@@ -104,6 +104,7 @@ export default function AdminLayout() {
       <Tabs.Screen name="disputes" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="buyers" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="reward-rules" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="seller-plans" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="settings" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="vendor-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="create-message" options={{ href: null, tabBarStyle: { display: "none" } }} />

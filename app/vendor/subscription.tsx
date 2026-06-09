@@ -35,11 +35,8 @@ function formatPrice(plan: SubscriptionPlan) {
 }
 
 function paidPlanId(plan: SubscriptionPlan): PaidSubscriptionPlan | null {
-  const id = plan.id.toUpperCase();
-  const name = plan.name.toUpperCase();
-  if (id === "GROWTH" || name.includes("GROWTH")) return "GROWTH";
-  if (id === "PRO" || id === "PREMIUM" || name.includes("PRO")) return "PRO";
-  return null;
+  if (!plan.price || plan.price <= 0 || plan.slug === "starter" || plan.slug === "free") return null;
+  return plan.slug || plan.id;
 }
 
 export default function VendorWebSubscriptionPage() {
@@ -51,7 +48,7 @@ export default function VendorWebSubscriptionPage() {
 
   const [email, setEmail] = useState(typeof params.email === "string" ? params.email : "");
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<PaidSubscriptionPlan>("GROWTH");
+  const [selectedPlan, setSelectedPlan] = useState<PaidSubscriptionPlan>("growth");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -115,7 +112,7 @@ export default function VendorWebSubscriptionPage() {
         </View>
         <Text style={styles.nativeTitle}>Website billing only</Text>
         <Text style={styles.nativeText}>
-          Eki does not process vendor subscription payments in the app. Open culinarytales.app in a browser and pay
+          Eki does not process seller plan payments in the app. Open culinarytales.app in a browser and pay
           with the email on your vendor account, then return to the app and refresh your plan status.
         </Text>
       </View>
@@ -136,15 +133,15 @@ export default function VendorWebSubscriptionPage() {
 
       <View style={[styles.hero, isCompact && styles.heroCompact]}>
         <View style={styles.heroCopy}>
-          <Text style={styles.kicker}>Vendor subscriptions</Text>
-          <Text style={styles.title}>Upgrade your store on the web.</Text>
+          <Text style={styles.kicker}>Seller plans</Text>
+          <Text style={styles.title}>Upgrade your seller plan on the web.</Text>
           <Text style={styles.subtitle}>
-            Enter the same email used for your Eki vendor account. After Stripe confirms payment, your vendor plan
-            changes from Free to Growth or Pro automatically.
+            Enter the same email used for your Eki vendor account. After Stripe confirms payment, your seller plan,
+            commission rules, limits, and tools update automatically.
           </Text>
           <View style={styles.note}>
             <Ionicons name="shield-checkmark-outline" size={18} color={BRAND} />
-            <Text style={styles.noteText}>No Apple or Google subscription billing is used inside the app.</Text>
+            <Text style={styles.noteText}>Seller plan billing is website-only through Stripe.</Text>
           </View>
         </View>
 
@@ -199,7 +196,9 @@ export default function VendorWebSubscriptionPage() {
                     <View style={styles.planTop}>
                       <View>
                         <Text style={styles.planName}>{plan.name}</Text>
-                        <Text style={styles.planFee}>{plan.platformFeePercent} platform fee per order</Text>
+                        <Text style={styles.planFee}>
+                          {plan.platformFeePercent} platform fee / {plan.withdrawalFeePercent ?? "configured"} withdrawal fee
+                        </Text>
                       </View>
                       <View style={[styles.radio, active && styles.radioActive]}>
                         {active ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
@@ -209,6 +208,15 @@ export default function VendorWebSubscriptionPage() {
                       {formatPrice(plan)} <Text style={styles.planInterval}>/ month</Text>
                     </Text>
                     <View style={styles.featureList}>
+                      {plan.commissionTiers?.filter((tier) => tier.isActive !== false).slice(0, 3).map((tier) => (
+                        <View key={tier.id ?? `${tier.minSubtotalCents}-${tier.platformFeeBps}`} style={styles.featureRow}>
+                          <Ionicons name="pricetag-outline" size={15} color={BRAND} />
+                          <Text style={styles.featureText}>
+                            {tier.platformFeePercent} commission from {(tier.minSubtotalCents / 100).toLocaleString("en-GB", { style: "currency", currency: plan.currency || "GBP", maximumFractionDigits: 0 })}
+                            {tier.maxSubtotalCents ? ` to ${(tier.maxSubtotalCents / 100).toLocaleString("en-GB", { style: "currency", currency: plan.currency || "GBP", maximumFractionDigits: 0 })}` : "+"}
+                          </Text>
+                        </View>
+                      ))}
                       {plan.features.slice(0, 5).map((feature) => (
                         <View key={feature} style={styles.featureRow}>
                           <Ionicons name="checkmark-circle-outline" size={15} color={BRAND} />
