@@ -128,6 +128,7 @@ export interface AdminDispute {
     buyerId?: string;
     vendorId?: string;
     deliveryAddress?: string;
+    paymentProvider?: string;
     createdAt?: string;
     items?: { productTitle: string; quantity: number; totalAmount: number }[];
   };

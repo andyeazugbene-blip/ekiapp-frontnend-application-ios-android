@@ -176,7 +176,7 @@ export default function RegisterScreen() {
 
   const handleBuyerSignup = async () => {
     if (!phone.trim()) {
-      Alert.alert("Missing phone", "Add your phone number for order updates and escrow OTPs.");
+      Alert.alert("Missing phone", "Add your phone number for order and delivery updates.");
       return;
     }
     if (!country.trim()) {
@@ -232,7 +232,7 @@ export default function RegisterScreen() {
               : buyerStep === "otp"
               ? "Enter the code we sent before creating your buyer account."
               : buyerStep === "details"
-              ? "These details help vendors deliver orders and send protected delivery OTPs."
+              ? "These details help vendors deliver orders and send delivery updates."
               : "Use your email to start shopping with Eki."
           }
         />

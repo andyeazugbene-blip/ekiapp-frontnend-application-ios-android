@@ -1,7 +1,7 @@
 {
   "name": "eki-app",
   "main": "expo-router/entry",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "scripts": {
     "postinstall": "node scripts/patch-stripe-react-native-ios.js",
     "start": "expo start",

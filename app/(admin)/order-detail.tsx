@@ -125,11 +125,10 @@ export default function AdminOrderDetailScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Escrow Summary</Text>
+          <Text style={styles.sectionTitle}>Payment Summary</Text>
           <InfoRow label="Payment provider" value={paymentProviderLabel(order)} />
           <InfoRow label="Payment status" value={order.paymentStatus.replace(/\b\w/g, (char) => char.toUpperCase())} />
           <InfoRow label="Vendor earnings" value={formatDisplayMoney(order.vendorEarnings ?? 0, order.currency, selectedCurrency)} />
-          <InfoRow label="Protection window" value={order.escrowExpiresAt ? formatDate(order.escrowExpiresAt) : "Unavailable"} />
         </View>
 
         <View style={styles.card}>
@@ -164,7 +163,7 @@ export default function AdminOrderDetailScreen() {
             onPress={() =>
               Alert.alert(
                 "Refund route",
-                "Use the dispute detail flow for escrow buyer/vendor resolutions. Direct order refund UI is not connected in mobile yet.",
+                "Use the dispute detail flow for buyer/vendor resolutions. Direct order refund UI is not connected in mobile yet.",
               )
             }
             activeOpacity={0.85}

@@ -6,15 +6,15 @@ import { goBackOrReplace } from "../../utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
 
 const STEPS = [
-  ["Buyer pays", "The buyer pays through a supported secure checkout provider. The order remains protected while payment is confirmed."],
-  ["Funds are secured", "Vendor earnings are held as pending balance. You can prepare the order, but payout is not released yet."],
-  ["You confirm and dispatch", "Confirm the secured order, then mark it dispatched. For supported African escrow, the buyer receives a delivery OTP."],
-  ["Buyer confirms delivery", "The buyer enters the OTP from the track-order flow after receiving the goods."],
-  ["Funds release", "If the OTP is correct, or the protection window expires without a dispute, eligible funds move to available balance."],
-  ["Disputes freeze release", "If a buyer opens a dispute, release pauses until admin reviews evidence and resolves the case."],
+  ["Choose a seller plan", "Your current plan controls product limits, unlocked tools, platform fee, and withdrawal fee."],
+  ["Share your store", "Use your public Eki store link to sell to diaspora buyers through secure checkout."],
+  ["Accept paid orders", "Review each paid order, accept it, and prepare the package for dispatch."],
+  ["Ship with tracking", "Add carrier and tracking details so buyers can follow the order from their account."],
+  ["Get paid", "Eligible earnings move through payout review using the platform rules for your seller plan."],
+  ["Resolve issues in Eki", "Keep order messages and support cases inside Eki so the admin team can help quickly."],
 ] as const;
 
-export default function VendorEscrowGuideScreen() {
+export default function VendorPlanGuideScreen() {
   const router = useRouter();
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -23,16 +23,16 @@ export default function VendorEscrowGuideScreen() {
           <Ionicons name="arrow-back" size={20} color="#17211D" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>How escrow works</Text>
-          <Text style={styles.subtitle}>Protected payments keep buyers confident and vendors paid after confirmed delivery.</Text>
+          <Text style={styles.title}>How seller plans work</Text>
+          <Text style={styles.subtitle}>Plans are managed on the website and control your selling limits and fees.</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Ionicons name="shield-checkmark" size={28} color="#FFFFFF" />
-          <Text style={styles.heroTitle}>Your payout is protected by order state.</Text>
-          <Text style={styles.heroText}>Never dispatch outside Eki for protected orders. Keep messages, shipment updates, OTP confirmation, and disputes inside the app.</Text>
+          <Ionicons name="diamond" size={28} color="#FFFFFF" />
+          <Text style={styles.heroTitle}>Your plan controls your seller tools.</Text>
+          <Text style={styles.heroText}>Seller plan payments happen on the Eki website. The app shows your current plan, commission tier, limits, and unlocked tools.</Text>
         </View>
 
         {STEPS.map(([title, body], index) => (

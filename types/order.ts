@@ -2,6 +2,7 @@ import { CartItem } from "./product";
 
 export type OrderStatus =
   | "pending"
+  | "paid"
   | "confirmed"
   | "processing"
   | "dispatched"

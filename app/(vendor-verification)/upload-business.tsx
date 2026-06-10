@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -35,7 +35,29 @@ export default function UploadBusinessScreen() {
   const [doc, setDoc] = useState<UploadState>(initialUpload);
   const [selfie, setSelfie] = useState<UploadState>(initialUpload);
   const [submitting, setSubmitting] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(true);
+  const [alreadyVerified, setAlreadyVerified] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    vendorService
+      .getMyProfile()
+      .then((profile) => {
+        if (!mounted) return;
+        const verified = profile.verificationStatus === "verified";
+        setAlreadyVerified(verified);
+        if (verified) setVerificationStatus("approved");
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (mounted) setCheckingStatus(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [setVerificationStatus]);
 
   const uploadPickedFile = async (
     setter: React.Dispatch<React.SetStateAction<UploadState>>,
@@ -142,6 +164,61 @@ export default function UploadBusinessScreen() {
     }
   };
 
+  if (checkingStatus) {
+    return (
+      <View style={styles.container}>
+        <SafeAreaView edges={["top"]} style={styles.safeArea}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Verification</Text>
+            <Text style={styles.headerSubtitle}>Checking your verification status</Text>
+          </View>
+        </SafeAreaView>
+        <View style={styles.loadingState}>
+          <ActivityIndicator color="#076B51" />
+          <Text style={styles.loadingText}>Loading verification status...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (alreadyVerified) {
+    return (
+      <View style={styles.container}>
+        <SafeAreaView edges={["top"]} style={styles.safeArea}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Verification</Text>
+            <Text style={styles.headerSubtitle}>Your store identity has already been approved</Text>
+          </View>
+        </SafeAreaView>
+
+        <View style={styles.verifiedContent}>
+          <View style={styles.verifiedCard}>
+            <View style={styles.verifiedIcon}>
+              <Ionicons name="checkmark-circle" size={42} color="#076B51" />
+            </View>
+            <Text style={styles.verifiedTitle}>Identity verified</Text>
+            <Text style={styles.verifiedBody}>
+              Your documents have already been approved. You do not need to upload verification files again.
+            </Text>
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => router.replace("/(vendor)" as any)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryButtonText}>Return to dashboard</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -207,9 +284,9 @@ export default function UploadBusinessScreen() {
               <Text style={styles.tipsTitle}>Tips for a clear photo</Text>
             </View>
             <Text style={styles.tipsBody}>
-              • Good lighting, no shadows on your face or ID{"\n"}
-              • Both your face and ID text must be fully visible{"\n"}
-              • Avoid blurry or tilted images
+              - Good lighting, no shadows on your face or ID{"\n"}
+              - Both your face and ID text must be fully visible{"\n"}
+              - Avoid blurry or tilted images
             </Text>
           </View>
 
@@ -227,7 +304,7 @@ export default function UploadBusinessScreen() {
 
         <View style={styles.securityBanner}>
           <Ionicons name="lock-closed-outline" size={16} color="#076B51" />
-          <Text style={styles.securityText}>Documents encrypted with 256-bit AES. Reviewed by verified staff only.</Text>
+          <Text style={styles.securityText}>Documents are transferred over a secure connection and reviewed by verified staff only.</Text>
         </View>
       </ScrollView>
     </View>
@@ -310,6 +387,28 @@ function UploadArea({ state, height, onPick, placeholderTitle, placeholderSubtit
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
   safeArea: { backgroundColor: "#076B51" },
+  loadingState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  loadingText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#687076" },
+  verifiedContent: { flex: 1, paddingHorizontal: 20, paddingTop: 28 },
+  verifiedCard: { backgroundColor: "#FFFFFF", borderRadius: 30, padding: 24, alignItems: "center" },
+  verifiedIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#E8F4ED",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  verifiedTitle: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828", marginBottom: 8 },
+  verifiedBody: {
+    fontSize: 14,
+    lineHeight: 21,
+    fontFamily: "Outfit-Regular",
+    color: "#687076",
+    textAlign: "center",
+    marginBottom: 22,
+  },
   header: {
     backgroundColor: "#076B51",
     paddingHorizontal: 24,

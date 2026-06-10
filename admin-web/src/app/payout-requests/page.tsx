@@ -118,7 +118,7 @@ export default function PayoutRequestsPage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Payout Requests</h1>
               <p className="mt-1 text-sm text-gray-600">
-                Review vendor withdrawal requests, approve them, and mark escrow payouts as paid.
+                Review vendor withdrawal requests, approve them, and mark approved payouts as paid.
               </p>
             </div>
             <button

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Order, OrderStatus } from "../../types/order";
 import { Badge } from "../ui/Badge";
+import { formatMoney } from "../../utils/currency";
 
 interface OrderCardProps {
   order: Order;
@@ -15,6 +16,7 @@ const statusConfig: Record<
   { label: string; variant: "success" | "warning" | "error" | "info" | "default" }
 > = {
   pending: { label: "Pending", variant: "warning" },
+  paid: { label: "Paid", variant: "success" },
   confirmed: { label: "Confirmed", variant: "info" },
   processing: { label: "Processing", variant: "info" },
   dispatched: { label: "Dispatched", variant: "info" },
@@ -35,9 +37,8 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onPress,
   perspective = "buyer",
 }) => {
-  const cfg = statusConfig[order.status];
-  const displayName =
-    perspective === "buyer" ? order.vendorName : order.buyerName;
+  const cfg = statusConfig[order.status] ?? statusConfig.pending;
+  const displayName = perspective === "buyer" ? order.vendorName : order.buyerName;
   const itemCount = order.items.reduce((s, i) => s + i.quantity, 0);
 
   return (
@@ -60,11 +61,11 @@ export const OrderCard: React.FC<OrderCardProps> = ({
         <View className="flex-row items-center">
           <Ionicons name="cube-outline" size={14} color="#858585" />
           <Text className="text-xs text-gray-500 ml-1">
-            {itemCount} item{itemCount !== 1 ? "s" : ""} · {order.deliveryDetails.country}
+            {itemCount} item{itemCount !== 1 ? "s" : ""} - {order.deliveryDetails.country}
           </Text>
         </View>
         <Text className="text-base font-bold text-primary-500">
-          £{order.total.toFixed(2)}
+          {formatMoney(order.total, order.currency)}
         </Text>
       </View>
 

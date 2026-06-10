@@ -50,6 +50,9 @@ export default function AcceptOrderScreen() {
 
   const isEscrowOrder = (order?.escrowType ?? "").toLowerCase() === "domestic_africa";
   const escrowLabel = getEscrowStatusLabel(deriveEscrowStatus(order));
+  const paymentLabel = isEscrowOrder
+    ? escrowLabel
+    : (order?.paymentStatus ?? order?.status ?? "pending").replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
   const canConfirmEscrow = canVendorConfirmEscrowOrder(order);
 
   const handleAccept = async () => {
@@ -142,7 +145,7 @@ export default function AcceptOrderScreen() {
             <Text style={styles.subtitle}>
               {isEscrowOrder
                 ? "Funds are held in escrow and only move after delivery confirmation or the protection timeout."
-                : "Payment will be released after buyer confirmation based on the platform rules."}
+                : "Payout timing follows your seller plan and platform review rules."}
             </Text>
 
             <View style={styles.noticeBox}>
@@ -160,7 +163,7 @@ export default function AcceptOrderScreen() {
               <InfoRow label="Order" value={order.orderNumber || `#${order.id}`} />
               <InfoRow label="Items" value={`${order.items?.length ?? 0} products`} />
               <InfoRow label="Total" value={`${CURRENCY_SYMBOL[order.currency] ?? "\u00A3"}${order.total.toFixed(2)}`} />
-              <InfoRow label="Escrow status" value={escrowLabel} />
+              <InfoRow label={isEscrowOrder ? "Escrow status" : "Payment status"} value={paymentLabel} />
             </View>
           </View>
 

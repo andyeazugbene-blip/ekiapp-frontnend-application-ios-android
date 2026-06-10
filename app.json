@@ -2,7 +2,7 @@
   "expo": {
     "name": "Eki",
     "slug": "eki-app",
-    "version": "1.0.11",
+    "version": "1.0.12",
     "orientation": "portrait",
     "scheme": "ekiapp",
     "userInterfaceStyle": "automatic",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ekiapp.mobilee",
-      "buildNumber": "11",
+      "buildNumber": "12",
       "splash": {
         "image": "./assets/splash-icon.png",
         "resizeMode": "contain",
@@ -36,7 +36,7 @@
     },
     "android": {
       "package": "com.ekiapp.mobile",
-      "versionCode": 14,
+      "versionCode": 15,
       "splash": {
         "image": "./assets/splash-icon.png",
         "resizeMode": "contain",

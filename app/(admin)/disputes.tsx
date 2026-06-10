@@ -194,7 +194,7 @@ export default function AdminDisputesScreen() {
           })
         )}
 
-        <Text style={[styles.sectionHeading, styles.queueTitle]}>Escrow decision summary</Text>
+        <Text style={[styles.sectionHeading, styles.queueTitle]}>Payment decision summary</Text>
 
         <View style={styles.summaryCardsRow}>
           <SummaryCard

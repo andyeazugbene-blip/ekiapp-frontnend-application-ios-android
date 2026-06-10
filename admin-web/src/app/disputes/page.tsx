@@ -100,7 +100,7 @@ export default function DisputesPage() {
               </Card>
 
               <Card>
-                <h2 className="text-2xl font-black">Escrow decision summary</h2>
+                <h2 className="text-2xl font-black">Payment decision summary</h2>
                 <DecisionCard icon="settings" label="Payments on hold" value={summary.hold.toString().padStart(2, "0")} />
                 <DecisionCard icon="arrow" label="Ready for release" value={summary.ready.toString().padStart(2, "0")} />
               </Card>

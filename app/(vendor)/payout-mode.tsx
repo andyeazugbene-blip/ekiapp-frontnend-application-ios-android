@@ -42,9 +42,9 @@ export default function PayoutModeScreen() {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Escrow releases</Text>
+          <Text style={styles.sectionTitle}>Payout releases</Text>
           <Text style={styles.sectionSubtitle}>
-            Released funds follow the live escrow and payout approval rules from the backend. This screen manages where approved withdrawals are sent.
+            Released funds follow the live payout approval rules from the backend. This screen manages where approved withdrawals are sent.
           </Text>
         </View>
 

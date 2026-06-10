@@ -100,7 +100,9 @@ export default function OrderDetailScreen() {
   const isEscrowOrder = (order?.escrowType ?? "").toLowerCase() === "domestic_africa";
   const canConfirmEscrow = canVendorConfirmEscrowOrder(order);
   const canShip = canVendorMarkShipped(order);
-  const actionEnabled = isEscrowOrder ? canConfirmEscrow : order?.status === "pending";
+  const standardOrderStatus = (order?.status ?? "").replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+  const displayStatusLabel = isEscrowOrder ? getEscrowStatusLabel(escrowStatus) : standardOrderStatus;
+  const actionEnabled = isEscrowOrder ? canConfirmEscrow : order?.status === "pending" || order?.status === "paid";
   const actionDeadlineText = order?.escrowExpiresAt
     ? `Protection expires ${new Date(order.escrowExpiresAt).toLocaleString()}`
     : "Review the order details and confirm when everything is correct.";
@@ -177,7 +179,7 @@ export default function OrderDetailScreen() {
                 <Text style={styles.heroOrderNumber}>#{order.orderNumber}</Text>
               </View>
               <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>{order.status === "pending" ? "New Order" : getEscrowStatusLabel(escrowStatus)}</Text>
+                <Text style={styles.heroBadgeText}>{order.status === "pending" ? "New Order" : displayStatusLabel}</Text>
               </View>
             </View>
 
@@ -265,7 +267,7 @@ export default function OrderDetailScreen() {
           <View style={styles.paymentTop}>
             <View>
               <Text style={styles.paymentTitle}>Payment Status</Text>
-              <Text style={styles.paymentSubtitle}>Payment: {getEscrowStatusLabel(escrowStatus)}</Text>
+              <Text style={styles.paymentSubtitle}>Payment: {displayStatusLabel}</Text>
             </View>
             <View style={[styles.paymentIcon, { backgroundColor: "rgba(255,255,255,0.14)" }]}>
               <Ionicons name="card-outline" size={18} color="#FFFFFF" />
@@ -273,9 +275,11 @@ export default function OrderDetailScreen() {
           </View>
           <View style={styles.paymentNotice}>
             <Text style={styles.paymentNoticeText}>
-              {escrowStatus === "RELEASED"
-                ? "Funds are released and now visible in your available balance."
-                : `Payment is protected and stays secured until delivery confirmation. Available balance: ${formatMoney(order, earnings?.availableBalance)}.`}
+              {isEscrowOrder
+                ? escrowStatus === "RELEASED"
+                  ? "Eligible funds are now visible in your available balance."
+                  : `Payment is protected and stays secured until delivery confirmation. Available balance: ${formatMoney(order, earnings?.availableBalance)}.`
+                : `Payment is confirmed. Payout timing follows your seller plan and platform review rules. Available balance: ${formatMoney(order, earnings?.availableBalance)}.`}
             </Text>
           </View>
 
@@ -300,7 +304,7 @@ export default function OrderDetailScreen() {
                   <Text style={styles.timelineLabel}>{formatShipmentStatus(event.status as Shipment["status"])}</Text>
                   <Text style={styles.timelineCaption}>
                     {event.description}
-                    {event.location ? ` • ${event.location}` : ""}
+                    {event.location ? ` - ${event.location}` : ""}
                     {"\n"}
                     {new Date(event.timestamp).toLocaleString()}
                   </Text>

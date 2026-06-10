@@ -103,7 +103,7 @@ export default function EarningsScreen() {
                 <View style={[styles.progressDot, pending > 0 ? styles.dotActive : styles.dotInactive, { left: "66%" }]} />
                 <View style={[styles.progressDot, styles.dotInactive, { left: "100%" }]} />
               </View>
-              <Text style={styles.pendingSub}>Funds held until buyer confirms delivery or the protection window ends.</Text>
+              <Text style={styles.pendingSub}>Pending funds become available after the order is fulfilled and any required review is complete.</Text>
             </View>
 
             <View style={styles.accordionSection}>
@@ -153,7 +153,7 @@ export default function EarningsScreen() {
                     </View>
                   </View>
                   <Text style={styles.modeNote}>
-                    Release timing follows the escrow rules on the backend. Payout destination accounts are managed in payout settings.
+                    Release timing follows the live payout rules on the backend. Payout destination accounts are managed in payout settings.
                   </Text>
                   <TouchableOpacity
                     onPress={() => router.push("/(vendor)/payout-mode" as any)}
@@ -168,7 +168,7 @@ export default function EarningsScreen() {
 
             <View style={styles.protectionCard}>
               <Ionicons name="shield-checkmark" size={16} color="#076B51" />
-              <Text style={styles.protectionText}>Pending balance stays locked until escrow release. Available balance can be paid out.</Text>
+              <Text style={styles.protectionText}>Pending balance becomes available after fulfillment review. Available balance can be paid out.</Text>
             </View>
 
             <TouchableOpacity

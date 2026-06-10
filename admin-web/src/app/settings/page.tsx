@@ -19,7 +19,7 @@ export default function SettingsPage() {
     vendorRegistration: true,
     autoApprove: false,
     requireVerification: true,
-    autoReleaseEscrow: false,
+    autoPayoutReview: false,
     enableMarketplace: true,
   });
 
@@ -80,7 +80,7 @@ export default function SettingsPage() {
                     <ToggleRow icon="vendors" title="Vendor registration" subtitle="Allow new vendors to register" value={toggles.vendorRegistration} onChange={() => setToggles((s) => ({ ...s, vendorRegistration: !s.vendorRegistration }))} />
                     <ToggleRow icon="verification" title="Auto approve vendors" subtitle="Automatically approve new vendor registrations" value={toggles.autoApprove} onChange={() => setToggles((s) => ({ ...s, autoApprove: !s.autoApprove }))} />
                     <ToggleRow icon="settings" title="Require verification" subtitle="Require document verification for vendors" value={toggles.requireVerification} onChange={() => setToggles((s) => ({ ...s, requireVerification: !s.requireVerification }))} />
-                    <ToggleRow icon="money" title="Auto release escrow" subtitle="Automatically release escrow after delivery confirmation" value={toggles.autoReleaseEscrow} onChange={() => setToggles((s) => ({ ...s, autoReleaseEscrow: !s.autoReleaseEscrow }))} />
+                    <ToggleRow icon="money" title="Auto payout review" subtitle="Automatically queue eligible payouts after delivery confirmation" value={toggles.autoPayoutReview} onChange={() => setToggles((s) => ({ ...s, autoPayoutReview: !s.autoPayoutReview }))} />
                     <ToggleRow icon="overview" title="Enable marketplace" subtitle="Make the marketplace live for all users" value={toggles.enableMarketplace} onChange={() => setToggles((s) => ({ ...s, enableMarketplace: !s.enableMarketplace }))} />
                   </div>
                 </Card>
@@ -94,7 +94,7 @@ export default function SettingsPage() {
                     <Select label="Commission type" options={["Percentage (%)", "Fixed amount"]} />
                     <Field label="Commission rate" defaultValue="5" suffix="%" />
                   </div>
-                  <p className="mt-4 text-sm text-slate-500">Plan-specific platform fees are managed in Subscription Plans.</p>
+                  <p className="mt-4 text-sm text-slate-500">Plan-specific platform fees are managed in Seller Plans.</p>
                   <div className="mt-6 text-right"><Button onClick={() => save("Default commission")}>Save changes</Button></div>
                 </Card>
                 <Card>

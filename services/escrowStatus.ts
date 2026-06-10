@@ -98,7 +98,7 @@ export function getEscrowStatusLabel(status: EscrowStatus): string {
     case "REFUNDED":
       return "Refunded";
     default:
-      return "Escrow status unavailable";
+      return "Payment status unavailable";
   }
 }
 

@@ -14,12 +14,29 @@ type TabKey = "New" | "Accepted" | "Shipped" | "Disputed" | "Cancelled";
 const TABS: TabKey[] = ["New", "Accepted", "Shipped", "Disputed", "Cancelled"];
 
 const TAB_TO_STATUSES: Record<TabKey, string[]> = {
-  New: ["pending"],
+  New: ["pending", "paid"],
   Accepted: ["confirmed", "processing"],
   Shipped: ["dispatched", "in_transit", "delivered"],
   Disputed: ["disputed", "refunded"],
   Cancelled: ["cancelled"],
 };
+
+const STANDARD_STATUS_COLOR: Record<string, string> = {
+  pending: "#8A8F94",
+  paid: "#076B51",
+  confirmed: "#D97706",
+  processing: "#D97706",
+  dispatched: "#076B51",
+  in_transit: "#076B51",
+  delivered: "#1D7A57",
+  disputed: "#FB6363",
+  refunded: "#B42318",
+  cancelled: "#8A8F94",
+};
+
+function formatStandardStatus(status: string): string {
+  return status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export default function OrdersScreen() {
   const router = useRouter();
@@ -71,7 +88,7 @@ export default function OrdersScreen() {
         <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
           <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
         </TouchableOpacity>
-        <Text style={styles.headerSubtitle}>Manage your escrow and shipment workflow.</Text>
+        <Text style={styles.headerSubtitle}>Manage paid orders, shipment, and buyer updates.</Text>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -105,14 +122,16 @@ export default function OrdersScreen() {
             const escrowStatus = deriveEscrowStatus(order);
             const escrowColor = getEscrowStatusColor(escrowStatus);
             const isEscrowOrder = (order.escrowType ?? "").toLowerCase() === "domestic_africa";
-            const canAccept = order.status === "pending";
+            const statusColor = isEscrowOrder ? escrowColor : STANDARD_STATUS_COLOR[order.status] ?? "#8A8F94";
+            const statusLabel = isEscrowOrder ? getEscrowStatusLabel(escrowStatus) : formatStandardStatus(order.status);
+            const canAccept = order.status === "pending" || order.status === "paid";
 
             return (
               <View key={order.id} style={styles.orderCard}>
                 <View style={styles.orderCardHeader}>
                   <Text style={styles.orderCardTitle}>Order Summary</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: `${escrowColor}15` }]}>
-                    <Text style={[styles.statusBadgeText, { color: escrowColor }]}>{getEscrowStatusLabel(escrowStatus)}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15` }]}>
+                    <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusLabel}</Text>
                   </View>
                 </View>
 
@@ -126,7 +145,7 @@ export default function OrdersScreen() {
                 </View>
                 <View style={styles.orderRow}>
                   <Text style={styles.orderLabel}>Country</Text>
-                  <Text style={styles.orderValue} numberOfLines={1}>{order.deliveryDetails?.country ?? "—"}</Text>
+                  <Text style={styles.orderValue} numberOfLines={1}>{order.deliveryDetails?.country ?? "-"}</Text>
                 </View>
                 <View style={styles.orderRow}>
                   <Text style={styles.orderLabel}>Total</Text>
@@ -134,7 +153,7 @@ export default function OrdersScreen() {
                 </View>
 
                 {isEscrowOrder ? (
-                  <Text style={styles.escrowNote}>Funds are held until buyer confirmation or protection expiry.</Text>
+                  <Text style={styles.escrowNote}>Payment is protected until delivery is confirmed or support resolves a case.</Text>
                 ) : null}
 
                 <TouchableOpacity

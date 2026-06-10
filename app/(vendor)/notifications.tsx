@@ -113,7 +113,7 @@ export default function NotificationsScreen() {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.preferenceCard}>
-          <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Transactional SMS</Text><Text style={styles.preferenceBody}>Delivery OTP, escrow, payout, and security updates.</Text></View>
+          <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Transactional SMS</Text><Text style={styles.preferenceBody}>Order, delivery, payout, and security updates.</Text></View>
           <Switch value={smsTransactional} onValueChange={(value) => void updatePreferences({ smsTransactional: value })} trackColor={{ true: "#85C5AE" }} thumbColor={smsTransactional ? "#076B51" : "#F4F4F4"} />
         </View>
         <View style={styles.preferenceCard}>

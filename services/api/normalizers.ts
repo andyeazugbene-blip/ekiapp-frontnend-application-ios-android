@@ -118,7 +118,7 @@ export function toBackendProductInput(
 
 const STATUS_MAP: Record<string, OrderStatus> = {
   PENDING: "pending",
-  PAID: "pending",       // PAID = payment received but not confirmed yet
+  PAID: "paid",
   CONFIRMED: "confirmed",
   PROCESSING: "processing",
   DISPATCHED: "dispatched",
@@ -136,6 +136,7 @@ const STATUS_MAP: Record<string, OrderStatus> = {
 
 const STATUS_MAP_REVERSE: Record<OrderStatus, string> = {
   pending: "PENDING",
+  paid: "PAID",
   confirmed: "CONFIRMED",
   processing: "PROCESSING",
   dispatched: "DISPATCHED",

@@ -11,18 +11,10 @@ import { walletService, type Wallet } from "../../services/walletService";
 import { presentPayment, isPaymentSheetAvailable } from "../../services/stripePayment";
 import { orderService } from "../../services/orderService";
 import { CurrencySelector } from "../../components/ui/CurrencySelector";
-import { convertMoney, formatDisplayMoney } from "../../utils/currency";
+import { formatDisplayMoney } from "../../utils/currency";
 import { goBackOrReplace } from "../../utils/navigation";
 
 type PaymentMethod = "stripe" | "wallet" | "wallet_stripe";
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  GBP: "\u00A3",
-  USD: "$",
-  EUR: "\u20AC",
-  NGN: "\u20A6",
-  CAD: "C$",
-};
 
 function inferCountryFromCurrency(currency?: string): string {
   switch ((currency ?? "").toUpperCase()) {
@@ -70,11 +62,10 @@ export default function CheckoutScreen() {
   const walletBalance = wallet?.balance ?? 0;
   const checkoutCurrency = items[0]?.product.currency ?? wallet?.currency ?? "GBP";
   const walletCurrency = wallet?.currency ?? checkoutCurrency;
-  const walletBalanceInCheckoutCurrency = convertMoney(walletBalance, walletCurrency, checkoutCurrency);
+  const walletMatchesCheckoutCurrency = walletCurrency.toUpperCase() === checkoutCurrency.toUpperCase();
   const parsedWalletAmount = Number(walletAmount) || 0;
-  const parsedWalletAmountInCheckoutCurrency = convertMoney(parsedWalletAmount, selectedCurrency, checkoutCurrency);
-  const canPayFullyWithWallet = walletBalanceInCheckoutCurrency >= grandTotal;
-  const currencySymbol = CURRENCY_SYMBOLS[checkoutCurrency] ?? "\u00A3";
+  const parsedWalletAmountInCheckoutCurrency = walletMatchesCheckoutCurrency ? parsedWalletAmount : 0;
+  const canPayFullyWithWallet = walletMatchesCheckoutCurrency && walletBalance >= grandTotal;
 
   useEffect(() => {
     walletService
@@ -119,11 +110,15 @@ export default function CheckoutScreen() {
       setError("Your cart is empty.");
       return;
     }
+    if ((paymentMethod === "wallet" || paymentMethod === "wallet_stripe") && !walletMatchesCheckoutCurrency) {
+      setError("Wallet can only be used when its currency matches this checkout. Use Card instead.");
+      return;
+    }
     if (paymentMethod === "wallet" && walletBalance < grandTotal) {
       setError("Insufficient wallet balance for full payment. Use Wallet + Card instead.");
       return;
     }
-    if (paymentMethod === "wallet_stripe" && parsedWalletAmountInCheckoutCurrency > walletBalanceInCheckoutCurrency) {
+    if (paymentMethod === "wallet_stripe" && parsedWalletAmountInCheckoutCurrency > walletBalance) {
       setError("Wallet amount exceeds your balance.");
       return;
     }
@@ -247,7 +242,7 @@ export default function CheckoutScreen() {
           <TouchableOpacity
             onPress={() => {
               setPaymentMethod("wallet");
-              setWalletAmount(String(convertMoney(grandTotal, checkoutCurrency, selectedCurrency).toFixed(2)));
+              setWalletAmount(String(grandTotal.toFixed(2)));
             }}
             style={[styles.paymentOption, paymentMethod === "wallet" && styles.paymentOptionActive, !canPayFullyWithWallet && styles.paymentOptionDisabled]}
             disabled={!canPayFullyWithWallet}
@@ -260,13 +255,22 @@ export default function CheckoutScreen() {
 
           <TouchableOpacity
             onPress={() => setPaymentMethod("wallet_stripe")}
-            style={[styles.paymentOption, paymentMethod === "wallet_stripe" && styles.paymentOptionActive, walletBalance <= 0 && styles.paymentOptionDisabled]}
-            disabled={walletBalance <= 0}
+            style={[styles.paymentOption, paymentMethod === "wallet_stripe" && styles.paymentOptionActive, (!walletMatchesCheckoutCurrency || walletBalance <= 0) && styles.paymentOptionDisabled]}
+            disabled={!walletMatchesCheckoutCurrency || walletBalance <= 0}
           >
             <Ionicons name="swap-horizontal-outline" size={18} color={paymentMethod === "wallet_stripe" ? "#076B51" : "#858585"} />
             <Text style={[styles.paymentOptionText, paymentMethod === "wallet_stripe" && styles.paymentOptionTextActive]}>Wallet + Card</Text>
           </TouchableOpacity>
         </View>
+
+        {!walletMatchesCheckoutCurrency && wallet ? (
+          <View style={styles.infoBanner}>
+            <Ionicons name="information-circle-outline" size={18} color="#856B0E" style={{ marginTop: 1 }} />
+            <Text style={styles.infoBannerText}>
+              Your wallet is {walletCurrency}. This checkout is {checkoutCurrency}, so wallet funds are display-only here.
+            </Text>
+          </View>
+        ) : null}
 
         {(paymentMethod === "stripe" || paymentMethod === "wallet_stripe") && !isPaymentSheetAvailable() ? (
           <View style={styles.infoBanner}>
@@ -280,7 +284,7 @@ export default function CheckoutScreen() {
         {paymentMethod === "wallet_stripe" ? (
           <View style={{ marginBottom: 20 }}>
             <Text style={styles.fieldLabel}>
-              Amount from wallet (max {formatDisplayMoney(walletBalance, walletCurrency, selectedCurrency)})
+              Amount from wallet in {walletCurrency} (max {formatDisplayMoney(walletBalance, walletCurrency, walletCurrency)})
             </Text>
             <View style={styles.inputWrap}>
               <TextInput
@@ -291,8 +295,7 @@ export default function CheckoutScreen() {
                 value={walletAmount}
                 onChangeText={(value) => {
                   const amount = Number(value) || 0;
-                  const amountInCheckoutCurrency = convertMoney(amount, selectedCurrency, checkoutCurrency);
-                  if (amountInCheckoutCurrency <= walletBalanceInCheckoutCurrency && amountInCheckoutCurrency <= grandTotal) {
+                  if (amount <= walletBalance && amount <= grandTotal) {
                     setWalletAmount(value);
                     if (error) setError("");
                   }

@@ -156,8 +156,8 @@ export default function DisputeDetailScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Escrow Case</Text>
-          <InfoRow label="Payment provider" value="Paystack escrow" />
+          <Text style={styles.sectionTitle}>Order Case</Text>
+          <InfoRow label="Payment provider" value={dispute.order?.paymentProvider ?? "Stripe"} />
           <InfoRow label="Order" value={dispute.order?.orderNumber ?? dispute.orderId} />
           <InfoRow
             label="Order amount"

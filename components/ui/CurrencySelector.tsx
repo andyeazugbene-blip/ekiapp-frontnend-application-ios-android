@@ -28,7 +28,7 @@ export function CurrencySelector({ selectedCurrency, onChange, visible, onClose 
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.subtitle}>We’ll convert prices for display. Checkout still uses the order currency.</Text>
+          <Text style={styles.subtitle}>We will convert prices for display only. Checkout still uses the order currency.</Text>
 
           <View style={styles.list}>
             {SUPPORTED_CURRENCIES.map((currency) => {

@@ -45,6 +45,9 @@ export default function MarkShippedScreen() {
   }, [id]);
 
   const isEscrowOrder = (order?.escrowType ?? "").toLowerCase() === "domestic_africa";
+  const paymentLabel = isEscrowOrder
+    ? getEscrowStatusLabel(deriveEscrowStatus(order))
+    : (order?.paymentStatus ?? order?.status ?? "pending").replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 
   const shipmentPayload = () => ({
     carrier: carrier.trim(),
@@ -154,13 +157,13 @@ export default function MarkShippedScreen() {
               <View style={styles.orderBanner}>
                 <Ionicons name="cube-outline" size={18} color="#076B51" />
                 <Text style={styles.orderBannerText}>
-                  {order.orderNumber || `#${order.id}`} • {order.items?.length ?? 0} items • {formatDisplayMoney(order.total, order.currency, order.currency)}
+                  {order.orderNumber || `#${order.id}`} - {order.items?.length ?? 0} items - {formatDisplayMoney(order.total, order.currency, order.currency)}
                 </Text>
               </View>
 
               <View style={styles.statusCard}>
-                <Text style={styles.statusLabel}>Escrow status</Text>
-                <Text style={styles.statusValue}>{getEscrowStatusLabel(deriveEscrowStatus(order))}</Text>
+                <Text style={styles.statusLabel}>{isEscrowOrder ? "Escrow status" : "Payment status"}</Text>
+                <Text style={styles.statusValue}>{paymentLabel}</Text>
                 {isEscrowOrder ? (
                   <Text style={styles.statusHint}>
                     Dispatching will generate the buyer delivery code and keep funds held until confirmation.

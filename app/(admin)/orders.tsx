@@ -84,7 +84,7 @@ export default function AdminOrdersScreen() {
         <View style={styles.headerTop}>
           <View style={styles.headerCopy}>
             <Text style={styles.headerTitle}>Order Monitoring</Text>
-            <Text style={styles.headerSubtitle}>Track marketplace escrow and order states across {totalOrders} orders</Text>
+            <Text style={styles.headerSubtitle}>Track marketplace payment and order states across {totalOrders} orders</Text>
           </View>
           <TouchableOpacity onPress={() => setCurrencyModalVisible(true)} activeOpacity={0.85} style={styles.currencyButton}>
             <Ionicons name="swap-horizontal-outline" size={16} color="#076B51" />

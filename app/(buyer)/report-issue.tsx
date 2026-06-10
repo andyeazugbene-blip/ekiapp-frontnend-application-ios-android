@@ -12,7 +12,7 @@ const ISSUES = [
   { id: "not_received", label: "Order not received", detail: "The order has not arrived as expected." },
   { id: "wrong_item", label: "Wrong item", detail: "The delivered goods do not match what was ordered." },
   { id: "damaged", label: "Damaged item", detail: "The items arrived damaged or unusable." },
-  { id: "other", label: "Other issue", detail: "Another delivery or escrow issue needs support." },
+  { id: "other", label: "Other issue", detail: "Another delivery or order issue needs support." },
 ];
 
 export default function ReportIssueScreen() {
@@ -70,13 +70,13 @@ export default function ReportIssueScreen() {
     }
     if (!resolvedIssue) return;
 
-    const reason = [resolvedIssue.label, notes.trim()].filter(Boolean).join(" — ");
+    const reason = [resolvedIssue.label, notes.trim()].filter(Boolean).join(" - ");
 
     setSubmitting(true);
     try {
       await orderService.openBuyerDispute(targetOrderId, reason);
       setSubmitted(true);
-      Alert.alert("Dispute opened", "The escrow is now frozen while support reviews the case.");
+      Alert.alert("Dispute opened", "Support will review the order timeline and payment status.");
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 409) {
         Alert.alert("Dispute already exists", err.message);
@@ -101,7 +101,7 @@ export default function ReportIssueScreen() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Buyer protection</Text>
           <Text style={styles.sectionBody}>
-            If this escrow order was shipped but something went wrong, open a dispute here. The backend keeps funds frozen until an admin resolves it.
+            If this order was shipped but something went wrong, open a dispute here. Support reviews the order timeline, messages, and payment status.
           </Text>
           {initialOrderId ? (
             <Text style={styles.orderMeta}>Order reference: {initialOrderId}</Text>
@@ -176,7 +176,7 @@ export default function ReportIssueScreen() {
               onChangeText={setNotes}
               multiline
               textAlignVertical="top"
-              placeholder="Describe what happened so support can review the escrow case."
+              placeholder="Describe what happened so support can review the order case."
               placeholderTextColor="#8A8F94"
               style={styles.textArea}
             />

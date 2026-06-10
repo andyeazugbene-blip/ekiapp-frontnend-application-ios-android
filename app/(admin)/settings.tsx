@@ -153,7 +153,7 @@ export default function AdminSettingsScreen() {
           <SettingRow
             icon="shield-outline"
             label="Resolution Centre"
-            description="Review disputes and escrow decisions"
+            description="Review disputes and payment decisions"
             onPress={() => router.push("/(admin)/disputes" as any)}
           />
         </View>

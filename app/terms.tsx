@@ -12,10 +12,10 @@ export default function TermsScreen() {
       canonicalUrl="https://culinarytales.app/terms"
       sections={[
         ["Marketplace role", "Eki connects buyers with independent foodstuff vendors. Vendors are responsible for accurate listings, stock, packaging, delivery handoff, and lawful product information."],
-        ["Payments and escrow", "Eligible physical-goods orders may use protected checkout. Funds are held until delivery is confirmed, a protection window expires, or an admin resolves a dispute."],
+        ["Payments and order protection", "Physical-goods orders use secure checkout. Vendors accept and ship orders, buyers confirm receipt from tracking, and admins can review disputes when something goes wrong."],
         ["Accounts", "You must provide accurate account details, keep login credentials safe, and use the correct buyer or vendor role. We may suspend accounts that abuse payments, messaging, uploads, or reviews."],
         ["Content and uploads", "Product photos, store images, verification files, and messages must belong to you or be authorized for use. Verification documents are used only for review and compliance."],
-        ["Disputes", "Buyers and vendors should keep communication in Eki. Admins may review order records, messages, uploads, and payment status before releasing, holding, or refunding funds."],
+        ["Disputes", "Buyers and vendors should keep communication in Eki. Admins may review order records, messages, uploads, and payment status before resolving a case."],
       ]}
     />
   );
