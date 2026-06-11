@@ -68,7 +68,7 @@ export default function AcceptOrderScreen() {
       setError(message);
       if (isEscrowOrder && !canConfirmEscrow) {
         Alert.alert(
-          "Escrow not ready yet",
+          "Payment not ready yet",
           `${message}\n\nThe order still needs backend secure-payment confirmation before vendor acceptance can complete.`,
         );
       }
@@ -83,7 +83,7 @@ export default function AcceptOrderScreen() {
     if (isEscrowOrder) {
       Alert.alert(
         "Support required",
-        "Escrow decline and refund is not exposed on the mobile API yet. Please handle this case through admin support.",
+        "Decline and refund for protected payments must be handled by admin support.",
       );
       return;
     }
@@ -140,7 +140,7 @@ export default function AcceptOrderScreen() {
             <Text style={styles.title}>Accept this order?</Text>
             <Text style={styles.subtitle}>
               {isEscrowOrder
-                ? "Funds are held in escrow and only move after delivery confirmation or the protection timeout."
+                ? "Payment is protected and only moves after delivery confirmation or the protection timeout."
                 : "Payout timing follows your seller plan and platform review rules."}
             </Text>
 
@@ -149,7 +149,7 @@ export default function AcceptOrderScreen() {
               <Text style={styles.noticeText}>
                 {isEscrowOrder
                   ? canConfirmEscrow
-                    ? "Accepting moves this order into the vendor-confirmed escrow stage so you can prepare shipment."
+                    ? "Accepting confirms the protected payment order so you can prepare shipment."
                     : "This order looks paid, but backend secure-payment confirmation may still be syncing. You can try again once the status refreshes."
                   : "You have 24 hours to accept new orders. Once accepted, begin processing the foodstuff for delivery."}
               </Text>
@@ -159,7 +159,7 @@ export default function AcceptOrderScreen() {
               <InfoRow label="Order" value={order.orderNumber || `#${order.id}`} />
               <InfoRow label="Items" value={`${order.items?.length ?? 0} products`} />
               <InfoRow label="Total" value={`${CURRENCY_SYMBOL[order.currency] ?? "\u00A3"}${order.total.toFixed(2)}`} />
-              <InfoRow label={isEscrowOrder ? "Escrow status" : "Payment status"} value={paymentLabel} />
+              <InfoRow label="Payment status" value={paymentLabel} />
             </View>
           </View>
 
@@ -173,7 +173,7 @@ export default function AcceptOrderScreen() {
               disabled={submitting}
             >
               <Text style={styles.acceptButtonText}>
-                {submitting ? "Accepting..." : isEscrowOrder ? "Confirm Escrow Order" : "Accept Order"}
+                {submitting ? "Accepting..." : "Accept Order"}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleDecline} activeOpacity={0.85} style={[styles.declineButton, submitting && styles.disabled]} disabled={submitting}>

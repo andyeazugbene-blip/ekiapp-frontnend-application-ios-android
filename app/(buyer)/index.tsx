@@ -162,30 +162,7 @@ export default function BuyerHomeScreen() {
   const firstSymbol = CURRENCY_SYMBOLS[selectedCurrency] ?? CURRENCY_SYMBOLS[firstCurrency];
 
   const hotDeals = useMemo<HomeDeal[]>(() => {
-    const deals: HomeDeal[] = [
-      {
-        id: "wallet-credit",
-        colors: ["#F33D4D", "#D9253A"],
-        badge: "Limited Time",
-        title: `Order ${firstSymbol}50+ get`,
-        highlight: `${firstSymbol}2 Wallet Credit`,
-        body: "Auto-applied at checkout",
-        cta: "Get Reward",
-        icon: "flash",
-        onPress: () => router.push("/(buyer)/wallet" as any),
-      },
-      {
-        id: "referral",
-        colors: ["#0A6E59", "#69C893"],
-        badge: "Referral",
-        title: "Invite a friend",
-        highlight: `Get ${firstSymbol}5 each`,
-        body: "Share your referral link and earn wallet credit",
-        cta: "Invite Now",
-        icon: "people",
-        onPress: () => router.push("/(buyer)/wallet" as any),
-      },
-    ];
+    const deals: HomeDeal[] = [];
 
     if (featuredProduct) {
       deals.push({
@@ -203,7 +180,7 @@ export default function BuyerHomeScreen() {
     }
 
     return deals;
-  }, [featuredProduct, firstSymbol, router]);
+  }, [featuredProduct, router, selectedCurrency]);
 
   const openSearch = (value = "") => {
     const trimmed = value.trim();
@@ -280,6 +257,7 @@ export default function BuyerHomeScreen() {
           </LinearGradient>
         </View>
 
+        {hotDeals.length > 0 ? (
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionTitle}>Hot Deals</Text>
           <ScrollView
@@ -316,6 +294,7 @@ export default function BuyerHomeScreen() {
             ))}
           </View>
         </View>
+        ) : null}
 
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionTitle}>Popular foodstuff</Text>

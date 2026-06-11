@@ -195,33 +195,6 @@ export default function AdminSettingsScreen() {
           />
         </View>
 
-        {/* Danger zone */}
-        <Text className="text-xs font-bold text-red-400 uppercase tracking-wider px-4 mt-5 mb-2">
-          Danger Zone
-        </Text>
-        <View className="mx-4 bg-white rounded-2xl overflow-hidden shadow-sm">
-          <SettingRow
-            icon="pause-circle-outline"
-            label="Suspend All New Registrations"
-            description="Temporarily block new vendor sign-ups"
-            onPress={() => handleUnavailable(
-              "Control unavailable",
-              "Marketplace-wide registration controls are not connected on the mobile admin app yet."
-            )}
-            danger
-          />
-          <SettingRow
-            icon="refresh-outline"
-            label="Reset Platform Cache"
-            description="Clear all cached platform data"
-            onPress={() => handleUnavailable(
-              "Control unavailable",
-              "Platform cache reset is not exposed on the mobile admin app yet."
-            )}
-            danger
-          />
-        </View>
-
         {/* Sign out */}
         <View className="mx-4 mt-4 bg-white rounded-2xl overflow-hidden shadow-sm">
           <TouchableOpacity

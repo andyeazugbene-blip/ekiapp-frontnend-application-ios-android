@@ -209,4 +209,3 @@ const styles = StyleSheet.create({
   openButton: { marginTop: 16, height: 50, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
   openButtonText: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
 });
-

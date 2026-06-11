@@ -110,7 +110,7 @@ export default function OrderDetailScreen() {
   const handleAccept = async () => {
     if (!order) return;
     if (isEscrowOrder && !canConfirmEscrow) {
-      Alert.alert("Awaiting secure confirmation", "This escrow order cannot be confirmed until payment is marked secure.");
+      Alert.alert("Awaiting secure confirmation", "This order cannot be accepted until payment is marked secure.");
       return;
     }
 
@@ -274,7 +274,7 @@ export default function OrderDetailScreen() {
               {isEscrowOrder
                 ? escrowStatus === "RELEASED"
                   ? "Eligible funds are now visible in your available balance."
-                  : `Payment is protected and stays secured until delivery confirmation. Available balance: ${formatMoney(order, earnings?.availableBalance)}.`
+                  : `Payment is protected until delivery confirmation. Available balance: ${formatMoney(order, earnings?.availableBalance)}.`
                 : `Payment is confirmed. Payout timing follows your seller plan and platform review rules. Available balance: ${formatMoney(order, earnings?.availableBalance)}.`}
             </Text>
           </View>

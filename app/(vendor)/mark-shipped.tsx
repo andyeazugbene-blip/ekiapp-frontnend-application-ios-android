@@ -162,7 +162,7 @@ export default function MarkShippedScreen() {
               </View>
 
               <View style={styles.statusCard}>
-                <Text style={styles.statusLabel}>{isEscrowOrder ? "Escrow status" : "Payment status"}</Text>
+                <Text style={styles.statusLabel}>Payment status</Text>
                 <Text style={styles.statusValue}>{paymentLabel}</Text>
                 {isEscrowOrder ? (
                   <Text style={styles.statusHint}>
@@ -213,7 +213,7 @@ export default function MarkShippedScreen() {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <TouchableOpacity onPress={handleConfirm} activeOpacity={0.85} style={[styles.primaryButton, submitting && styles.disabled]} disabled={submitting}>
-              <Text style={styles.primaryButtonText}>{submitting ? "Processing..." : isEscrowOrder ? "Dispatch Escrow Order" : "Mark as Shipped"}</Text>
+              <Text style={styles.primaryButtonText}>{submitting ? "Processing..." : "Mark as Shipped"}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => goBackOrReplace(router, { pathname: "/(vendor)/order-detail", params: { id: order.id } } as any)} activeOpacity={0.85} style={styles.secondaryButton} disabled={submitting}>

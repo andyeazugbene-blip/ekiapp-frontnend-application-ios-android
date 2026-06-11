@@ -84,7 +84,7 @@ export function getEscrowStatusLabel(status: EscrowStatus): string {
     case "PENDING_PAYMENT":
       return "Pending payment";
     case "PAID_HELD":
-      return "Funds held";
+      return "Payment protected";
     case "VENDOR_ACCEPTED":
       return "Vendor accepted";
     case "SHIPPED":
@@ -92,7 +92,7 @@ export function getEscrowStatusLabel(status: EscrowStatus): string {
     case "DELIVERED":
       return "Delivered";
     case "RELEASED":
-      return "Funds released";
+      return "Payment released";
     case "DISPUTED":
       return "Disputed";
     case "REFUNDED":
@@ -184,7 +184,7 @@ export function getEscrowTimeline(order?: Partial<Order> | null): EscrowTimeline
     },
     {
       key: "released",
-      label: status === "REFUNDED" ? "Refunded" : "Funds released",
+      label: status === "REFUNDED" ? "Refunded" : "Payment released",
       caption: releasedCaption,
     },
   ];

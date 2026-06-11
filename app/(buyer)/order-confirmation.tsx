@@ -91,7 +91,7 @@ export default function OrderConfirmationScreen() {
           </View>
           {isEscrowOrder ? (
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Escrow status</Text>
+              <Text style={styles.summaryLabel}>Payment status</Text>
               <Text style={[styles.summaryValue, styles.summaryValueEmphasis]}>{derivedStatus}</Text>
             </View>
           ) : null}

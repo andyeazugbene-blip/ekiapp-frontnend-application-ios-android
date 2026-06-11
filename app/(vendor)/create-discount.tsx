@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -20,6 +20,8 @@ export default function CreateDiscountScreen() {
   const [value, setValue] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [dateTarget, setDateTarget] = useState<"start" | "end" | null>(null);
+  const [pickerMonth, setPickerMonth] = useState(() => new Date());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -75,6 +77,20 @@ export default function CreateDiscountScreen() {
     }
   };
 
+  const openDatePicker = (target: "start" | "end") => {
+    setDateTarget(target);
+    const current = target === "start" ? startDate : endDate;
+    const parsed = parsePickerDate(current);
+    setPickerMonth(parsed ?? new Date());
+  };
+
+  const handleDatePicked = (date: Date) => {
+    const formatted = formatPickerDate(date);
+    if (dateTarget === "start") setStartDate(formatted);
+    if (dateTarget === "end") setEndDate(formatted);
+    setDateTarget(null);
+  };
+
   return (
     <View style={styles.scrim}>
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -119,29 +135,31 @@ export default function CreateDiscountScreen() {
             <View style={styles.row}>
               <View style={[styles.fieldGroup, { flex: 1, marginRight: 8 }]}>
                 <Text style={styles.fieldLabel}>Start date</Text>
-                <View style={styles.inputWrap}>
+                <TouchableOpacity onPress={() => openDatePicker("start")} activeOpacity={0.85} style={styles.inputWrap}>
                   <TextInput
                     value={startDate}
-                    onChangeText={setStartDate}
-                    placeholder="dd/mm/yy"
+                    editable={false}
+                    pointerEvents="none"
+                    placeholder="Pick date"
                     placeholderTextColor="#858585"
                     style={styles.input}
                   />
                   <Ionicons name="calendar-outline" size={16} color="#858585" style={styles.inputIcon} />
-                </View>
+                </TouchableOpacity>
               </View>
               <View style={[styles.fieldGroup, { flex: 1, marginLeft: 8 }]}>
                 <Text style={styles.fieldLabel}>End date</Text>
-                <View style={styles.inputWrap}>
+                <TouchableOpacity onPress={() => openDatePicker("end")} activeOpacity={0.85} style={styles.inputWrap}>
                   <TextInput
                     value={endDate}
-                    onChangeText={setEndDate}
-                    placeholder="dd/mm/yy"
+                    editable={false}
+                    pointerEvents="none"
+                    placeholder="Pick date"
                     placeholderTextColor="#858585"
                     style={styles.input}
                   />
                   <Ionicons name="calendar-outline" size={16} color="#858585" style={styles.inputIcon} />
-                </View>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -200,7 +218,98 @@ export default function CreateDiscountScreen() {
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
+
+      <DatePickerModal
+        visible={dateTarget !== null}
+        month={pickerMonth}
+        title={dateTarget === "start" ? "Select start date" : "Select end date"}
+        onClose={() => setDateTarget(null)}
+        onMonthChange={setPickerMonth}
+        onPick={handleDatePicked}
+      />
     </View>
+  );
+}
+
+function parsePickerDate(value: string): Date | null {
+  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return null;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatPickerDate(date: Date): string {
+  return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+}
+
+function DatePickerModal({
+  visible,
+  title,
+  month,
+  onClose,
+  onMonthChange,
+  onPick,
+}: {
+  visible: boolean;
+  title: string;
+  month: Date;
+  onClose: () => void;
+  onMonthChange: (date: Date) => void;
+  onPick: (date: Date) => void;
+}) {
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const firstDay = new Date(year, monthIndex, 1).getDay();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const cells = [
+    ...Array.from({ length: firstDay }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+  ];
+
+  const shiftMonth = (delta: number) => onMonthChange(new Date(year, monthIndex + delta, 1));
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.dateScrim}>
+        <View style={styles.dateCard}>
+          <Text style={styles.dateTitle}>{title}</Text>
+          <View style={styles.dateHeader}>
+            <TouchableOpacity onPress={() => shiftMonth(-1)} style={styles.dateArrow}>
+              <Ionicons name="chevron-back" size={18} color="#076B51" />
+            </TouchableOpacity>
+            <Text style={styles.dateMonth}>
+              {month.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+            </Text>
+            <TouchableOpacity onPress={() => shiftMonth(1)} style={styles.dateArrow}>
+              <Ionicons name="chevron-forward" size={18} color="#076B51" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.weekRow}>
+            {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+              <Text key={`${day}-${index}`} style={styles.weekText}>{day}</Text>
+            ))}
+          </View>
+          <View style={styles.daysGrid}>
+            {cells.map((day, index) => (
+              <TouchableOpacity
+                key={`${day ?? "blank"}-${index}`}
+                disabled={!day}
+                onPress={() => day && onPick(new Date(year, monthIndex, day))}
+                style={[styles.dayCell, !day && styles.dayCellBlank]}
+              >
+                <Text style={styles.dayText}>{day ?? ""}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity onPress={onClose} style={styles.dateCancel}>
+            <Text style={styles.dateCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -315,6 +424,20 @@ const styles = StyleSheet.create({
     textAlign: "center", 
     marginBottom: 12 
   },
+  dateScrim: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", paddingHorizontal: 22 },
+  dateCard: { backgroundColor: "#FFFFFF", borderRadius: 24, padding: 18 },
+  dateTitle: { fontSize: 18, fontFamily: "Manrope-Bold", color: "#282828", textAlign: "center", marginBottom: 14 },
+  dateHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  dateArrow: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#E8F4ED", alignItems: "center", justifyContent: "center" },
+  dateMonth: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
+  weekRow: { flexDirection: "row", marginBottom: 8 },
+  weekText: { width: `${100 / 7}%`, textAlign: "center", fontSize: 12, fontFamily: "Outfit-Medium", color: "#858585" },
+  daysGrid: { flexDirection: "row", flexWrap: "wrap" },
+  dayCell: { width: `${100 / 7}%`, height: 42, alignItems: "center", justifyContent: "center" },
+  dayCellBlank: { opacity: 0 },
+  dayText: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#076B51" },
+  dateCancel: { height: 48, borderRadius: 14, borderWidth: 1, borderColor: "#E4E7E5", alignItems: "center", justifyContent: "center", marginTop: 12 },
+  dateCancelText: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#858585" },
   closeButton: { 
     width: 48, 
     height: 48, 

@@ -36,9 +36,6 @@ export default function DeliveryZoneScreen() {
 
   const [costPerKg, setCostPerKg] = useState("");
   const [minimumFee, setMinimumFee] = useState("");
-  const [maxWeightKg, setMaxWeightKg] = useState("");
-  const [estimatedDays, setEstimatedDays] = useState("");
-  const [notes, setNotes] = useState("");
   const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
@@ -54,9 +51,6 @@ export default function DeliveryZoneScreen() {
           setZone(found);
           setCostPerKg(String(found.costPerKg));
           setMinimumFee(String(found.minimumFee));
-          setMaxWeightKg(String(found.maxWeightKg));
-          setEstimatedDays(found.estimatedDays);
-          setNotes(found.notes ?? "");
           setIsActive(found.active);
         } else {
           setError("Delivery zone not found.");
@@ -77,9 +71,6 @@ export default function DeliveryZoneScreen() {
       await deliveryService.updateZone(zone.id, {
         costPerKg: parseFloat(costPerKg) || 0,
         minimumFee: parseFloat(minimumFee) || 0,
-        maxWeightKg: parseFloat(maxWeightKg) || 0,
-        estimatedDays,
-        notes: notes.trim(),
         active: isActive,
       });
       Alert.alert("Success", "Delivery settings updated successfully.", [
@@ -90,6 +81,33 @@ export default function DeliveryZoneScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDelete = () => {
+    if (!zone) return;
+    Alert.alert(
+      "Remove delivery country?",
+      `This removes ${zone.country} from your store checkout immediately.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            setSubmitting(true);
+            setError("");
+            try {
+              await deliveryService.deleteZone(zone.id);
+              goBackOrReplace(router, "/(vendor)/delivery" as any);
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Could not remove delivery country.");
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   if (loading) {
@@ -190,43 +208,12 @@ export default function DeliveryZoneScreen() {
                 style={styles.input}
               />
             </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Max order weight (kg)</Text>
-              <TextInput
-                value={maxWeightKg}
-                onChangeText={setMaxWeightKg}
-                placeholder="10"
-                placeholderTextColor="#858585"
-                keyboardType="numeric"
-                style={styles.input}
-              />
+            <View style={styles.liveNotice}>
+              <Ionicons name="checkmark-circle-outline" size={18} color="#076B51" />
+              <Text style={styles.liveNoticeText}>
+                These settings are saved to the live backend and used immediately at checkout.
+              </Text>
             </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Delivery time</Text>
-              <TextInput
-                value={estimatedDays}
-                onChangeText={setEstimatedDays}
-                placeholder="3–5 days"
-                placeholderTextColor="#858585"
-                style={styles.input}
-              />
-            </View>
-          </View>
-
-          {/* Delivery Notes */}
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Delivery notes</Text>
-            <TextInput
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Enter description"
-              placeholderTextColor="#858585"
-              multiline
-              textAlignVertical="top"
-              style={[styles.input, styles.textArea]}
-            />
           </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -240,6 +227,14 @@ export default function DeliveryZoneScreen() {
             <Text style={styles.primaryButtonText}>
               {submitting ? "Saving..." : "Save Changes"}
             </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleDelete}
+            disabled={submitting}
+            activeOpacity={0.85}
+            style={[styles.deleteButton, submitting && { opacity: 0.6 }]}
+          >
+            <Text style={styles.deleteButtonText}>Remove Delivery Country</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -285,7 +280,8 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Regular",
     color: "#282828",
   },
-  textArea: { height: 100, paddingVertical: 14 },
+  liveNotice: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#E8F4ED", borderRadius: 14, padding: 12 },
+  liveNoticeText: { flex: 1, fontSize: 12, lineHeight: 18, fontFamily: "Outfit-Regular", color: "#24564A" },
   toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   toggleLabel: { fontSize: 15, fontFamily: "Outfit-Medium", color: "#282828" },
   toggleSubLabel: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 2 },
@@ -297,4 +293,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   primaryButtonText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+  deleteButton: {
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: "#FFF1F1",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+  },
+  deleteButtonText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#B42318" },
 });
+

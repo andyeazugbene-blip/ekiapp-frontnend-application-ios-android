@@ -49,9 +49,9 @@ function paymentProviderLabel(order?: Order | null): string {
 
 function supportCopy(order?: Order | null): string {
   if ((order?.escrowType ?? "").toLowerCase() !== "domestic_africa") {
-    return "This order is not using domestic escrow protection.";
+    return "This order uses standard payment protection.";
   }
-  return "Your payment is protected. Funds are released to the vendor after delivery is confirmed or after the protection period.";
+  return "Your payment is protected and released to the vendor after delivery is confirmed or after the protection period.";
 }
 
 export default function TrackOrderScreen() {
@@ -159,9 +159,9 @@ export default function TrackOrderScreen() {
 
     if (!disputeEnabled) {
       Alert.alert(
-        "Dispute unavailable",
+        "Report unavailable",
         isEscrowOrder
-          ? "You can only open a dispute after the order is shipped and before the escrow is released or refunded."
+          ? "You can only report an issue after the order is shipped and before payment is released or refunded."
           : "Support will need to review this issue manually for non-escrow orders.",
       );
       return;
@@ -274,7 +274,7 @@ export default function TrackOrderScreen() {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Escrow timeline</Text>
+          <Text style={styles.sectionTitle}>Payment timeline</Text>
           {timeline.map((step, index) => (
             <View key={step.key} style={styles.timelineRow}>
               <View style={styles.timelineRail}>
@@ -307,7 +307,7 @@ export default function TrackOrderScreen() {
             <Text style={styles.sectionTitle}>Delivery OTP</Text>
             <Text style={styles.deliveryText}>
               When the vendor dispatches this order, Eki sends a 6-digit delivery OTP to your phone. Enter it here after
-              you receive the goods so the backend can confirm delivery and release escrow safely.
+              you receive the goods so the backend can confirm delivery and release payment safely.
             </Text>
             {otpDeliveryHint ? <Text style={styles.otpHintText}>{otpDeliveryHint}</Text> : null}
             <TouchableOpacity
@@ -373,7 +373,7 @@ export default function TrackOrderScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Confirm delivery</Text>
             <Text style={styles.modalBody}>
-              Enter the 6-digit OTP sent to your phone when the vendor dispatched the order. Funds are only released after the backend confirms this code.
+              Enter the 6-digit OTP sent to your phone when the vendor dispatched the order. Payment is only released after the backend confirms this code.
             </Text>
             {otpDeliveryHint ? <Text style={styles.otpHintText}>{otpDeliveryHint}</Text> : null}
 

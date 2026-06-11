@@ -105,6 +105,28 @@ export default function DeliveryScreen() {
     }
   };
 
+  const handleDeleteZone = (zone: DeliveryZone) => {
+    Alert.alert(
+      "Remove delivery country?",
+      `Buyers in ${zone.countryCode === "EU" ? "Europe" : zone.country} will no longer be able to order from your store until you add it again.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deliveryService.deleteZone(zone.id);
+              setZones((prev) => prev.filter((item) => item.id !== zone.id));
+            } catch (err) {
+              Alert.alert("Error", err instanceof Error ? err.message : "Could not remove delivery country.");
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const handleAddCountry = async (countryCode: DeliveryCountryCode) => {
     setShowAddCountryModal(false);
     try {
@@ -208,12 +230,12 @@ export default function DeliveryScreen() {
 
                   <View style={styles.gridRow}>
                     <View style={styles.gridItem}>
-                      <Text style={styles.gridLabel}>Max order weight:</Text>
-                      <Text style={styles.gridValue}>{zone.maxWeightKg}kg</Text>
+                      <Text style={styles.gridLabel}>Currency:</Text>
+                      <Text style={styles.gridValue}>{zone.currency}</Text>
                     </View>
                     <View style={styles.gridItem}>
-                      <Text style={styles.gridLabel}>Delivery estimate:</Text>
-                      <Text style={styles.gridValue}>{zone.estimatedDays}</Text>
+                      <Text style={styles.gridLabel}>Checkout status:</Text>
+                      <Text style={styles.gridValue}>{zone.active ? "Accepting orders" : "Paused"}</Text>
                     </View>
                   </View>
                 </View>
@@ -235,6 +257,13 @@ export default function DeliveryScreen() {
                     style={[styles.actionBtn, styles.actionBtnEdit]}
                   >
                     <Text style={styles.actionBtnEditText}>Edit Now</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteZone(zone)}
+                    activeOpacity={0.8}
+                    style={[styles.actionBtn, styles.actionBtnDelete]}
+                  >
+                    <Text style={styles.actionBtnDeleteText}>Remove</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -390,6 +419,8 @@ const styles = StyleSheet.create({
   actionBtnPauseText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#282828" },
   actionBtnEdit: { backgroundColor: "#076B51" },
   actionBtnEditText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+  actionBtnDelete: { backgroundColor: "#FFF1F1" },
+  actionBtnDeleteText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#B42318" },
 
   // Add Country trigger button
   addCountryBtn: {

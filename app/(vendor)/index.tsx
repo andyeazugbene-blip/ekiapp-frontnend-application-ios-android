@@ -385,28 +385,28 @@ export default function VendorDashboardScreen() {
                 icon="trending-up-outline"
                 label="Sales today"
                 value={formatCurrency(earnings?.salesToday ?? 0, earnings?.currency)}
-                sub="+15% vs yesterday"
+                sub="Live backend total"
               />
               <SalesTile
                 tone="dark"
                 icon="calendar-outline"
                 label="Sales this week"
                 value={formatCurrency(earnings?.salesThisWeek ?? 0, earnings?.currency)}
-                sub="+22% vs last week"
+                sub="Live backend total"
               />
               <SalesTile
                 tone="black"
                 icon="bar-chart-outline"
                 label="Sales this month"
                 value={formatCurrency(earnings?.salesThisMonth ?? 0, earnings?.currency)}
-                sub="+44% vs last month"
+                sub="Live backend total"
               />
               <SalesTile
                 tone="light"
                 icon="card-outline"
                 label="Pending Payout"
                 value={formatCurrency(earnings?.pendingPayout ?? 0, earnings?.currency)}
-                sub="Next payout: Mon"
+                sub="Available after delivery"
                 onPress={() => navigate("/(vendor)/earnings")}
               />
             </View>
