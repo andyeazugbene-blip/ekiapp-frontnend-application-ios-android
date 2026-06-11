@@ -2,32 +2,13 @@ import React, { useEffect } from "react";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { StripeProvider } from "../components/providers/StripeProvider";
 import { useAuthStore } from "../stores/authStore";
 import { initMonitoring } from "../services/monitoring";
 import "../global.css";
-
-let defaultFontsConfigured = false;
-
-function configureDefaultFonts() {
-  if (defaultFontsConfigured) {
-    return;
-  }
-
-  const text = Text as typeof Text & { defaultProps?: { style?: unknown } };
-  const textInput = TextInput as typeof TextInput & { defaultProps?: { style?: unknown } };
-
-  text.defaultProps = text.defaultProps ?? {};
-  text.defaultProps.style = [{ fontFamily: "Outfit-Regular" }, text.defaultProps.style];
-
-  textInput.defaultProps = textInput.defaultProps ?? {};
-  textInput.defaultProps.style = [{ fontFamily: "Outfit-Regular" }, textInput.defaultProps.style];
-
-  defaultFontsConfigured = true;
-}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -47,15 +28,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     initMonitoring();
-    // Call checkAuth directly from the store without subscribing this component
-    useAuthStore.getState().checkAuth();
+    useAuthStore.getState().checkAuth().catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (fontsLoaded) {
-      configureDefaultFonts();
-    }
-  }, [fontsLoaded]);
 
   if (!fontsLoaded) {
     return (

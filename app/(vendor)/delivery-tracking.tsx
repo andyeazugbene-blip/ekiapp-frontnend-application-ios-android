@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { FloatingCard, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { orderService, Shipment } from "../../services/orderService";
@@ -54,7 +55,7 @@ export default function DeliveryTrackingScreen() {
   };
 
   return (
-    <View style={premiumStyles.page}>
+    <SafeAreaView style={premiumStyles.page} edges={["top"]}>
       <PremiumHeader title="Shipment tracking" subtitle={`${allShipments.length} total shipments`} onBack={() => goBackOrReplace(router, "/(vendor)/orders" as any)} />
       <FlatList
         data={shipments}
@@ -104,6 +105,6 @@ export default function DeliveryTrackingScreen() {
           );
         }}
       />
-    </View>
+    </SafeAreaView>
   );
 }

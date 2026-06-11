@@ -75,7 +75,7 @@ export default function AdminMessageChatScreen() {
   const onSend = () => {
     const text = input.trim();
     if (!text || !conversation || isSending) return;
-    sendMessage(conversation.id, text);
+    sendMessage(conversation.id, text).catch(() => {});
     setInput("");
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   };
