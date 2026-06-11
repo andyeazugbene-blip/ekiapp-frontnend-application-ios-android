@@ -2,6 +2,9 @@
  * Subscription service for vendor plans, limits, and backend-derived entitlements.
  */
 import { apiClient } from "./api";
+import { Platform } from "react-native";
+
+const APP_REVIEW_MODE = process.env.EXPO_PUBLIC_APP_REVIEW_MODE !== "false";
 
 export interface SubscriptionPlan {
   id: string;
@@ -230,6 +233,9 @@ export const subscriptionService = {
   },
 
   async createWebCheckout(email: string, plan: PaidSubscriptionPlan): Promise<WebSubscriptionCheckout> {
+    if (Platform.OS !== "web") {
+      throw new Error("SUBSCRIPTIONS_NOT_AVAILABLE");
+    }
     return apiClient.post<WebSubscriptionCheckout>(
       "/api/subscriptions/web-checkout",
       { email: email.trim().toLowerCase(), plan },

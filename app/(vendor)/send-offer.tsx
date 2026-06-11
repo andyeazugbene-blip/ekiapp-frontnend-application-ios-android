@@ -5,13 +5,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { buyerService, type VendorBuyerSummary } from "../../services/buyerService";
 import { marketingService, type OfferAudience } from "../../services/marketingService";
+import { productService } from "../../services/productService";
+import type { Product } from "../../types/product";
 import { goBackOrReplace } from "../../utils/navigation";
 
-const AUDIENCES: { id: OfferAudience; label: string }[] = [
-  { id: "all_buyers", label: "All buyers" },
-  { id: "last_30_days", label: "Last 30 days buyers" },
-  { id: "specific_buyer", label: "Specific buyer" },
+const AUDIENCES: { id: OfferAudience; label: string; helper: string }[] = [
+  { id: "all_buyers", label: "All buyers", helper: "Every buyer with order history in your store." },
+  { id: "last_30_days", label: "Last 30 days buyers", helper: "Buyers with recent paid orders from your store." },
+  { id: "repeat_buyers", label: "Repeat Buyers", helper: "Buyers with two or more orders." },
+  { id: "inactive_buyers", label: "Inactive Buyers", helper: "Buyers without an order in the last 30 days." },
+  { id: "bought_specific_product", label: "Bought Specific Product", helper: "Buyers who ordered the selected product." },
+  { id: "first_time_buyers", label: "First-Time Buyers", helper: "Buyers with exactly one order." },
+  { id: "top_customers", label: "Top Customers", helper: "Highest-spending buyers from your real order history." },
+  { id: "specific_buyer", label: "Specific buyer", helper: "Send to one selected buyer only." },
 ];
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export default function SendOfferScreen() {
   const router = useRouter();
@@ -19,8 +28,11 @@ export default function SendOfferScreen() {
 
   const [audience, setAudience] = useState<OfferAudience>(paramBuyerId ? "specific_buyer" : "all_buyers");
   const [buyers, setBuyers] = useState<VendorBuyerSummary[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loadingBuyers, setLoadingBuyers] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const [selectedBuyerId, setSelectedBuyerId] = useState<string | undefined>(paramBuyerId);
+  const [selectedProductId, setSelectedProductId] = useState<string | undefined>();
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -34,6 +46,14 @@ export default function SendOfferScreen() {
   }, []);
 
   useEffect(() => {
+    productService
+      .getMyVendorProducts()
+      .then((list) => setProducts((list ?? []).filter((product) => product.status !== "out_of_stock")))
+      .catch(() => {})
+      .finally(() => setLoadingProducts(false));
+  }, []);
+
+  useEffect(() => {
     if (audience === "specific_buyer" && !selectedBuyerId && buyers.length > 0) {
       setSelectedBuyerId(buyers[0].id);
     }
@@ -43,6 +63,31 @@ export default function SendOfferScreen() {
     () => buyers.find((b) => b.id === selectedBuyerId) ?? null,
     [buyers, selectedBuyerId]
   );
+
+  const selectedAudience = useMemo(
+    () => AUDIENCES.find((option) => option.id === audience) ?? AUDIENCES[0],
+    [audience],
+  );
+
+  const estimatedRecipients = useMemo(() => {
+    if (audience === "all_buyers") return buyers.length;
+    if (audience === "last_30_days") {
+      const cutoff = Date.now() - THIRTY_DAYS_MS;
+      return buyers.filter((buyer) => buyer.lastOrderAt && Date.parse(buyer.lastOrderAt) >= cutoff).length;
+    }
+    if (audience === "repeat_buyers") return buyers.filter((buyer) => buyer.totalOrders >= 2).length;
+    if (audience === "inactive_buyers") {
+      const cutoff = Date.now() - THIRTY_DAYS_MS;
+      return buyers.filter((buyer) => !buyer.lastOrderAt || Date.parse(buyer.lastOrderAt) < cutoff).length;
+    }
+    if (audience === "first_time_buyers") return buyers.filter((buyer) => buyer.totalOrders === 1).length;
+    if (audience === "top_customers") {
+      const activeBuyerCount = buyers.filter((buyer) => buyer.totalSpent > 0 || buyer.totalOrders > 0).length;
+      return Math.max(0, Math.min(25, Math.ceil(activeBuyerCount * 0.2)));
+    }
+    if (audience === "specific_buyer") return selectedBuyerId ? 1 : 0;
+    return null;
+  }, [audience, buyers, selectedBuyerId]);
 
   const handleSend = async () => {
     setError("");
@@ -54,12 +99,17 @@ export default function SendOfferScreen() {
       setError("Please pick a buyer for this offer.");
       return;
     }
+    if (audience === "bought_specific_product" && !selectedProductId) {
+      setError("Please pick the product these buyers purchased.");
+      return;
+    }
 
     setSubmitting(true);
     try {
       await marketingService.sendOffer({
         audience,
         buyerId: audience === "specific_buyer" ? selectedBuyerId : undefined,
+        productId: audience === "bought_specific_product" ? selectedProductId : undefined,
         message: message.trim(),
       });
       goBackOrReplace(router, "/(vendor)/buyers" as any);
@@ -96,7 +146,39 @@ export default function SendOfferScreen() {
               </TouchableOpacity>
             ))}
           </View>
+          <Text style={styles.helperText}>
+            {selectedAudience.helper}
+            {estimatedRecipients === null ? "" : ` Estimated recipients: ${estimatedRecipients}.`}
+          </Text>
         </View>
+
+        {audience === "bought_specific_product" && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Pick a product</Text>
+            {loadingProducts ? (
+              <ActivityIndicator color="#076B51" />
+            ) : products.length === 0 ? (
+              <Text style={styles.helperText}>No products found yet. Add products before targeting product buyers.</Text>
+            ) : (
+              products.map((product) => {
+                const selected = selectedProductId === product.id;
+                return (
+                  <TouchableOpacity
+                    key={product.id}
+                    onPress={() => setSelectedProductId(product.id)}
+                    style={[styles.buyerItem, selected && styles.buyerItemActive]}
+                  >
+                    <Text style={[styles.buyerName, selected && styles.buyerNameActive]} numberOfLines={1}>{product.name}</Text>
+                    <Text style={[styles.buyerEmail, selected && styles.buyerEmailActive]} numberOfLines={1}>
+                      {product.currency} {product.price.toLocaleString()} · {product.stock} in stock
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+            <Text style={styles.helperText}>Matching buyers are verified from live order history before messages are sent.</Text>
+          </View>
+        )}
 
         {audience === "specific_buyer" && (
           <View style={styles.card}>

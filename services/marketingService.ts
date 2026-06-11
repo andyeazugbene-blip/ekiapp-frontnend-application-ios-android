@@ -54,12 +54,21 @@ export interface FlashSale extends FlashSaleInput {
   createdAt: string;
 }
 
-export type OfferAudience = "all_buyers" | "last_30_days" | "specific_buyer";
+export type OfferAudience =
+  | "all_buyers"
+  | "last_30_days"
+  | "repeat_buyers"
+  | "inactive_buyers"
+  | "bought_specific_product"
+  | "first_time_buyers"
+  | "top_customers"
+  | "specific_buyer";
 
 export interface OfferInput {
   audience: OfferAudience;
   buyerId?: string;
   message: string;
+  productId?: string;
   productIds?: string[];
   expiresAt?: string;
 }
@@ -148,9 +157,65 @@ async function resolveOfferRecipients(input: OfferInput): Promise<Array<{ buyerI
   }
 
   const last30DaysCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  return buyers
-    .filter((buyer) => buyer.lastOrderAt && Date.parse(buyer.lastOrderAt) >= last30DaysCutoff)
-    .map((buyer) => ({ buyerId: buyer.id, orderId: buyer.lastOrderId }));
+  if (input.audience === "last_30_days") {
+    return buyers
+      .filter((buyer) => buyer.lastOrderAt && Date.parse(buyer.lastOrderAt) >= last30DaysCutoff)
+      .map((buyer) => ({ buyerId: buyer.id, orderId: buyer.lastOrderId }));
+  }
+
+  if (input.audience === "repeat_buyers") {
+    return buyers
+      .filter((buyer) => buyer.totalOrders >= 2)
+      .map((buyer) => ({ buyerId: buyer.id, orderId: buyer.lastOrderId }));
+  }
+
+  if (input.audience === "inactive_buyers") {
+    return buyers
+      .filter((buyer) => !buyer.lastOrderAt || Date.parse(buyer.lastOrderAt) < last30DaysCutoff)
+      .map((buyer) => ({ buyerId: buyer.id, orderId: buyer.lastOrderId }));
+  }
+
+  if (input.audience === "first_time_buyers") {
+    return buyers
+      .filter((buyer) => buyer.totalOrders === 1)
+      .map((buyer) => ({ buyerId: buyer.id, orderId: buyer.lastOrderId }));
+  }
+
+  if (input.audience === "top_customers") {
+    const topCustomerLimit = Math.max(1, Math.min(25, Math.ceil(buyers.length * 0.2)));
+    return [...buyers]
+      .filter((buyer) => buyer.totalSpent > 0 || buyer.totalOrders > 0)
+      .sort((left, right) => right.totalSpent - left.totalSpent || right.totalOrders - left.totalOrders)
+      .slice(0, topCustomerLimit)
+      .map((buyer) => ({ buyerId: buyer.id, orderId: buyer.lastOrderId }));
+  }
+
+  if (input.audience === "bought_specific_product") {
+    if (!input.productId) {
+      throw new Error("Choose a product before sending this offer.");
+    }
+
+    const buyerProfiles = await Promise.all(
+      buyers.map(async (buyer) => {
+        try {
+          return await buyerService.getBuyer(buyer.id);
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    return buyerProfiles
+      .flatMap((profile) => {
+        if (!profile) return [];
+        const matchingOrder = profile.recentOrders.find((order) =>
+          order.items.some((item) => item.product.id === input.productId),
+        );
+        return matchingOrder ? [{ buyerId: profile.id, orderId: matchingOrder.id }] : [];
+      });
+  }
+
+  return [];
 }
 
 export const marketingService = {

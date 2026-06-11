@@ -1,6 +1,12 @@
 import { apiClient } from "../api";
 
-export type BroadcastAudience = "all" | "vendors" | "buyers" | "active_vendors" | "new_vendors" | "individual_vendor" | "individual_buyer";
+export type BroadcastAudience =
+  | "all" | "vendors" | "buyers"
+  | "active_vendors" | "new_vendors"
+  | "individual_vendor" | "individual_buyer"
+  | "last_30_days_buyers" | "repeat_buyers" | "inactive_buyers"
+  | "first_time_buyers" | "top_customers"
+  | "bought_specific_product";
 export type BroadcastChannel = "in_app" | "push" | "sms";
 
 export interface BroadcastPayload {
@@ -10,6 +16,7 @@ export interface BroadcastPayload {
   channels: BroadcastChannel[];
   vendorId?: string;
   buyerId?: string;
+  productId?: string;
 }
 
 export const communicationsAPI = {
@@ -36,6 +43,7 @@ export const communicationsAPI = {
       channel,
       vendorId: payload.vendorId,
       userId: payload.buyerId,
+      productId: payload.productId,
     });
   },
 };

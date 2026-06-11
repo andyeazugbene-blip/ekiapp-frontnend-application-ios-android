@@ -98,7 +98,7 @@ export default function SubscriptionPlansScreen() {
                 </View>
               </View>
               <Text style={styles.statusBody}>
-                Paid seller plans are purchased and managed on the Eki website using your vendor account email. This app does not process plan payments.
+                Seller plans are managed on the Eki website. The app displays your current plan, commission rates, and usage limits.
               </Text>
               <View style={styles.feeBanner}>
                 <Text style={styles.feeBannerLabel}>Platform fee per order</Text>
@@ -113,7 +113,7 @@ export default function SubscriptionPlansScreen() {
             <View style={styles.statusCard}>
               <Text style={styles.sectionTitle}>Website-managed billing</Text>
               <Text style={styles.statusBody}>
-                After paying on the website with the same email used for this vendor account, return here and refresh. Your paid seller plan and features unlock after Stripe confirms payment.
+                Your current plan and features are synced from your account. Refresh below to see the latest plan status and limits.
               </Text>
             </View>
 

@@ -48,19 +48,23 @@ Ready:
 - Physical goods marketplace flow can use direct card payments outside IAP
 - Privacy policy and terms URLs are defined in app config
 - Camera and photo-library permission copy is present in app config
+- **Account deletion is self-serve in-app** (`app/account-deletion.tsx` calls `POST /api/me/delete-account`)
+- **GDPR data export** (`GET /api/me/data-export`) is implemented
 
 Blocked:
-- Account deletion is not yet self-serve inside the product flow
-- Current deletion entry is a request path, not a full in-app delete flow backed by API
+- Stripe publishable key in production builds is still a test key — must be replaced with a live key before submission
+- Backend health must be verified on production deployment at `https://ekiapp-backend.vercel.app`
 
 ### Google Play
 
 Ready:
 - Data collection categories are known
 - Notification permission and media permissions are declared
+- **In-app account deletion** is implemented and functional
 
 Blocked:
-- A working public account deletion path is still required in addition to the in-app path
+- Stripe test keys must be replaced with live keys
+- Backend deployment must pass health checks
 
 ## Live credentials status
 

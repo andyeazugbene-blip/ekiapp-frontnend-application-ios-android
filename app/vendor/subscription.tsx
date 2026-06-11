@@ -110,10 +110,9 @@ export default function VendorWebSubscriptionPage() {
         <View style={styles.nativeIcon}>
           <Ionicons name="globe-outline" size={28} color={BRAND} />
         </View>
-        <Text style={styles.nativeTitle}>Website billing only</Text>
+        <Text style={styles.nativeTitle}>Plan status</Text>
         <Text style={styles.nativeText}>
-          Eki does not process seller plan payments in the app. Open culinarytales.app in a browser and pay
-          with the email on your vendor account, then return to the app and refresh your plan status.
+          Seller plan billing is managed on the Eki website. Your current plan status and limits are available in the app under Seller Plan.
         </Text>
       </View>
     );
