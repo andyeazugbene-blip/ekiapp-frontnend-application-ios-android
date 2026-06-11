@@ -23,8 +23,6 @@
       },
       "associatedDomains": [
         "applinks:culinarytales.app",
-        "applinks:www.culinarytales.app",
-        "applinks:culinarytales.app",
         "applinks:www.culinarytales.app"
       ],
       "infoPlist": {
@@ -49,72 +47,9 @@
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.CAMERA",
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.INTERNET",
-        "android.permission.CAMERA",
         "android.permission.POST_NOTIFICATIONS"
       ],
       "intentFilters": [
-        {
-          "action": "VIEW",
-          "data": [
-            {
-              "scheme": "https",
-              "host": "culinarytales.app",
-              "pathPrefix": "/store"
-            },
-            {
-              "scheme": "https",
-              "host": "www.culinarytales.app",
-              "pathPrefix": "/store"
-            },
-            {
-              "scheme": "https",
-              "host": "culinarytales.app",
-              "pathPrefix": "/product"
-            },
-            {
-              "scheme": "https",
-              "host": "www.culinarytales.app",
-              "pathPrefix": "/product"
-            },
-            {
-              "scheme": "https",
-              "host": "culinarytales.app",
-              "pathPrefix": "/order"
-            },
-            {
-              "scheme": "https",
-              "host": "www.culinarytales.app",
-              "pathPrefix": "/order"
-            },
-            {
-              "scheme": "https",
-              "host": "culinarytales.app",
-              "pathPrefix": "/chat"
-            },
-            {
-              "scheme": "https",
-              "host": "www.culinarytales.app",
-              "pathPrefix": "/chat"
-            },
-            {
-              "scheme": "https",
-              "host": "culinarytales.app",
-              "pathPrefix": "/invite"
-            },
-            {
-              "scheme": "https",
-              "host": "www.culinarytales.app",
-              "pathPrefix": "/invite"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ],
-          "autoVerify": true
-        },
         {
           "action": "VIEW",
           "data": [

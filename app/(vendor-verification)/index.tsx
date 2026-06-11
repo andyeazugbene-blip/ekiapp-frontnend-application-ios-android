@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { vendorService } from "../../services/vendorService";
 
 const STEPS = [
   {
@@ -34,6 +35,24 @@ const REQUIREMENTS = [
 
 export default function VerificationIntroScreen() {
   const router = useRouter();
+  const [checkingStatus, setCheckingStatus] = useState(false);
+
+  const startVerification = async () => {
+    if (checkingStatus) return;
+    setCheckingStatus(true);
+    try {
+      const profile = await vendorService.getMyProfile();
+      if (profile.verificationStatus === "verified") {
+        router.replace("/(vendor-verification)/approved" as any);
+        return;
+      }
+      router.push("/(vendor-verification)/upload-id" as any);
+    } catch {
+      router.push("/(vendor-verification)/upload-id" as any);
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -99,10 +118,11 @@ export default function VerificationIntroScreen() {
         {/* Start Verification Button */}
         <TouchableOpacity
           style={styles.primaryButton}
-          onPress={() => router.push("/(vendor-verification)/upload-id" as any)}
+          onPress={startVerification}
           activeOpacity={0.8}
+          disabled={checkingStatus}
         >
-          <Text style={styles.primaryButtonText}>Start Verification</Text>
+          <Text style={styles.primaryButtonText}>{checkingStatus ? "Checking status..." : "Start Verification"}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.back()} style={styles.laterButton}>

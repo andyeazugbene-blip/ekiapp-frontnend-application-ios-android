@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -29,7 +29,25 @@ export default function UploadIdScreen() {
   const [front, setFront] = useState<UploadState>(initialUpload);
   const [back, setBack] = useState<UploadState>(initialUpload);
   const [submitting, setSubmitting] = useState(false);
+  const [alreadyVerified, setAlreadyVerified] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    vendorService
+      .getMyProfile()
+      .then((profile) => {
+        if (!mounted) return;
+        if (profile.verificationStatus === "verified") {
+          setAlreadyVerified(true);
+          setError("Your identity is already verified. Documents cannot be submitted again.");
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const pickAndUpload = async (
     setter: React.Dispatch<React.SetStateAction<UploadState>>,
@@ -65,9 +83,14 @@ export default function UploadIdScreen() {
     selectedType !== null &&
     !!front.remoteUrl &&
     !front.uploading &&
-    !back.uploading;
+    !back.uploading &&
+    !alreadyVerified;
 
   const onContinue = async () => {
+    if (alreadyVerified) {
+      setError("Your identity is already verified. Documents cannot be submitted again.");
+      return;
+    }
     if (!selectedType) {
       setError("Please select your ID type.");
       return;
