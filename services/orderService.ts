@@ -7,6 +7,7 @@
 import { Order, OrderStatus, PayoutMode, VendorEarnings } from "../types/order";
 import { apiClient } from "./api";
 import {
+  normalizeBackendOrderStatus,
   normalizeDashboardEarnings,
   normalizeOrder,
   normalizeOrders,
@@ -94,8 +95,15 @@ export const orderService = {
   },
 
   async getBuyerOrderById(orderId: string): Promise<Order> {
-    const response = await apiClient.get<OrderResponse>(`/api/orders/${orderId}`);
-    return normalizeOrder(response.order);
+    try {
+      const response = await apiClient.get<OrderResponse>(`/api/orders/${orderId}`);
+      return normalizeOrder(response.order);
+    } catch (error) {
+      const orders = await orderService.getBuyerOrders();
+      const found = orders.find((order) => order.id === orderId || order.orderNumber === orderId);
+      if (found) return found;
+      throw error;
+    }
   },
 
   async getVendorOrders(_vendorId?: string, status?: OrderStatus): Promise<Order[]> {
@@ -107,8 +115,15 @@ export const orderService = {
   },
 
   async getVendorOrderById(orderId: string): Promise<Order> {
-    const response = await apiClient.get<OrderResponse>(`/api/vendors/me/orders/${orderId}`);
-    return normalizeOrder(response.order);
+    try {
+      const response = await apiClient.get<OrderResponse>(`/api/vendors/me/orders/${orderId}`);
+      return normalizeOrder(response.order);
+    } catch (error) {
+      const orders = await orderService.getVendorOrders();
+      const found = orders.find((order) => order.id === orderId || order.orderNumber === orderId);
+      if (found) return found;
+      throw error;
+    }
   },
 
   async updateOrderStatus(
@@ -158,6 +173,18 @@ export const orderService = {
     }
 
     throw lastError instanceof Error ? lastError : new Error("Could not accept order.");
+  },
+
+  async acceptEscrowOrStandardOrder(order: Order): Promise<Order> {
+    const backendStatus = normalizeBackendOrderStatus(order.backendStatus);
+    const isEscrowOrder = (order.escrowType ?? "").toLowerCase() === "domestic_africa";
+
+    if (isEscrowOrder && backendStatus === "PAYMENT_SECURED") {
+      await orderService.confirmVendorEscrowOrder(order.id);
+      return orderService.getVendorOrderById(order.id);
+    }
+
+    return orderService.acceptVendorOrder(order.id);
   },
 
   async confirmBuyerDelivery(orderId: string, code: string): Promise<ConfirmDeliveryResponse> {

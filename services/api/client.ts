@@ -156,7 +156,7 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
         throw new ApiRequestError(401, errorMessage || "Please log in to continue.", errorCode);
 
       case 403:
-        throw new ApiRequestError(403, "You don't have permission to perform this action.", errorCode);
+        throw new ApiRequestError(403, errorMessage || "You don't have permission to perform this action.", errorCode);
 
       case 423:
         // Account locked/suspended

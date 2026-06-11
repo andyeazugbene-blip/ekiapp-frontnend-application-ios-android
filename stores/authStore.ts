@@ -8,6 +8,9 @@ import { setMonitoringUser } from "../services/monitoring";
 import { pushTokenService } from "../services/notificationService";
 import { AdminProfile, BuyerProfile, LoginCredentials, RegisterPayload, UserRole, VendorProfile } from "../types/auth";
 import { useCartStore } from "./cartStore";
+import { useOrderStore } from "./orderStore";
+import { useVendorOrderStore } from "./vendorOrderStore";
+import { useVendorStore } from "./vendorStore";
 
 type AnyProfile = BuyerProfile | VendorProfile | AdminProfile;
 type AuthCache = {
@@ -43,6 +46,9 @@ interface AuthStore {
 
 const clearLocalSession = () => {
   useCartStore.getState().reset();
+  useOrderStore.setState({ orders: [], selectedOrder: null, earnings: null, isLoading: false, error: null });
+  useVendorOrderStore.setState({ selectedOrder: null, localOrders: [] });
+  useVendorStore.setState({ vendors: [], selectedVendor: null, dashboardData: null, adminDashboard: null, isLoading: false, error: null });
   setMonitoringUser(null);
 };
 

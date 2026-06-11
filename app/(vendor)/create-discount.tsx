@@ -38,7 +38,9 @@ export default function CreateDiscountScreen() {
       setError("Please enter a discount name.");
       return;
     }
-    const cleanValue = value.replace("%", "").trim();
+    const rawValue = value.trim();
+    const hasCurrencyMarker = /[£$€₦₵]|gbp|usd|eur|ngn|ghs|kes/i.test(rawValue);
+    const cleanValue = rawValue.replace(/[£$€₦₵%]/g, "").replace(/\b(gbp|usd|eur|ngn|ghs|kes)\b/gi, "").trim();
     const numericValue = Number(cleanValue);
     if (!Number.isFinite(numericValue) || numericValue <= 0) {
       setError("Please enter a valid discount percentage or amount.");
@@ -50,7 +52,7 @@ export default function CreateDiscountScreen() {
       const created = await marketingService.createDiscount({
         productIds: productId === "__all__" ? [] : [productId],
         audience: "all",
-        kind: value.includes("%") ? "percentage" : "fixed_amount",
+        kind: hasCurrencyMarker ? "fixed_amount" : "percentage",
         value: numericValue,
         startsAt: startDate || undefined,
         endsAt: endDate || undefined,
@@ -106,7 +108,7 @@ export default function CreateDiscountScreen() {
                 <TextInput
                   value={value}
                   onChangeText={setValue}
-                  placeholder="e.g 10% or 5"
+                  placeholder="e.g 10% or £5"
                   placeholderTextColor="#858585"
                   style={styles.input}
                 />

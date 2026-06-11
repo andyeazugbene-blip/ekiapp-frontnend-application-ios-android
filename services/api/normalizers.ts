@@ -147,6 +147,10 @@ const STATUS_MAP_REVERSE: Record<OrderStatus, string> = {
   refunded: "REFUNDED",
 };
 
+export function normalizeBackendOrderStatus(status?: string | null): string {
+  return typeof status === "string" ? status.trim().toUpperCase() : "";
+}
+
 export function normalizeOrderStatus(status: string): OrderStatus {
   return STATUS_MAP[status?.toUpperCase()] ?? "pending";
 }
@@ -212,7 +216,7 @@ export function normalizeOrder(raw: Record<string, any>): Order {
     total: centsToUnit(raw.totalAmount ?? raw.total),
     currency: ((raw.currency ?? "GBP").toUpperCase()) as Order["currency"],
     status: normalizeOrderStatus(raw.status),
-    backendStatus: raw.status ?? undefined,
+    backendStatus: normalizeBackendOrderStatus(raw.status) || undefined,
     paymentStatus,
     paymentProvider: inferredProvider,
     paymentReference: raw.paystackTransaction?.reference ?? raw.payment?.stripePaymentIntentId ?? undefined,

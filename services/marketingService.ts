@@ -4,6 +4,7 @@
 import { apiClient } from "./api";
 import { buyerService } from "./buyerService";
 import { messageService } from "./messageService";
+import { productService } from "./productService";
 
 export type DiscountAudience = "all" | "repeat" | "new" | "country";
 export type DiscountKind = "percentage" | "fixed_amount";
@@ -14,6 +15,7 @@ export interface DiscountInput {
   audienceCountry?: string;
   kind: DiscountKind;
   value: number;
+  code?: string;
   startsAt?: string;
   endsAt?: string;
 }
@@ -71,9 +73,9 @@ export interface Offer {
   createdAt: string;
 }
 
-function generatePromoCode(): string {
+function generatePromoCode(prefix = "EKI"): string {
   const date = new Date();
-  return `EKI${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${Math.random()
+  return `${prefix}${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${Math.random()
     .toString(36)
     .slice(2, 6)
     .toUpperCase()}`;
@@ -153,7 +155,7 @@ async function resolveOfferRecipients(input: OfferInput): Promise<Array<{ buyerI
 
 export const marketingService = {
   async createDiscount(input: DiscountInput): Promise<Discount> {
-    const code = generatePromoCode();
+    const code = (input.code ?? generatePromoCode()).trim().toUpperCase();
     const payload = {
       code,
       type: input.kind === "fixed_amount" ? "FIXED_AMOUNT" : "PERCENTAGE",
@@ -174,16 +176,64 @@ export const marketingService = {
     return (res.promoCodes ?? []).map(normalizeDiscount);
   },
 
-  async createBundle(_input: BundleInput): Promise<Bundle> {
-    throw new Error("Bundles are not exposed by the backend yet.");
+  async createBundle(input: BundleInput): Promise<Bundle> {
+    const products = await productService.getMyVendorProducts();
+    const selected = products.filter((product) => input.productIds.includes(product.id));
+    const regularTotal = selected.reduce((sum, product) => sum + product.price, 0);
+    const discountValue = Math.max(0, regularTotal - input.bundlePrice);
+
+    if (selected.length < 2 || discountValue <= 0) {
+      throw new Error("Bundle price must be lower than the selected products' regular total.");
+    }
+
+    const discount = await this.createDiscount({
+      productIds: input.productIds,
+      audience: "all",
+      kind: "fixed_amount",
+      value: discountValue,
+      code: generatePromoCode("BUNDLE"),
+    });
+
+    return {
+      ...input,
+      id: discount.id,
+      shareUrl: discount.shareUrl,
+      createdAt: discount.createdAt,
+    };
   },
 
   async listBundles(): Promise<Bundle[]> {
     return [];
   },
 
-  async createFlashSale(_input: FlashSaleInput): Promise<FlashSale> {
-    throw new Error("Flash sales are not exposed by the backend yet.");
+  async createFlashSale(input: FlashSaleInput): Promise<FlashSale> {
+    const products = await productService.getMyVendorProducts();
+    const product = products.find((item) => item.id === input.productId);
+    if (!product) {
+      throw new Error("Selected product was not found in your store.");
+    }
+
+    const discountValue = Math.max(0, product.price - input.salePrice);
+    if (discountValue <= 0) {
+      throw new Error("Flash sale price must be lower than the product price.");
+    }
+
+    const discount = await this.createDiscount({
+      productIds: [input.productId],
+      audience: "all",
+      kind: "fixed_amount",
+      value: discountValue,
+      code: generatePromoCode("FLASH"),
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+    });
+
+    return {
+      ...input,
+      id: discount.id,
+      shareUrl: discount.shareUrl,
+      createdAt: discount.createdAt,
+    };
   },
 
   async listFlashSales(): Promise<FlashSale[]> {

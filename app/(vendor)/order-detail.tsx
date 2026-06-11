@@ -114,13 +114,9 @@ export default function OrderDetailScreen() {
       return;
     }
 
-    setSubmitting(true);
+      setSubmitting(true);
     try {
-      if (isEscrowOrder) {
-        await orderService.confirmVendorEscrowOrder(order.id);
-      } else {
-        await orderService.acceptVendorOrder(order.id);
-      }
+      await orderService.acceptEscrowOrStandardOrder(order);
       await load();
     } catch (err) {
       Alert.alert("Could not accept order", err instanceof Error ? err.message : "Please try again.");

@@ -61,11 +61,7 @@ export default function AcceptOrderScreen() {
     setSubmitting(true);
     setError("");
     try {
-      if (isEscrowOrder) {
-        await orderService.confirmVendorEscrowOrder(order.id);
-      } else {
-        await orderService.acceptVendorOrder(order.id);
-      }
+      await orderService.acceptEscrowOrStandardOrder(order);
       goBackOrReplace(router, { pathname: "/(vendor)/order-detail", params: { id: order.id } } as any);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not accept order.";
