@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   viewAll: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#076B51" },
   productScroll: { paddingHorizontal: 16, gap: 10, marginBottom: 10 },
   productCard: { width: 150, backgroundColor: "#FFFFFF", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#F0F0F0" },
-  productImage: { width: "100%", height: 110, backgroundColor: "#F0E6D4" },
+  productImage: { width: "100%", height: 160, backgroundColor: "#F0E6D4" },
   productHeart: { position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: 13, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   productName: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828", paddingHorizontal: 10, paddingTop: 8 },
   productPrice: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828", paddingHorizontal: 10, marginTop: 2 },
