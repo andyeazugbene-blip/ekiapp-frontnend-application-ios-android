@@ -38,6 +38,7 @@ interface AuthStore {
   deleteAccount: () => Promise<string>;
   updateProfile: (data: Record<string, unknown>) => Promise<AnyProfile>;
   setUser: (user: AnyProfile) => void;
+  switchRole: () => Promise<void>;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
   setHasSeenOnboarding: () => void;
@@ -355,6 +356,16 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       set({ user });
       persistState();
     },
+    switchRole: async () => {
+      try {
+        const { user, token } = await authService.switchRole();
+        set({ user, token });
+        setMonitoringUser({ id: user.id, role: user.role });
+        persistState();
+      } catch (err) {
+        set({ error: err instanceof Error ? err.message : "Failed to switch role" });
+      }
+    },
     clearError: () => set({ error: null, isAccountLocked: false }),
     setLoading: (loading) => set({ isLoading: loading }),
     setHasSeenOnboarding: () => {
@@ -366,6 +377,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
 export const selectUser = (state: AuthStore) => state.user;
 export const selectRole = (state: AuthStore): UserRole | null => state.user?.role ?? null;
+export const selectHasVendor = (state: AuthStore): boolean => state.user?.hasVendor === true;
 export const selectIsVendor = (state: AuthStore) => state.user?.role === "vendor";
 export const selectIsBuyer = (state: AuthStore) => state.user?.role === "buyer";
 export const selectIsAdmin = (state: AuthStore) => state.user?.role === "admin";

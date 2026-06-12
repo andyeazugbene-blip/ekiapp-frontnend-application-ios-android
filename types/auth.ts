@@ -6,6 +6,7 @@ export interface User {
   email: string;
   phone?: string;
   role: UserRole;
+  hasVendor?: boolean;
   avatar?: string;
   referralCode?: string;
   createdAt: string;

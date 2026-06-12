@@ -127,4 +127,10 @@ export const authService = {
     await tokenStorage.clearTokens();
     return true;
   },
+
+  async switchRole() {
+    const response = await apiClient.post<AuthResponse>("/api/auth/switch-role");
+    await tokenStorage.setToken(response.token);
+    return { user: normalizeUser(response.user), token: response.token };
+  },
 };

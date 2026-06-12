@@ -4,8 +4,6 @@
 import { apiClient } from "./api";
 import { Platform } from "react-native";
 
-const APP_REVIEW_MODE = process.env.EXPO_PUBLIC_APP_REVIEW_MODE !== "false";
-
 export interface SubscriptionPlan {
   id: string;
   plan?: string;
