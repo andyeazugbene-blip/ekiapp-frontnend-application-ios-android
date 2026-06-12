@@ -332,6 +332,47 @@ export default function TrackOrderScreen() {
           </View>
         ) : null}
 
+        {!isEscrowOrder && order && (order.status === "dispatched" || order.status === "in_transit") ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Confirm delivery</Text>
+            <Text style={styles.deliveryText}>
+              Have you received your order? Tap below to confirm delivery. This lets the vendor know you received your items.
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.86}
+              onPress={() => {
+                Alert.alert(
+                  "Confirm delivery?",
+                  "This confirms you have received your order from the vendor.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Confirm",
+                      onPress: async () => {
+                        setConfirming(true);
+                        try {
+                          await orderService.confirmBuyerDelivery(order.id, "");
+                          await load();
+                          Alert.alert("Delivery confirmed", "Thank you! The vendor will be notified.");
+                        } catch (err) {
+                          Alert.alert("Error", err instanceof Error ? err.message : "Could not confirm delivery");
+                        } finally {
+                          setConfirming(false);
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+              disabled={confirming}
+              style={[styles.otpActionButton, confirming && styles.buttonDisabled]}
+            >
+              <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.otpActionButtonText}>{confirming ? "Confirming..." : "Mark as Received"}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Delivery details</Text>
           <Text style={styles.deliveryText}>
@@ -346,14 +387,41 @@ export default function TrackOrderScreen() {
       </ScrollView>
 
       <View style={styles.bottomActions}>
-        {isEscrowOrder ? (
+        {isEscrowOrder && confirmDeliveryEnabled ? (
           <TouchableOpacity
             activeOpacity={0.86}
             onPress={() => setConfirmModalVisible(true)}
             disabled={!confirmDeliveryEnabled}
             style={[styles.primaryButton, !confirmDeliveryEnabled && styles.buttonDisabled]}
           >
-            <Text style={styles.primaryButtonText}>Confirm Delivery</Text>
+            <Text style={styles.primaryButtonText}>Confirm Delivery (OTP)</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {!isEscrowOrder && (order?.status === "dispatched" || order?.status === "in_transit") ? (
+          <TouchableOpacity
+            activeOpacity={0.86}
+            onPress={() => {
+              Alert.alert("Confirm delivery?", "This confirms you have received your order.", [
+                { text: "Cancel", style: "cancel" },
+                { text: "Confirm", onPress: async () => {
+                  setConfirming(true);
+                  try {
+                    await orderService.confirmBuyerDelivery(order.id, "");
+                    await load();
+                    Alert.alert("Delivery confirmed", "Thank you!");
+                  } catch (err) {
+                    Alert.alert("Error", err instanceof Error ? err.message : "Could not confirm delivery");
+                  } finally {
+                    setConfirming(false);
+                  }
+                }},
+              ]);
+            }}
+            disabled={confirming}
+            style={[styles.primaryButton, confirming && styles.buttonDisabled]}
+          >
+            <Text style={styles.primaryButtonText}>{confirming ? "Processing..." : "Mark as Received"}</Text>
           </TouchableOpacity>
         ) : null}
 
