@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -9,6 +10,7 @@ import { disputesAPI } from "@/lib/services/disputes.api";
 import { Dispute } from "@/types";
 
 export default function DisputesPage() {
+  const router = useRouter();
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -88,7 +90,7 @@ export default function DisputesPage() {
                           <div className="space-y-3 text-sm text-slate-500"><p>Buyer:</p><p>Issue:</p><p>Status:</p></div>
                           <div className="space-y-3 text-sm font-semibold text-[#101820]"><p>{dispute.buyerId || "Unknown buyer"}</p><p>{dispute.reason || "No reason provided"}</p><p><StatusBadge status={dispute.status} /></p></div>
                           <div className="flex flex-wrap gap-3">
-                            <Button variant="secondary" onClick={() => alert(`Order: ${dispute.order?.orderNumber || dispute.orderId}\nBuyer: ${dispute.buyerId || "Unknown"}\nIssue: ${dispute.reason || "No reason provided"}\nStatus: ${dispute.status}`)}>View Details</Button>
+                            <Button variant="secondary" onClick={() => router.push(`/disputes/${dispute.id}`)}>View Details →</Button>
                             <Button disabled={resolvingId === dispute.id} onClick={() => void resolve(dispute, "buyer")}>Release payment</Button>
                             <Button variant="danger" disabled={resolvingId === dispute.id} onClick={() => void resolve(dispute, "vendor")}>Hold payment</Button>
                           </div>
