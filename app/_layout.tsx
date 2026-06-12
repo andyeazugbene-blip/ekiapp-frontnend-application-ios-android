@@ -4,11 +4,21 @@ import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import * as Notifications from "expo-notifications";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { StripeProvider } from "../components/providers/StripeProvider";
 import { useAuthStore } from "../stores/authStore";
 import { initMonitoring } from "../services/monitoring";
 import "../global.css";
+
+// Must be set at app root — not only in login flow
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({

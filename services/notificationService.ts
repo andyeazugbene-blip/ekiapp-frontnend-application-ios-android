@@ -90,14 +90,6 @@ export const pushTokenService = {
       deviceName: Device.deviceName ?? undefined,
     });
 
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-      } as Notifications.NotificationBehavior),
-    });
-
     return token;
   },
 
