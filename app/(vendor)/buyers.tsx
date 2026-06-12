@@ -7,6 +7,7 @@ import { buyerService, type VendorBuyerSummary } from "../../services/buyerServi
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { formatDisplayMoney } from "../../utils/currency";
+import { goBackOrReplace } from "../../utils/navigation";
 
 function formatLastOrder(value: string | null): string {
   if (!value) return "No orders yet";
@@ -64,10 +65,15 @@ export default function BuyersScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your buyers</Text>
-        <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
-          <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/" as any)} activeOpacity={0.85} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Your buyers</Text>
+          <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
+            <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.headerSubtitle}>View your buyers, track orders, and understand their purchase behavior.</Text>
       </View>
 
@@ -161,8 +167,10 @@ export default function BuyersScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
   header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 20, paddingBottom: 28, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },
+  backButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  currencyButton: { width: 58, height: 30, borderRadius: 15, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center", marginLeft: "auto" },
   headerTitle: { fontSize: 26, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
-  currencyButton: { position: "absolute", right: 20, top: 18, minWidth: 58, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
   currencyButtonText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   headerSubtitle: { fontSize: 13, fontFamily: "Outfit-Light", color: "rgba(255,255,255,0.8)", marginTop: 6, lineHeight: 18 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 100 },
