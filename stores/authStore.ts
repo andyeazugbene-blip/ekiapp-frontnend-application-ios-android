@@ -177,23 +177,6 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       set({ isLoading: true, error: null, isAccountLocked: false });
       try {
         const { user, token } = await authService.login(credentials);
-        const expected = credentials.expectedRole;
-
-        if (expected && user.role !== expected && user.role !== "admin" && !user.hasVendor) {
-          await authService.logout();
-          const roleLabels: Record<string, string> = {
-            buyer: "a buyer",
-            vendor: "a vendor / seller",
-            admin: "an admin",
-          };
-          const actualLabel = roleLabels[user.role] ?? user.role;
-          const expectedLabel = roleLabels[expected] ?? expected;
-          set({
-            error: `This account is registered as ${actualLabel}. You selected ${expectedLabel} on the previous screen. Please go back and choose the correct role.`,
-            isLoading: false,
-          });
-          return;
-        }
 
         set({
           user,
