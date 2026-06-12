@@ -98,7 +98,7 @@ export default function SubscriptionPlansScreen() {
                 </View>
               </View>
               <Text style={styles.statusBody}>
-                Seller plans are managed on the Eki website. The app displays your current plan, commission rates, and usage limits.
+                Your plan, fees, and limits are set on your account. Contact support for plan changes.
               </Text>
               <View style={styles.feeBanner}>
                 <Text style={styles.feeBannerLabel}>Platform fee per order</Text>

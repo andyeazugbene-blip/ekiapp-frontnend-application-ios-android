@@ -112,7 +112,7 @@ export default function VendorWebSubscriptionPage() {
         </View>
         <Text style={styles.nativeTitle}>Plan status</Text>
         <Text style={styles.nativeText}>
-          Seller plan billing is managed on the Eki website. Your current plan status and limits are available in the app under Seller Plan.
+          Your current plan and limits are shown in the app. Contact support for plan changes.
         </Text>
       </View>
     );

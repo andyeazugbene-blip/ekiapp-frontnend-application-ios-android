@@ -674,7 +674,7 @@ export default function VendorDashboardScreen() {
               )}
               <Text style={styles.planSub}>Status {subscriptionStatus}</Text>
               <Text style={styles.planBody}>
-                This app shows your current plan and synced limits only. Any plan changes are handled outside the mobile app.
+                Your current plan, limits, and fees are synced from your account. Contact support for plan changes.
               </Text>
               <TouchableOpacity
                 activeOpacity={0.86}
