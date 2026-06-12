@@ -77,10 +77,19 @@ export default function MarkShippedScreen() {
 
     await ensureShipment();
 
-    if (order.status === "confirmed") {
-      await orderService.updateOrderStatus(order.id, "processing", shipmentPayload());
+    const currentStatus = order.status;
+    const allowedFromPaid = currentStatus === "paid" || currentStatus === "pending";
+
+    // If order is at PAID/PENDING, go to PROCESSING first
+    if (currentStatus === "confirmed" || allowedFromPaid) {
+      try {
+        await orderService.updateOrderStatus(order.id, "processing", shipmentPayload());
+      } catch (statusErr) {
+        // May already be processing or accepted - that's fine
+      }
     }
 
+    // Now go to dispatched
     try {
       await orderService.updateOrderStatus(order.id, "dispatched", shipmentPayload());
     } catch (dispatchErr) {
@@ -89,7 +98,8 @@ export default function MarkShippedScreen() {
         message.includes("already dispatched") ||
         message.includes("already shipped") ||
         message.includes("invalid transition") ||
-        message.includes("current status");
+        message.includes("current status") ||
+        message.includes("cannot transition");
 
       if (!alreadyDispatched) {
         throw dispatchErr;
