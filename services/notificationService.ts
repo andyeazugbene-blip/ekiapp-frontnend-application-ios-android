@@ -6,6 +6,8 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { apiClient } from "./api";
+import { API_BASE_URL } from "./api/config";
+import { tokenStorage } from "./api/tokenStorage";
 
 const isExpoGo = Constants.appOwnership === "expo";
 
@@ -65,7 +67,7 @@ export const notificationService = {
 };
 
 export const pushTokenService = {
-  async registerPushToken(): Promise<string | null> {
+  async registerPushToken(authToken?: string): Promise<string | null> {
     if (!Device.isDevice || isExpoGo) return null;
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -82,18 +84,29 @@ export const pushTokenService = {
     const tokenData = await Notifications.getExpoPushTokenAsync({
       projectId: projectId ?? undefined,
     });
-    const token = tokenData.data;
+    const pushToken = tokenData.data;
 
-    await apiClient.post("/api/push-tokens", {
-      token,
-      platform: Platform.OS,
-      deviceName: Device.deviceName ?? undefined,
+    const savedToken = authToken ?? await tokenStorage.getToken();
+    const res = await fetch(`${API_BASE_URL}/api/push-tokens`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(savedToken ? { Authorization: `Bearer ${savedToken}` } : {}),
+      },
+      body: JSON.stringify({ token: pushToken, platform: Platform.OS }),
     });
+    if (!res.ok) console.warn("[PushToken] register failed", res.status);
 
-    return token;
+    return pushToken;
   },
 
   async unregisterPushToken(token: string): Promise<void> {
-    await apiClient.delete(`/api/push-tokens/${encodeURIComponent(token)}`);
+    const savedToken = await tokenStorage.getToken();
+    if (savedToken) {
+      await fetch(`${API_BASE_URL}/api/push-tokens/${encodeURIComponent(token)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${savedToken}` },
+      });
+    }
   },
 };
