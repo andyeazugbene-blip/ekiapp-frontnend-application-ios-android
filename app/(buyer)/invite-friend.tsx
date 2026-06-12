@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { getPublicReferralUrl } from "../../utils/shareLinks";
 import { referralService, type ReferralInfo } from "../../services/referralService";
+import { rewardService, type Reward } from "../../services/rewardService";
 import { useAuthStore } from "../../stores/authStore";
 import { goBackOrReplace } from "../../utils/navigation";
 
@@ -14,6 +15,7 @@ export default function InviteFriendScreen() {
   const userReferralCode = useAuthStore((state) => state.user?.referralCode ?? "");
   const [copied, setCopied] = useState(false);
   const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
+  const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -22,15 +24,17 @@ export default function InviteFriendScreen() {
     setLoading(true);
     setLoadError("");
 
-    referralService
-      .getMyReferralInfo()
-      .catch((error) => {
-        if (mounted) setLoadError(error instanceof Error ? error.message : "Referral unavailable.");
-        return null;
-      })
-      .then((nextReferralInfo) => {
+    Promise.all([
+      referralService.getMyReferralInfo().catch(() => null),
+      rewardService.getActiveRewards().catch(() => []),
+    ])
+      .then(([nextReferralInfo, nextRewards]) => {
         if (!mounted) return;
-        setReferralInfo(nextReferralInfo);
+        if (nextReferralInfo) setReferralInfo(nextReferralInfo);
+        setRewards(nextRewards);
+      })
+      .catch(() => {
+        if (mounted) setLoadError("Could not load referral info.");
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -132,6 +136,24 @@ export default function InviteFriendScreen() {
           <Ionicons name={copied ? "checkmark" : "copy-outline"} size={18} color="#076B51" />
           <Text style={styles.copyBtnText}>{copied ? "Copied!" : "Copy Code"}</Text>
         </TouchableOpacity>
+
+        {rewards.length > 0 ? (
+          <View style={styles.rewardSection}>
+            <Text style={styles.rewardSectionTitle}>Available gifts</Text>
+            {rewards.map((reward) => (
+              <View key={reward.id} style={styles.rewardCard}>
+                <View style={styles.rewardIcon}>
+                  <Ionicons name={reward.type === "WALLET_BONUS" ? "wallet-outline" : reward.type === "FREE_SHIPPING" ? "car-outline" : "pricetag-outline"} size={18} color="#076B51" />
+                </View>
+                <View style={styles.rewardInfo}>
+                  <Text style={styles.rewardName}>{reward.name}</Text>
+                  <Text style={styles.rewardDesc}>{reward.description || `${reward.currency} ${reward.value.toFixed(2)} ${reward.type.replace(/_/g, " ").toLowerCase()}`}</Text>
+                </View>
+                <Text style={styles.rewardValue}>{reward.currency} {reward.value.toFixed(2)}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -279,4 +301,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   copyBtnText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  rewardSection: { width: "100%", marginTop: 24 },
+  rewardSectionTitle: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828", marginBottom: 10 },
+  rewardCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#FFFFFF", borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: "#F0F0F0" },
+  rewardIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "rgba(7,107,81,0.1)", alignItems: "center", justifyContent: "center" },
+  rewardInfo: { flex: 1 },
+  rewardName: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
+  rewardDesc: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 2 },
+  rewardValue: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#076B51" },
 });
