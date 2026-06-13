@@ -2,12 +2,13 @@ import React, { useEffect } from "react";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as Notifications from "expo-notifications";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { StripeProvider } from "../components/providers/StripeProvider";
 import { useAuthStore } from "../stores/authStore";
+import { pushTokenService } from "../services/notificationService";
 import { initMonitoring } from "../services/monitoring";
 import "../global.css";
 // Must be set at app root — not only in login flow
@@ -40,6 +41,45 @@ export default function RootLayout() {
   useEffect(() => {
     initMonitoring();
     useAuthStore.getState().checkAuth().catch(() => {});
+  }, []);
+
+  // Create Android notification channels (required for Android 8+)
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      Notifications.setNotificationChannelAsync("default", {
+        name: "General",
+        importance: Notifications.AndroidImportance?.HIGH ?? 4,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#076B51",
+      }).catch(() => {});
+      Notifications.setNotificationChannelAsync("orders", {
+        name: "Orders",
+        importance: Notifications.AndroidImportance?.HIGH ?? 4,
+      }).catch(() => {});
+      Notifications.setNotificationChannelAsync("payouts", {
+        name: "Payouts",
+        importance: Notifications.AndroidImportance?.HIGH ?? 4,
+      }).catch(() => {});
+      Notifications.setNotificationChannelAsync("messages", {
+        name: "Messages",
+        importance: Notifications.AndroidImportance?.HIGH ?? 4,
+      }).catch(() => {});
+    }
+  }, []);
+
+  // Register push token on app start (not just on login)
+  // Handles TestFlight updates where push token may change
+  useEffect(() => {
+    const state = useAuthStore.getState();
+    if (state.isAuthenticated && !state.isInitializing && state.user) {
+      pushTokenService.registerPushToken().catch(() => {});
+    }
+    const unsub = useAuthStore.subscribe((state) => {
+      if (state.isAuthenticated && !state.isInitializing && state.user) {
+        pushTokenService.registerPushToken().catch(() => {});
+      }
+    });
+    return () => unsub();
   }, []);
 
 
