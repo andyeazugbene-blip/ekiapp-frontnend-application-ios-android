@@ -1,34 +1,40 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import AdminLayout from "@/components/AdminLayout";
 import { Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader, downloadCsv } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { adminAPI } from "@/lib/services/admin.api";
-import { vendorsAPI } from "@/lib/services/vendors.api";
-import { Analytics, RevenueSeries, Vendor } from "@/types";
+import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
+import type { Analytics, RevenueSeries } from "@/types";
 
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [series, setSeries] = useState<RevenueSeries[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [revenueMeta, setRevenueMeta] = useState<{grossRevenue:number;platformFees:number;vendorEarnings:number;totalPayouts:number;netRevenue:number} | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency(analytics?.revenue?.currency ?? "GBP");
 
   const loadAnalytics = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const [analyticsData, revenueSeries, vendorData] = await Promise.all([
+      const [analyticsData, revenueData] = await Promise.all([
         adminAPI.getAnalytics(),
         adminAPI.getRevenueSeries("30d"),
-        vendorsAPI.getVendors({ limit: 100 }).catch(() => []),
       ]);
       setAnalytics(analyticsData);
-      setSeries(revenueSeries.series);
-      setVendors(vendorData);
+      setSeries(revenueData.series);
+      setRevenueMeta({
+        grossRevenue: revenueData.grossRevenue,
+        platformFees: revenueData.platformFees,
+        vendorEarnings: revenueData.vendorEarnings,
+        totalPayouts: revenueData.totalPayouts,
+        netRevenue: revenueData.netRevenue,
+      });
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to load analytics");
     } finally {
@@ -40,21 +46,22 @@ export default function AnalyticsPage() {
     void loadAnalytics();
   }, [loadAnalytics]);
 
-  const activeCount = vendors.filter((vendor) => vendor.adminStatus === "active").length;
-  const activationRate = vendors.length ? Math.round((activeCount / vendors.length) * 1000) / 10 : 0;
-  const topCategories = analytics?.topVendors.slice(0, 4).map((vendor) => ({
-    name: vendor.name || "Vendor",
-    value: vendor.orders,
-  })) ?? [];
-  const countries = useMemo(() => {
-    const total = Math.max(vendors.length, 1);
-    const counts = vendors.reduce<Record<string, number>>((acc, vendor) => {
-      const country = vendor.country || "Unknown";
-      acc[country] = (acc[country] ?? 0) + 1;
-      return acc;
-    }, {});
-    return Object.entries(counts).slice(0, 5).map(([country, count]) => ({ country, percent: Math.round((count / total) * 100) }));
-  }, [vendors]);
+  const chartData = useMemo(
+    () => series.map((point) => ({ ...point, label: point.day, amount: Number(point.amount.toFixed(2)) })),
+    [series],
+  );
+
+  const pendingOrders = analytics?.orders?.pending ?? 0;
+  const completedOrders = analytics?.orders?.completed ?? 0;
+  const paidOrders = analytics?.orders?.paid ?? 0;
+  const failedOrders = analytics?.orders?.failed ?? 0;
+  const totalOrders = analytics?.orders?.total ?? 1;
+  const completionRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0;
+  const newVendors = analytics?.growth?.newVendorsThisWeek ?? 0;
+  const newBuyers = analytics?.growth?.newUsersThisWeek ?? 0;
+  const newOrders = analytics?.growth?.newOrdersThisWeek ?? 0;
+
+  const topVendors = analytics?.topVendors?.slice(0, 5) ?? [];
 
   return (
     <ProtectedRoute>
@@ -67,103 +74,167 @@ export default function AnalyticsPage() {
           <div className="space-y-8">
             <PageHeader
               title="Marketplace analytics"
+              subtitle="Real-time performance metrics for your marketplace"
               actions={
-                <>
+                <div className="flex items-center gap-3">
                   <Button variant="ghost" disabled><Icon name="calendar" /> Last 30 days</Button>
+                  <select
+                    value={selectedCurrency}
+                    onChange={(event) => setSelectedCurrency(event.target.value as (typeof SUPPORTED_CURRENCIES)[number])}
+                    className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none"
+                  >
+                    {SUPPORTED_CURRENCIES.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
                   <Button variant="secondary" onClick={() => downloadCsv("eki-analytics.csv", [
-                    { metric: "activation_rate", value: activationRate },
-                    { metric: "active_vendors", value: activeCount },
-                    { metric: "total_vendors", value: vendors.length },
-                    ...(analytics?.topVendors ?? []).map((vendor) => ({ metric: `vendor_${vendor.name}`, value: vendor.orders })),
-                    ...series.map((point) => ({ metric: `revenue_${point.day}`, value: point.amount })),
+                    { metric: "total_revenue", value: analytics?.revenue?.total ?? 0 },
+                    { metric: "total_orders", value: totalOrders },
+                    { metric: "completed_orders", value: completedOrders },
+                    { metric: "completion_rate_pct", value: completionRate },
+                    { metric: "avg_order_value", value: analytics?.avgOrderValue ?? 0 },
+                    ...topVendors.map((v) => ({ metric: `vendor_${v.name}`, value: v.orders })),
+                    ...chartData.map((point) => ({ metric: `revenue_${point.label}`, value: point.amount })),
                   ])}><Icon name="export" /> Export report</Button>
-                </>
+                </div>
               }
             />
 
-            <Card className="overflow-hidden bg-[#102820] text-white">
-              <div className="relative min-h-[235px]">
-                <div className="absolute inset-0 opacity-20">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={series}>
-                      <Area type="monotone" dataKey="amount" stroke="#9be7bd" fill="#9be7bd" fillOpacity={0.25} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="relative z-10">
-                  <p className="text-2xl">Activation rate</p>
-                  <p className="mt-8 text-6xl font-black">{activationRate}%</p>
-                  <div className="mt-8 max-w-3xl">
-                    <div className="h-4 overflow-hidden rounded-full bg-white/15">
-                      <div className="h-full rounded-full bg-white" style={{ width: `${Math.min(activationRate, 100)}%` }} />
-                    </div>
-                    <div className="mt-3 flex justify-between text-lg text-white/75"><span>0%</span><span>50%</span><span>100%</span></div>
-                  </div>
-                  <p className="absolute bottom-8 right-8 text-2xl font-bold text-emerald-100">↘ 5.2%</p>
-                </div>
+            {/* ─── Revenue Overview ────────────────────────────────────── */}
+            <div>
+              <h2 className="mb-4 text-2xl font-black text-[#101820]">Revenue Overview</h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Today" value={analytics ? formatDisplayMoney(analytics.revenue.today, selectedCurrency) : "—"} />
+                <MetricCard label="This Week" value={analytics ? formatDisplayMoney(analytics.revenue.thisWeek, selectedCurrency) : "—"} />
+                <MetricCard label="This Month" value={analytics ? formatDisplayMoney(analytics.revenue.thisMonth, selectedCurrency) : "—"} />
+                <MetricCard label="All Time" value={analytics ? formatDisplayMoney(analytics.revenue.total, selectedCurrency) : "—"} />
               </div>
-            </Card>
+            </div>
 
+            {/* ─── Revenue Chart ────────────────────────────────────────── */}
+            {revenueMeta && (
+              <Card className="overflow-hidden bg-[#101820] p-0 text-white">
+                <div className="grid gap-8 p-8 lg:grid-cols-[0.34fr_0.66fr]">
+                  <div>
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10">
+                      <Icon name="analytics" className="h-8 w-8" />
+                    </div>
+                    <p className="mt-8 text-xl text-white/75">Revenue snapshot</p>
+                    <p className="mt-6 text-5xl font-light tracking-tight">
+                      {formatDisplayMoney(revenueMeta.grossRevenue, selectedCurrency)}
+                    </p>
+                    <div className="mt-6 space-y-2 text-sm text-white/60">
+                      <p>Platform fees: <span className="font-bold text-white">{formatDisplayMoney(revenueMeta.platformFees, selectedCurrency)}</span></p>
+                      <p>Vendor earnings: <span className="font-bold text-white">{formatDisplayMoney(revenueMeta.vendorEarnings, selectedCurrency)}</span></p>
+                      <p>Payouts sent: <span className="font-bold text-white">{formatDisplayMoney(revenueMeta.totalPayouts, selectedCurrency)}</span></p>
+                      <p className="pt-2 text-base">Net revenue: <span className="font-bold text-emerald-400">{formatDisplayMoney(revenueMeta.netRevenue, selectedCurrency)}</span></p>
+                    </div>
+                  </div>
+                  <div className="h-[340px] min-w-0">
+                    {chartData.length ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <defs>
+                            <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#8ee5b4" stopOpacity={0.75} />
+                              <stop offset="95%" stopColor="#8ee5b4" stopOpacity={0.05} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid stroke="rgba(255,255,255,.12)" strokeDasharray="4 4" />
+                          <XAxis dataKey="label" stroke="rgba(255,255,255,.65)" tickLine={false} axisLine={false} />
+                          <YAxis stroke="rgba(255,255,255,.55)" tickLine={false} axisLine={false} />
+                          <Tooltip contentStyle={{ borderRadius: 12, border: "0", color: "#101820" }} />
+                          <Area type="monotone" dataKey="amount" stroke="#8ee5b4" strokeWidth={4} fill="url(#revGradient)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-white/60">No revenue data yet</div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* ─── Orders Pipeline ───────────────────────────────────────── */}
+            <div>
+              <h2 className="mb-4 text-2xl font-black text-[#101820]">Orders Pipeline</h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <MetricCard label="Pending" value={String(pendingOrders)} note="Awaiting payment" />
+                <MetricCard label="Paid" value={String(paidOrders)} note="In progress" />
+                <MetricCard label="Completed" value={String(completedOrders)} note={`${completionRate}% completion rate`} />
+                <MetricCard label="Failed" value={String(failedOrders)} note={failedOrders > 0 ? "Requires attention" : "None"} />
+              </div>
+            </div>
+
+            {/* ─── Growth & Top Vendors ──────────────────────────────────── */}
             <div className="grid gap-6 lg:grid-cols-2">
-              <Card className="flex items-center gap-7">
+              <Card>
+                <h2 className="text-2xl font-black">Growth (This Week)</h2>
+                <div className="mt-6 space-y-5">
+                  <div className="flex items-center justify-between rounded-xl bg-emerald-50 p-5">
+                    <div><p className="text-lg font-bold">New orders</p><p className="text-sm text-slate-500">Orders placed this week</p></div>
+                    <p className="text-3xl font-black text-emerald-700">{newOrders}</p>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl bg-blue-50 p-5">
+                    <div><p className="text-lg font-bold">New vendors</p><p className="text-sm text-slate-500">Vendors joined this week</p></div>
+                    <p className="text-3xl font-black text-blue-700">{newVendors}</p>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl bg-purple-50 p-5">
+                    <div><p className="text-lg font-bold">New buyers</p><p className="text-sm text-slate-500">Buyers registered this week</p></div>
+                    <p className="text-3xl font-black text-purple-700">{newBuyers}</p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card>
+                <h2 className="text-2xl font-black">Top Vendors</h2>
+                <div className="mt-6 space-y-4">
+                  {topVendors.length === 0 ? (
+                    <p className="py-8 text-center text-slate-400">No vendor data yet</p>
+                  ) : (
+                    topVendors.map((v, i) => (
+                      <div key={v.id} className="flex items-center gap-4 rounded-xl bg-slate-50 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-sm font-black text-emerald-700">
+                          {i + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold">{v.name}</p>
+                          <p className="text-sm text-slate-500">{v.orders} orders · {formatDisplayMoney(v.revenue, selectedCurrency)}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+            </div>
+
+            {/* ─── Average metrics ────────────────────────────────────────── */}
+            <div className="grid gap-6 lg:grid-cols-3">
+              <Card className="flex items-center gap-5">
                 <MetricBubble icon="analytics" />
                 <div>
-                  <p className="text-xl text-slate-600">Vendor activation rate</p>
-                  <p className="mt-3 text-4xl font-black">{activationRate}%</p>
+                  <p className="text-sm text-slate-600">Avg order value</p>
+                  <p className="mt-1 text-2xl font-black">{formatDisplayMoney(analytics?.avgOrderValue ?? 0, selectedCurrency)}</p>
                 </div>
-                <p className="ml-auto text-xl font-bold text-[#096B4A]">↗ 5.2%</p>
               </Card>
-              <Card className="flex items-center gap-7">
-                <MetricBubble icon="clock" />
+              <Card className="flex items-center gap-5">
+                <MetricBubble icon="disputes" />
                 <div>
-                  <p className="text-xl text-slate-600">Average time to first sale</p>
-                  <p className="mt-3 text-4xl font-black">4.2 days</p>
-                </div>
-                <p className="ml-auto text-xl font-bold text-[#096B4A]">Faster than 5.1 days</p>
-              </Card>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card>
-                <h2 className="text-2xl font-black">Top vendors</h2>
-                <div className="mt-8 grid grid-cols-2 gap-5 md:grid-cols-5">
-                  {topCategories.map((item, index) => (
-                    <div key={`${item.name}-${index}`} className="rounded-2xl bg-slate-50 p-5 text-center">
-                      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-lg font-black text-[#096B4A]">
-                        {item.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <p className="mt-5 line-clamp-2 font-bold">{item.name}</p>
-                      <p className="text-sm text-slate-500">{item.value} orders</p>
-                    </div>
-                  ))}
-                  <div className="rounded-2xl bg-slate-50 p-5 text-center">
-                    <Icon name="overview" className="mx-auto mt-5 h-10 w-10 text-[#096B4A]" />
-                    <p className="mt-7 font-bold">View all</p>
-                  </div>
+                  <p className="text-sm text-slate-600">Dispute rate</p>
+                  <p className="mt-1 text-2xl font-black">{(analytics?.disputeRate ?? 0).toFixed(1)}%</p>
+                  <p className="text-xs text-slate-400">{failedOrders} failed of {totalOrders} orders</p>
                 </div>
               </Card>
-
-              <Card>
-                <h2 className="text-2xl font-black">Sales by country</h2>
-                <div className="mt-8 space-y-7">
-                  {countries.map((row) => (
-                    <div key={row.country}>
-                      <div className="mb-3 flex justify-between text-lg"><span>{row.country}</span><span className="font-bold text-[#096B4A]">{row.percent}%</span></div>
-                      <div className="h-3 overflow-hidden rounded-full bg-emerald-50"><div className="h-full rounded-full bg-[#096B4A]" style={{ width: `${row.percent}%` }} /></div>
-                    </div>
-                  ))}
+              <Card className="flex items-center gap-5">
+                <MetricBubble icon="vendors" />
+                <div>
+                  <p className="text-sm text-slate-600">Order completion</p>
+                  <p className="mt-1 text-2xl font-black">{completionRate}%</p>
+                  <p className="text-xs text-slate-400">{completedOrders} of {totalOrders} completed</p>
                 </div>
               </Card>
             </div>
 
-            <Card className="flex items-center gap-7">
-              <MetricBubble icon="vendors" />
-              <div>
-                <p className="text-xl text-slate-600">Repeat buyer rate</p>
-                <p className="mt-3 text-4xl font-black">54%</p>
-              </div>
-              <p className="ml-auto text-xl font-bold text-[#096B4A]">↗ 7% returning buyers</p>
-            </Card>
           </div>
         )}
       </AdminLayout>
@@ -172,5 +243,15 @@ export default function AnalyticsPage() {
 }
 
 function MetricBubble({ icon }: { icon: string }) {
-  return <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[#096B4A]"><Icon name={icon} className="h-10 w-10" /></div>;
+  return <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[#096B4A]"><Icon name={icon} className="h-8 w-8" /></div>;
+}
+
+function MetricCard({ label, value, note }: { label: string; value: string; note?: string }) {
+  return (
+    <Card>
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-black">{value}</p>
+      {note ? <p className="mt-1 text-xs text-slate-400">{note}</p> : null}
+    </Card>
+  );
 }

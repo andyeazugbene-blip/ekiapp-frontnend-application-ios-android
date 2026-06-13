@@ -9,12 +9,12 @@ function normalizeProduct(raw: any): Product {
   return {
     id: raw.id,
     title: raw.title ?? "",
-    price: centsToUnit(raw.price),
+    price: centsToUnit(raw.priceInCents ?? raw.price ?? 0),
     currency: (raw.currency ?? "GBP").toUpperCase(),
     stock: raw.stock ?? 0,
     isActive: raw.isActive ?? false,
     vendorId: raw.vendorId ?? "",
-    vendorName: raw.vendor?.storeName ?? "",
+    vendorName: raw.vendorName ?? raw.vendor?.storeName ?? "",
     images: raw.images ?? [],
     createdAt: raw.createdAt ?? "",
   };

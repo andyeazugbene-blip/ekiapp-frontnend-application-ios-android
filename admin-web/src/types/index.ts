@@ -101,12 +101,19 @@ export interface DashboardStats {
 
 export interface Analytics {
   revenue: {
+    today: number;
+    thisWeek: number;
+    thisMonth: number;
     total: number;
     change: number;
     currency: string;
   };
   orders: {
     total: number;
+    pending: number;
+    paid: number;
+    completed: number;
+    failed: number;
     change: number;
   };
   vendors: {
@@ -119,6 +126,11 @@ export interface Analytics {
   };
   avgOrderValue: number;
   disputeRate: number;
+  growth: {
+    newOrdersThisWeek: number;
+    newVendorsThisWeek: number;
+    newUsersThisWeek: number;
+  };
   topVendors: {
     id: string;
     name: string;

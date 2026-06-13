@@ -27,15 +27,30 @@ export const adminAPI = {
     const total = raw.orders?.total ?? 0;
     return {
       revenue: {
+        today: centsToUnit(raw.revenue?.today),
+        thisWeek: centsToUnit(raw.revenue?.thisWeek),
+        thisMonth: centsToUnit(raw.revenue?.thisMonth),
         total: centsToUnit(raw.revenue?.allTime),
         change: 0,
         currency: (raw.revenue?.currency ?? "GBP").toUpperCase(),
       },
-      orders: { total, change: 0 },
-      vendors: { active: 0, new: raw.growth?.newVendorsThisWeek ?? 0 },
-      buyers: { active: 0, new: raw.growth?.newUsersThisWeek ?? 0 },
+      orders: {
+        total,
+        pending: raw.orders?.pending ?? 0,
+        paid: raw.orders?.paid ?? 0,
+        completed: raw.orders?.completed ?? 0,
+        failed,
+        change: 0,
+      },
+      vendors: { active: raw.vendors?.active ?? 0, new: raw.growth?.newVendorsThisWeek ?? 0 },
+      buyers: { active: raw.buyers?.active ?? 0, new: raw.growth?.newUsersThisWeek ?? 0 },
       avgOrderValue: total > 0 ? centsToUnit(raw.revenue?.allTime) / total : 0,
       disputeRate: total > 0 ? (failed / total) * 100 : 0,
+      growth: {
+        newOrdersThisWeek: raw.growth?.newOrdersThisWeek ?? 0,
+        newVendorsThisWeek: raw.growth?.newVendorsThisWeek ?? 0,
+        newUsersThisWeek: raw.growth?.newUsersThisWeek ?? 0,
+      },
       topVendors: (raw.topVendors ?? []).map((v: any) => ({
         id: v.vendorId,
         name: v.storeName ?? "",
