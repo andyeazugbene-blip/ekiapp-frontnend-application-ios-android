@@ -17,6 +17,7 @@ type AuthCache = {
   user: AnyProfile | null;
   hasSeenOnboarding: boolean;
   pushToken: string | null;
+  lastRole: string | null;
 };
 
 const AUTH_CACHE_KEY = "eki_auth_cache";
@@ -64,6 +65,7 @@ async function readAuthCache(): Promise<AuthCache | null> {
       user: (parsed.user as AnyProfile | null) ?? null,
       hasSeenOnboarding: parsed.hasSeenOnboarding === true,
       pushToken: parsed.pushToken ?? null,
+      lastRole: parsed.lastRole ?? null,
     };
   } catch {
     return null;
@@ -89,6 +91,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       user: state.user,
       hasSeenOnboarding: state.hasSeenOnboarding,
       pushToken: state.pushToken,
+      lastRole: state.lastRole,
     });
   };
 
@@ -135,6 +138,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           user: cached.user,
           token: storedToken,
           pushToken: cached.pushToken,
+          lastRole: cached.lastRole || null,
           isAuthenticated: true,
           hasSeenOnboarding: cached.hasSeenOnboarding || get().hasSeenOnboarding,
         });
