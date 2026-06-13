@@ -193,6 +193,15 @@ export default function OrderDetailPage() {
                   Mark as Delivered
                 </button>
               )}
+              {order.status === "pending" && (
+                <button
+                  onClick={handleForceProcess}
+                  disabled={forceProcessing}
+                  className="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors disabled:opacity-50"
+                >
+                  {forceProcessing ? "Processing..." : "Force Process"}
+                </button>
+              )}
             </div>
           </div>
 

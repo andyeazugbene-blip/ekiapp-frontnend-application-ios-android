@@ -32,11 +32,20 @@ export const productsAPI = {
     return (res.items ?? res.products ?? []).map(normalizeProduct);
   },
 
+  async getProduct(productId: string): Promise<any> {
+    const res = await apiClient.get<any>(`/admin/products/${productId}`);
+    return res.product ?? res;
+  },
+
   async approveProduct(productId: string): Promise<void> {
     await apiClient.patch(`/admin/products/${productId}/approve`, {});
   },
 
   async disableProduct(productId: string): Promise<void> {
     await apiClient.patch(`/admin/products/${productId}/disable`, {});
+  },
+
+  async preloadProduct(productId: string): Promise<void> {
+    await apiClient.prefetch(`/admin/products/${productId}`);
   },
 };

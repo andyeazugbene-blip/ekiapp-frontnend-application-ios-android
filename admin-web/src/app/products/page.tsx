@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { productsAPI } from "@/lib/services/products.api";
@@ -9,6 +10,7 @@ import { Product } from "@/types";
 import { APIError } from "@/lib/api";
 
 export default function ProductsPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -114,7 +116,7 @@ export default function ProductsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {products.map((product) => (
-                    <tr key={product.id} className="hover:bg-gray-50">
+                    <tr key={product.id} onClick={() => router.push(`/products/${product.id}`)} onMouseEnter={() => productsAPI.preloadProduct(product.id)} className="hover:bg-gray-50 cursor-pointer">
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{product.title}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{product.vendorName || "N/A"}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">
