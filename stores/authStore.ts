@@ -188,7 +188,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         setMonitoringUser({ id: user.id, role: user.role });
         persistState();
         pushTokenService
-          .registerPushToken()
+          .registerPushToken(token)
           .then((pushToken) => {
             if (pushToken) {
               set({ pushToken });
@@ -244,7 +244,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         setMonitoringUser({ id: user.id, role: user.role });
         persistState();
         pushTokenService
-          .registerPushToken()
+          .registerPushToken(token)
           .then((pushToken) => {
             if (pushToken) {
               set({ pushToken });
