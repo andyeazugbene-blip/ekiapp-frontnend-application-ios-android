@@ -33,6 +33,7 @@ const navigation: NavItem[] = [
   { name: "Escrow", href: "/escrow", icon: "disputes" },
   { name: "Delivery Zones", href: "/delivery-zones", icon: "vendors" },
   { name: "Gifts", href: "/gifts", icon: "orders" },
+  { name: "Gift Cards", href: "/gift-cards", icon: "vendors" },
   { name: "Admin Roles", href: "/roles", icon: "settings" },
   { name: "Seller Plans", href: "/subscription-plans", icon: "orders" },
   { name: "Activity Logs", href: "/activity-logs", icon: "analytics" },
