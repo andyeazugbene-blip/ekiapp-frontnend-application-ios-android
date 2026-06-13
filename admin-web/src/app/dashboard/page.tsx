@@ -15,6 +15,7 @@ import { DashboardStats, Dispute, Order, RevenueSeries } from "@/types";
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [revenueData, setRevenueData] = useState<RevenueSeries[]>([]);
+  const [revenueMeta, setRevenueMeta] = useState<{grossRevenue:number;platformFees:number;vendorEarnings:number;totalPayouts:number;netRevenue:number} | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,14 +25,15 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       setError("");
-      const [dashboardData, revenueSeries, orderData, disputeData] = await Promise.all([
+      const rev:any = await adminAPI.getRevenueSeries("30d").catch(() => ({ series: [], grossRevenue:0, platformFees:0, vendorEarnings:0, totalPayouts:0, netRevenue:0 }));
+      const [dashboardData, orderData, disputeData] = await Promise.all([
         adminAPI.getDashboard(),
-        adminAPI.getRevenueSeries("30d").catch(() => []),
         ordersAPI.getOrders({ limit: 8 }).catch(() => []),
         disputesAPI.getDisputes().catch(() => []),
       ]);
       setStats(dashboardData);
-      setRevenueData(revenueSeries);
+      setRevenueData(rev.series ?? []);
+      setRevenueMeta({ grossRevenue: rev.grossRevenue, platformFees: rev.platformFees, vendorEarnings: rev.vendorEarnings, totalPayouts: rev.totalPayouts, netRevenue: rev.netRevenue });
       setOrders(orderData);
       setDisputes(disputeData);
     } catch (err) {
@@ -71,7 +73,7 @@ export default function DashboardPage() {
               subtitle="Welcome back, Admin! Here's what's happening on your marketplace."
               actions={
                 <>
-                  <Button variant="ghost" disabled><Icon name="calendar" /> Last 30 days</Button>
+                  <Button disabled><Icon name="calendar" /> Last 30 days</Button>
                   <select
                     value={selectedCurrency}
                     onChange={(event) => setSelectedCurrency(event.target.value as (typeof SUPPORTED_CURRENCIES)[number])}
@@ -96,6 +98,17 @@ export default function DashboardPage() {
                 </>
               }
             />
+
+            <div>
+              <h2 className="text-2xl font-black text-[#101820]">Platform Revenue</h2>
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Gross Revenue" value={revenueMeta ? `${formatDisplayMoney(revenueMeta.grossRevenue, selectedCurrency)}` : "�"} icon="cash" />
+                <MetricCard label="Platform Fees" value={revenueMeta ? `${formatDisplayMoney(revenueMeta.platformFees, selectedCurrency)}` : "�"} icon="trending" />
+                <MetricCard label="Vendor Earnings" value={revenueMeta ? `${formatDisplayMoney(revenueMeta.vendorEarnings, selectedCurrency)}` : "�"} icon="wallet" />
+                <MetricCard label="Payouts Sent" value={revenueMeta ? `${formatDisplayMoney(revenueMeta.totalPayouts, selectedCurrency)}` : "�"} icon="sent" />
+                <MetricCard label="Net Revenue" value={revenueMeta ? `${formatDisplayMoney(revenueMeta.netRevenue, selectedCurrency)}` : "�"} icon="profit" />
+              </div>
+            </div>
 
             <div>
               <h2 className="text-2xl font-black text-[#101820]">Overview</h2>

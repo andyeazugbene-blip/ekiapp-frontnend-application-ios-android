@@ -36,13 +36,7 @@ export default function BuyerLayout() {
     return <Redirect href={{ pathname: "/(auth)/login", params: { role: "buyer" } }} />;
   }
 
-  if (role === "vendor") {
-    return <Redirect href="/(vendor)" />;
-  }
 
-  if (role === "admin") {
-    return <Redirect href="/(admin)" />;
-  }
 
   return (
     <Tabs
