@@ -10,7 +10,7 @@ function normalizeOrderStatus(status: string): OrderStatus {
   if (s === "PENDING_PAYMENT" || s === "PENDING") return "pending";
   if (s === "CONFIRMED" || s === "PROCESSING") return "confirmed";
   if (s === "SHIPPED" || s === "IN_TRANSIT") return "shipped";
-  if (s === "DELIVERED" || s === "COMPLETED") return "delivered";
+  if (s === "DELIVERED") return "delivered"; if (s === "COMPLETED") return "completed";
   if (s === "CANCELLED") return "cancelled";
   if (s === "REFUNDED") return "refunded";
   return "pending";
@@ -22,6 +22,7 @@ function toBackendOrderStatus(status: OrderStatus): string {
     confirmed: "CONFIRMED",
     shipped: "SHIPPED",
     delivered: "DELIVERED",
+    completed: "COMPLETED",
     cancelled: "CANCELLED",
     refunded: "REFUNDED",
   };
@@ -78,6 +79,10 @@ export const ordersAPI = {
 
   async completeOrder(orderId: string): Promise<void> {
     await apiClient.patch(`/admin/orders/${orderId}/complete`, {});
+  },
+
+  async forceProcessOrder(orderId: string): Promise<any> {
+    return apiClient.post(`/admin/orders/${orderId}/force-process`, {});
   },
 
   async refundOrder(

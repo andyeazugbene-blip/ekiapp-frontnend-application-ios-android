@@ -25,6 +25,8 @@ export default function OrderDetailPage() {
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundError, setRefundError] = useState("");
   const [refundSuccess, setRefundSuccess] = useState(false);
+  const [forceProcessing, setForceProcessing] = useState(false);
+  const [forceProcessResult, setForceProcessResult] = useState("");
   const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency(order?.currency ?? "GBP");
 
   const loadOrder = useCallback(async () => {
@@ -47,6 +49,18 @@ export default function OrderDetailPage() {
   useEffect(() => {
     void loadOrder();
   }, [loadOrder]);
+
+  const handleForceProcess = async () => {
+    if (!confirm("Force-process this order? This marks it PAID and credits vendor wallet.")) return;
+    try {
+      setForceProcessing(true); setForceProcessResult("");
+      const r = await ordersAPI.forceProcessOrder(orderId);
+      setForceProcessResult("Wallet credited: " + (r.amount || 0) + " cents.");
+      await loadOrder();
+    } catch (err) {
+      setForceProcessResult(err instanceof APIError ? err.message : "Failed");
+    } finally { setForceProcessing(false); }
+  };
 
   const handleRefund = async () => {
     if (!refundReason.trim()) {
@@ -181,6 +195,8 @@ export default function OrderDetailPage() {
               )}
             </div>
           </div>
+
+          {forceProcessResult && <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded">{forceProcessResult}</div>}
 
           {refundSuccess && (
             <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">

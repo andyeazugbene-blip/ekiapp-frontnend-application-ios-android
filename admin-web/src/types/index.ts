@@ -5,7 +5,7 @@
 export type UserRole = "BUYER" | "VENDOR" | "ADMIN";
 export type UserStatus = "active" | "suspended" | "pending";
 export type VendorStatus = "active" | "pending" | "suspended";
-export type OrderStatus = "pending" | "confirmed" | "shipped" | "delivered" | "cancelled" | "refunded";
+export type OrderStatus = "pending" | "confirmed" | "shipped" | "delivered" | "completed" | "cancelled" | "refunded";
 export type ProductStatus = "active" | "disabled" | "out_of_stock";
 export type VerificationStatus = "pending" | "approved" | "rejected";
 
