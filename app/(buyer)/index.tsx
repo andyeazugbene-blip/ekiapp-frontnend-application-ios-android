@@ -102,6 +102,8 @@ export default function BuyerHomeScreen() {
   const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
   const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
   const user = useAuthStore((s) => s.user);
+  const switchRole = useAuthStore((s) => s.switchRole);
+  const hasVendor = useAuthStore((s) => s.user?.hasVendor === true);
   const deliveryCountry = user && "country" in user ? user.country : undefined;
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -235,6 +237,23 @@ export default function BuyerHomeScreen() {
               >
                 <Ionicons name="notifications-outline" size={24} color="#076B51" />
               </TouchableOpacity>
+
+              {hasVendor ? (
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      await switchRole();
+                      router.replace("/(vendor)" as any);
+                    } catch {
+                      Alert.alert("Error", "Could not switch to vendor mode.");
+                    }
+                  }}
+                  activeOpacity={0.86}
+                  style={styles.vendorSwitchButton}
+                >
+                  <Ionicons name="storefront-outline" size={22} color="#076B51" />
+                </TouchableOpacity>
+              ) : null}
 
               <TouchableOpacity
                 onPress={() => router.push("/(buyer)/profile" as any)}
@@ -545,6 +564,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.22)",
+  },
+  vendorSwitchButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "rgba(7,107,81,0.3)",
   },
   avatarImage: {
     width: 56,
