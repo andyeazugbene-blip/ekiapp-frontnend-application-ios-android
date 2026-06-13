@@ -16,3 +16,5 @@ google-services.json
 *.keystore
 *.p8
 # @end expo-cli
+credentials.json
+credentials/
