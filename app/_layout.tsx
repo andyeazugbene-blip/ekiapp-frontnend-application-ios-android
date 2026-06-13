@@ -10,7 +10,6 @@ import { StripeProvider } from "../components/providers/StripeProvider";
 import { useAuthStore } from "../stores/authStore";
 import { initMonitoring } from "../services/monitoring";
 import "../global.css";
-
 // Must be set at app root — not only in login flow
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -41,6 +40,29 @@ export default function RootLayout() {
   useEffect(() => {
     initMonitoring();
     useAuthStore.getState().checkAuth().catch(() => {});
+  }, []);
+
+
+  useEffect(() => {
+    // Handle notification taps - deep link to relevant screen
+    const sub = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      if (data?.orderId) {
+        // Navigate to the appropriate order detail screen
+        // This will work when expo-router is ready
+        try {
+          const router = require("expo-router").router;
+          if (data.type === "new_order" || data.type === "order_status") {
+            router.push(`/(vendor)/order-detail?id=${data.orderId}`);
+          } else if (data.type === "order_paid") {
+            router.push(`/(buyer)/orders`);
+          } else if (data.type === "new_message") {
+            router.push(`/(vendor)/messages`);
+          }
+        } catch {}
+      }
+    });
+    return () => sub.remove();
   }, []);
 
   if (!fontsLoaded) {

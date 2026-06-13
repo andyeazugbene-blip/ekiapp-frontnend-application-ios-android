@@ -29,6 +29,7 @@ interface AuthStore {
   isLoading: boolean;
   isInitializing: boolean;
   hasSeenOnboarding: boolean;
+  lastRole: string | null;
   error: string | null;
   isAccountLocked: boolean;
   checkAuth: () => Promise<void>;
@@ -39,6 +40,7 @@ interface AuthStore {
   updateProfile: (data: Record<string, unknown>) => Promise<AnyProfile>;
   setUser: (user: AnyProfile) => void;
   switchRole: () => Promise<void>;
+  setLastRole: (role: string) => void;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
   setHasSeenOnboarding: () => void;
@@ -116,6 +118,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     isLoading: false,
     isInitializing: true,
     hasSeenOnboarding: false,
+    lastRole: null,
     error: null,
     isAccountLocked: false,
 
@@ -181,6 +184,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         set({
           user,
           token,
+          lastRole: user.role,
           isAuthenticated: true,
           isLoading: false,
           hasSeenOnboarding: true,
@@ -237,6 +241,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         set({
           user,
           token,
+          lastRole: user.role,
           isAuthenticated: true,
           isLoading: false,
           hasSeenOnboarding: true,
@@ -349,6 +354,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         set({ error: err instanceof Error ? err.message : "Failed to switch role" });
       }
     },
+    setLastRole: (role: string) => { set({ lastRole: role }); persistState(); },
     clearError: () => set({ error: null, isAccountLocked: false }),
     setLoading: (loading) => set({ isLoading: loading }),
     setHasSeenOnboarding: () => {

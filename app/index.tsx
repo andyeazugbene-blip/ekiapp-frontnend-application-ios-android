@@ -38,7 +38,8 @@ export default function Index() {
       if (state.isAuthenticated) {
         hasNavigated.current = true;
         if (state.user?.role === "admin") { router.replace("/(admin)" as any); return; }
-        if (state.user?.hasVendor) { router.replace("/(auth)/role-select" as any); return; }
+        if (state.lastRole === "vendor") { router.replace("/(vendor)" as any); return; }
+        if (state.lastRole === "buyer") { router.replace("/(buyer)" as any); return; }
         if (state.user?.role === "vendor") { router.replace("/(vendor)" as any); return; }
         router.replace("/(buyer)" as any);
         return;

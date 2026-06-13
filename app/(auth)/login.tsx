@@ -17,7 +17,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function LoginScreen() {
   const router = useRouter();
   const { role, redirect } = useLocalSearchParams<{ role?: string; redirect?: string }>();
-  const { login, isLoading, error, isAuthenticated, user, clearError, beginFreshAuthFlow } = useAuthStore();
+  const { login, isLoading, error, isAuthenticated, user, clearError, beginFreshAuthFlow, setLastRole } = useAuthStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -74,6 +74,7 @@ export default function LoginScreen() {
     if (isAuthenticated || user) {
       await beginFreshAuthFlow().catch(() => {});
     }
+    setLastRole(resolvedRole);
     await login({
       email: email.trim().toLowerCase(),
       password,
