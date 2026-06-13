@@ -5,8 +5,10 @@ import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { walletTransactionsAPI, AdminWalletTransaction } from "@/lib/services/wallet-transactions.api";
 import { APIError } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 export default function WalletTransactionsPage() {
+  const router = useRouter();
   const [transactions, setTransactions] = useState<AdminWalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -90,7 +92,7 @@ export default function WalletTransactionsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {transactions.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-gray-50">
+                    <tr key={tx.id} onClick={() => router.push("/wallet-transactions/" + tx.id)} className="cursor-pointer hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{tx.vendorName}</td>
                       <td className="px-6 py-4 text-sm">
                         <span className={`rounded-full px-2 py-1 text-xs font-medium ${

@@ -148,52 +148,63 @@ function stepIndex(status: EscrowStatus): number {
 }
 
 export function getEscrowTimeline(order?: Partial<Order> | null): EscrowTimelineStep[] {
-  const status = deriveEscrowStatus(order);
-  const currentIndex = stepIndex(status);
-  const releasedCaption =
-    status === "REFUNDED"
-      ? "Refund completed"
-      : order?.autoReleasedAt
-      ? `Auto-released ${formatMoment(order.autoReleasedAt)}`
-      : order?.deliveredAt
-      ? `Released after confirmation ${formatMoment(order.deliveredAt)}`
-      : order?.escrowExpiresAt
-      ? `Protected until ${formatMoment(order.escrowExpiresAt)}`
-      : "Protected until confirmation";
+  if (!order) return [];
+  const s = upper(order.status);
+  const bs = upper(order.backendStatus);
+  const ps = upper(order.paymentStatus);
+  const isEscrow = toEscrowType(order.escrowType) === "DOMESTIC_AFRICA";
+  function has(v: string): boolean { return s === v || bs === v; }
+  let ci = 0;
 
-  const steps: Array<Pick<EscrowTimelineStep, "key" | "label"> & { caption: string }> = [
-    {
-      key: "paid",
-      label: "Paid",
-      caption: formatMoment(order?.createdAt),
-    },
-    {
-      key: "vendor_accepted",
-      label: "Vendor accepted",
-      caption: order?.vendorConfirmedAt ? formatMoment(order.vendorConfirmedAt) : "Waiting for vendor acceptance",
-    },
-    {
-      key: "shipped",
-      label: "Shipped",
-      caption: status === "DISPUTED" ? "Shipment disputed" : order?.updatedAt ? formatMoment(order.updatedAt) : "Waiting for dispatch",
-    },
-    {
-      key: "delivered",
-      label: "Delivered",
-      caption: order?.deliveredAt ? formatMoment(order.deliveredAt) : "Buyer confirmation required",
-    },
-    {
-      key: "released",
-      label: status === "REFUNDED" ? "Refunded" : "Payment released",
-      caption: releasedCaption,
-    },
+  if (isEscrow) {
+    if (has("COMPLETED") || has("AUTO_RELEASED") || has("REFUNDED")) ci = 5;
+    else if (has("DELIVERED")) ci = 4;
+    else if (has("DISPATCHED") || has("IN_TRANSIT")) ci = 3;
+    else if (has("VENDOR_CONFIRMED") || has("CONFIRMED") || has("PROCESSING")) ci = 2;
+    else if (has("PAYMENT_SECURED") || has("PAID") || ps === "SUCCEEDED") ci = 1;
+    const rc = has("REFUNDED") ? "Refund completed"
+      : order?.autoReleasedAt ? `Auto-released ${formatMoment(order.autoReleasedAt)}`
+      : order?.deliveredAt ? `Released after confirmation ${formatMoment(order.deliveredAt)}` : "Protected until confirmation";
+    const sts = [
+      { key: "paid", label: "Payment secured", caption: formatMoment(order.createdAt) },
+      { key: "accepted", label: "Vendor accepted", caption: order?.vendorConfirmedAt ? formatMoment(order.vendorConfirmedAt) : "Waiting for vendor" },
+      { key: "shipped", label: "Shipped", caption: order?.updatedAt ? formatMoment(order.updatedAt) : "Waiting for dispatch" },
+      { key: "delivered", label: "Delivered", caption: order?.deliveredAt ? formatMoment(order.deliveredAt) : "Awaiting confirmation" },
+      { key: "released", label: has("REFUNDED") ? "Refunded" : "Released", caption: rc },
+    ];
+    return sts.map((st, i) => ({ ...st, done: i < ci, current: i === ci }));
+  }
+
+  // STANDARD: 7 steps
+  if (has("COMPLETED") || has("REFUNDED")) ci = 7;
+  else if (has("DELIVERED")) ci = 6;
+  else if (has("IN_TRANSIT")) ci = 5;
+  else if (has("DISPATCHED")) ci = 4;
+  else if (has("PROCESSING")) ci = 3;
+  else if (has("CONFIRMED")) ci = 2;
+  else if (has("PAID") || ps === "SUCCEEDED") ci = 1;
+  const gc = (k: string) => {
+    switch (k) {
+      case "paid": return order?.createdAt ? formatMoment(order.createdAt) : "Payment confirmed";
+      case "confirmed": return "Vendor is reviewing";
+      case "processing": return "Preparing order";
+      case "dispatched": return "In transit";
+      case "in_transit": return "On the way";
+      case "delivered": return order?.deliveredAt ? formatMoment(order.deliveredAt) : "Awaiting delivery";
+      case "completed": return order?.deliveredAt ? `Completed ${formatMoment(order.deliveredAt)}` : "Waiting";
+      default: return "";
+    }
+  };
+  const sts = [
+    { key: "paid", label: "Paid", caption: gc("paid") },
+    { key: "confirmed", label: "Confirmed", caption: gc("confirmed") },
+    { key: "processing", label: "Processing", caption: gc("processing") },
+    { key: "dispatched", label: "Dispatched", caption: gc("dispatched") },
+    { key: "in_transit", label: "In Transit", caption: gc("in_transit") },
+    { key: "delivered", label: "Delivered", caption: gc("delivered") },
+    { key: "completed", label: "Completed", caption: gc("completed") },
   ];
-
-  return steps.map((step, index) => ({
-    ...step,
-    done: currentIndex > index || (status === "REFUNDED" && index <= 4),
-    current: currentIndex === index,
-  }));
+  return sts.map((st, i) => ({ ...st, done: i < ci, current: i === ci }));
 }
 
 export function canBuyerConfirmDelivery(order?: Partial<Order> | null): boolean {

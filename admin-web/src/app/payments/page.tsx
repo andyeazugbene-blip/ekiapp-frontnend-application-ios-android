@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { paymentsAPI, AdminPayment } from "@/lib/services/payments.api";
 import { APIError } from "@/lib/api";
 
 export default function PaymentsPage() {
+  const router = useRouter();
   const [payments, setPayments] = useState<AdminPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -90,7 +92,7 @@ export default function PaymentsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {payments.map((payment) => (
-                    <tr key={payment.id} className="hover:bg-gray-50">
+                    <tr key={payment.id} onClick={() => router.push("/payments/" + payment.id)} className="cursor-pointer hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{payment.orderNumber}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{payment.buyerName}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{payment.vendorName}</td>
