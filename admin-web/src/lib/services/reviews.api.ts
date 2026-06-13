@@ -49,8 +49,9 @@ export const reviewsAPI = {
   },
 
   async moderateReview(reviewId: string, action: "approve" | "reject", reason?: string): Promise<void> {
+    // Backend expects status (APPROVED/REJECTED), not action
     await apiClient.patch(`/admin/reviews/${reviewId}/moderate`, {
-      action,
+      status: action === "approve" ? "APPROVED" : "REJECTED",
       reason: reason ?? null,
     });
   },

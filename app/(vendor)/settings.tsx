@@ -242,6 +242,12 @@ export default function VendorSettingsScreen() {
             value={payoutValue}
             onPress={() => router.push("/(vendor)/payout-mode" as any)}
           />
+          <SettingRow
+            icon="receipt-outline"
+            label="Payout History"
+            description="View all past and pending payout requests"
+            onPress={() => router.push("/(vendor)/payout-history" as any)}
+          />
         </View>
 
         <Text style={styles.sectionTitle}>Subscriptions</Text>
