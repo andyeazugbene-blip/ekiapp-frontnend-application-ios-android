@@ -31,7 +31,6 @@ export default function LoginScreen() {
   useEffect(() => {
     if (isAuthenticated && user) {
       if (user.role === "admin") router.replace("/(admin)");
-      else if (user.role !== resolvedRole) return;
       else if (user.role === "vendor") router.replace("/(vendor)");
       else if (redirect) router.replace(redirect as any);
       else router.replace("/(buyer)");
@@ -43,13 +42,6 @@ export default function LoginScreen() {
     setEmailError("");
     setPasswordError("");
   }, [clearError, resolvedRole, redirect]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !user) return;
-    if (user.role !== resolvedRole && user.role !== "admin") {
-      beginFreshAuthFlow().catch(() => {});
-    }
-  }, [beginFreshAuthFlow, isAuthenticated, resolvedRole, user]);
 
   const validate = () => {
     let valid = true;
