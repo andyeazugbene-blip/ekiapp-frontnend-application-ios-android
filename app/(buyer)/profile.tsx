@@ -76,6 +76,7 @@ export default function ProfileScreen() {
     { icon: "wallet-outline", label: "Wallet & Rewards", action: "navigate", target: "/(buyer)/wallet" },
     { icon: "chatbubble-ellipses-outline", label: "Messages", action: "navigate", target: "/(buyer)/messages" },
     { icon: "people-outline", label: "Refer a Friend", action: "navigate", target: "/(buyer)/referral-program" },
+    { icon: "storefront-outline", label: "Switch to Vendor", action: "navigate", target: "/(vendor)" },
     { icon: "warning-outline", label: "Report an issue", action: "navigate", target: "/(buyer)/report-issue" },
     { icon: "mail-outline", label: "Email support", action: "external", target: `mailto:${SUPPORT_EMAIL}` },
     { icon: "help-circle-outline", label: "How Eki Works", action: "navigate", target: "/how-eki-works" },
@@ -87,6 +88,15 @@ export default function ProfileScreen() {
 
   const handleItemPress = async (item: MenuItem) => {
     if (item.action === "navigate" && item.target) {
+      if (item.label === "Switch to Vendor") {
+        try {
+          await useAuthStore.getState().switchRole();
+          router.replace("/(vendor)" as any);
+        } catch (err) {
+          Alert.alert("Cannot switch", err instanceof Error ? err.message : "You may not have a vendor profile.");
+        }
+        return;
+      }
       router.push(item.target as any);
       return;
     }

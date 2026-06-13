@@ -16,6 +16,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { marketingService } from "../../services/marketingService";
 import { payoutMethodService } from "../../services/payoutMethodService";
 import type { VendorProfile } from "../../types/auth";
+import { goBackOrReplace } from "../../utils/navigation";
 
 interface SettingRowProps {
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -266,8 +267,21 @@ export default function VendorSettingsScreen() {
           />
         </View>
 
-        <Text style={styles.sectionTitle}>Account Settings</Text>
+        <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.card}>
+          <SettingRow
+            icon="swap-horizontal-outline"
+            label="Switch to Buyer"
+            description="Go to the buyer side of the app"
+            onPress={async () => {
+              try {
+                await useAuthStore.getState().switchRole();
+                goBackOrReplace(router, "/(buyer)" as any);
+              } catch (err) {
+                Alert.alert("Error", err instanceof Error ? err.message : "Failed to switch role");
+              }
+            }}
+          />
           <SettingRow
             icon="notifications-outline"
             label="Notifications"
