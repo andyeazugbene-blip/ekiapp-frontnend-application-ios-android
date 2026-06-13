@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Redirect, Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,6 +12,8 @@ export default function VendorLayout() {
   const isInitializing = useAuthStore((s) => s.isInitializing);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const role = useAuthStore((s) => s.user?.role);
+  const hasVendor = useAuthStore((s) => s.user?.hasVendor === true);
+  const switchRole = useAuthStore((s) => s.switchRole);
 
   if (isInitializing) {
     return (
@@ -23,6 +25,13 @@ export default function VendorLayout() {
 
   if (!isAuthenticated) {
     return <Redirect href={{ pathname: "/(auth)/login", params: { role: "vendor" } }} />;
+  }
+
+  // Buyer who has a vendor profile: auto-switch role instead of redirecting
+  if (role === "buyer" && hasVendor) {
+    // Fire switchRole and render a loading state until it completes
+    // This runs once when the effect mounts
+    return <AutoSwitchRole switchRole={switchRole} />;
   }
 
   if (role === "buyer") {
@@ -199,3 +208,28 @@ const iconStyles = StyleSheet.create({
     marginTop: Platform.OS === "ios" ? 2 : 1,
   },
 });
+
+/**
+ * Renders a loading screen and calls switchRole once.
+ * Once the role flips from "buyer" to "vendor", the layout re-renders
+ * and shows the vendor tabs instead of this component.
+ */
+function AutoSwitchRole({ switchRole }: { switchRole: () => Promise<void> }) {
+  const [retried, setRetried] = useState(0);
+  const role = useAuthStore((s) => s.user?.role);
+
+  useEffect(() => {
+    if (role === "vendor" || retried > 3) return;
+    switchRole().catch(() => {
+      setTimeout(() => setRetried((r) => r + 1), 500);
+    });
+  }, [switchRole, role, retried]);
+
+  if (role === "vendor") return null;
+
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F9F9F9" }}>
+      <ActivityIndicator color="#076B51" size="large" />
+    </View>
+  );
+}
