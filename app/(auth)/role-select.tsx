@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuthStore } from "../../stores/authStore";
 
 type Role = "vendor" | "buyer";
 
@@ -16,8 +17,38 @@ export default function RoleSelectScreen() {
   const router = useRouter();
   const { ref } = useLocalSearchParams<{ ref?: string }>();
   const [selected, setSelected] = useState<Role>("vendor");
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
 
   const handleContinue = () => {
+    // If already logged in, route directly based on selection
+    if (isAuthenticated && user) {
+      if (selected === "vendor") {
+        if (user.hasVendor) {
+          useAuthStore.getState().switchRole().then(() => {
+            router.replace("/(vendor)" as any);
+          }).catch(() => {
+            router.replace({ pathname: "/(auth)/welcome", params: { role: "vendor", ...(typeof ref === "string" && ref.trim() ? { ref } : {}) } } as any);
+          });
+          return;
+        }
+        // No vendor profile — route to onboarding
+        router.replace("/(vendor-onboarding)" as any);
+        return;
+      }
+      // Buyer selected — route to buyer home
+      if (user.role !== "buyer") {
+        useAuthStore.getState().switchRole().then(() => {
+          router.replace("/(buyer)" as any);
+        }).catch(() => {
+          router.replace("/(buyer)" as any);
+        });
+        return;
+      }
+      router.replace("/(buyer)" as any);
+      return;
+    }
+
     router.push({
       pathname: "/(auth)/welcome",
       params: {
