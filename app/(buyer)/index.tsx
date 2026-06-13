@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
+import { rewardService, type Reward } from "../../services/rewardService";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -105,6 +106,7 @@ export default function BuyerHomeScreen() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [vendors, setVendors] = useState<VendorSummary[]>([]);
+  const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDealIndex, setActiveDealIndex] = useState(0);
   const [currencyOpen, setCurrencyOpen] = useState(false);
@@ -112,12 +114,14 @@ export default function BuyerHomeScreen() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [prods, vendorList] = await Promise.all([
+      const [prods, vendorList, activeRewards] = await Promise.all([
         productService.getAll({ limit: 24 }).catch(() => [] as Product[]),
         vendorService.getAllVendors({ search: "", status: "active" }).catch(() => [] as VendorSummary[]),
+        rewardService.getActiveRewards().catch(() => [] as Reward[]),
       ]);
       setProducts((prods ?? []).filter(Boolean));
       setVendors(rankVendors(vendorList ?? [], prods ?? []).slice(0, 6));
+      setRewards(activeRewards ?? []);
     } finally {
       setLoading(false);
     }
@@ -294,6 +298,31 @@ export default function BuyerHomeScreen() {
             ))}
           </View>
         </View>
+        ) : null}
+
+        {rewards.length > 0 ? (
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionTitle}>Gifts & Rewards</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+              {rewards.map((reward) => (
+                <TouchableOpacity
+                  key={reward.id}
+                  onPress={() => router.push("/(buyer)/wallet" as any)}
+                  activeOpacity={0.86}
+                  style={styles.giftCard}
+                >
+                  <View style={styles.giftIconWrap}>
+                    <Ionicons name="gift-outline" size={24} color="#076B51" />
+                  </View>
+                  <Text style={styles.giftName} numberOfLines={1}>{reward.name}</Text>
+                  <Text style={styles.giftValue}>{reward.currency} {reward.value.toFixed(2)}</Text>
+                  {reward.description ? (
+                    <Text style={styles.giftDesc} numberOfLines={1}>{reward.description}</Text>
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         ) : null}
 
         <View style={styles.sectionBlock}>
@@ -913,5 +942,50 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Regular",
     textAlign: "center",
     marginTop: 8,
+  },
+  giftCard: {
+    width: 140,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 14,
+    alignItems: "center",
+    marginRight: 12,
+    shadowColor: "#182722",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  giftIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(7,107,81,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  giftName: {
+    color: "#2B2B2B",
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily: "Manrope-Bold",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  giftValue: {
+    color: "#076B51",
+    fontSize: 16,
+    lineHeight: 22,
+    fontFamily: "Manrope-ExtraBold",
+    textAlign: "center",
+  },
+  giftDesc: {
+    color: "#727272",
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: "Outfit-Regular",
+    textAlign: "center",
+    marginTop: 4,
   },
 });

@@ -21,6 +21,7 @@ export default function PayoutRequestsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pendingPaidRequest, setPendingPaidRequest] = useState<AdminPayoutRequest | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [transferProofUrl, setTransferProofUrl] = useState("");
   const [rejectingRequest, setRejectingRequest] = useState<AdminPayoutRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency(items[0]?.currency ?? "GBP");
@@ -92,12 +93,13 @@ export default function PayoutRequestsPage() {
     }
   };
 
-  const handleMarkPaid = async (item: AdminPayoutRequest, code?: string) => {
+  const handleMarkPaid = async (item: AdminPayoutRequest, code?: string, transferProof?: string) => {
     try {
       setBusyId(item.id);
-      await payoutRequestsAPI.markPayoutRequestPaid(item.id, code);
+      await payoutRequestsAPI.markPayoutRequestPaid(item.id, code, transferProof);
       setPendingPaidRequest(null);
       setTwoFactorCode("");
+      setTransferProofUrl("");
       await loadData();
     } catch (err) {
       if (err instanceof API2FARequiredError) {
@@ -180,6 +182,7 @@ export default function PayoutRequestsPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Vendor</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Method</th>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Amount</th>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Notes</th>
@@ -195,6 +198,20 @@ export default function PayoutRequestsPage() {
                           <td className="px-4 py-3 text-sm text-gray-900">
                             <div className="font-medium">{vendorMeta?.storeName ?? item.vendorId}</div>
                             <div className="text-xs text-gray-500">{vendorMeta?.ownerName ?? "Unknown owner"}</div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-600">
+                              {(() => {
+                                const method = item.payoutMethod;
+                                if (!method) return "—";
+                                const typeLabel =
+                                  method.type === "BANK_TRANSFER" ? "Bank" :
+                                  method.details?.provider === "stripe" ? "Stripe" :
+                                  method.details?.provider === "paypal" ? "PayPal" :
+                                  method.type;
+                                return <>{typeLabel}{method.label ? ` (${method.label})` : ""}</>;
+                              })()}
+                            </span>
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {formatDisplayMoney(item.amount, item.currency, selectedCurrency)}
@@ -269,36 +286,59 @@ export default function PayoutRequestsPage() {
 
         {pendingPaidRequest ? (
           <Modal
-            title="2FA required"
+            title="Confirm payout"
             onClose={() => {
               setPendingPaidRequest(null);
               setTwoFactorCode("");
+              setTransferProofUrl("");
             }}
           >
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                Enter your 2FA code to mark payout <span className="font-medium">{pendingPaidRequest.id}</span> as paid.
+                Confirm payout <span className="font-medium">{formatDisplayMoney(pendingPaidRequest.amount, pendingPaidRequest.currency, selectedCurrency)}</span> for <span className="font-medium">{vendorNameMap.get(pendingPaidRequest.vendorId)?.storeName ?? pendingPaidRequest.vendorId}</span>.
               </p>
-              <input
-                type="text"
-                value={twoFactorCode}
-                onChange={(event) => setTwoFactorCode(event.target.value)}
-                placeholder="Enter 2FA code"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-              />
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">
+                  Transfer proof URL (optional — for bank transfers)
+                </label>
+                <input
+                  type="text"
+                  value={transferProofUrl}
+                  onChange={(event) => setTransferProofUrl(event.target.value)}
+                  placeholder="https://example.com/statement.png"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  Upload a bank statement or transfer screenshot and paste the URL here.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">2FA code</label>
+                <input
+                  type="text"
+                  value={twoFactorCode}
+                  onChange={(event) => setTwoFactorCode(event.target.value)}
+                  placeholder="Enter 2FA code"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                />
+              </div>
+
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => void handleMarkPaid(pendingPaidRequest, twoFactorCode)}
+                  onClick={() => void handleMarkPaid(pendingPaidRequest, twoFactorCode, transferProofUrl || undefined)}
                   className="flex-1 rounded-md bg-primary-600 px-4 py-2 text-white hover:bg-primary-700"
                 >
-                  Confirm
+                  Confirm & Mark Paid
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setPendingPaidRequest(null);
                     setTwoFactorCode("");
+                    setTransferProofUrl("");
                   }}
                   className="flex-1 rounded-md bg-gray-200 px-4 py-2 text-gray-700 hover:bg-gray-300"
                 >

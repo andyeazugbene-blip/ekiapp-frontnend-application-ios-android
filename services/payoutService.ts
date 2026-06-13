@@ -65,6 +65,11 @@ export const payoutService = {
     return (res.payoutRequests ?? res.requests ?? []).map(normalizePayoutRequest) as PayoutRequest[];
   },
 
+  async getPayoutHistory(): Promise<PayoutRequest[]> {
+    const res = await apiClient.get<{ payoutRequests?: any[] }>("/api/payout-requests/me/history");
+    return (res.payoutRequests ?? []).map(normalizePayoutRequest) as PayoutRequest[];
+  },
+
   async updatePayoutMode(_mode: PayoutMode): Promise<{ payoutMode: PayoutMode }> {
     throw new Error("Changing the payout schedule is not exposed by the backend yet.");
   },

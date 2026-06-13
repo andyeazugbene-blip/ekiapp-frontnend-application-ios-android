@@ -137,6 +137,16 @@ export default function EarningsScreen() {
                 </View>
               ) : null}
             </View>
+            {recentPayouts.length > 0 ? (
+              <TouchableOpacity
+                onPress={() => router.push("/(vendor)/payout-history" as any)}
+                activeOpacity={0.85}
+                style={styles.viewAllButton}
+              >
+                <Text style={styles.viewAllButtonText}>View all payouts</Text>
+                <Ionicons name="arrow-forward" size={14} color="#076B51" />
+              </TouchableOpacity>
+            ) : null}
 
             <View style={styles.accordionSection}>
               <TouchableOpacity activeOpacity={0.85} onPress={() => setModeOpen(!modeOpen)} style={styles.accordionHeader}>
@@ -244,4 +254,6 @@ const styles = StyleSheet.create({
   withdrawButton: { height: 54, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
   withdrawButtonText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
   disabled: { opacity: 0.55 },
+  viewAllButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, marginTop: 6 },
+  viewAllButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
 });

@@ -188,6 +188,17 @@ export interface AdminPayoutRequest {
   paidById?: string | null;
   paidAt?: string | null;
   createdAt: string;
+  payoutMethod?: {
+    type: string;
+    label: string | null;
+    details: {
+      bankName: string | null;
+      provider: string | null;
+      email: string | null;
+      accountHolder: string | null;
+      country: string | null;
+    };
+  };
 }
 
 export interface AdminSubscriptionPlan {

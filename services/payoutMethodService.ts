@@ -113,15 +113,32 @@ export const payoutMethodService = {
     return normalizeMethod(res.payoutMethod ?? res.method);
   },
 
-  async update(): Promise<PayoutMethod> {
-    throw new Error("Editing payout methods is not exposed by the backend yet. Add a new method instead.");
+  async update(id: string, input: Partial<PayoutMethodInput>): Promise<PayoutMethod> {
+    const payload: Record<string, unknown> = {};
+    if (input.isDefault !== undefined) payload.isDefault = input.isDefault;
+    if (input.bankName) payload.label = input.bankName;
+    if (input.email) payload.label = input.email;
+    if (input.accountHolder || input.bankName || input.accountNumber || input.routingNumber) {
+      payload.details = {
+        accountHolder: input.accountHolder,
+        bankName: input.bankName,
+        accountNumber: input.accountNumber,
+        routingNumber: input.routingNumber,
+        country: input.country,
+      };
+    }
+
+    const res = await apiClient.patch<PayoutMethodResponse>(`${ENDPOINT}/${id}`, payload);
+    return normalizeMethod(res.payoutMethod ?? res.method);
   },
 
-  async setDefault(): Promise<PayoutMethod> {
-    throw new Error("Changing the default payout method is not exposed by the backend yet.");
+  async setDefault(id: string): Promise<PayoutMethod> {
+    const res = await apiClient.patch<PayoutMethodResponse>(`${ENDPOINT}/${id}/default`, {});
+    return normalizeMethod(res.payoutMethod ?? res.method);
   },
 
-  async remove(): Promise<{ success: true; id: string }> {
-    throw new Error("Removing payout methods is not exposed by the backend yet.");
+  async remove(id: string): Promise<{ success: true; id: string }> {
+    await apiClient.delete(`${ENDPOINT}/${id}`);
+    return { success: true, id };
   },
 };
