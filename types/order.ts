@@ -8,6 +8,7 @@ export type OrderStatus =
   | "dispatched"
   | "in_transit"
   | "delivered"
+  | "completed"
   | "disputed"
   | "cancelled"
   | "refunded";

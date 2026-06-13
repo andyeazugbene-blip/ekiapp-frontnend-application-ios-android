@@ -1,7 +1,7 @@
 import type { EscrowStatus, Order } from "../types/order";
 
 export interface EscrowTimelineStep {
-  key: "paid" | "vendor_accepted" | "shipped" | "delivered" | "released";
+  key: string;
   label: string;
   caption: string;
   done: boolean;

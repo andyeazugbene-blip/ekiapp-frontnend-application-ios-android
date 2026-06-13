@@ -22,6 +22,7 @@ const statusConfig: Record<
   dispatched: { label: "Dispatched", variant: "info" },
   disputed: { label: "Disputed", variant: "error" },
   in_transit: { label: "In Transit", variant: "info" },
+  completed: { label: "Completed", variant: "success" },
   delivered: { label: "Delivered", variant: "success" },
   cancelled: { label: "Cancelled", variant: "error" },
   refunded: { label: "Refunded", variant: "default" },
