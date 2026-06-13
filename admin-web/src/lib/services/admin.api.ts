@@ -45,11 +45,18 @@ export const adminAPI = {
     };
   },
 
-  async getRevenueSeries(range: "7d" | "30d" | "90d" = "30d"): Promise<RevenueSeries[]> {
+  async getRevenueSeries(range: "7d" | "30d" | "90d" = "30d"): Promise<{ series: RevenueSeries[]; grossRevenue: number; platformFees: number; vendorEarnings: number; totalPayouts: number; netRevenue: number }> {
     const res = await apiClient.get<any>(`/admin/analytics/revenue?range=${range}`);
-    return (res.series ?? []).map((point: any) => ({
-      day: point.date ? new Date(point.date).toLocaleDateString("en-GB", { month: "short", day: "numeric" }) : "",
-      amount: centsToUnit(point.revenue),
-    }));
+    return {
+      series: (res.series ?? []).map((point: any) => ({
+        day: point.date ? new Date(point.date).toLocaleDateString("en-GB", { month: "short", day: "numeric" }) : "",
+        amount: centsToUnit(point.revenue),
+      })),
+      grossRevenue: centsToUnit(res.grossRevenue ?? 0),
+      platformFees: centsToUnit(res.platformFees ?? 0),
+      vendorEarnings: centsToUnit(res.vendorEarnings ?? 0),
+      totalPayouts: centsToUnit(res.totalPayouts ?? 0),
+      netRevenue: centsToUnit(res.netRevenue ?? 0),
+    };
   },
 };

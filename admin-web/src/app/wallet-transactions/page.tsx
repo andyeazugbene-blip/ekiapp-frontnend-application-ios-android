@@ -68,10 +68,11 @@ export default function WalletTransactionsPage() {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 md:w-64"
             >
               <option value="all">All Types</option>
-              <option value="ORDER_PAYMENT">Order Payment</option>
-              <option value="WITHDRAWAL">Withdrawal</option>
-              <option value="REFUND">Refund</option>
-              <option value="PLATFORM_FEE">Platform Fee</option>
+              <option value="PENDING_TO_AVAILABLE">Pending → Available</option>
+              <option value="PAYMENT_PENDING_CREDIT">Order Payment</option>
+              <option value="PAYOUT_DEBIT">Withdrawal</option>
+              <option value="ADJUSTMENT_CREDIT">Adjustment (Credit)</option>
+              <option value="ADJUSTMENT_DEBIT">Adjustment (Debit)</option>
             </select>
           </div>
 
