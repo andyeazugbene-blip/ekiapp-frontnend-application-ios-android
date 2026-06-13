@@ -27,7 +27,7 @@ export default function AnalyticsPage() {
         vendorsAPI.getVendors({ limit: 100 }).catch(() => []),
       ]);
       setAnalytics(analyticsData);
-      setSeries(revenueSeries);
+      setSeries(revenueSeries.series);
       setVendors(vendorData);
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to load analytics");
