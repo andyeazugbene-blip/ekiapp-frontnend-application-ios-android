@@ -30,12 +30,13 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (user.role === "admin") router.replace("/(admin)");
-      else if (user.role === "vendor") router.replace("/(vendor)");
-      else if (redirect) router.replace(redirect as any);
-      else router.replace("/(buyer)");
+      if (user.role === "admin") { router.replace("/(admin)"); return; }
+      if (resolvedRole === "vendor" && user.hasVendor) { router.replace("/(vendor)"); return; }
+      if (resolvedRole === "vendor" && !user.hasVendor) { router.replace("/(vendor-onboarding)"); return; }
+      if (redirect) { router.replace(redirect as any); return; }
+      router.replace("/(buyer)");
     }
-  }, [isAuthenticated, router, user, redirect]);
+  }, [isAuthenticated, router, user, redirect, resolvedRole]);
 
   useEffect(() => {
     clearError();
