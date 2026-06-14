@@ -125,50 +125,21 @@ export default function CheckoutScreen() {
 
     setSubmitting(true);
     try {
-      const walletAmountCents =
-        paymentMethod === "wallet"
-          ? Math.round(grandTotal * 100)
-          : undefined;
-
-      const intent = await createCheckout(address.trim(), walletAmountCents, country.trim());
+      const walletCents = paymentMethod === "wallet" ? Math.round(grandTotal * 100) : undefined;
+      const intent = await createCheckout(address.trim(), walletCents, country.trim());
       setCreatedOrderIds(intent.orderIds);
-
       if (intent.clientSecret === "wallet_paid") {
-        await clearCart();
-        setShowSuccess(true);
-        return;
+        await clearCart(); setShowSuccess(true); return;
       }
-
-      if (!intent.clientSecret) {
-        setError("Payment not configured. Please contact support.");
-        return;
+      if (paymentMethod === "wallet") {
+        setError("Wallet failed. Try card."); return;
       }
-
-      const result = await presentPayment({
-        clientSecret: intent.clientSecret,
-        merchantDisplayName: "Eki Marketplace",
-      });
-
-      if (result.status === "succeeded") {
-        await clearCart();
-        for (const orderId of intent.orderIds) {
-          await orderService.getBuyerOrderById(orderId).catch(() => {});
-        }
-        setShowSuccess(true);
-        return;
-      }
-
-      if (result.status === "cancelled") {
-        setError("Payment cancelled. Your order is saved as pending.");
-        return;
-      }
-
+      const result = await presentPayment({ clientSecret: intent.clientSecret, merchantDisplayName: "Eki" });
+      if (result.status === "succeeded") { await clearCart(); setShowSuccess(true); return; }
+      if (result.status === "cancelled") { setError("Cancelled."); return; }
       setError(result.message);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Checkout failed. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed."); }
+    finally { setSubmitting(false); }
   };
 
   return (
@@ -239,7 +210,7 @@ export default function CheckoutScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[styles.paymentOptionText, paymentMethod === "wallet" && styles.paymentOptionTextActive]}>💰 Wallet</Text>
               <Text style={styles.paymentOptionHint}>
-                {canPayFullyWithWallet ? `Balance: ${formatDisplayMoney(walletBalance, walletCurrency, selectedCurrency)}` : "Insufficient balance"}
+                {canPayFullyWithWallet ? `Balance: ${formatDisplayMoney(walletBalance, walletCurrency, checkoutCurrency)}` : "Insufficient balance"}
               </Text>
             </View>
           </TouchableOpacity>
@@ -275,23 +246,23 @@ export default function CheckoutScreen() {
         <View style={styles.summarySection}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Items total</Text>
-            <Text style={styles.summaryValue}>{formatDisplayMoney(subtotal, checkoutCurrency, selectedCurrency)}</Text>
+            <Text style={styles.summaryValue}>{formatDisplayMoney(subtotal, checkoutCurrency, checkoutCurrency)}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Shipping</Text>
-            <Text style={styles.summaryValue}>{formatDisplayMoney(deliveryTotal, checkoutCurrency, selectedCurrency)}</Text>
+            <Text style={styles.summaryValue}>{formatDisplayMoney(deliveryTotal, checkoutCurrency, checkoutCurrency)}</Text>
           </View>
           {paymentMethod === "wallet" ? (
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: "#076B51" }]}>Paid with wallet</Text>
               <Text style={[styles.summaryValue, { color: "#076B51" }]}>
-                {formatDisplayMoney(grandTotal, checkoutCurrency, selectedCurrency)}
+                {formatDisplayMoney(grandTotal, checkoutCurrency, checkoutCurrency)}
               </Text>
             </View>
           ) : null}
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Final total</Text>
-            <Text style={styles.totalValue}>{formatDisplayMoney(grandTotal, checkoutCurrency, selectedCurrency)}</Text>
+            <Text style={styles.totalValue}>{formatDisplayMoney(grandTotal, checkoutCurrency, checkoutCurrency)}</Text>
           </View>
         </View>
 
@@ -378,3 +349,4 @@ const styles = StyleSheet.create({
   closeModalBtn: { width: "100%", height: 44, alignItems: "center", justifyContent: "center", marginTop: 10 },
   closeModalText: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#858585" },
 });
+
