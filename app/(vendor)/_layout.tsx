@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Redirect, Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,25 +13,6 @@ export default function VendorLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const role = useAuthStore((s) => s.user?.role);
   const hasVendor = useAuthStore((s) => s.user?.hasVendor === true);
-  const switchRole = useAuthStore((s) => s.switchRole);
-  const [switching, setSwitching] = useState(false);
-  const switchedRef = useRef(false);
-
-  // Effect: automatically switch role when a buyer with a vendor profile
-  // lands on the vendor layout. This runs as a proper side-effect (after
-  // render) so the Tab navigator stays mounted and child routes resolvable.
-  useEffect(() => {
-    if (role === "buyer" && hasVendor && !switchedRef.current) {
-      switchedRef.current = true;
-      setSwitching(true);
-      switchRole().catch(() => {
-        setTimeout(() => {
-          switchedRef.current = false;
-          setSwitching(false);
-        }, 1000);
-      });
-    }
-  }, [role, hasVendor, switchRole]);
 
   if (isInitializing) {
     return (
@@ -45,7 +26,16 @@ export default function VendorLayout() {
     return <Redirect href={{ pathname: "/(auth)/login", params: { role: "vendor" } }} />;
   }
 
+  // Buyer without a vendor profile cannot access vendor area
   if (role === "buyer" && !hasVendor) {
+    return <Redirect href="/(buyer)" />;
+  }
+
+  // Buyer with a vendor profile will have already been switched by the
+  // login screen (switchRole called before navigation). If they somehow
+  // arrive here with role=buyer+hasVendor (deep link, stale state), we
+  // redirect them back to buyer instead of showing a broken layout.
+  if (role === "buyer" && hasVendor) {
     return <Redirect href="/(buyer)" />;
   }
 
@@ -54,11 +44,10 @@ export default function VendorLayout() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
-      <Tabs
-        backBehavior="history"
-        screenOptions={{
-          headerShown: false,
+    <Tabs
+      backBehavior="history"
+      screenOptions={{
+        headerShown: false,
         tabBarActiveTintColor: "#076B51",
         tabBarInactiveTintColor: "#9AA3A0",
         tabBarStyle: {
@@ -185,12 +174,6 @@ export default function VendorLayout() {
       <Tabs.Screen name="order-completed" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="upgrade-prompt" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>
-    {switching ? (
-      <View style={{ position: "absolute", inset: 0, backgroundColor: "rgba(255,255,255,0.85)", alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator color="#076B51" size="large" />
-      </View>
-    ) : null}
-  </View>
   );
 }
 
@@ -226,4 +209,3 @@ const iconStyles = StyleSheet.create({
     marginTop: Platform.OS === "ios" ? 2 : 1,
   },
 });
-
