@@ -33,7 +33,7 @@ export default function RoleSelectScreen() {
           return;
         }
         // No vendor profile — route to onboarding
-        router.replace("/(vendor-onboarding)" as any);
+        router.replace("/(vendor-onboarding)/setup-store" as any);
         return;
       }
       // Buyer selected — route to buyer home

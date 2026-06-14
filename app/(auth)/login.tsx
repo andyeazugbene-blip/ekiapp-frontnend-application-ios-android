@@ -36,7 +36,7 @@ export default function LoginScreen() {
       // For vendor+hasVendor, only navigate if role is already flipped
       if (resolvedRole === "vendor" && user.hasVendor && user.role !== "vendor") return;
       if (user.role === "admin") { router.replace("/(admin)"); return; }
-      if (resolvedRole === "vendor" && !user.hasVendor) { router.replace("/(vendor-onboarding)"); return; }
+      if (resolvedRole === "vendor" && !user.hasVendor) { router.replace("/(vendor-onboarding)/setup-store" as any); return; }
       if (resolvedRole === "vendor" && user.hasVendor) { router.replace("/(vendor)"); return; }
       if (redirect) { router.replace(redirect as any); return; }
       router.replace("/(buyer)");
@@ -96,7 +96,7 @@ export default function LoginScreen() {
     // Navigate directly after all state is final
     if (currentUser) {
       if (currentUser.role === "admin") { router.replace("/(admin)"); return; }
-      if (resolvedRole === "vendor" && !currentUser.hasVendor) { router.replace("/(vendor-onboarding)"); return; }
+      if (resolvedRole === "vendor" && !currentUser.hasVendor) { router.replace("/(vendor-onboarding)/setup-store" as any); return; }
       if (resolvedRole === "vendor" && currentUser.hasVendor) { router.replace("/(vendor)"); return; }
     }
     if (redirect) { router.replace(redirect as any); return; }
