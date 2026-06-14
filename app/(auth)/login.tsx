@@ -35,16 +35,16 @@ export default function LoginScreen() {
       if (resolvedRole === "vendor" && !user.hasVendor) { router.replace("/(vendor-onboarding)"); return; }
       // Login as vendor with a store
       if (resolvedRole === "vendor" && user.hasVendor) {
-        // Role is still "buyer" in DB → switch it before navigating
+        // Role is still "buyer" → call switchRole WITHOUT navigating in .then()
+        // because .then() fires before React re-renders from the zustand update,
+        // so VendorLayout would still see role="buyer" and redirect to buyer.
+        // Instead, just fire switchRole and return. When zustand updates the user,
+        // the effect refires with role="vendor" and navigates correctly.
         if (user.role !== "vendor") {
-          useAuthStore.getState().switchRole().then(() => {
-            router.replace("/(vendor)");
-          }).catch(() => {
-            router.replace("/(vendor)");
-          });
+          useAuthStore.getState().switchRole();
           return;
         }
-        // Role already "vendor" (after switchRole completed, effect refired)
+        // Role already "vendor" (after switchRole completed → effect refired)
         router.replace("/(vendor)"); return;
       }
       if (redirect) { router.replace(redirect as any); return; }
