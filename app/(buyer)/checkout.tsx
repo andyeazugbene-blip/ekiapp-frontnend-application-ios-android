@@ -128,11 +128,8 @@ export default function CheckoutScreen() {
       const walletCents = paymentMethod === "wallet" ? Math.round(grandTotal * 100) : undefined;
       const intent = await createCheckout(address.trim(), walletCents, country.trim());
       setCreatedOrderIds(intent.orderIds);
-      if (intent.clientSecret === "wallet_paid") {
-        await clearCart(); setShowSuccess(true); return;
-      }
       if (paymentMethod === "wallet") {
-        setError("Wallet failed. Try card."); return;
+        await clearCart(); setShowSuccess(true); return;
       }
       const result = await presentPayment({ clientSecret: intent.clientSecret, merchantDisplayName: "Eki" });
       if (result.status === "succeeded") { await clearCart(); setShowSuccess(true); return; }
