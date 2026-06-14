@@ -61,16 +61,32 @@ export const ordersAPI = {
     return (res.items ?? res.orders ?? []).map(normalizeOrder);
   },
 
-  async getOrder(orderId: string): Promise<Order> {
-    try {
-      const res = await apiClient.get<any>(`/admin/orders/${orderId}`);
-      return normalizeOrder(res.order ?? res);
-    } catch {
-      const orders = await this.getOrders();
-      const matchedOrder = orders.find((order) => order.id === orderId || order.orderNumber === orderId);
-      if (!matchedOrder) throw new Error("Order not found");
-      return matchedOrder;
-    }
+  async getOrder(orderId: string): Promise<any> {
+    const res = await apiClient.get<any>(`/admin/orders/${orderId}`);
+    const raw = res.order ?? res;
+    return {
+      ...raw,
+      totalAmount: centsToUnit(raw.totalAmount),
+      subtotalAmount: centsToUnit(raw.subtotalAmount),
+      deliveryFeeAmount: centsToUnit(raw.deliveryFeeAmount),
+      platformFeeAmount: centsToUnit(raw.platformFeeAmount),
+      vendorEarnings: centsToUnit(raw.vendorEarnings),
+      vendorName: raw.vendorName ?? raw.vendor?.storeName ?? "",
+      buyerName: raw.buyer?.name ?? "",
+      currency: (raw.currency ?? "GBP").toUpperCase(),
+      status: normalizeOrderStatus(raw.status ?? "PENDING"),
+      items: (raw.items ?? []).map((item: any) => ({
+        ...item,
+        unitAmount: centsToUnit(item.unitAmount ?? item.product?.priceInCents),
+        totalAmount: centsToUnit(item.totalAmount),
+      })),
+      payment: raw.payment ? {
+        ...raw.payment,
+        amount: centsToUnit(raw.payment.amount),
+        platformFeeAmount: centsToUnit(raw.payment.platformFeeAmount),
+        vendorEarningsAmount: centsToUnit(raw.payment.vendorEarningsAmount),
+      } : undefined,
+    };
   },
 
   async preloadOrder(orderId: string): Promise<void> {
