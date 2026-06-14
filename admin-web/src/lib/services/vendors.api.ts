@@ -56,16 +56,20 @@ export const vendorsAPI = {
     return vendors;
   },
 
-  async getVendor(vendorId: string): Promise<Vendor> {
-    try {
-      const res = await apiClient.get<any>(`/admin/vendors/${vendorId}`);
-      return normalizeVendor(res.vendor ?? res);
-    } catch {
-      const vendors = await this.getVendors();
-      const matchedVendor = vendors.find((vendor) => vendor.id === vendorId);
-      if (!matchedVendor) throw new Error("Vendor not found");
-      return matchedVendor;
-    }
+  async getVendor(vendorId: string): Promise<any> {
+    const res = await apiClient.get<any>(`/admin/vendors/${vendorId}`);
+    const raw = res.vendor ?? res;
+    return {
+      ...normalizeVendor(raw),
+      products: raw.products ?? [],
+      recentOrders: raw.recentOrders ?? [],
+      avgRating: raw.avgRating ?? null,
+      totalReviews: raw.totalReviews ?? 0,
+      totalRevenue: raw.totalRevenue ?? 0,
+      storeOrders: raw.storeOrders ?? 0,
+      contactEmail: raw.contactEmail ?? raw.user?.email ?? "",
+      createdAt: raw.createdAt ?? "",
+    };
   },
 
   async preloadVendor(vendorId: string): Promise<void> {
