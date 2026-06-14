@@ -1063,8 +1063,8 @@ const styles = StyleSheet.create({
   },
 
   // ── Sales tiles (2×2 grid) ───────────────────────────────────────────
-  salesGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 18 },
-  salesTile: { width: "48%", minHeight: 114, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 14, justifyContent: "space-between" },
+  salesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 18 },
+  salesTile: { width: "47%", backgroundColor: "#FFFFFF", borderRadius: 22, paddingHorizontal: 16, paddingVertical: 18, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
   salesTileIconContainer: { width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   tileDark: { backgroundColor: "#076B51" },
   tileLight: { backgroundColor: "#FFFFFF" },
