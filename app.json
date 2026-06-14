@@ -149,15 +149,13 @@
       "vercelFallbackUrl": "https://ekiapp-backend.vercel.app",
       "router": {},
       "eas": {
-        "projectId": "b86cbe6a-0c47-4842-b158-b9e9c49b85e4"
+        "projectId": "6fe3b15e-3066-4ba8-9c88-47f64194d828"
       }
     },
-    "owner": "mouadchiali",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "owner": "mouaduae",
+    "runtimeVersion": "1.5.0",
     "updates": {
-      "url": "https://u.expo.dev/b86cbe6a-0c47-4842-b158-b9e9c49b85e4"
+      "url": "https://u.expo.dev/6fe3b15e-3066-4ba8-9c88-47f64194d828"
     }
   }
 }
