@@ -31,20 +31,22 @@ export default function LoginScreen() {
   useEffect(() => {
     if (isAuthenticated && user) {
       if (user.role === "admin") { router.replace("/(admin)"); return; }
-      // Buyer+vendor: switch role then navigate
-      if (resolvedRole === "vendor" && user.hasVendor && user.role !== "vendor") {
-        useAuthStore.getState().switchRole().then(() => {
-          router.replace("/(vendor)");
-        }).catch(() => {
-          router.replace("/(vendor)");
-        });
-        return;
-      }
-      // After switchRole completes the effect refires — catch re-navigate
+      // Login as vendor without a store → store setup screens
+      if (resolvedRole === "vendor" && !user.hasVendor) { router.replace("/(vendor-onboarding)"); return; }
+      // Login as vendor with a store
       if (resolvedRole === "vendor" && user.hasVendor) {
+        // Role is still "buyer" in DB → switch it before navigating
+        if (user.role !== "vendor") {
+          useAuthStore.getState().switchRole().then(() => {
+            router.replace("/(vendor)");
+          }).catch(() => {
+            router.replace("/(vendor)");
+          });
+          return;
+        }
+        // Role already "vendor" (after switchRole completed, effect refired)
         router.replace("/(vendor)"); return;
       }
-      if (resolvedRole === "vendor" && !user.hasVendor) { router.replace("/(vendor-onboarding)"); return; }
       if (redirect) { router.replace(redirect as any); return; }
       router.replace("/(buyer)");
     }
