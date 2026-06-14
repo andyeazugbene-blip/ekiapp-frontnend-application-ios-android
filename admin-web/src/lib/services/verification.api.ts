@@ -9,7 +9,7 @@ function normalizeDocument(raw: any): VerificationDocument {
     vendorName: raw.vendor?.storeName ?? raw.vendorName ?? "",
     type: type.includes("business") ? "business" : type.includes("selfie") ? "selfie" : "id",
     status: (raw.status ?? "pending").toString().toLowerCase() as VerificationStatus,
-    fileUrl: raw.frontUrl ?? raw.fileUrl ?? "",
+    fileUrl: raw.frontUrl ?? raw.fileUrl ? (raw.frontUrl?.startsWith("http") ? raw.frontUrl : raw.fileUrl?.startsWith("http") ? raw.fileUrl : `https://ekiapp-backend.vercel.app${raw.frontUrl ?? raw.fileUrl}`) : "",
     submittedAt: raw.createdAt ?? raw.submittedAt ?? "",
     reviewedAt: raw.reviewedAt,
     reviewNote: raw.reviewNote ?? raw.rejectionReason,

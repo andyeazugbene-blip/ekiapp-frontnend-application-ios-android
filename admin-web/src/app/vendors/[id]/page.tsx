@@ -68,7 +68,7 @@ export default function VendorDetailPage() {
           <div className="space-y-3">
             <InfoRow label="Total products" value={String(data.totalProducts)} />
             <InfoRow label="Total orders" value={String(storeOrders)} />
-            <InfoRow label="Total revenue" value={formatDisplayMoney(totalRevenue, "EUR", selectedCurrency)} />
+            <InfoRow label="Total revenue" value={formatDisplayMoney((totalRevenue ?? 0) / 100, "EUR", selectedCurrency)} />
             <InfoRow label="Avg rating" value={avgRating ? `${Number(avgRating).toFixed(1)}★` : "—"} />
             <InfoRow label="Reviews" value={String(totalReviews)} />
           </div>
@@ -90,7 +90,7 @@ export default function VendorDetailPage() {
                 {products.map((p: any) => (
                   <tr key={p.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/products/${p.id}`)}>
                     <td className="px-4 py-3 text-sm text-gray-900">{p.title}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{formatDisplayMoney(p.priceInCents, p.currency, selectedCurrency)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{formatDisplayMoney((p.priceInCents ?? 0) / 100, p.currency, selectedCurrency)}</td>
                     <td className="px-4 py-3 text-sm text-gray-900">{p.stock}</td>
                     <td className="px-4 py-3 text-sm"><span className={`px-2 py-1 rounded-full text-xs font-medium ${p.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>{p.isActive ? "Active" : "Inactive"}</span></td>
                     <td className="px-4 py-3 text-sm text-gray-500">{new Date(p.createdAt).toLocaleDateString()}</td>
@@ -116,7 +116,7 @@ export default function VendorDetailPage() {
                 {orders.map((o: any) => (
                   <tr key={o.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/orders/${o.id}`)}>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{o.orderNumber}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{formatDisplayMoney(o.totalAmount, o.currency, selectedCurrency)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{formatDisplayMoney((o.totalAmount ?? 0) / 100, o.currency, selectedCurrency)}</td>
                     <td className="px-4 py-3 text-sm"><OrderStatusBadge status={o.status} /></td>
                     <td className="px-4 py-3 text-sm text-gray-500">{new Date(o.createdAt).toLocaleDateString()}</td>
                   </tr>
@@ -143,3 +143,4 @@ function OrderStatusBadge({ status }: { status: string }) {
   const colors: Record<string,string> = { pending:"bg-yellow-100 text-yellow-800", paid:"bg-blue-100 text-blue-800", confirmed:"bg-blue-100 text-blue-800", processing:"bg-purple-100 text-purple-800", dispatched:"bg-purple-100 text-purple-800", in_transit:"bg-purple-100 text-purple-800", delivered:"bg-green-100 text-green-800", completed:"bg-green-100 text-green-800", failed:"bg-red-100 text-red-800", cancelled:"bg-red-100 text-red-800", refunded:"bg-gray-100 text-gray-800" };
   return <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[s] ?? "bg-gray-100 text-gray-800"}`}>{s.replace("_"," ")}</span>;
 }
+
