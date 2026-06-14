@@ -80,7 +80,7 @@ export const pushTokenService = {
 
     if (finalStatus !== "granted") return null;
 
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId || "6fe3b15e-3066-4ba8-9c88-47f64194d828";
     const tokenData = await Notifications.getExpoPushTokenAsync({
       projectId: projectId ?? undefined,
     });
