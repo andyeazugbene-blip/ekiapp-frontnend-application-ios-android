@@ -127,26 +127,24 @@ export default function CommunicationPage() {
                 </div>
               </div>
 
+              {audience === "individual_vendor" ? (
               <div>
                 <h2 className="text-xl font-black">2. Choose vendor</h2>
                 <div className="mt-6 flex h-14 items-center gap-3 rounded-xl border border-slate-300 px-4">
                   <Icon name="search" className="h-5 w-5 text-slate-400" />
-                  <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search vendor name, email or store..." className="w-full bg-transparent outline-none" />
+                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search vendor..." className="w-full bg-transparent outline-none" />
                 </div>
                 <div className="mt-6 space-y-3">
-                  {filteredVendors.map((vendor) => (
-                    <button
-                      key={vendor.id}
-                      onClick={() => setSelectedVendorId(vendor.id)}
-                      className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left ${selectedVendorId === vendor.id ? "border-[#096B4A] bg-emerald-50" : "border-slate-200"}`}
-                    >
-                      <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-emerald-100 font-black text-[#096B4A]">{vendor.storeName.slice(0, 2).toUpperCase()}</div>
-                      <div className="flex-1"><p className="text-lg font-black">{vendor.storeName}</p><p className="text-sm text-slate-500">{vendor.city}, {vendor.country}</p></div>
-                      {selectedVendorId === vendor.id ? <Badge tone="green">Selected</Badge> : null}
+                  {filteredVendors.map((v) => (
+                    <button key={v.id} onClick={() => setSelectedVendorId(v.id)} className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left ${selectedVendorId === v.id ? "border-[#096B4A] bg-emerald-50" : "border-slate-200"}`}>
+                      <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-emerald-100 font-black text-[#096B4A]">{v.storeName.slice(0, 2).toUpperCase()}</div>
+                      <div className="flex-1"><p className="text-lg font-black">{v.storeName}</p><p className="text-sm text-slate-500">{v.city}, {v.country}</p></div>
+                      {selectedVendorId === v.id ? <Badge tone="green">Selected</Badge> : null}
                     </button>
                   ))}
                 </div>
               </div>
+              ) : null}
             </Card>
 
             <Card className="grid gap-8 lg:grid-cols-[0.58fr_0.42fr]">
