@@ -221,27 +221,3 @@ const iconStyles = StyleSheet.create({
   },
 });
 
-/**
- * Renders a loading screen and calls switchRole once.
- * Once the role flips from "buyer" to "vendor", the layout re-renders
- * and shows the vendor tabs instead of this component.
- */
-function AutoSwitchRole({ switchRole }: { switchRole: () => Promise<void> }) {
-  const [retried, setRetried] = useState(0);
-  const role = useAuthStore((s) => s.user?.role);
-
-  useEffect(() => {
-    if (role === "vendor" || retried > 3) return;
-    switchRole().catch(() => {
-      setTimeout(() => setRetried((r) => r + 1), 500);
-    });
-  }, [switchRole, role, retried]);
-
-  if (role === "vendor") return null;
-
-  return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F9F9F9" }}>
-      <ActivityIndicator color="#076B51" size="large" />
-    </View>
-  );
-}
