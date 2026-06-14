@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -23,6 +23,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const pendingRoleRef = useRef(false);
 
   const resolvedRole = role ?? "buyer";
   const roleLabel = ROLE_LABELS[resolvedRole] ?? "Buyer";
@@ -30,23 +31,13 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
+      // If handleLogin is actively switching roles, skip effect navigation
+      if (pendingRoleRef.current) return;
+      // For vendor+hasVendor, only navigate if role is already flipped
+      if (resolvedRole === "vendor" && user.hasVendor && user.role !== "vendor") return;
       if (user.role === "admin") { router.replace("/(admin)"); return; }
-      // Login as vendor without a store → store setup screens
       if (resolvedRole === "vendor" && !user.hasVendor) { router.replace("/(vendor-onboarding)"); return; }
-      // Login as vendor with a store
-      if (resolvedRole === "vendor" && user.hasVendor) {
-        // Role is still "buyer" → call switchRole WITHOUT navigating in .then()
-        // because .then() fires before React re-renders from the zustand update,
-        // so VendorLayout would still see role="buyer" and redirect to buyer.
-        // Instead, just fire switchRole and return. When zustand updates the user,
-        // the effect refires with role="vendor" and navigates correctly.
-        if (user.role !== "vendor") {
-          useAuthStore.getState().switchRole();
-          return;
-        }
-        // Role already "vendor" (after switchRole completed → effect refired)
-        router.replace("/(vendor)"); return;
-      }
+      if (resolvedRole === "vendor" && user.hasVendor) { router.replace("/(vendor)"); return; }
       if (redirect) { router.replace(redirect as any); return; }
       router.replace("/(buyer)");
     }
@@ -94,6 +85,22 @@ export default function LoginScreen() {
       password,
       expectedRole: resolvedRole as any,
     });
+    // ⚡ After login, read the LATEST zustand state and handle vendor role
+    // directly — no timing issues, no race conditions.
+    let currentUser = useAuthStore.getState().user;
+    if (currentUser && resolvedRole === "vendor" && currentUser.hasVendor && currentUser.role !== "vendor") {
+      pendingRoleRef.current = true;
+      try { await useAuthStore.getState().switchRole(); } catch {}
+      currentUser = useAuthStore.getState().user;
+    }
+    // Navigate directly after all state is final
+    if (currentUser) {
+      if (currentUser.role === "admin") { router.replace("/(admin)"); return; }
+      if (resolvedRole === "vendor" && !currentUser.hasVendor) { router.replace("/(vendor-onboarding)"); return; }
+      if (resolvedRole === "vendor" && currentUser.hasVendor) { router.replace("/(vendor)"); return; }
+    }
+    if (redirect) { router.replace(redirect as any); return; }
+    router.replace("/(buyer)");
   };
 
   if (isAdmin) {
