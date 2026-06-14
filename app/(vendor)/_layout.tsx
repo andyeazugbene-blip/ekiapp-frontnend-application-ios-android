@@ -14,6 +14,7 @@ export default function VendorLayout() {
   const role = useAuthStore((s) => s.user?.role);
   const hasVendor = useAuthStore((s) => s.user?.hasVendor === true);
   const switchRole = useAuthStore((s) => s.switchRole);
+  const [switching, setSwitching] = useState(false);
 
   if (isInitializing) {
     return (
@@ -27,14 +28,18 @@ export default function VendorLayout() {
     return <Redirect href={{ pathname: "/(auth)/login", params: { role: "vendor" } }} />;
   }
 
-  // Buyer who has a vendor profile: auto-switch role instead of redirecting
-  if (role === "buyer" && hasVendor) {
-    // Fire switchRole and render a loading state until it completes
-    // This runs once when the effect mounts
-    return <AutoSwitchRole switchRole={switchRole} />;
+  // Buyer who has a vendor profile: auto-switch role before showing tabs
+  // This runs as a side effect (not conditional rendering) so the Tab
+  // navigator stays mounted and child routes remain resolvable.
+  if (role === "buyer" && hasVendor && !switching) {
+    setSwitching(true);
+    switchRole().catch(() => {
+      // If switching fails, redirect to buyer
+      setTimeout(() => setSwitching(false), 500);
+    });
   }
 
-  if (role === "buyer") {
+  if (role === "buyer" && !hasVendor) {
     return <Redirect href="/(buyer)" />;
   }
 
@@ -43,10 +48,11 @@ export default function VendorLayout() {
   }
 
   return (
-    <Tabs
-      backBehavior="history"
-      screenOptions={{
-        headerShown: false,
+    <View style={{ flex: 1 }}>
+      <Tabs
+        backBehavior="history"
+        screenOptions={{
+          headerShown: false,
         tabBarActiveTintColor: "#076B51",
         tabBarInactiveTintColor: "#9AA3A0",
         tabBarStyle: {
@@ -173,6 +179,12 @@ export default function VendorLayout() {
       <Tabs.Screen name="order-completed" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="upgrade-prompt" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>
+    {switching ? (
+      <View style={{ position: "absolute", inset: 0, backgroundColor: "rgba(255,255,255,0.85)", alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator color="#076B51" size="large" />
+      </View>
+    ) : null}
+  </View>
   );
 }
 
