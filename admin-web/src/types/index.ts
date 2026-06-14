@@ -65,6 +65,15 @@ export interface Order {
   paymentStatus?: string;
   createdAt: string;
   items?: OrderItem[];
+  payment?: any;
+  deliveryZone?: any;
+  checkout?: any;
+  vendorInfo?: any;
+  subtotalAmount?: number;
+  deliveryFeeAmount?: number;
+  platformFeeAmount?: number;
+  vendorEarnings?: number;
+  deliveredAt?: string;
 }
 
 export interface OrderItem {

@@ -3,393 +3,128 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
+import { Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
 import { ordersAPI } from "@/lib/services/orders.api";
-import { Order } from "@/types";
 import { APIError, API2FARequiredError } from "@/lib/api";
 
 export default function OrderDetailPage() {
-  const params = useParams();
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const orderId = params.id as string;
-
-  const [order, setOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showRefundModal, setShowRefundModal] = useState(false);
-  const [refundAmount, setRefundAmount] = useState("");
-  const [refundReason, setRefundReason] = useState("");
-  const [twoFactorCode, setTwoFactorCode] = useState("");
-  const [show2FAModal, setShow2FAModal] = useState(false);
-  const [refundLoading, setRefundLoading] = useState(false);
-  const [refundError, setRefundError] = useState("");
-  const [refundSuccess, setRefundSuccess] = useState(false);
-  const [forceProcessing, setForceProcessing] = useState(false);
-  const [forceProcessResult, setForceProcessResult] = useState("");
-  const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency(order?.currency ?? "GBP");
+  const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency("EUR");
 
-  const loadOrder = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const data = await ordersAPI.getOrder(orderId);
-      setOrder(data);
-    } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
-      } else {
-        setError("Failed to load order");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [orderId]);
+  const load = useCallback(async () => {
+    try { setLoading(true); setError(""); setOrder(await ordersAPI.getOrder(id)); }
+    catch (err) { setError(err instanceof APIError ? err.message : "Failed"); }
+    finally { setLoading(false); }
+  }, [id]);
 
-  useEffect(() => {
-    void loadOrder();
-  }, [loadOrder]);
+  useEffect(() => { void load(); }, [load]);
 
-  const handleForceProcess = async () => {
-    if (!confirm("Force-process this order? This marks it PAID and credits vendor wallet.")) return;
-    try {
-      setForceProcessing(true); setForceProcessResult("");
-      const r = await ordersAPI.forceProcessOrder(orderId);
-      setForceProcessResult("Wallet credited: " + (r.amount || 0) + " cents.");
-      await loadOrder();
-    } catch (err) {
-      setForceProcessResult(err instanceof APIError ? err.message : "Failed");
-    } finally { setForceProcessing(false); }
-  };
+  if (loading) return <ProtectedRoute><AdminLayout><LoadingPanel label="Loading order..." /></AdminLayout></ProtectedRoute>;
+  if (error || !order) return <ProtectedRoute><AdminLayout><ErrorPanel message={error || "Not found"} onRetry={() => router.push("/orders")} /></AdminLayout></ProtectedRoute>;
 
-  const handleRefund = async () => {
-    if (!refundReason.trim()) {
-      setRefundError("Please provide a reason for the refund");
-      return;
-    }
-
-    try {
-      setRefundLoading(true);
-      setRefundError("");
-
-      const amount = refundAmount ? parseFloat(refundAmount) : undefined;
-      
-      await ordersAPI.refundOrder(orderId, {
-        amount,
-        reason: refundReason,
-        twoFactorCode: twoFactorCode || undefined,
-      });
-
-      setRefundSuccess(true);
-      setShowRefundModal(false);
-      setShow2FAModal(false);
-      setTimeout(() => {
-        void loadOrder();
-        setRefundSuccess(false);
-      }, 2000);
-    } catch (err) {
-      if (err instanceof API2FARequiredError) {
-        setShow2FAModal(true);
-        setRefundError("2FA code required for this action");
-      } else if (err instanceof APIError) {
-        if (err.status === 409) {
-          setRefundError("This order has already been refunded");
-        } else {
-          setRefundError(err.message);
-        }
-      } else {
-        setRefundError("Failed to process refund");
-      }
-    } finally {
-      setRefundLoading(false);
-    }
-  };
-
-  const handleCompleteOrder = async () => {
-    if (!confirm("Mark this order as completed?")) return;
-
-    try {
-      await ordersAPI.completeOrder(orderId);
-      await loadOrder();
-    } catch (err) {
-      if (err instanceof APIError) {
-        alert(err.message);
-      } else {
-        alert("Failed to complete order");
-      }
-    }
-  };
-
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <AdminLayout>
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading order...</p>
-            </div>
-          </div>
-        </AdminLayout>
-      </ProtectedRoute>
-    );
-  }
-
-  if (error || !order) {
-    return (
-      <ProtectedRoute>
-        <AdminLayout>
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error || "Order not found"}
-            <button onClick={() => router.push("/orders")} className="ml-4 underline">
-              Back to Orders
-            </button>
-          </div>
-        </AdminLayout>
-      </ProtectedRoute>
-    );
-  }
+  const items = order.items ?? [];
+  const payment = order.payment ?? {};
+  const dz = order.deliveryZone ?? {};
+  const checkout = order.checkout ?? {};
+  const vi = order.vendorInfo ?? {};
 
   return (
-    <ProtectedRoute>
-      <AdminLayout>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <button
-                onClick={() => router.push("/orders")}
-                className="text-sm text-gray-600 hover:text-gray-900 mb-2"
-              >
-                ← Back to Orders
-              </button>
-              <h1 className="text-3xl font-bold text-gray-900">Order {order.orderNumber}</h1>
-              <p className="mt-1 text-sm text-gray-600">Order ID: {order.id}</p>
-            </div>
-            <div className="flex space-x-3">
-              <select
-                value={selectedCurrency}
-                onChange={(event) => setSelectedCurrency(event.target.value as (typeof SUPPORTED_CURRENCIES)[number])}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900"
-              >
-                {SUPPORTED_CURRENCIES.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              {order.status !== "refunded" && order.status !== "cancelled" && (
-                <button
-                  onClick={() => setShowRefundModal(true)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                >
-                  Issue Refund
-                </button>
-              )}
-              {order.status === "shipped" && (
-                <button
-                  onClick={handleCompleteOrder}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                >
-                  Mark as Delivered
-                </button>
-              )}
-              {order.status === "pending" && (
-                <button
-                  onClick={handleForceProcess}
-                  disabled={forceProcessing}
-                  className="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors disabled:opacity-50"
-                >
-                  {forceProcessing ? "Processing..." : "Force Process"}
-                </button>
-              )}
-            </div>
+    <ProtectedRoute><AdminLayout><div className="space-y-6">
+      <PageHeader title={`Order ${order.orderNumber}`} subtitle={`ID: ${order.id}`}
+        actions={<div className="flex gap-3">
+          <select value={selectedCurrency} onChange={e => setSelectedCurrency(e.target.value as any)} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900">
+            {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <Button variant="secondary" onClick={() => router.push("/orders")}>← Back</Button>
+        </div>}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card><h2 className="text-lg font-bold mb-4">Order</h2>
+          <div className="space-y-2 text-sm">
+            <Row label="Status" value={<OrderBadge status={order.status} />} />
+            <Row label="Total" value={formatDisplayMoney(order.totalAmount, order.currency, selectedCurrency)} />
+            <Row label="Subtotal" value={formatDisplayMoney(order.subtotalAmount ?? 0, order.currency, selectedCurrency)} />
+            <Row label="Delivery fee" value={formatDisplayMoney(order.deliveryFeeAmount ?? 0, order.currency, selectedCurrency)} />
+            <Row label="Platform fee" value={formatDisplayMoney(order.platformFeeAmount ?? 0, order.currency, selectedCurrency)} />
+            <Row label="Vendor earns" value={formatDisplayMoney(order.vendorEarnings ?? 0, order.currency, selectedCurrency)} />
+            <Row label="Created" value={new Date(order.createdAt).toLocaleString()} />
+            {order.deliveredAt ? <Row label="Delivered" value={new Date(order.deliveredAt).toLocaleString()} /> : null}
           </div>
+        </Card>
 
-          {forceProcessResult && <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded">{forceProcessResult}</div>}
-
-          {refundSuccess && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-              Refund processed successfully
-            </div>
-          )}
-
-          {/* Order Details */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900">Order Information</h2>
-              <div className="space-y-3">
-                <InfoRow label="Status" value={<StatusBadge status={order.status} />} />
-                <InfoRow label="Total Amount" value={formatDisplayMoney(order.totalAmount, order.currency, selectedCurrency)} />
-                <InfoRow label="Payment Status" value={order.paymentStatus || "N/A"} />
-                <InfoRow label="Order Date" value={new Date(order.createdAt).toLocaleString()} />
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900">Parties</h2>
-              <div className="space-y-3">
-                <InfoRow label="Buyer" value={order.buyerName || order.buyerId} />
-                <InfoRow label="Vendor" value={order.vendorName || order.vendorId} />
-              </div>
-            </div>
+        <Card><h2 className="text-lg font-bold mb-4">Payment</h2>
+          <div className="space-y-2 text-sm">
+            <Row label="Status" value={<OrderBadge status={payment.status} />} />
+            <Row label="Provider" value={payment.provider ?? "—"} />
+            <Row label="Amount" value={formatDisplayMoney(payment.amount ?? 0, payment.currency ?? order.currency, selectedCurrency)} />
+            <Row label="Intent" value={payment.stripePaymentIntentId ? <span className="font-mono text-xs">{payment.stripePaymentIntentId}</span> : "—"} />
+            <Row label="Processed" value={payment.processedAt ? new Date(payment.processedAt).toLocaleString() : "—"} />
+            {payment.platformFeeAmount != null ? <Row label="Platform fee" value={formatDisplayMoney(payment.platformFeeAmount, payment.currency ?? order.currency, selectedCurrency)} /> : null}
+            {payment.vendorEarningsAmount != null ? <Row label="Vendor earnings" value={formatDisplayMoney(payment.vendorEarningsAmount, payment.currency ?? order.currency, selectedCurrency)} /> : null}
           </div>
+        </Card>
 
-          {/* Order Items */}
-          {order.items && order.items.length > 0 && (
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Items</h2>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead>
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {order.items.map((item) => (
-                      <tr key={item.id}>
-                        <td className="px-4 py-3 text-sm text-gray-900">{item.productTitle}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{item.quantity}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {formatDisplayMoney(item.price, order.currency, selectedCurrency)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {formatDisplayMoney(item.totalAmount, order.currency, selectedCurrency)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Refund Modal */}
-        {showRefundModal && (
-          <Modal onClose={() => setShowRefundModal(false)} title="Issue Refund">
-            <div className="space-y-4">
-              {refundError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
-                  {refundError}
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Refund Amount (optional)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder={`Full amount: ${formatDisplayMoney(order.totalAmount, order.currency, selectedCurrency)}`}
-                  value={refundAmount}
-                  onChange={(e) => setRefundAmount(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-gray-900"
-                />
-                <p className="mt-1 text-xs text-gray-500">Leave empty for full refund</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Reason *
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Explain why this refund is being issued..."
-                  value={refundReason}
-                  onChange={(e) => setRefundReason(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-gray-900"
-                  required
-                />
-              </div>
-              {show2FAModal && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    2FA Code *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Enter your 2FA code"
-                    value={twoFactorCode}
-                    onChange={(e) => setTwoFactorCode(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-gray-900"
-                    required
-                  />
-                </div>
-              )}
-              <div className="flex space-x-3">
-                <button
-                  onClick={handleRefund}
-                  disabled={refundLoading}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
-                >
-                  {refundLoading ? "Processing..." : "Confirm Refund"}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowRefundModal(false);
-                    setShow2FAModal(false);
-                    setRefundError("");
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </Modal>
-        )}
-      </AdminLayout>
-    </ProtectedRoute>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex justify-between">
-      <span className="text-sm font-medium text-gray-500">{label}:</span>
-      <span className="text-sm text-gray-900">{value}</span>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors = {
-    pending: "bg-yellow-100 text-yellow-800",
-    confirmed: "bg-blue-100 text-blue-800",
-    shipped: "bg-purple-100 text-purple-800",
-    delivered: "bg-green-100 text-green-800",
-    cancelled: "bg-red-100 text-red-800",
-    refunded: "bg-gray-100 text-gray-800",
-  }[status] || "bg-gray-100 text-gray-800";
-
-  return (
-    <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors}`}>
-      {status}
-    </span>
-  );
-}
-
-function Modal({
-  children,
-  onClose,
-  title,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-  title: string;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={onClose}></div>
-        <div className="relative bg-white rounded-lg max-w-md w-full p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
-          {children}
-        </div>
+        <Card><h2 className="text-lg font-bold mb-4">Parties</h2>
+          <div className="space-y-2 text-sm">
+            <Row label="Buyer" value={order.buyer?.name ?? order.buyerName ?? order.buyerId} />
+            <Row label="Email" value={order.buyer?.email ?? "—"} />
+            <div className="border-t my-2" />
+            <Row label="Vendor" value={order.vendorName ?? order.vendorId ?? "—"} />
+            <Row label="Email" value={vi.contactEmail ?? "—"} />
+            <Row label="Country" value={vi.country ?? "—"} />
+            <Row label="Verification" value={vi.verificationStatus?.replace("_"," ") ?? "—"} />
+          </div>
+        </Card>
       </div>
-    </div>
+
+      <Card><h2 className="text-lg font-bold mb-4">Delivery</h2>
+        <div className="space-y-2 text-sm">
+          <Row label="Zone" value={dz.name ?? "—"} />
+          <Row label="Country" value={dz.country ?? "—"} />
+          <Row label="Base fee" value={dz.baseFeeAmount != null ? formatDisplayMoney(dz.baseFeeAmount, order.currency, selectedCurrency) : "—"} />
+          <Row label="Per kg" value={dz.feePerKgAmount != null ? formatDisplayMoney(dz.feePerKgAmount, order.currency, selectedCurrency) : "—"} />
+          <Row label="Address" value={order.deliveryAddress ?? "—"} />
+        </div>
+      </Card>
+
+      <Card><h2 className="text-lg font-bold mb-4">Items ({items.length})</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50"><tr>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+            </tr></thead>
+            <tbody className="divide-y divide-gray-200">
+              {items.map((item: any, i: number) => (
+                <tr key={item.id ?? i}>
+                  <td className="px-4 py-3 text-sm text-gray-900">{item.productTitle ?? item.product?.title ?? "—"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{item.quantity}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{formatDisplayMoney(item.unitAmount ?? item.product?.priceInCents ?? 0, order.currency, selectedCurrency)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{formatDisplayMoney(item.totalAmount ?? 0, order.currency, selectedCurrency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div></AdminLayout></ProtectedRoute>
   );
+}
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return <div className="flex justify-between"><span className="text-gray-500">{label}</span><span className="text-gray-900 font-medium">{value}</span></div>;
+}
+function OrderBadge({ status }: { status: string }) {
+  const s = (status ?? "").toLowerCase();
+  const c: Record<string,string> = { pending:"bg-yellow-100 text-yellow-800", succeeded:"bg-green-100 text-green-800", paid:"bg-green-100 text-green-800", confirmed:"bg-blue-100 text-blue-800", processing:"bg-purple-100 text-purple-800", delivered:"bg-green-100 text-green-800", completed:"bg-green-100 text-green-800", failed:"bg-red-100 text-red-800", cancelled:"bg-red-100 text-red-800", refunded:"bg-gray-100 text-gray-800" };
+  return <span className={`px-2 py-1 rounded-full text-xs font-medium ${c[s] ?? "bg-gray-100 text-gray-800"}`}>{s.replace("_"," ")}</span>;
 }
