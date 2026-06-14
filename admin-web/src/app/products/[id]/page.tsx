@@ -87,7 +87,7 @@ export default function ProductDetailPage() {
               <div className="space-y-3">
                 <InfoRow label="Title" value={product.title} />
                 <InfoRow label="Description" value={product.description || "—"} />
-                <InfoRow label="Price" value={formatDisplayMoney(product.priceInCents, product.currency, selectedCurrency)} />
+                <InfoRow label="Price" value={formatDisplayMoney((product.priceInCents ?? 0) / 100, product.currency, selectedCurrency)} />
                 <InfoRow label="Currency" value={product.currency} />
                 <InfoRow label="Stock" value={String(product.stock)} />
                 <InfoRow label="Weight" value={product.weightGrams ? `${(product.weightGrams / 1000).toFixed(2)} kg` : "—"} />
@@ -97,7 +97,7 @@ export default function ProductDetailPage() {
                     {product.isActive ? "Active" : "Inactive"}
                   </span>
                 } />
-                <InfoRow label="Cost price" value={product.costAmount ? formatDisplayMoney(product.costAmount, product.costCurrency ?? product.currency, selectedCurrency) : "—"} />
+                <InfoRow label="Cost price" value={product.costAmount ? formatDisplayMoney(product.costAmount / 100, product.costCurrency ?? product.currency, selectedCurrency) : "—"} />
               </div>
             </Card>
 
@@ -140,9 +140,9 @@ export default function ProductDetailPage() {
                         <tr key={i}>
                           <td className="px-4 py-3 text-sm text-gray-900">{zone.name}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{zone.country}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{formatDisplayMoney(zone.baseFeeAmount, product.currency, selectedCurrency)}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{formatDisplayMoney(zone.feePerKgAmount, product.currency, selectedCurrency)}/kg</td>
-                          <td className="px-4 py-3 text-sm font-bold text-gray-900">{formatDisplayMoney(estFee, product.currency, selectedCurrency)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{formatDisplayMoney(zone.baseFeeAmount / 100, product.currency, selectedCurrency)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{formatDisplayMoney(zone.feePerKgAmount / 100, product.currency, selectedCurrency)}/kg</td>
+                          <td className="px-4 py-3 text-sm font-bold text-gray-900">{formatDisplayMoney(estFee / 100, product.currency, selectedCurrency)}</td>
                         </tr>
                       );
                     })}
