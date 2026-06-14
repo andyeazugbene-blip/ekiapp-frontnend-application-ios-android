@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Redirect, Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,6 +15,23 @@ export default function VendorLayout() {
   const hasVendor = useAuthStore((s) => s.user?.hasVendor === true);
   const switchRole = useAuthStore((s) => s.switchRole);
   const [switching, setSwitching] = useState(false);
+  const switchedRef = useRef(false);
+
+  // Effect: automatically switch role when a buyer with a vendor profile
+  // lands on the vendor layout. This runs as a proper side-effect (after
+  // render) so the Tab navigator stays mounted and child routes resolvable.
+  useEffect(() => {
+    if (role === "buyer" && hasVendor && !switchedRef.current) {
+      switchedRef.current = true;
+      setSwitching(true);
+      switchRole().catch(() => {
+        setTimeout(() => {
+          switchedRef.current = false;
+          setSwitching(false);
+        }, 1000);
+      });
+    }
+  }, [role, hasVendor, switchRole]);
 
   if (isInitializing) {
     return (
@@ -26,17 +43,6 @@ export default function VendorLayout() {
 
   if (!isAuthenticated) {
     return <Redirect href={{ pathname: "/(auth)/login", params: { role: "vendor" } }} />;
-  }
-
-  // Buyer who has a vendor profile: auto-switch role before showing tabs
-  // This runs as a side effect (not conditional rendering) so the Tab
-  // navigator stays mounted and child routes remain resolvable.
-  if (role === "buyer" && hasVendor && !switching) {
-    setSwitching(true);
-    switchRole().catch(() => {
-      // If switching fails, redirect to buyer
-      setTimeout(() => setSwitching(false), 500);
-    });
   }
 
   if (role === "buyer" && !hasVendor) {
