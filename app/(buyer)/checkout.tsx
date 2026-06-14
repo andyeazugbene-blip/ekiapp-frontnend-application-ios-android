@@ -14,7 +14,7 @@ import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { formatDisplayMoney } from "../../utils/currency";
 import { goBackOrReplace } from "../../utils/navigation";
 
-type PaymentMethod = "stripe" | "wallet" | "wallet_stripe";
+type PaymentMethod = "stripe" | "wallet";
 
 function inferCountryFromCurrency(currency?: string): string {
   switch ((currency ?? "").toUpperCase()) {
@@ -110,24 +110,16 @@ export default function CheckoutScreen() {
       setError("Your cart is empty.");
       return;
     }
-    if ((paymentMethod === "wallet" || paymentMethod === "wallet_stripe") && !walletMatchesCheckoutCurrency) {
-      setError("Wallet can only be used when its currency matches this checkout. Use Card instead.");
+    if (paymentMethod === "wallet" && !walletMatchesCheckoutCurrency) {
+      setError("Wallet currency doesn't match this checkout. Use Card instead.");
       return;
     }
     if (paymentMethod === "wallet" && walletBalance < grandTotal) {
-      setError("Insufficient wallet balance for full payment. Use Wallet + Card instead.");
+      setError("Insufficient wallet balance. Use Card instead.");
       return;
     }
-    if (paymentMethod === "wallet_stripe" && parsedWalletAmountInCheckoutCurrency > walletBalance) {
-      setError("Wallet amount exceeds your balance.");
-      return;
-    }
-    if (paymentMethod === "wallet_stripe" && parsedWalletAmountInCheckoutCurrency > grandTotal) {
-      setError("Wallet amount exceeds order total.");
-      return;
-    }
-    if ((paymentMethod === "stripe" || paymentMethod === "wallet_stripe") && !isPaymentSheetAvailable()) {
-      setError("Stripe PaymentSheet is not available in Expo Go. Use a development build to test card payments.");
+    if (paymentMethod === "stripe" && !isPaymentSheetAvailable()) {
+      setError("Stripe not available in Expo Go. Use a development build.");
       return;
     }
 
@@ -136,9 +128,7 @@ export default function CheckoutScreen() {
       const walletAmountCents =
         paymentMethod === "wallet"
           ? Math.round(grandTotal * 100)
-          : paymentMethod === "wallet_stripe" && parsedWalletAmountInCheckoutCurrency > 0
-            ? Math.round(parsedWalletAmountInCheckoutCurrency * 100)
-            : undefined;
+          : undefined;
 
       const intent = await createCheckout(address.trim(), walletAmountCents, country.trim());
       setCreatedOrderIds(intent.orderIds);
@@ -229,37 +219,29 @@ export default function CheckoutScreen() {
           />
         </View>
 
-        <Text style={styles.fieldLabel}>Payment method</Text>
+        <Text style={styles.fieldLabel}>Pay with</Text>
         <View style={styles.paymentOptions}>
           <TouchableOpacity
             onPress={() => setPaymentMethod("stripe")}
             style={[styles.paymentOption, paymentMethod === "stripe" && styles.paymentOptionActive]}
           >
             <Ionicons name="card-outline" size={18} color={paymentMethod === "stripe" ? "#076B51" : "#858585"} />
-            <Text style={[styles.paymentOptionText, paymentMethod === "stripe" && styles.paymentOptionTextActive]}>Card (Stripe)</Text>
+            <Text style={[styles.paymentOptionText, paymentMethod === "stripe" && styles.paymentOptionTextActive]}>💳 Card</Text>
+            <Text style={styles.paymentOptionHint}>Pay full amount with card</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => {
-              setPaymentMethod("wallet");
-              setWalletAmount(String(grandTotal.toFixed(2)));
-            }}
+            onPress={() => setPaymentMethod("wallet")}
             style={[styles.paymentOption, paymentMethod === "wallet" && styles.paymentOptionActive, !canPayFullyWithWallet && styles.paymentOptionDisabled]}
             disabled={!canPayFullyWithWallet}
           >
             <Ionicons name="wallet-outline" size={18} color={paymentMethod === "wallet" ? "#076B51" : "#858585"} />
-            <Text style={[styles.paymentOptionText, paymentMethod === "wallet" && styles.paymentOptionTextActive]}>
-              Wallet ({formatDisplayMoney(walletBalance, walletCurrency, selectedCurrency)})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setPaymentMethod("wallet_stripe")}
-            style={[styles.paymentOption, paymentMethod === "wallet_stripe" && styles.paymentOptionActive, (!walletMatchesCheckoutCurrency || walletBalance <= 0) && styles.paymentOptionDisabled]}
-            disabled={!walletMatchesCheckoutCurrency || walletBalance <= 0}
-          >
-            <Ionicons name="swap-horizontal-outline" size={18} color={paymentMethod === "wallet_stripe" ? "#076B51" : "#858585"} />
-            <Text style={[styles.paymentOptionText, paymentMethod === "wallet_stripe" && styles.paymentOptionTextActive]}>Wallet + Card</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.paymentOptionText, paymentMethod === "wallet" && styles.paymentOptionTextActive]}>💰 Wallet</Text>
+              <Text style={styles.paymentOptionHint}>
+                {canPayFullyWithWallet ? `Balance: ${formatDisplayMoney(walletBalance, walletCurrency, selectedCurrency)}` : "Insufficient balance"}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -272,7 +254,7 @@ export default function CheckoutScreen() {
           </View>
         ) : null}
 
-        {(paymentMethod === "stripe" || paymentMethod === "wallet_stripe") && !isPaymentSheetAvailable() ? (
+        {paymentMethod === "stripe" && !isPaymentSheetAvailable() ? (
           <View style={styles.infoBanner}>
             <Ionicons name="information-circle-outline" size={18} color="#856B0E" style={{ marginTop: 1 }} />
             <Text style={styles.infoBannerText}>
@@ -281,33 +263,11 @@ export default function CheckoutScreen() {
           </View>
         ) : null}
 
-        {paymentMethod === "wallet_stripe" ? (
-          <View style={{ marginBottom: 20 }}>
-            <Text style={styles.fieldLabel}>
-              Amount from wallet in {walletCurrency} (max {formatDisplayMoney(walletBalance, walletCurrency, walletCurrency)})
-            </Text>
-            <View style={styles.inputWrap}>
-              <TextInput
-                style={styles.input}
-                placeholder="0.00"
-                placeholderTextColor="#858585"
-                keyboardType="decimal-pad"
-                value={walletAmount}
-                onChangeText={(value) => {
-                  const amount = Number(value) || 0;
-                  if (amount <= walletBalance && amount <= grandTotal) {
-                    setWalletAmount(value);
-                    if (error) setError("");
-                  }
-                }}
-              />
-            </View>
-            <Text style={styles.helpText}>
-              Remaining {formatDisplayMoney(
-                Math.max(0, grandTotal - parsedWalletAmountInCheckoutCurrency),
-                checkoutCurrency,
-                selectedCurrency,
-              )} will be charged to your card.
+        {paymentMethod === "wallet" ? (
+          <View style={styles.infoBanner}>
+            <Ionicons name="wallet-outline" size={18} color="#076B51" style={{ marginTop: 1 }} />
+            <Text style={[styles.infoBannerText, { color: "#076B51" }]}>
+              Full amount deducted from your wallet.
             </Text>
           </View>
         ) : null}
@@ -321,11 +281,11 @@ export default function CheckoutScreen() {
             <Text style={styles.summaryLabel}>Shipping</Text>
             <Text style={styles.summaryValue}>{formatDisplayMoney(deliveryTotal, checkoutCurrency, selectedCurrency)}</Text>
           </View>
-          {paymentMethod === "wallet_stripe" && parsedWalletAmountInCheckoutCurrency > 0 ? (
+          {paymentMethod === "wallet" ? (
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Wallet applied</Text>
+              <Text style={[styles.summaryLabel, { color: "#076B51" }]}>Paid with wallet</Text>
               <Text style={[styles.summaryValue, { color: "#076B51" }]}>
-                -{formatDisplayMoney(parsedWalletAmountInCheckoutCurrency, checkoutCurrency, selectedCurrency)}
+                {formatDisplayMoney(grandTotal, checkoutCurrency, selectedCurrency)}
               </Text>
             </View>
           ) : null}
@@ -394,6 +354,7 @@ const styles = StyleSheet.create({
   paymentOptionDisabled: { opacity: 0.5 },
   paymentOptionText: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#282828" },
   paymentOptionTextActive: { color: "#076B51" },
+  paymentOptionHint: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 2 },
   infoBanner: { backgroundColor: "#FFF8E8", borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: "row", gap: 8 },
   infoBannerText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#856B0E", lineHeight: 18 },
   helpText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 4 },

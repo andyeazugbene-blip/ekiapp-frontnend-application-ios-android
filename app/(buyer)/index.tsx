@@ -223,49 +223,47 @@ export default function BuyerHomeScreen() {
                   <Ionicons name="location" size={20} color="#076B51" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.deliveryTitle}>Delivery</Text>
+                  <Text style={styles.deliveryTitle}>🍕 Delivery</Text>
                   <Text style={styles.deliverySubtitle} numberOfLines={1}>
-                    {deliveryCountry || "Choose your delivery country"}
+                    {deliveryCountry || "Set your country"}
                   </Text>
                 </View>
               </View>
 
-              <TouchableOpacity
-                onPress={() => router.push("/(buyer)/notifications" as any)}
-                activeOpacity={0.86}
-                style={styles.notificationButton}
-              >
-                <Ionicons name="notifications-outline" size={24} color="#076B51" />
-              </TouchableOpacity>
-
-              {hasVendor ? (
+              <View style={styles.headerActions}>
+                {hasVendor ? (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      try {
+                        await switchRole();
+                        router.replace("/(vendor)" as any);
+                      } catch {}
+                    }}
+                    activeOpacity={0.86}
+                    style={styles.headerIconBtn}
+                  >
+                    <Ionicons name="storefront-outline" size={22} color="#FFFFFF" />
+                  </TouchableOpacity>
+                ) : null}
                 <TouchableOpacity
-                  onPress={async () => {
-                    try {
-                      await switchRole();
-                      router.replace("/(vendor)" as any);
-                    } catch {
-                      Alert.alert("Error", "Could not switch to vendor mode.");
-                    }
-                  }}
+                  onPress={() => router.push("/(buyer)/notifications" as any)}
                   activeOpacity={0.86}
-                  style={styles.vendorSwitchButton}
+                  style={styles.headerIconBtn}
                 >
-                  <Ionicons name="storefront-outline" size={22} color="#076B51" />
+                  <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
                 </TouchableOpacity>
-              ) : null}
-
-              <TouchableOpacity
-                onPress={() => router.push("/(buyer)/profile" as any)}
-                activeOpacity={0.86}
-                style={styles.avatarButton}
-              >
-                {user?.avatar ? (
-                  <RemoteImage uri={user.avatar} style={styles.avatarImage} borderRadius={28} fallbackIcon="person" />
-                ) : (
-                  <Text style={styles.avatarInitial}>{avatarInitial}</Text>
-                )}
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.push("/(buyer)/profile" as any)}
+                  activeOpacity={0.86}
+                  style={styles.avatarButton}
+                >
+                  {user?.avatar ? (
+                    <RemoteImage uri={user.avatar} style={styles.avatarImage} borderRadius={20} fallbackIcon="person" />
+                  ) : (
+                    <Text style={styles.avatarInitial}>{avatarInitial}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.searchRow}>
@@ -533,56 +531,47 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   deliveryTitle: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "Manrope-Bold",
   },
   deliverySubtitle: {
     color: "rgba(255,255,255,0.8)",
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "Outfit-Regular",
-    marginTop: 4,
+    marginTop: 2,
   },
   avatarButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#FFFFFF",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.22)",
-  },
-  notificationButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.22)",
-  },
-  vendorSwitchButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "rgba(7,107,81,0.3)",
-  },
-  avatarImage: {
-    width: 56,
-    height: 56,
   },
   avatarInitial: {
-    fontSize: 18,
-    fontFamily: "Manrope-ExtraBold",
-    color: "#076B51",
+    fontSize: 14,
+    fontFamily: "Manrope-Bold",
+    color: "#FFFFFF",
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
   },
   searchShell: {
     flex: 1,
