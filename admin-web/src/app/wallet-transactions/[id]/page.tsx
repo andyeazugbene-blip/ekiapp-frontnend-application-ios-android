@@ -26,7 +26,7 @@ export default function WalletTxDetailPage() {
         <Card><h2 className="text-lg font-bold mb-4">Transaction</h2>
           <div className="space-y-3">
             <div><span className="text-sm text-gray-500">Type</span><p className="font-bold">{tx.type}</p></div>
-            <div><span className="text-sm text-gray-500">Amount</span><p className="font-bold">{formatDisplayMoney(tx.amount, tx.currency, selectedCurrency)}</p></div>
+            <div><span className="text-sm text-gray-500">Amount</span><p className="font-bold">{formatDisplayMoney((tx.amount ?? 0) / 100, tx.currency, selectedCurrency)}</p></div>
             <div><span className="text-sm text-gray-500">Description</span><p className="font-bold">{tx.description || "—"}</p></div>
             <div><span className="text-sm text-gray-500">Date</span><p className="font-bold">{tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "—"}</p></div>
           </div></Card>
@@ -38,11 +38,11 @@ export default function WalletTxDetailPage() {
         {tx.order && <Card><h2 className="text-lg font-bold mb-4">Order</h2><div className="space-y-3">
           <div><span className="text-sm text-gray-500">Order #</span><p className="font-bold">{tx.order.orderNumber}</p></div>
           <div><span className="text-sm text-gray-500">Status</span><p className="font-bold">{tx.order.status}</p></div>
-          <div><span className="text-sm text-gray-500">Total</span><p className="font-bold">{formatDisplayMoney(tx.order.totalAmount, tx.order.currency, selectedCurrency)}</p></div>
+          <div><span className="text-sm text-gray-500">Total</span><p className="font-bold">{formatDisplayMoney((tx.order.totalAmount ?? 0) / 100, tx.order.currency, selectedCurrency)}</p></div>
         </div></Card>}
         {tx.payoutRequest && <Card><h2 className="text-lg font-bold mb-4">Payout Request</h2><div className="space-y-3">
           <div><span className="text-sm text-gray-500">Status</span><p className="font-bold">{tx.payoutRequest.status}</p></div>
-          <div><span className="text-sm text-gray-500">Amount</span><p className="font-bold">{formatDisplayMoney(tx.payoutRequest.amount, tx.currency, selectedCurrency)}</p></div>
+          <div><span className="text-sm text-gray-500">Amount</span><p className="font-bold">{formatDisplayMoney((tx.payoutRequest.amount ?? 0) / 100, tx.currency, selectedCurrency)}</p></div>
         </div></Card>}
       </div>
     </div></AdminLayout></ProtectedRoute>
