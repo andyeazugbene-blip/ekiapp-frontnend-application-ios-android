@@ -104,12 +104,6 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-        release {
-            storeFile file('../../credentials/android-upload-key.jks')
-            storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD') ?: ''
-            keyAlias System.getenv('ANDROID_KEY_ALIAS') ?: ''
-            keyPassword System.getenv('ANDROID_KEY_PASSWORD') ?: ''
-        }
     }
     buildTypes {
         debug {
@@ -119,7 +113,7 @@ android {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
             matchingFallbacks = ['debug']
-            signingConfig signingConfigs.release
+            signingConfig signingConfigs.debug
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
