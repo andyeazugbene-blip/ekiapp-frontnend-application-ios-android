@@ -16,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { vendorService } from "../../services/vendorService";
+import { authService } from "../../services/authService";
 import { uploadService } from "../../services/uploadService";
 import { useAuthStore } from "../../stores/authStore";
 import type { VendorProfile } from "../../types/auth";
@@ -24,35 +24,30 @@ import { goBackOrReplace } from "../../utils/navigation";
 import { SelectBox } from "../../components/onboarding/FigmaNativeUI";
 import { COUNTRY_NAMES } from "../../utils/countries";
 
-export default function EditStoreProfileScreen() {
+export default function EditVendorPersonalProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user) as VendorProfile | null;
   const checkAuth = useAuthStore((state) => state.checkAuth);
 
-  const [storeName, setStoreName] = useState(user?.storeName ?? "");
-  const [description, setDescription] = useState(user?.storeDescription ?? "");
-  const [city, setCity] = useState(user?.city ?? "");
+  const [name, setName] = useState(user?.name ?? "");
+  const [phone, setPhone] = useState(user?.phone ?? "");
   const [country, setCountry] = useState(user?.country ?? "");
   const [avatar, setAvatar] = useState(user?.avatar ?? "");
-  const [coverImage, setCoverImage] = useState(user?.coverImage ?? "");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [uploadingCover, setUploadingCover] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setStoreName(user?.storeName ?? "");
-    setDescription(user?.storeDescription ?? "");
-    setCity(user?.city ?? "");
+    setName(user?.name ?? "");
+    setPhone(user?.phone ?? "");
     setCountry(user?.country ?? "");
     setAvatar(user?.avatar ?? "");
-    setCoverImage(user?.coverImage ?? "");
   }, [user]);
 
   const handlePickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Allow photo access to update your store avatar.");
+      Alert.alert("Permission needed", "Allow photo access to update your avatar.");
       return;
     }
 
@@ -69,65 +64,34 @@ export default function EditStoreProfileScreen() {
     try {
       const asset = result.assets[0];
       const contentType = asset.mimeType ?? "image/jpeg";
-      const fileName = `store-avatar-${Date.now()}.${contentType.includes("png") ? "png" : "jpg"}`;
+      const fileName = `vendor-avatar-${Date.now()}.${contentType.includes("png") ? "png" : "jpg"}`;
       setAvatar(await uploadService.uploadImage(asset.uri, fileName, contentType, "avatar"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not upload your store avatar.");
+      setError(err instanceof Error ? err.message : "Could not upload avatar.");
     } finally {
       setUploadingAvatar(false);
     }
   };
 
-  const handlePickCoverImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Permission needed", "Allow photo access to update your store cover image.");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [16, 9],
-      quality: 0.9,
-    });
-    if (result.canceled || !result.assets?.[0]?.uri) return;
-
-    setUploadingCover(true);
-    setError("");
-    try {
-      const asset = result.assets[0];
-      const contentType = asset.mimeType ?? "image/jpeg";
-      const fileName = `store-cover-${Date.now()}.${contentType.includes("png") ? "png" : "jpg"}`;
-      setCoverImage(await uploadService.uploadImage(asset.uri, fileName, contentType, "cover"));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not upload your store cover image.");
-    } finally {
-      setUploadingCover(false);
-    }
-  };
-
   const handleSave = async () => {
-    if (!storeName.trim()) {
-      setError("Store name is required.");
+    if (!name.trim()) {
+      setError("Name is required.");
       return;
     }
 
     setSaving(true);
     setError("");
     try {
-      await vendorService.updateMyProfile({
-        storeName: storeName.trim(),
-        description: description.trim(),
-        city: city.trim(),
-        country: country.trim(),
-        avatar: avatar || null,
-        coverImage: coverImage || null,
-      } as any);
+      await authService.updateProfile({
+        name: name.trim(),
+        phone: phone.trim() || undefined,
+        country: country.trim() || undefined,
+        avatar: avatar || undefined,
+      });
       await checkAuth().catch(() => undefined);
       goBackOrReplace(router, "/(vendor)/settings" as any);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update your store profile.");
+      setError(err instanceof Error ? err.message : "Could not update profile.");
     } finally {
       setSaving(false);
     }
@@ -140,8 +104,8 @@ export default function EditStoreProfileScreen() {
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Edit Store Profile</Text>
-          <Text style={styles.headerSubtitle}>Update how your store appears to buyers before they open your public link.</Text>
+          <Text style={styles.headerTitle}>Edit Personal Profile</Text>
+          <Text style={styles.headerSubtitle}>Update your name, contact details, and avatar.</Text>
         </View>
       </View>
 
@@ -153,66 +117,29 @@ export default function EditStoreProfileScreen() {
                 {avatar ? (
                   <Image source={{ uri: avatar }} style={styles.avatarImage} />
                 ) : (
-                  <Ionicons name="storefront-outline" size={28} color="#076B51" />
+                  <Ionicons name="person-outline" size={28} color="#076B51" />
                 )}
                 <View style={styles.avatarBadge}>
                   {uploadingAvatar ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="camera-outline" size={14} color="#FFFFFF" />}
                 </View>
               </TouchableOpacity>
               <View style={{ flex: 1 }}>
-                <Text style={styles.avatarTitle}>Store avatar</Text>
-                <Text style={styles.avatarCopy}>Shown on your store, products, and buyer messages.</Text>
+                <Text style={styles.avatarTitle}>Profile photo</Text>
+                <Text style={styles.avatarCopy}>This appears on your store and buyer messages.</Text>
               </View>
             </View>
 
-            <View style={styles.coverSection}>
-              <TouchableOpacity onPress={handlePickCoverImage} activeOpacity={0.85} style={styles.coverButton}>
-                {coverImage ? (
-                  <Image source={{ uri: coverImage }} style={styles.coverImage} />
-                ) : (
-                  <View style={styles.coverPlaceholder}>
-                    <Ionicons name="image-outline" size={28} color="#076B51" />
-                    <Text style={styles.coverPlaceholderText}>Upload store cover</Text>
-                  </View>
-                )}
-                <View style={styles.coverBadge}>
-                  {uploadingCover ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Ionicons name="camera-outline" size={14} color="#FFFFFF" />
-                  )}
-                </View>
-              </TouchableOpacity>
-              <Text style={styles.coverTitle}>Store cover image</Text>
-              <Text style={styles.coverCopy}>
-                Buyers see this large banner first when they open your public store link.
-              </Text>
-            </View>
+            <Field label="Full name" value={name} onChangeText={setName} placeholder="Your name" />
+            <Field label="Phone number" value={phone} onChangeText={setPhone} placeholder="+44 7700 900000" keyboardType="phone-pad" />
 
-            <Field label="Store name" value={storeName} onChangeText={setStoreName} placeholder="Queen African Foods" />
-            <Field
-              label="Store description"
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Tell buyers what makes your store special."
-              multiline
-            />
-            <Field label="City" value={city} onChangeText={setCity} placeholder="Birmingham" />
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Country</Text>
               <SelectBox
                 options={COUNTRY_NAMES}
                 selected={country}
                 onSelect={(value) => setCountry(value)}
-                placeholder="Select country"
+                placeholder="Select your country"
               />
-            </View>
-
-            <View style={styles.notice}>
-              <Ionicons name="information-circle-outline" size={16} color="#076B51" />
-              <Text style={styles.noticeText}>
-                Buyers see this profile on your public store page, product page, and shareable checkout flow.
-              </Text>
             </View>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -232,10 +159,10 @@ interface FieldProps {
   value: string;
   onChangeText: (value: string) => void;
   placeholder?: string;
-  multiline?: boolean;
+  keyboardType?: "default" | "phone-pad";
 }
 
-function Field({ label, value, onChangeText, placeholder, multiline }: FieldProps) {
+function Field({ label, value, onChangeText, placeholder, keyboardType = "default" }: FieldProps) {
   return (
     <View style={styles.fieldGroup}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -244,9 +171,8 @@ function Field({ label, value, onChangeText, placeholder, multiline }: FieldProp
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor="#8A8F94"
-        multiline={multiline}
-        textAlignVertical={multiline ? "top" : "center"}
-        style={[styles.input, multiline && styles.inputMultiline]}
+        keyboardType={keyboardType}
+        style={styles.input}
       />
     </View>
   );
@@ -266,20 +192,9 @@ const styles = StyleSheet.create({
   avatarBadge: { position: "absolute", right: 0, bottom: 0, width: 25, height: 25, borderRadius: 13, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFFFFF" },
   avatarTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
   avatarCopy: { fontSize: 12, lineHeight: 17, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 3 },
-  coverSection: { marginBottom: 18 },
-  coverButton: { width: "100%", height: 180, borderRadius: 22, overflow: "hidden", backgroundColor: "#EAF5F0", alignItems: "center", justifyContent: "center", position: "relative" },
-  coverImage: { width: "100%", height: "100%" },
-  coverPlaceholder: { alignItems: "center", justifyContent: "center", gap: 10 },
-  coverPlaceholderText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  coverBadge: { position: "absolute", right: 12, bottom: 12, width: 34, height: 34, borderRadius: 17, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFFFFF" },
-  coverTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 12 },
-  coverCopy: { fontSize: 12, lineHeight: 17, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 4 },
   fieldGroup: { marginBottom: 14 },
   fieldLabel: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#687076", marginBottom: 6 },
   input: { minHeight: 52, borderRadius: 14, backgroundColor: "#F6F7F7", paddingHorizontal: 14, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
-  inputMultiline: { minHeight: 120, paddingTop: 12, paddingBottom: 12 },
-  notice: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#EAF5F0", borderRadius: 16, padding: 14, marginTop: 4 },
-  noticeText: { flex: 1, fontSize: 12, lineHeight: 18, fontFamily: "Outfit-Regular", color: "#24564A" },
   errorText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#FB6363", marginTop: 12 },
   primaryButton: { height: 56, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
   primaryButtonText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },

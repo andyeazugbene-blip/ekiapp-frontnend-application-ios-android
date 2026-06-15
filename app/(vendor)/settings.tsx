@@ -179,6 +179,12 @@ export default function VendorSettingsScreen() {
         <Text style={styles.sectionTitle}>Store Management</Text>
         <View style={styles.card}>
           <SettingRow
+            icon="person-outline"
+            label="Edit Personal Profile"
+            description="Update your name, phone, country, and avatar"
+            onPress={() => router.push("/(vendor)/edit-personal-profile" as any)}
+          />
+          <SettingRow
             icon="storefront-outline"
             label="Edit Store Profile"
             description="Update store name, city, country, and public description"
