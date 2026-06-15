@@ -50,7 +50,7 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
-      "credentialsSource": "local",
+      "credentialsSource": "remote",
       "env": {
         "EXPO_PUBLIC_USE_MOCK_API": "false",
         "EXPO_PUBLIC_API_URL": "https://ekiapp-backend.vercel.app",
@@ -63,7 +63,7 @@
         "EXPO_PUBLIC_VERCEL_FALLBACK_URL": "https://ekiapp-backend.vercel.app",
         "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_live_g7ktIhl7pC6ajaQ1nraoaJeU",
         "EXPO_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAADbdUSFvS7twWicQ",
-        "EXPO_PUBLIC_APP_REVIEW_MODE": "false"
+        "EXPO_PUBLIC_APP_REVIEW_MODE": "true"
       },
       "android": {
         "buildType": "app-bundle"
