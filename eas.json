@@ -50,7 +50,7 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
-      "credentialsSource": "remote",
+      "credentialsSource": "local",
       "env": {
         "EXPO_PUBLIC_USE_MOCK_API": "false",
         "EXPO_PUBLIC_API_URL": "https://ekiapp-backend.vercel.app",

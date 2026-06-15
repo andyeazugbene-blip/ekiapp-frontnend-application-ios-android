@@ -135,6 +135,7 @@ export default function VendorLayout() {
       />
 
       <Tabs.Screen name="edit-store-profile" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="edit-personal-profile" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="earnings" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="activation" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="buyers-profile" options={{ href: null, tabBarStyle: { display: "none" } }} />

@@ -22,3 +22,18 @@ allprojects {
 
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
+
+// Fix: autolinked native modules need release variants for RN 0.81 new arch
+subprojects {
+    afterEvaluate { p ->
+        if (p.hasProperty("android")) {
+            p.android {
+                publishing {
+                    multipleVariants {
+                        allVariants()
+                    }
+                }
+            }
+        }
+    }
+}
