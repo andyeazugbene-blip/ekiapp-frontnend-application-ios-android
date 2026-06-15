@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -28,6 +28,8 @@ export default function ExploreScreen() {
   const [search, setSearch] = useState(params.search ?? "");
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
+  const addedAnim = useRef(new Animated.Value(0)).current;
 
   const loadData = useCallback(async (query?: string) => {
     setLoading(true);
@@ -68,6 +70,11 @@ export default function ExploreScreen() {
   };
 
   const handleAddToCart = (product: Product) => {
+    setRecentlyAddedId(product.id);
+    Animated.sequence([
+      Animated.timing(addedAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.timing(addedAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start(() => setRecentlyAddedId(null));
     addItem(product, 1).catch((err) => {
       Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
     });
@@ -203,10 +210,10 @@ export default function ExploreScreen() {
                         <TouchableOpacity
                           onPress={() => handleAddToCart(product)}
                           activeOpacity={0.85}
-                          style={styles.addCartBtn}
+                          style={[styles.addCartBtn, recentlyAddedId === product.id && { backgroundColor: "#076B51" }]}
                         >
-                          <Text style={styles.addCartText}>Add to cart</Text>
-                          <Ionicons name="cart-outline" size={12} color="#076B51" />
+                          <Text style={[styles.addCartText, recentlyAddedId === product.id && { color: "#FFFFFF" }]}>{recentlyAddedId === product.id ? "Added!" : "Add to cart"}</Text>
+                          <Ionicons name={recentlyAddedId === product.id ? "checkmark-circle" : "cart-outline"} size={12} color={recentlyAddedId === product.id ? "#FFFFFF" : "#076B51"} />
                         </TouchableOpacity>
                       </TouchableOpacity>
                     );
@@ -282,10 +289,10 @@ export default function ExploreScreen() {
                         <TouchableOpacity
                           onPress={() => handleAddToCart(product)}
                           activeOpacity={0.85}
-                          style={styles.addCartBtn}
+                          style={[styles.addCartBtn, recentlyAddedId === product.id && { backgroundColor: "#076B51" }]}
                         >
-                          <Text style={styles.addCartText}>Add to cart</Text>
-                          <Ionicons name="cart-outline" size={12} color="#076B51" />
+                          <Text style={[styles.addCartText, recentlyAddedId === product.id && { color: "#FFFFFF" }]}>{recentlyAddedId === product.id ? "Added!" : "Add to cart"}</Text>
+                          <Ionicons name={recentlyAddedId === product.id ? "checkmark-circle" : "cart-outline"} size={12} color={recentlyAddedId === product.id ? "#FFFFFF" : "#076B51"} />
                         </TouchableOpacity>
                       </TouchableOpacity>
                     );

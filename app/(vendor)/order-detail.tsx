@@ -349,11 +349,34 @@ export default function OrderDetailScreen() {
             >
               <Text style={styles.secondaryActionText}>Mark Shipped</Text>
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/orders" as any)} activeOpacity={0.86} style={styles.secondaryAction}>
-              <Text style={styles.secondaryActionText}>Cancel</Text>
+          ) : null}
+
+          {order.status === "pending" || order.status === "paid" ? (
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert("Cancel order?", "Are you sure you want to cancel this order?", [
+                  { text: "No", style: "cancel" },
+                  { text: "Yes, cancel", style: "destructive", onPress: async () => {
+                    setSubmitting(true);
+                    try {
+                      await orderService.updateOrderStatus(order.id, "cancelled");
+                      await load();
+                      Alert.alert("Cancelled", "The order has been cancelled.");
+                    } catch (err) {
+                      Alert.alert("Could not cancel", err instanceof Error ? err.message : "Please try again.");
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }},
+                ]);
+              }}
+              disabled={submitting}
+              activeOpacity={0.86}
+              style={[styles.secondaryAction, submitting && styles.buttonDisabled]}
+            >
+              <Text style={[styles.secondaryActionText, { color: "#e55353" }]}>{submitting ? "Cancelling..." : "Cancel Order"}</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
         </LinearGradient>
 
         {error ? <Text style={styles.footerError}>{error}</Text> : null}
