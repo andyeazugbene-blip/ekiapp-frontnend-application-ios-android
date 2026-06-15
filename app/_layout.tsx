@@ -11,13 +11,26 @@ import { useAuthStore } from "../stores/authStore";
 import { pushTokenService } from "../services/notificationService";
 import { initMonitoring } from "../services/monitoring";
 import "../global.css";
-// Must be set at app root — not only in login flow
+
+// Must be set before any notification arrives — runs at module init
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
+  handleNotification: async (notification) => {
+    // Show banner, play sound, update badge on both iOS and Android
+    // when the app is in the foreground.
+    const data = notification.request.content.data;
+    if (__DEV__) {
+      console.log("[Push] Foreground notification received:", {
+        title: notification.request.content.title,
+        body: notification.request.content.body,
+        data,
+      });
+    }
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    };
+  },
 });
 
 export default function RootLayout() {
@@ -41,7 +54,8 @@ export default function RootLayout() {
     useAuthStore.getState().checkAuth().catch(() => {});
   }, []);
 
-  // Create Android notification channels (required for Android 8+)
+  // Create notification channels (Android) and categories (iOS).
+  // Must be done before any notification is received.
   useEffect(() => {
     if (Platform.OS === "android") {
       Notifications.setNotificationChannelAsync("default", {
@@ -63,6 +77,22 @@ export default function RootLayout() {
         importance: Notifications.AndroidImportance?.HIGH ?? 4,
       }).catch(() => {});
     }
+    if (Platform.OS === "ios") {
+      // iOS notification categories allow notification actions and
+      // ensure foreground alerts display correctly.
+      Notifications.setNotificationCategoryAsync("default", [
+        { identifier: "view", buttonTitle: "View", options: { opensAppToForeground: true } },
+      ]).catch(() => {});
+      Notifications.setNotificationCategoryAsync("orders", [
+        { identifier: "view", buttonTitle: "View Order", options: { opensAppToForeground: true } },
+      ]).catch(() => {});
+      Notifications.setNotificationCategoryAsync("payouts", [
+        { identifier: "view", buttonTitle: "View", options: { opensAppToForeground: true } },
+      ]).catch(() => {});
+      Notifications.setNotificationCategoryAsync("messages", [
+        { identifier: "reply", buttonTitle: "Reply", options: { opensAppToForeground: true } },
+      ]).catch(() => {});
+    }
   }, []);
 
   // Register push token on app start (not just on login)
@@ -82,25 +112,53 @@ export default function RootLayout() {
 
 
   useEffect(() => {
-    // Handle notification taps - deep link to relevant screen
-    const sub = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
-      if (data?.orderId) {
-        // Navigate to the appropriate order detail screen
-        // This will work when expo-router is ready
-        try {
-          const router = require("expo-router").router;
-          if (data.type === "new_order" || data.type === "order_status") {
-            router.push(`/(vendor)/order-detail?id=${data.orderId}`);
-          } else if (data.type === "order_paid") {
-            router.push(`/(buyer)/orders`);
-          } else if (data.type === "new_message") {
-            router.push(`/(vendor)/messages`);
-          }
-        } catch {}
+    // Log foreground notifications for debugging
+    const receivedSub = Notifications.addNotificationReceivedListener(notification => {
+      if (__DEV__) {
+        console.log("[Push] Notification received while app is in foreground:", {
+          title: notification.request.content.title,
+          body: notification.request.content.body,
+          data: notification.request.content.data,
+        });
       }
     });
-    return () => sub.remove();
+
+    // Handle notification taps - deep link to relevant screen
+    const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      if (!data) return;
+      try {
+        const router = require("expo-router").router;
+        const type = data.type as string | undefined;
+
+        if (type === "order_status" || type === "new_order") {
+          if (data.orderId) {
+            // Determine vendor vs buyer based on current role
+            const role = useAuthStore.getState().user?.role;
+            if (role === "vendor" || role === "admin") {
+              router.push(`/(vendor)/order-detail?id=${data.orderId}`);
+            } else {
+              router.push(`/(buyer)/orders`);
+            }
+          }
+        } else if (type === "order_paid" || type === "order_delivered") {
+          router.push(`/(buyer)/orders`);
+        } else if (type === "new_message") {
+          router.push(`/(vendor)/messages`);
+        } else if (type === "earnings_released" || type === "payout_approved") {
+          router.push(`/(vendor)/earnings`);
+        } else if (type === "admin_broadcast") {
+          // Default: no specific deep link for broadcasts
+        }
+      } catch {
+        // Router not ready yet — ignore
+      }
+    });
+
+    return () => {
+      receivedSub.remove();
+      responseSub.remove();
+    };
   }, []);
 
   if (!fontsLoaded) {
