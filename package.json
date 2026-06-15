@@ -5,8 +5,8 @@
   "scripts": {
     "postinstall": "node scripts/patch-stripe-react-native-ios.js",
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "check:no-mock-data": "node scripts/check-no-mock-data.js",
@@ -33,6 +33,7 @@
     "@stripe/stripe-js": "^9.7.0",
     "@stripe/stripe-react-native": "0.50.3",
     "expo": "~54.0.35",
+    "expo-build-properties": "~1.0.10",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
     "expo-device": "~8.0.10",
