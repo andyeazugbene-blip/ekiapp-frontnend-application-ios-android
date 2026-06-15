@@ -1136,8 +1136,8 @@ const styles = StyleSheet.create({
   },
 
   // ── Grow grid ────────────────────────────────────────────────────────
-  growGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 12 },
-  growCard: { width: "48.5%", minHeight: 114, borderRadius: 20, padding: 14, justifyContent: "space-between" },
+  growGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 12 },
+  growCard: { width: (SCREEN_WIDTH - 16 * 2 - 10) / 2, minHeight: 114, borderRadius: 20, padding: 14, justifyContent: "space-between" },
   growDark: { backgroundColor: "#076B51" },
   growLight: { backgroundColor: "#FFFFFF" },
   growBlack: { backgroundColor: "#282828" },
