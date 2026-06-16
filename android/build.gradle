@@ -18,6 +18,15 @@ allprojects {
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
   }
+  afterEvaluate { p ->
+    if (p.hasProperty("android")) {
+      p.android.publishing {
+        multipleVariants {
+          allVariants()
+        }
+      }
+    }
+  }
 }
 
 apply plugin: "expo-root-project"
