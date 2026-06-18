@@ -76,7 +76,7 @@ export default function CartScreen() {
             <Text style={styles.emptyTitle}>Your cart is empty</Text>
             <Text style={styles.emptyBody}>Browse foodstuff and add items to get started.</Text>
             <TouchableOpacity
-              onPress={() => router.push("/(buyer)/explore" as any)}
+              onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any)}
               activeOpacity={0.85}
               style={styles.browseButton}
             >

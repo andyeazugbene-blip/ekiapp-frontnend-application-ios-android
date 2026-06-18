@@ -240,11 +240,6 @@ export default function ProductDetailScreen() {
               ))}
             </ScrollView>
           )}
-
-          <View style={styles.protectionBanner}>
-            <Ionicons name="shield-checkmark-outline" size={20} color="#0A6C52" />
-            <Text style={styles.protectionText}>Payment is protected until delivery is confirmed</Text>
-          </View>
         </View>
       </ScrollView>
 
@@ -312,10 +307,14 @@ const styles = StyleSheet.create({
   },
   heroImage: {
     width: "100%",
-    height: "100%",
+    height: 210,
   },
   heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 210,
     backgroundColor: "rgba(0,0,0,0.36)",
   },
   heroSafe: {
@@ -341,7 +340,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 24,
     right: 24,
-    bottom: 34,
+    bottom: 28,
   },
   currencyBadge: {
     alignSelf: "flex-start",
@@ -537,25 +536,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Outfit-Regular",
     marginTop: 4,
-  },
-  protectionBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginTop: 20,
-    borderRadius: 18,
-    backgroundColor: "#F4F5F2",
-    borderWidth: 1,
-    borderColor: "#E6E7E3",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  protectionText: {
-    flex: 1,
-    color: "#6F7478",
-    fontSize: 15,
-    lineHeight: 20,
-    fontFamily: "Outfit-Regular",
   },
   bottomBar: {
     flexDirection: "row",

@@ -286,7 +286,14 @@ export default function CheckoutScreen() {
             <TouchableOpacity onPress={() => { setShowSuccess(false); router.push("/(buyer)/orders" as any); }} activeOpacity={0.85} style={styles.trackBtn}>
               <Text style={styles.trackBtnText}>View Orders</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => { setShowSuccess(false); router.push("/(buyer)/explore" as any); }} activeOpacity={0.85} style={styles.closeModalBtn}>
+            <TouchableOpacity
+              onPress={() => {
+                setShowSuccess(false);
+                router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any);
+              }}
+              activeOpacity={0.85}
+              style={styles.closeModalBtn}
+            >
               <Text style={styles.closeModalText}>Continue Shopping</Text>
             </TouchableOpacity>
           </View>

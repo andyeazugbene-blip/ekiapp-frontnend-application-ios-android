@@ -23,7 +23,11 @@ export default function DeliveryUnavailableScreen() {
         <Text style={styles.title}>Delivery Unavailable</Text>
         <Text style={styles.subtitle}>Sorry, this vendor doesn't deliver to your location yet. Try a different vendor or check back later.</Text>
 
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/explore" as any)} activeOpacity={0.85} style={styles.primaryButton}>
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "vendors" } } as any)}
+          activeOpacity={0.85}
+          style={styles.primaryButton}
+        >
           <Text style={styles.primaryButtonText}>Browse Other Vendors</Text>
         </TouchableOpacity>
 

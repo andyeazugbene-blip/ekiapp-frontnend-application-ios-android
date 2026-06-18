@@ -101,7 +101,11 @@ export default function OrderConfirmationScreen() {
           </View>
         </View>
 
-        <TouchableOpacity onPress={() => router.push("/(buyer)/explore" as any)} activeOpacity={0.85} style={styles.browseBtn}>
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any)}
+          activeOpacity={0.85}
+          style={styles.browseBtn}
+        >
           <Text style={styles.browseBtnText}>Browse Foodstuff</Text>
         </TouchableOpacity>
       </View>

@@ -195,10 +195,12 @@ export const vendorService = {
     return normalizeVendor(response.vendor);
   },
 
-  async getAllVendors(filter?: { status?: VendorAdminStatus | string; search?: string; admin?: boolean }) {
+  async getAllVendors(filter?: { status?: VendorAdminStatus | string; search?: string; admin?: boolean; limit?: number; sort?: string }) {
     const query = new URLSearchParams();
     if (filter?.status) query.set("status", filter.status);
     if (filter?.search) query.set("search", filter.search);
+    if (filter?.limit) query.set("limit", String(filter.limit));
+    if (filter?.sort) query.set("sort", filter.sort);
     const qs = query.toString();
 
     const endpoint = filter?.admin ? "/api/admin/vendors" : "/api/vendors";

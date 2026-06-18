@@ -238,7 +238,11 @@ export default function WalletScreen() {
                   ))
                 )}
 
-                <TouchableOpacity onPress={() => router.push("/(buyer)/explore" as any)} activeOpacity={0.86} style={styles.secondaryAction}>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any)}
+                  activeOpacity={0.86}
+                  style={styles.secondaryAction}
+                >
                   <Text style={styles.secondaryActionText}>Browse Menu</Text>
                 </TouchableOpacity>
               </>

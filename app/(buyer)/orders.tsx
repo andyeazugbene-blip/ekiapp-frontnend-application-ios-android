@@ -83,6 +83,13 @@ export default function OrdersScreen() {
             <Ionicons name="receipt-outline" size={48} color="#858585" />
             <Text style={styles.emptyTitle}>No orders yet</Text>
             <Text style={styles.emptyBody}>Your order history will appear here.</Text>
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any)}
+              activeOpacity={0.85}
+              style={styles.browseButton}
+            >
+              <Text style={styles.browseButtonText}>Browse Foodstuff</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.card}>
@@ -146,6 +153,8 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#FB6363", textAlign: "center", paddingVertical: 30 },
   emptyTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 },
   emptyBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 6 },
+  browseButton: { marginTop: 20, height: 44, borderRadius: 12, backgroundColor: "#076B51", paddingHorizontal: 24, alignItems: "center", justifyContent: "center" },
+  browseButtonText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
   orderItem: { paddingVertical: 16 },
   orderBorder: { borderBottomWidth: 1, borderBottomColor: "#F4F4F4" },
   orderTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 4 },

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -15,9 +15,13 @@ import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { formatDisplayMoney } from "../../utils/currency";
 import { goBackOrReplace } from "../../utils/navigation";
 
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const GRID_PRODUCT_WIDTH = Math.floor((SCREEN_WIDTH - 42) / 2);
+type ExploreView = "all" | "products" | "vendors";
+
 export default function ExploreScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ search?: string; category?: string }>();
+  const params = useLocalSearchParams<{ search?: string; category?: string; view?: string; sort?: string }>();
   const addItem = useCartStore((s) => s.addItem);
   const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
   const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
@@ -30,17 +34,23 @@ export default function ExploreScreen() {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
   const addedAnim = useRef(new Animated.Value(0)).current;
+  const activeView: ExploreView =
+    params.view === "products" || params.view === "vendors" ? params.view : "all";
+  const showProducts = activeView !== "vendors";
+  const showVendors = activeView !== "products";
+  const title =
+    activeView === "products" ? "All foodstuff" : activeView === "vendors" ? "New vendors" : "Browse foodstuff";
 
   const loadData = useCallback(async (query?: string) => {
     setLoading(true);
     const [prods, vends] = await Promise.all([
-      productService.getAll({ category: params.category || undefined, limit: 80 }).catch(() => [] as Product[]),
-      vendorService.getAllVendors().catch(() => [] as VendorSummary[]),
+      productService.getAll({ category: params.category || undefined, search: query || undefined, limit: 200 }).catch(() => [] as Product[]),
+      vendorService.getAllVendors({ status: "active", search: query || undefined, sort: params.sort || "newest", limit: 200 }).catch(() => [] as VendorSummary[]),
     ]);
     setProducts(prods ?? []);
     setVendors(vends ?? []);
     setLoading(false);
-  }, [params.category]);
+  }, [params.category, params.sort]);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,9 +90,17 @@ export default function ExploreScreen() {
     });
   };
 
-  const clearFilters = () => {
-    setSearch("");
-    loadData("");
+  const openView = (view: ExploreView) => {
+    const trimmed = search.trim();
+    router.push({
+      pathname: "/(buyer)/explore",
+      params: {
+        view,
+        ...(view === "vendors" ? { sort: "newest" } : {}),
+        ...(trimmed ? { search: trimmed } : {}),
+        ...(params.category ? { category: params.category } : {}),
+      },
+    } as any);
   };
 
   const handleOpenVendor = (vendorId: string) => {
@@ -110,7 +128,7 @@ export default function ExploreScreen() {
     [normalizedSearch, products],
   );
 
-  const vendorList = useMemo(
+  const filteredVendors = useMemo(
     () =>
       (vendors ?? [])
         .filter((vendor) => {
@@ -125,13 +143,13 @@ export default function ExploreScreen() {
             .join(" ")
             .toLowerCase();
           return haystack.includes(normalizedSearch);
-        })
-        .slice(0, 5),
+        }),
     [normalizedSearch, vendors],
   );
 
   const popular = filteredProducts.slice(0, 8);
   const bestSellers = filteredProducts.slice(0, 6);
+  const vendorPreview = filteredVendors.slice(0, 5);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -140,7 +158,7 @@ export default function ExploreScreen() {
         <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Browse foodstuff</Text>
+        <Text style={styles.headerTitle}>{title}</Text>
         <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
           <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
         </TouchableOpacity>
@@ -150,7 +168,7 @@ export default function ExploreScreen() {
       <View style={styles.searchBar}>
         <Ionicons name="search-outline" size={18} color="#858585" />
         <TextInput
-          autoFocus
+          autoFocus={activeView === "all"}
           style={styles.searchInput}
           placeholder="Search for foodstuff"
           placeholderTextColor="#858585"
@@ -165,20 +183,52 @@ export default function ExploreScreen() {
           <View style={{ paddingVertical: 60, alignItems: "center" }}>
             <ActivityIndicator color="#076B51" />
           </View>
-        ) : filteredProducts.length === 0 && vendorList.length === 0 ? (
+        ) : (showProducts ? filteredProducts.length === 0 : true) && (showVendors ? filteredVendors.length === 0 : true) ? (
           <View style={{ paddingVertical: 60, alignItems: "center" }}>
             <Ionicons name="search-outline" size={48} color="#858585" />
-            <Text style={{ fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 }}>No products found</Text>
+            <Text style={{ fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 }}>No results found</Text>
             <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 6 }}>Try a different search term.</Text>
           </View>
         ) : (
           <>
+            {activeView === "products" && filteredProducts.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>All available foodstuff</Text>
+                <View style={styles.productGrid}>
+                  {filteredProducts.map((product) => (
+                    <ProductResultCard
+                      key={product.id}
+                      product={product}
+                      selectedCurrency={selectedCurrency}
+                      recentlyAddedId={recentlyAddedId}
+                      onOpen={() => router.push({ pathname: "/(buyer)/product-detail", params: { id: product.id } } as any)}
+                      onOpenVendor={() => handleOpenVendor(product.vendorId)}
+                      onAdd={() => handleAddToCart(product)}
+                    />
+                  ))}
+                </View>
+              </>
+            )}
+
+            {activeView === "vendors" && filteredVendors.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>New vendors</Text>
+                {filteredVendors.map((vendor) => (
+                  <VendorResultRow
+                    key={vendor.id}
+                    vendor={vendor}
+                    onPress={() => router.push({ pathname: "/(buyer)/vendor-detail", params: { id: vendor.id } } as any)}
+                  />
+                ))}
+              </>
+            )}
+
             {/* Popular foodstuff */}
-            {popular.length > 0 && (
+            {activeView === "all" && popular.length > 0 && (
               <>
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>Popular foodstuff</Text>
-                  <TouchableOpacity onPress={clearFilters} activeOpacity={0.7}>
+                  <TouchableOpacity onPress={() => openView("products")} activeOpacity={0.7}>
                     <Text style={styles.viewAll}>View All</Text>
                   </TouchableOpacity>
                 </View>
@@ -223,42 +273,26 @@ export default function ExploreScreen() {
             )}
 
             {/* New vendors */}
-            {vendorList.length > 0 && (
+            {activeView === "all" && vendorPreview.length > 0 && (
               <>
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>New vendors</Text>
-                  <TouchableOpacity onPress={clearFilters} activeOpacity={0.7}>
+                  <TouchableOpacity onPress={() => openView("vendors")} activeOpacity={0.7}>
                     <Text style={styles.viewAll}>View All</Text>
                   </TouchableOpacity>
                 </View>
-                {vendorList.map((vendor) => (
-                  <TouchableOpacity
+                {vendorPreview.map((vendor) => (
+                  <VendorResultRow
                     key={vendor.id}
+                    vendor={vendor}
                     onPress={() => router.push({ pathname: "/(buyer)/vendor-detail", params: { id: vendor.id } } as any)}
-                    activeOpacity={0.85}
-                    style={styles.vendorRow}
-                  >
-                    <View style={styles.vendorAvatar}>
-                      {vendor.avatar ? (
-                        <RemoteImage uri={vendor.avatar} style={{ width: 44, height: 44, borderRadius: 22 }} />
-                      ) : (
-                        <Ionicons name="storefront-outline" size={20} color="#858585" />
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.vendorName}>{vendor.storeName ?? "Store"}</Text>
-                      <Text style={styles.vendorDesc} numberOfLines={1}>{vendor.description || "Authentic Nigerian Ingredients"}</Text>
-                    </View>
-                    <View style={styles.vendorArrow}>
-                      <Ionicons name="arrow-up" size={14} color="#076B51" style={{ transform: [{ rotate: "45deg" }] }} />
-                    </View>
-                  </TouchableOpacity>
+                  />
                 ))}
               </>
             )}
 
             {/* Best Sellers */}
-            {bestSellers.length > 0 && (
+            {activeView === "all" && bestSellers.length > 0 && (
               <>
                 <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Best Sellers</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productScroll}>
@@ -313,7 +347,7 @@ export default function ExploreScreen() {
             </LinearGradient>
 
             {/* Support new vendors */}
-            {vendorList.length > 0 && (
+            {activeView === "all" && vendorPreview.length > 0 && (
               <View style={styles.supportCard}>
                 <View style={styles.supportHeader}>
                   <View>
@@ -323,7 +357,7 @@ export default function ExploreScreen() {
                   <Ionicons name="heart" size={20} color="rgba(255,255,255,0.2)" />
                 </View>
                 <View style={styles.supportChips}>
-                  {vendorList.slice(0, 2).map((v, i) => (
+                  {vendorPreview.slice(0, 2).map((v, i) => (
                     <TouchableOpacity
                       key={v.id}
                       onPress={() => router.push({ pathname: "/(buyer)/vendor-detail", params: { id: v.id } } as any)}
@@ -335,12 +369,7 @@ export default function ExploreScreen() {
                   ))}
                 </View>
                 <TouchableOpacity
-                  onPress={() => {
-                    const firstVendor = vendorList[0];
-                    if (firstVendor) {
-                      router.push({ pathname: "/(buyer)/vendor-detail", params: { id: firstVendor.id } } as any);
-                    }
-                  }}
+                  onPress={() => openView("vendors")}
                   activeOpacity={0.85}
                   style={styles.supportBtn}
                 >
@@ -359,6 +388,66 @@ export default function ExploreScreen() {
         onClose={() => setCurrencyOpen(false)}
       />
     </SafeAreaView>
+  );
+}
+
+function ProductResultCard({
+  product,
+  selectedCurrency,
+  recentlyAddedId,
+  onOpen,
+  onOpenVendor,
+  onAdd,
+}: {
+  product: Product;
+  selectedCurrency: string;
+  recentlyAddedId: string | null;
+  onOpen: () => void;
+  onOpenVendor: () => void;
+  onAdd: () => void;
+}) {
+  const justAdded = recentlyAddedId === product.id;
+
+  return (
+    <TouchableOpacity onPress={onOpen} activeOpacity={0.85} style={[styles.productCard, styles.productGridCard]}>
+      <View style={styles.productImage}>
+        {product.images?.[0] ? (
+          <RemoteImage uri={product.images[0]} style={{ width: "100%", height: "100%" }} />
+        ) : null}
+        <TouchableOpacity onPress={onOpenVendor} activeOpacity={0.85} style={styles.productHeart}>
+          <Ionicons name="storefront-outline" size={14} color="#076B51" />
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.productName} numberOfLines={1}>{product.name ?? "Product"}</Text>
+      <Text style={styles.productPrice}>
+        {formatDisplayMoney(product.price ?? 0, product.currency, selectedCurrency)}
+      </Text>
+      <TouchableOpacity onPress={onAdd} activeOpacity={0.85} style={[styles.addCartBtn, justAdded && { backgroundColor: "#076B51" }]}>
+        <Text style={[styles.addCartText, justAdded && { color: "#FFFFFF" }]}>{justAdded ? "Added!" : "Add to cart"}</Text>
+        <Ionicons name={justAdded ? "checkmark-circle" : "cart-outline"} size={12} color={justAdded ? "#FFFFFF" : "#076B51"} />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+}
+
+function VendorResultRow({ vendor, onPress }: { vendor: VendorSummary; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.vendorRow}>
+      <View style={styles.vendorAvatar}>
+        {vendor.avatar ? (
+          <RemoteImage uri={vendor.avatar} style={{ width: 44, height: 44, borderRadius: 22 }} />
+        ) : (
+          <Ionicons name="storefront-outline" size={20} color="#858585" />
+        )}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.vendorName}>{vendor.storeName ?? "Store"}</Text>
+        <Text style={styles.vendorDesc} numberOfLines={1}>{vendor.description || "Authentic Nigerian Ingredients"}</Text>
+      </View>
+      <View style={styles.vendorArrow}>
+        <Ionicons name="arrow-up" size={14} color="#076B51" style={{ transform: [{ rotate: "45deg" }] }} />
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -384,7 +473,9 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", paddingHorizontal: 16, marginBottom: 10 },
   viewAll: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#076B51" },
   productScroll: { paddingHorizontal: 16, gap: 10, marginBottom: 10 },
+  productGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 16, marginBottom: 10 },
   productCard: { width: 150, backgroundColor: "#FFFFFF", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#F0F0F0" },
+  productGridCard: { width: GRID_PRODUCT_WIDTH },
   productImage: { width: "100%", height: 160, backgroundColor: "#F0E6D4" },
   productHeart: { position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: 13, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   productName: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828", paddingHorizontal: 10, paddingTop: 8 },
@@ -410,4 +501,3 @@ const styles = StyleSheet.create({
   supportBtn: { height: 36, borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" },
   supportBtnText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
 });
-

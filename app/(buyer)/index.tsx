@@ -343,7 +343,15 @@ export default function BuyerHomeScreen() {
         ) : null}
 
         <View style={styles.sectionBlock}>
-          <Text style={styles.sectionTitle}>Popular foodstuff</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitleInline}>Popular foodstuff</Text>
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.viewAllText}>View All</Text>
+            </TouchableOpacity>
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
             {categoryItems.map((product) => (
               <TouchableOpacity
@@ -374,7 +382,15 @@ export default function BuyerHomeScreen() {
 
         {vendors.length > 0 ? (
           <View style={styles.sectionBlock}>
-            <Text style={styles.sectionTitle}>New vendors</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitleInline}>New vendors</Text>
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "vendors", sort: "newest" } } as any)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vendorsScroll}>
               {vendors.map((vendor) => (
                 <TouchableOpacity
@@ -410,7 +426,15 @@ export default function BuyerHomeScreen() {
 
         {bestSellers.length > 0 ? (
           <View style={styles.sectionBlock}>
-            <Text style={styles.sectionTitle}>Best Sellers</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitleInline}>Best Sellers</Text>
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bestSellerScroll}>
               {bestSellers.map((product) => {
                 return (
@@ -474,7 +498,11 @@ export default function BuyerHomeScreen() {
               </TouchableOpacity>
             ))}
 
-            <TouchableOpacity onPress={() => router.push("/(buyer)/explore" as any)} activeOpacity={0.86} style={styles.supportButton}>
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "vendors", sort: "newest" } } as any)}
+              activeOpacity={0.86}
+              style={styles.supportButton}
+            >
               <Text style={styles.supportButtonText}>Support new vendors</Text>
             </TouchableOpacity>
           </View>
@@ -619,6 +647,24 @@ const styles = StyleSheet.create({
     color: "#2B2B2B",
     marginBottom: 14,
     paddingHorizontal: 16,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginBottom: 14,
+  },
+  sectionTitleInline: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontFamily: "Manrope-Bold",
+    color: "#2B2B2B",
+  },
+  viewAllText: {
+    color: "#076B51",
+    fontSize: 13,
+    fontFamily: "Manrope-Bold",
   },
   dealsScroll: {
     paddingHorizontal: 16,

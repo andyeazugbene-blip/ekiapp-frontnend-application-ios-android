@@ -212,7 +212,11 @@ export default function VendorDetailScreen() {
             <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => router.push("/(buyer)/explore" as any)} activeOpacity={0.86} style={styles.browseButton}>
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any)}
+            activeOpacity={0.86}
+            style={styles.browseButton}
+          >
             <Text style={styles.browseButtonText}>Browse Foodstuff</Text>
           </TouchableOpacity>
         </View>
