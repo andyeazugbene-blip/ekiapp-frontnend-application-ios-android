@@ -127,11 +127,32 @@ export default function VendorDetailPage() {
         )}
       </Card>
 
+      <SellerPlanCard vendorId={data.id} currentPlan={data.subscriptionPlan ?? "free"} onSaved={load} />
+
       <div className="flex gap-3">
         {data.verificationStatus !== "VERIFIED" && <Button onClick={async () => { await vendorsAPI.approveVendor(data.id); await load(); }}>Approve</Button>}
         <Button variant="secondary" onClick={() => router.push(`/communication?vendorId=${data.id}`)}>Send Message</Button>
       </div>
     </div></AdminLayout></ProtectedRoute>
+  );
+}
+
+function SellerPlanCard({ vendorId, currentPlan, onSaved }: { vendorId: string; currentPlan: string; onSaved: () => void }) {
+  const [plan, setPlan] = useState(currentPlan.toUpperCase());
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+  const PLANS = ["FREE", "GROWTH", "PRO"];
+  return (
+    <Card>
+      <h2 className="text-lg font-bold mb-4">Seller Plan</h2>
+      <div className="flex items-center gap-3">
+        <select value={plan} onChange={e => setPlan(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
+          {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <Button disabled={saving} onClick={async () => { setSaving(true); setMsg(""); try { await vendorsAPI.assignSellerPlan(vendorId, plan); setMsg("Plan updated."); onSaved(); } catch (err) { setMsg(err instanceof Error ? err.message : "Failed"); } finally { setSaving(false); } }}>{saving ? "Saving..." : "Assign Plan"}</Button>
+        {msg && <span className="text-sm text-gray-600">{msg}</span>}
+      </div>
+    </Card>
   );
 }
 

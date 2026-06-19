@@ -31,7 +31,7 @@ export const verificationAPI = {
   ): Promise<void> {
     await apiClient.patch(
       `/admin/verification-documents/${docId}/review`,
-      { decision: decision.toUpperCase(), note },
+      { status: decision.toUpperCase(), rejectionReason: decision === "rejected" ? note : undefined },
       { twoFactorCode }
     );
   },

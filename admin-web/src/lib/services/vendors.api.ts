@@ -91,4 +91,8 @@ export const vendorsAPI = {
   async unsuspendVendor(vendorId: string, twoFactorCode?: string): Promise<void> {
     await apiClient.patch(`/admin/vendors/${vendorId}/unsuspend`, {}, { twoFactorCode });
   },
+
+  async assignSellerPlan(vendorId: string, plan: string): Promise<void> {
+    await apiClient.patch(`/admin/vendors/${vendorId}/seller-plan`, { plan });
+  },
 };

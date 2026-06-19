@@ -14,6 +14,7 @@ const GIFT_TYPES: { id: RewardType; label: string }[] = [
 ];
 
 const EMPTY_FORM = {
+  kind: "GIFT" as "GIFT" | "HOT_DEAL",
   name: "",
   description: "",
   type: "WALLET_BONUS" as RewardType,
@@ -57,6 +58,7 @@ export default function GiftsPage() {
 
   const handleEdit = (gift: Reward) => {
     setForm({
+      kind: gift.isHotDeal ? "HOT_DEAL" : "GIFT",
       name: gift.name,
       description: gift.description ?? "",
       type: gift.type,
@@ -87,6 +89,7 @@ export default function GiftsPage() {
         minOrderAmount: form.minOrderAmount ? Number(form.minOrderAmount) : undefined,
         maxClaims: form.maxClaims ? Number(form.maxClaims) : undefined,
         expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : undefined,
+        isHotDeal: form.kind === "HOT_DEAL",
       };
       if (editingId) {
         await giftsAPI.updateGift(editingId, payload);
@@ -145,8 +148,15 @@ export default function GiftsPage() {
                 <h2 className="text-xl font-black">{editingId ? "Edit gift" : "New gift"}</h2>
                 <div className="mt-6 space-y-4">
                   <div>
+                    <label className="mb-2 block text-sm font-bold text-gray-700">Promotion kind</label>
+                    <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value as "GIFT" | "HOT_DEAL", type: e.target.value === "HOT_DEAL" ? "DISCOUNT_COUPON" : form.type })} className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]">
+                      <option value="GIFT">Gift / Reward</option>
+                      <option value="HOT_DEAL">Hot Deal</option>
+                    </select>
+                  </div>
+                  <div>
                     <label className="mb-2 block text-sm font-bold text-gray-700">Name *</label>
-                    <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Welcome Gift" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
+                    <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={form.kind === "HOT_DEAL" ? "Weekend Hot Deal" : "Welcome Gift"} className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
                   </div>
                   <div>
                     <label className="mb-2 block text-sm font-bold text-gray-700">Description</label>
@@ -207,7 +217,7 @@ export default function GiftsPage() {
                         <div className="flex items-center gap-3">
                           <span className="text-lg font-black">{gift.name}</span>
                           <span className={`h-2.5 w-2.5 rounded-full ${gift.isActive ? "bg-green-500" : "bg-slate-300"}`} />
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{gift.type.replace(/_/g, " ")}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${gift.isHotDeal ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-600"}`}>{gift.isHotDeal ? "Hot Deal" : gift.type.replace(/_/g, " ")}</span>
                         </div>
                         <p className="mt-1 text-sm text-slate-500">
                           {gift.currency} {(gift.value).toFixed(2)} value

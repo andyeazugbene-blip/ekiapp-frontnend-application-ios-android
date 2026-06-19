@@ -1,6 +1,7 @@
 import { apiClient } from "../api";
 
 export type RewardType = "DISCOUNT_COUPON" | "WALLET_BONUS" | "FREE_SHIPPING";
+const HOT_DEAL_MARKER = "[HOT_DEAL]";
 
 export interface Reward {
   id: string;
@@ -15,13 +16,16 @@ export interface Reward {
   claimedCount: number;
   expiresAt: string | null;
   createdAt: string;
+  isHotDeal: boolean;
 }
 
 function normalizeReward(raw: any): Reward {
+  const rawDescription = raw.description ?? null;
+  const isHotDeal = typeof rawDescription === "string" && rawDescription.startsWith(HOT_DEAL_MARKER);
   return {
     id: raw.id,
     name: raw.name ?? "",
-    description: raw.description ?? null,
+    description: isHotDeal ? rawDescription.replace(HOT_DEAL_MARKER, "").trim() || null : rawDescription,
     type: raw.type ?? "WALLET_BONUS",
     value: typeof raw.value === "number" ? raw.value / 100 : raw.value ?? 0,
     currency: (raw.currency ?? "GBP").toUpperCase(),
@@ -31,6 +35,7 @@ function normalizeReward(raw: any): Reward {
     claimedCount: raw.claimedCount ?? 0,
     expiresAt: raw.expiresAt ?? null,
     createdAt: raw.createdAt ?? "",
+    isHotDeal,
   };
 }
 
@@ -39,6 +44,8 @@ function denormalizeReward(input: Partial<Reward>): Record<string, unknown> {
   if (input.value != null) data.value = Math.round(Number(input.value) * 100);
   if (input.minOrderAmount != null) data.minOrderAmount = Math.round(Number(input.minOrderAmount) * 100);
   if (input.description === "") data.description = null;
+  if (input.isHotDeal) data.description = `${HOT_DEAL_MARKER} ${input.description ?? ""}`.trim();
+  delete data.isHotDeal;
   return data;
 }
 
@@ -49,7 +56,7 @@ export const giftsAPI = {
   },
 
   async createGift(input: {
-    name: string; description?: string; type: RewardType; value: number;
+    name: string; description?: string; type: RewardType; value: number; isHotDeal?: boolean;
     currency?: string; minOrderAmount?: number; maxClaims?: number; expiresAt?: string;
   }): Promise<Reward> {
     const res = await apiClient.post<any>("/admin/rewards", denormalizeReward(input));
