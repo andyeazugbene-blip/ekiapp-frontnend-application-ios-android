@@ -342,7 +342,10 @@ export default function PublicStoreScreen() {
 
         const [nextProducts, nextReviews, analytics] = await Promise.all([
           publicStoreService.listProducts(nextVendor.storeSlug ?? slug).catch(() => [] as Product[]),
-          reviewService.getForVendor(nextVendor.id).catch(() => [] as Review[]),
+          reviewService
+            .getForVendor(nextVendor.id)
+            .then((res) => res.reviews)
+            .catch(() => [] as Review[]),
           publicStoreService
             .trackEvent(nextVendor.storeSlug ?? slug, "open", { source: shareSource })
             .catch(() => ({
