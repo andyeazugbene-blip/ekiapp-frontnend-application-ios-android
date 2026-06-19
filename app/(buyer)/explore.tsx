@@ -17,6 +17,7 @@ import { goBackOrReplace } from "../../utils/navigation";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const GRID_PRODUCT_WIDTH = Math.floor((SCREEN_WIDTH - 42) / 2);
+const HORIZ_CARD_WIDTH = 150;
 type ExploreView = "all" | "products" | "vendors";
 
 export default function ExploreScreen() {
@@ -31,6 +32,7 @@ export default function ExploreScreen() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(params.search ?? "");
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(params.category ?? null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
   const addedAnim = useRef(new Animated.Value(0)).current;
@@ -39,18 +41,18 @@ export default function ExploreScreen() {
   const showProducts = activeView !== "vendors";
   const showVendors = activeView !== "products";
   const title =
-    activeView === "products" ? "All foodstuff" : activeView === "vendors" ? "New vendors" : "Browse foodstuff";
+    activeView === "products" ? "All foodstuff" : activeView === "vendors" ? "All vendors" : "Browse foodstuff";
 
   const loadData = useCallback(async (query?: string) => {
     setLoading(true);
     const [prods, vends] = await Promise.all([
-      productService.getAll({ category: params.category || undefined, search: query || undefined, limit: 200 }).catch(() => [] as Product[]),
+      productService.getAll({ search: query || undefined, limit: 200 }).catch(() => [] as Product[]),
       vendorService.getAllVendors({ status: "active", search: query || undefined, sort: params.sort || "newest", limit: 200 }).catch(() => [] as VendorSummary[]),
     ]);
     setProducts(prods ?? []);
     setVendors(vends ?? []);
     setLoading(false);
-  }, [params.category, params.sort]);
+  }, [params.sort]);
 
   useFocusEffect(
     useCallback(() => {
@@ -61,6 +63,10 @@ export default function ExploreScreen() {
   useEffect(() => {
     setSearch(params.search ?? "");
   }, [params.search]);
+
+  useEffect(() => {
+    if (params.category) setSelectedCategory(params.category);
+  }, [params.category]);
 
   useEffect(() => {
     return () => {
@@ -90,15 +96,14 @@ export default function ExploreScreen() {
     });
   };
 
-  const openView = (view: ExploreView) => {
+  const openView = (view: ExploreView, sort?: string) => {
     const trimmed = search.trim();
     router.push({
       pathname: "/(buyer)/explore",
       params: {
         view,
-        ...(view === "vendors" ? { sort: "newest" } : {}),
+        ...(sort ? { sort } : {}),
         ...(trimmed ? { search: trimmed } : {}),
-        ...(params.category ? { category: params.category } : {}),
       },
     } as any);
   };
@@ -108,48 +113,60 @@ export default function ExploreScreen() {
   };
 
   const normalizedSearch = search.trim().toLowerCase();
+
   const filteredProducts = useMemo(
     () =>
       (products ?? []).filter((product) => {
         if (!product || product.status !== "active") return false;
+        if (selectedCategory && product.category?.toLowerCase() !== selectedCategory.toLowerCase()) return false;
         if (!normalizedSearch) return true;
-        const haystack = [
-          product.name,
-          product.category,
-          product.description,
-          product.vendorName,
-          product.vendorCity,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
+        const haystack = [product.name, product.category, product.description, product.vendorName, product.vendorCity]
+          .filter(Boolean).join(" ").toLowerCase();
         return haystack.includes(normalizedSearch);
       }),
-    [normalizedSearch, products],
+    [normalizedSearch, products, selectedCategory],
   );
 
   const filteredVendors = useMemo(
     () =>
-      (vendors ?? [])
-        .filter((vendor) => {
-          if (!normalizedSearch) return true;
-          const haystack = [
-            vendor.storeName,
-            vendor.description,
-            vendor.city,
-            vendor.country,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return haystack.includes(normalizedSearch);
-        }),
+      (vendors ?? []).filter((vendor) => {
+        if (!normalizedSearch) return true;
+        const haystack = [vendor.storeName, vendor.description, vendor.city, vendor.country]
+          .filter(Boolean).join(" ").toLowerCase();
+        return haystack.includes(normalizedSearch);
+      }),
     [normalizedSearch, vendors],
   );
 
-  const popular = filteredProducts.slice(0, 8);
-  const bestSellers = filteredProducts.slice(0, 6);
-  const vendorPreview = filteredVendors.slice(0, 5);
+  // Derived sections for "all" discovery view
+  const popularProducts = useMemo(() => filteredProducts.slice(0, 8), [filteredProducts]);
+  const newProducts = useMemo(
+    () => [...filteredProducts].sort((a, b) => Date.parse(b.createdAt || "0") - Date.parse(a.createdAt || "0")).slice(0, 8),
+    [filteredProducts],
+  );
+  const newVendors = useMemo(() => filteredVendors.slice(0, 6), [filteredVendors]);
+  const bestVendors = useMemo(
+    () => [...filteredVendors].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 6),
+    [filteredVendors],
+  );
+
+  // Category chips for "products" view
+  const categories = useMemo(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const p of products) {
+      const cat = p.category?.trim();
+      if (cat && p.status === "active" && !seen.has(cat.toLowerCase())) {
+        seen.add(cat.toLowerCase());
+        result.push(cat);
+      }
+    }
+    return result.slice(0, 12);
+  }, [products]);
+
+  const isEmpty =
+    (showProducts ? filteredProducts.length === 0 : true) &&
+    (showVendors ? filteredVendors.length === 0 : true);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -176,24 +193,190 @@ export default function ExploreScreen() {
           onChangeText={handleSearch}
           returnKeyType="search"
         />
+        {search.length > 0 ? (
+          <TouchableOpacity onPress={() => { setSearch(""); loadData(""); }} activeOpacity={0.7}>
+            <Ionicons name="close-circle" size={18} color="#858585" />
+          </TouchableOpacity>
+        ) : null}
       </View>
+
+      {/* View toggle for "all" */}
+      {activeView === "all" && !normalizedSearch ? null : null}
+
+      {/* Category chips — only in "products" view */}
+      {activeView === "products" && categories.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+          <TouchableOpacity
+            onPress={() => setSelectedCategory(null)}
+            activeOpacity={0.8}
+            style={[styles.chip, !selectedCategory && styles.chipActive]}
+          >
+            <Text style={[styles.chipText, !selectedCategory && styles.chipTextActive]}>All</Text>
+          </TouchableOpacity>
+          {categories.map((cat) => (
+            <TouchableOpacity
+              key={cat}
+              onPress={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+              activeOpacity={0.8}
+              style={[styles.chip, selectedCategory === cat && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, selectedCategory === cat && styles.chipTextActive]}>{cat}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : null}
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <View style={{ paddingVertical: 60, alignItems: "center" }}>
+          <View style={styles.centerBlock}>
             <ActivityIndicator color="#076B51" />
           </View>
-        ) : (showProducts ? filteredProducts.length === 0 : true) && (showVendors ? filteredVendors.length === 0 : true) ? (
-          <View style={{ paddingVertical: 60, alignItems: "center" }}>
+        ) : isEmpty ? (
+          <View style={styles.centerBlock}>
             <Ionicons name="search-outline" size={48} color="#858585" />
-            <Text style={{ fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 }}>No results found</Text>
-            <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 6 }}>Try a different search term.</Text>
+            <Text style={styles.emptyTitle}>No results found</Text>
+            <Text style={styles.emptyBody}>Try a different search term.</Text>
           </View>
         ) : (
           <>
+            {/* ── ALL VIEW: discovery sections ───────────────────────── */}
+            {activeView === "all" && (
+              <>
+                {/* Popular foodstuff */}
+                {popularProducts.length > 0 && (
+                  <>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>Popular foodstuff</Text>
+                      <TouchableOpacity onPress={() => openView("products")} activeOpacity={0.7}>
+                        <Text style={styles.viewAll}>View All</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizScroll}>
+                      {popularProducts.map((product) => (
+                        <HorizProductCard
+                          key={product.id}
+                          product={product}
+                          selectedCurrency={selectedCurrency}
+                          recentlyAddedId={recentlyAddedId}
+                          onOpen={() => router.push({ pathname: "/(buyer)/product-detail", params: { id: product.id } } as any)}
+                          onAdd={() => handleAddToCart(product)}
+                        />
+                      ))}
+                    </ScrollView>
+                  </>
+                )}
+
+                {/* New Products */}
+                {newProducts.length > 0 && (
+                  <>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>New Products</Text>
+                      <TouchableOpacity onPress={() => openView("products")} activeOpacity={0.7}>
+                        <Text style={styles.viewAll}>View All</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizScroll}>
+                      {newProducts.map((product) => (
+                        <HorizProductCard
+                          key={product.id}
+                          product={product}
+                          selectedCurrency={selectedCurrency}
+                          recentlyAddedId={recentlyAddedId}
+                          onOpen={() => router.push({ pathname: "/(buyer)/product-detail", params: { id: product.id } } as any)}
+                          onAdd={() => handleAddToCart(product)}
+                        />
+                      ))}
+                    </ScrollView>
+                  </>
+                )}
+
+                {/* Vendors */}
+                {newVendors.length > 0 && (
+                  <>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>Vendors</Text>
+                      <TouchableOpacity onPress={() => openView("vendors")} activeOpacity={0.7}>
+                        <Text style={styles.viewAll}>View All</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizScroll}>
+                      {newVendors.map((vendor) => (
+                        <HorizVendorCard
+                          key={vendor.id}
+                          vendor={vendor}
+                          onPress={() => handleOpenVendor(vendor.id)}
+                        />
+                      ))}
+                    </ScrollView>
+                  </>
+                )}
+
+                {/* Best Vendors */}
+                {bestVendors.length > 0 && (
+                  <>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>Best Vendors</Text>
+                      <TouchableOpacity onPress={() => openView("vendors", "best")} activeOpacity={0.7}>
+                        <Text style={styles.viewAll}>View All</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizScroll}>
+                      {bestVendors.map((vendor) => (
+                        <HorizVendorCard
+                          key={vendor.id}
+                          vendor={vendor}
+                          onPress={() => handleOpenVendor(vendor.id)}
+                        />
+                      ))}
+                    </ScrollView>
+                  </>
+                )}
+
+                {/* Promo banner */}
+                <LinearGradient colors={["#076B51", "#4DB89A"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.promoBanner}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.promoTitle}>20% OFF</Text>
+                    <Text style={styles.promoSub}>On all palm oil orders</Text>
+                  </View>
+                  <View style={styles.promoIcon}>
+                    <Ionicons name="flash" size={18} color="#FFFFFF" />
+                  </View>
+                </LinearGradient>
+
+                {/* Support new vendors */}
+                {newVendors.length > 0 && (
+                  <View style={styles.supportCard}>
+                    <View style={styles.supportHeader}>
+                      <View>
+                        <Text style={styles.supportTitle}>Support new vendors</Text>
+                        <Text style={styles.supportSub}>Discover new stores and help{"\n"}them get their first order</Text>
+                      </View>
+                      <Ionicons name="heart" size={20} color="rgba(255,255,255,0.2)" />
+                    </View>
+                    <View style={styles.supportChips}>
+                      {newVendors.slice(0, 2).map((v, i) => (
+                        <TouchableOpacity
+                          key={v.id}
+                          onPress={() => handleOpenVendor(v.id)}
+                          activeOpacity={0.85}
+                          style={styles.supportChip}
+                        >
+                          <Text style={styles.supportChipText}>{i + 1}. {v.storeName}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <TouchableOpacity onPress={() => openView("vendors")} activeOpacity={0.85} style={styles.supportBtn}>
+                      <Text style={styles.supportBtnText}>Support new vendors</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            )}
+
+            {/* ── PRODUCTS VIEW: grid with category chips ─────────────── */}
             {activeView === "products" && filteredProducts.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>All available foodstuff</Text>
+                <Text style={styles.sectionTitlePadded}>All available foodstuff</Text>
                 <View style={styles.productGrid}>
                   {filteredProducts.map((product) => (
                     <ProductResultCard
@@ -210,172 +393,18 @@ export default function ExploreScreen() {
               </>
             )}
 
+            {/* ── VENDORS VIEW: full list ──────────────────────────────── */}
             {activeView === "vendors" && filteredVendors.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>New vendors</Text>
+                <Text style={styles.sectionTitlePadded}>All vendors</Text>
                 {filteredVendors.map((vendor) => (
                   <VendorResultRow
                     key={vendor.id}
                     vendor={vendor}
-                    onPress={() => router.push({ pathname: "/(buyer)/vendor-detail", params: { id: vendor.id } } as any)}
+                    onPress={() => handleOpenVendor(vendor.id)}
                   />
                 ))}
               </>
-            )}
-
-            {/* Popular foodstuff */}
-            {activeView === "all" && popular.length > 0 && (
-              <>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Popular foodstuff</Text>
-                  <TouchableOpacity onPress={() => openView("products")} activeOpacity={0.7}>
-                    <Text style={styles.viewAll}>View All</Text>
-                  </TouchableOpacity>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productScroll}>
-                  {popular.map((product) => {
-                    return (
-                      <TouchableOpacity
-                        key={product.id}
-                        onPress={() => router.push({ pathname: "/(buyer)/product-detail", params: { id: product.id } } as any)}
-                        activeOpacity={0.85}
-                        style={styles.productCard}
-                      >
-                        <View style={styles.productImage}>
-                          {product.images?.[0] ? (
-                            <RemoteImage uri={product.images[0]} style={{ width: "100%", height: "100%" }} />
-                          ) : null}
-                          <TouchableOpacity
-                            onPress={() => handleOpenVendor(product.vendorId)}
-                            activeOpacity={0.85}
-                            style={styles.productHeart}
-                          >
-                            <Ionicons name="storefront-outline" size={14} color="#076B51" />
-                          </TouchableOpacity>
-                        </View>
-                        <Text style={styles.productName} numberOfLines={1}>{product.name ?? "Product"}</Text>
-                        <Text style={styles.productPrice}>
-                          {formatDisplayMoney(product.price ?? 0, product.currency, selectedCurrency)}
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() => handleAddToCart(product)}
-                          activeOpacity={0.85}
-                          style={[styles.addCartBtn, recentlyAddedId === product.id && { backgroundColor: "#076B51" }]}
-                        >
-                          <Text style={[styles.addCartText, recentlyAddedId === product.id && { color: "#FFFFFF" }]}>{recentlyAddedId === product.id ? "Added!" : "Add to cart"}</Text>
-                          <Ionicons name={recentlyAddedId === product.id ? "checkmark-circle" : "cart-outline"} size={12} color={recentlyAddedId === product.id ? "#FFFFFF" : "#076B51"} />
-                        </TouchableOpacity>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </>
-            )}
-
-            {/* New vendors */}
-            {activeView === "all" && vendorPreview.length > 0 && (
-              <>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>New vendors</Text>
-                  <TouchableOpacity onPress={() => openView("vendors")} activeOpacity={0.7}>
-                    <Text style={styles.viewAll}>View All</Text>
-                  </TouchableOpacity>
-                </View>
-                {vendorPreview.map((vendor) => (
-                  <VendorResultRow
-                    key={vendor.id}
-                    vendor={vendor}
-                    onPress={() => router.push({ pathname: "/(buyer)/vendor-detail", params: { id: vendor.id } } as any)}
-                  />
-                ))}
-              </>
-            )}
-
-            {/* Best Sellers */}
-            {activeView === "all" && bestSellers.length > 0 && (
-              <>
-                <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Best Sellers</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productScroll}>
-                  {bestSellers.map((product) => {
-                    return (
-                      <TouchableOpacity
-                        key={product.id}
-                        onPress={() => router.push({ pathname: "/(buyer)/product-detail", params: { id: product.id } } as any)}
-                        activeOpacity={0.85}
-                        style={styles.productCard}
-                      >
-                        <View style={styles.productImage}>
-                          {product.images?.[0] ? (
-                            <RemoteImage uri={product.images[0]} style={{ width: "100%", height: "100%" }} />
-                          ) : null}
-                          <TouchableOpacity
-                            onPress={() => handleOpenVendor(product.vendorId)}
-                            activeOpacity={0.85}
-                            style={styles.productHeart}
-                          >
-                            <Ionicons name="storefront-outline" size={14} color="#076B51" />
-                          </TouchableOpacity>
-                        </View>
-                        <Text style={styles.productName} numberOfLines={1}>{product.name ?? "Product"}</Text>
-                        <Text style={styles.productPrice}>
-                          {formatDisplayMoney(product.price ?? 0, product.currency, selectedCurrency)}
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() => handleAddToCart(product)}
-                          activeOpacity={0.85}
-                          style={[styles.addCartBtn, recentlyAddedId === product.id && { backgroundColor: "#076B51" }]}
-                        >
-                          <Text style={[styles.addCartText, recentlyAddedId === product.id && { color: "#FFFFFF" }]}>{recentlyAddedId === product.id ? "Added!" : "Add to cart"}</Text>
-                          <Ionicons name={recentlyAddedId === product.id ? "checkmark-circle" : "cart-outline"} size={12} color={recentlyAddedId === product.id ? "#FFFFFF" : "#076B51"} />
-                        </TouchableOpacity>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </>
-            )}
-
-            {/* Promo banner */}
-            <LinearGradient colors={["#076B51", "#4DB89A"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.promoBanner}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.promoTitle}>20% OFF</Text>
-                <Text style={styles.promoSub}>On all palm oil orders</Text>
-              </View>
-              <View style={styles.promoIcon}>
-                <Ionicons name="flash" size={18} color="#FFFFFF" />
-              </View>
-            </LinearGradient>
-
-            {/* Support new vendors */}
-            {activeView === "all" && vendorPreview.length > 0 && (
-              <View style={styles.supportCard}>
-                <View style={styles.supportHeader}>
-                  <View>
-                    <Text style={styles.supportTitle}>Support new vendors</Text>
-                    <Text style={styles.supportSub}>Discover new stores and help{"\n"}them get their first order</Text>
-                  </View>
-                  <Ionicons name="heart" size={20} color="rgba(255,255,255,0.2)" />
-                </View>
-                <View style={styles.supportChips}>
-                  {vendorPreview.slice(0, 2).map((v, i) => (
-                    <TouchableOpacity
-                      key={v.id}
-                      onPress={() => router.push({ pathname: "/(buyer)/vendor-detail", params: { id: v.id } } as any)}
-                      activeOpacity={0.85}
-                      style={styles.supportChip}
-                    >
-                      <Text style={styles.supportChipText}>{i + 1}. {v.storeName}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <TouchableOpacity
-                  onPress={() => openView("vendors")}
-                  activeOpacity={0.85}
-                  style={styles.supportBtn}
-                >
-                  <Text style={styles.supportBtnText}>Support new vendors</Text>
-                </TouchableOpacity>
-              </View>
             )}
           </>
         )}
@@ -390,6 +419,61 @@ export default function ExploreScreen() {
     </SafeAreaView>
   );
 }
+
+// ── Horizontal product card (for discovery sections) ─────────────────────────
+
+function HorizProductCard({
+  product,
+  selectedCurrency,
+  recentlyAddedId,
+  onOpen,
+  onAdd,
+}: {
+  product: Product;
+  selectedCurrency: string;
+  recentlyAddedId: string | null;
+  onOpen: () => void;
+  onAdd: () => void;
+}) {
+  const justAdded = recentlyAddedId === product.id;
+  return (
+    <TouchableOpacity onPress={onOpen} activeOpacity={0.85} style={styles.horizProductCard}>
+      <View style={styles.horizProductImage}>
+        {product.images?.[0] ? (
+          <RemoteImage uri={product.images[0]} style={{ width: "100%", height: "100%" }} />
+        ) : null}
+      </View>
+      <Text style={styles.horizProductName} numberOfLines={1}>{product.name ?? "Product"}</Text>
+      <Text style={styles.horizProductPrice}>{formatDisplayMoney(product.price ?? 0, product.currency, selectedCurrency)}</Text>
+      <TouchableOpacity onPress={onAdd} activeOpacity={0.85} style={[styles.addCartBtn, justAdded && { backgroundColor: "#076B51" }]}>
+        <Text style={[styles.addCartText, justAdded && { color: "#FFFFFF" }]}>{justAdded ? "Added!" : "Add to cart"}</Text>
+        <Ionicons name={justAdded ? "checkmark-circle" : "cart-outline"} size={12} color={justAdded ? "#FFFFFF" : "#076B51"} />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+}
+
+// ── Horizontal vendor card (for discovery sections) ───────────────────────────
+
+function HorizVendorCard({ vendor, onPress }: { vendor: VendorSummary; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.horizVendorCard}>
+      <View style={styles.horizVendorImageWrap}>
+        <RemoteImage uri={vendor.coverImage ?? vendor.avatar} style={{ width: "100%", height: "100%" }} borderRadius={12} />
+        {vendor.rating > 0 ? (
+          <View style={styles.horizVendorRating}>
+            <Ionicons name="star" size={10} color="#F4B400" />
+            <Text style={styles.horizVendorRatingText}>{vendor.rating.toFixed(1)}</Text>
+          </View>
+        ) : null}
+      </View>
+      <Text style={styles.horizVendorName} numberOfLines={1}>{vendor.storeName}</Text>
+      <Text style={styles.horizVendorDesc} numberOfLines={1}>{vendor.description || `${vendor.city || vendor.country} foodstuff`}</Text>
+    </TouchableOpacity>
+  );
+}
+
+// ── Grid product card (for "products" view) ───────────────────────────────────
 
 function ProductResultCard({
   product,
@@ -407,7 +491,6 @@ function ProductResultCard({
   onAdd: () => void;
 }) {
   const justAdded = recentlyAddedId === product.id;
-
   return (
     <TouchableOpacity onPress={onOpen} activeOpacity={0.85} style={[styles.productCard, styles.productGridCard]}>
       <View style={styles.productImage}>
@@ -419,9 +502,7 @@ function ProductResultCard({
         </TouchableOpacity>
       </View>
       <Text style={styles.productName} numberOfLines={1}>{product.name ?? "Product"}</Text>
-      <Text style={styles.productPrice}>
-        {formatDisplayMoney(product.price ?? 0, product.currency, selectedCurrency)}
-      </Text>
+      <Text style={styles.productPrice}>{formatDisplayMoney(product.price ?? 0, product.currency, selectedCurrency)}</Text>
       <TouchableOpacity onPress={onAdd} activeOpacity={0.85} style={[styles.addCartBtn, justAdded && { backgroundColor: "#076B51" }]}>
         <Text style={[styles.addCartText, justAdded && { color: "#FFFFFF" }]}>{justAdded ? "Added!" : "Add to cart"}</Text>
         <Ionicons name={justAdded ? "checkmark-circle" : "cart-outline"} size={12} color={justAdded ? "#FFFFFF" : "#076B51"} />
@@ -429,6 +510,8 @@ function ProductResultCard({
     </TouchableOpacity>
   );
 }
+
+// ── Vendor list row (for "vendors" view) ──────────────────────────────────────
 
 function VendorResultRow({ vendor, onPress }: { vendor: VendorSummary; onPress: () => void }) {
   return (
@@ -456,23 +539,40 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
   backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, fontSize: 20, fontFamily: "Manrope-Bold", color: "#282828" },
-  currencyButton: {
-    minWidth: 56,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#EAF5F0",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
+  currencyButton: { minWidth: 56, height: 38, borderRadius: 19, backgroundColor: "#EAF5F0", alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
   currencyButtonText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#076B51" },
-  searchBar: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, backgroundColor: "#FFFFFF", borderRadius: 12, height: 44, paddingHorizontal: 12, gap: 8, borderWidth: 1, borderColor: "#EEEEEE", marginBottom: 16 },
+  searchBar: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, backgroundColor: "#FFFFFF", borderRadius: 12, height: 44, paddingHorizontal: 12, gap: 8, borderWidth: 1, borderColor: "#EEEEEE", marginBottom: 8 },
   searchInput: { flex: 1, fontSize: 13, fontFamily: "Outfit-Regular", color: "#282828" },
+  // Category chips
+  chipsScroll: { paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
+  chip: { height: 32, borderRadius: 16, backgroundColor: "#F4F4F4", paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
+  chipActive: { backgroundColor: "#076B51" },
+  chipText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#282828" },
+  chipTextActive: { color: "#FFFFFF" },
+  // Scroll content
   scrollContent: { paddingBottom: 100 },
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, marginBottom: 10, marginTop: 18 },
-  sectionTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", paddingHorizontal: 16, marginBottom: 10 },
+  centerBlock: { paddingVertical: 60, alignItems: "center", paddingHorizontal: 24 },
+  emptyTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 },
+  emptyBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 6, textAlign: "center" },
+  // Section headers
+  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, marginBottom: 10, marginTop: 20 },
+  sectionTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828" },
+  sectionTitlePadded: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", paddingHorizontal: 16, marginBottom: 10, marginTop: 16 },
   viewAll: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#076B51" },
-  productScroll: { paddingHorizontal: 16, gap: 10, marginBottom: 10 },
+  // Horizontal product card
+  horizScroll: { paddingHorizontal: 16, gap: 10, paddingBottom: 4 },
+  horizProductCard: { width: HORIZ_CARD_WIDTH, backgroundColor: "#FFFFFF", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#F0F0F0" },
+  horizProductImage: { width: "100%", height: 130, backgroundColor: "#F0E6D4" },
+  horizProductName: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828", paddingHorizontal: 10, paddingTop: 8 },
+  horizProductPrice: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828", paddingHorizontal: 10, marginTop: 2 },
+  // Horizontal vendor card
+  horizVendorCard: { width: 160, backgroundColor: "#FFFFFF", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#F0F0F0", paddingBottom: 10 },
+  horizVendorImageWrap: { width: "100%", height: 100, backgroundColor: "#E8EFE9", position: "relative" },
+  horizVendorRating: { position: "absolute", bottom: 6, left: 6, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3 },
+  horizVendorRatingText: { fontSize: 11, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  horizVendorName: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828", paddingHorizontal: 10, paddingTop: 8 },
+  horizVendorDesc: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585", paddingHorizontal: 10, marginTop: 2 },
+  // Grid product card
   productGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 16, marginBottom: 10 },
   productCard: { width: 150, backgroundColor: "#FFFFFF", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#F0F0F0" },
   productGridCard: { width: GRID_PRODUCT_WIDTH },
@@ -482,15 +582,18 @@ const styles = StyleSheet.create({
   productPrice: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828", paddingHorizontal: 10, marginTop: 2 },
   addCartBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginHorizontal: 8, marginTop: 8, marginBottom: 10, height: 28, borderRadius: 8, borderWidth: 1, borderColor: "#076B51" },
   addCartText: { fontSize: 10, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  // Vendor list row
   vendorRow: { flexDirection: "row", alignItems: "center", gap: 12, marginHorizontal: 16, backgroundColor: "#FFFFFF", borderRadius: 14, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: "#F0F0F0" },
   vendorAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center", overflow: "hidden" },
   vendorName: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
   vendorDesc: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 2 },
   vendorArrow: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: "#F0F0F0", alignItems: "center", justifyContent: "center" },
+  // Promo
   promoBanner: { marginHorizontal: 16, marginTop: 20, borderRadius: 16, padding: 18, flexDirection: "row", alignItems: "center" },
   promoTitle: { fontSize: 18, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   promoSub: { fontSize: 12, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.8)", marginTop: 2 },
   promoIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" },
+  // Support
   supportCard: { marginHorizontal: 16, backgroundColor: "#1A2E24", borderRadius: 18, padding: 16, marginTop: 20, marginBottom: 20 },
   supportHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
   supportTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
