@@ -53,7 +53,10 @@ export default function OrdersScreen() {
   const setSelectedCurrency = useCurrencyStore((state) => state.setSelectedCurrency);
 
   const load = useCallback(async () => {
-    if (!vendor) return;
+    if (!vendor) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError("");
     try {

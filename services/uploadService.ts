@@ -51,8 +51,11 @@ export const uploadService = {
       sizeBytes: upload.sizeBytes,
     });
 
-    // Private verification documents are stored by stable key. Admin review
-    // receives a short-lived read URL from the backend when needed.
-    return completed.publicUrl ?? completed.key;
+    const url = completed.publicUrl ?? completed.key;
+    // Throw early so callers don't silently persist an S3 key as an image URL.
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      throw new Error("Upload completed but no public URL was returned. Please try again.");
+    }
+    return url;
   },
 };

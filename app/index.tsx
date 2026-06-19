@@ -22,18 +22,12 @@ export default function Index() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 50;
-
-    const check = () => {
+    const tryNavigate = () => {
       if (hasNavigated.current) return;
       const state = useAuthStore.getState();
 
-      if (state.isInitializing && attempts < maxAttempts) {
-        attempts += 1;
-        setTimeout(check, 100);
-        return;
-      }
+      // Still initializing — wait for next store update
+      if (state.isInitializing) return;
 
       if (state.isAuthenticated) {
         hasNavigated.current = true;
@@ -55,8 +49,13 @@ export default function Index() {
       setReady(true);
     };
 
-    setTimeout(check, 120);
-  }, [router]);
+    // Check immediately (handles case where checkAuth already finished)
+    tryNavigate();
+
+    // Subscribe for all subsequent store changes — fires when isInitializing→false
+    const unsub = useAuthStore.subscribe(tryNavigate);
+    return () => unsub();
+  }, [router, ref]);
 
   const handleGetStarted = () => {
     if (hasNavigated.current) return;

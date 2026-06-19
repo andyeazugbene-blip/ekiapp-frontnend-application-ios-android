@@ -5,7 +5,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { vendorService } from "../../services/vendorService";
 import { productService } from "../../services/productService";
-import { reviewService } from "../../services/reviewService";
+import { reviewService, type ReviewsWithStats } from "../../services/reviewService";
 import { deliveryService, type DeliveryZone } from "../../services/deliveryService";
 import { useCartStore } from "../../stores/cartStore";
 import type { VendorSummary } from "../../types/vendor";
@@ -25,6 +25,7 @@ export default function VendorDetailScreen() {
   const [vendor, setVendor] = useState<VendorSummary | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewStats, setReviewStats] = useState<{ averageRating: number; totalReviews: number }>({ averageRating: 0, totalReviews: 0 });
   const [zones, setZones] = useState<DeliveryZone[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,14 +38,15 @@ export default function VendorDetailScreen() {
       Promise.all([
         vendorService.getVendorById(id),
         productService.getAll({ vendorId: id, limit: 10 }),
-        reviewService.getForVendor(id),
+        reviewService.getForVendor(id).catch((): ReviewsWithStats => ({ reviews: [], averageRating: 0, totalReviews: 0 })),
         deliveryService.listAllZones().catch(() => [] as DeliveryZone[]),
       ])
-        .then(([nextVendor, nextProducts, nextReviews, nextZones]) => {
+        .then(([nextVendor, nextProducts, nextReviewData, nextZones]) => {
           if (cancelled) return;
           setVendor(nextVendor);
           setProducts(nextProducts ?? []);
-          setReviews(nextReviews ?? []);
+          setReviews(nextReviewData.reviews);
+          setReviewStats({ averageRating: nextReviewData.averageRating, totalReviews: nextReviewData.totalReviews });
           setZones(nextZones ?? []);
         })
         .catch(() => {
@@ -97,11 +99,11 @@ export default function VendorDetailScreen() {
   const handleMessageVendor = () => {
     const participantId =
       vendor.userId ??
-      products.find((product) => product.vendorUserId)?.vendorUserId ??
+      products.find((product) => (product as any).vendorUserId)?.vendorUserId ??
       undefined;
 
     if (!participantId) {
-      Alert.alert("Message unavailable", "This vendor profile is still syncing. Please try again in a moment.");
+      Alert.alert("Message unavailable", "This vendor cannot receive messages at the moment. Please try again later or contact support.");
       return;
     }
 
@@ -130,7 +132,13 @@ export default function VendorDetailScreen() {
         <View style={styles.heroCopy}>
           <Text style={styles.storeName}>{vendor.storeName}</Text>
           <View style={styles.ratingRow}>
-            <Text style={styles.ratingText}>{vendor.rating?.toFixed(1) ?? "4.8"} ({reviews.length || vendor.totalOrders} reviews)</Text>
+            <Text style={styles.ratingText}>
+            {reviewStats.averageRating > 0
+              ? `${reviewStats.averageRating.toFixed(1)} (${reviewStats.totalReviews} reviews)`
+              : vendor.rating > 0
+                ? `${vendor.rating.toFixed(1)} (${vendor.totalReviews ?? 0} reviews)`
+                : "No reviews yet"}
+          </Text>
             <Ionicons name="star" size={18} color="#F4B400" />
           </View>
         </View>
@@ -143,13 +151,15 @@ export default function VendorDetailScreen() {
             {vendor.description?.trim() || `Authentic African foodstuff from ${vendor.city}, ${vendor.country}.`}
           </Text>
 
-          <View style={styles.infoStrip}>
-            <View style={styles.infoBadge}>
-              <Ionicons name="shield-checkmark-outline" size={16} color="#076B51" />
-              <Text style={styles.infoBadgeText}>Verified vendor</Text>
+          {vendor.verificationStatus === "verified" ? (
+            <View style={styles.infoStrip}>
+              <View style={styles.infoBadge}>
+                <Ionicons name="shield-checkmark-outline" size={16} color="#076B51" />
+                <Text style={styles.infoBadgeText}>Verified vendor</Text>
+              </View>
+              <Text style={styles.infoStripText}>Message the vendor directly and keep everything on Eki.</Text>
             </View>
-            <Text style={styles.infoStripText}>Message the vendor directly and keep everything on Eki.</Text>
-          </View>
+          ) : null}
 
           <Text style={styles.sectionTitle}>Available foodstuff</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productsScroll}>
@@ -161,7 +171,12 @@ export default function VendorDetailScreen() {
                   activeOpacity={0.86}
                   style={styles.productCard}
                 >
-                  <RemoteImage uri={product.images?.[0]} style={styles.productImage} borderRadius={18} fallbackIcon="cube-outline" />
+                  <View style={{ position: "relative" }}>
+                    <RemoteImage uri={product.images?.[0]} style={styles.productImage} borderRadius={18} fallbackIcon="cube-outline" />
+                    <View style={styles.heartBadge}>
+                      <Ionicons name="heart-outline" size={16} color="#076B51" />
+                    </View>
+                  </View>
                   <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
                   <Text style={styles.productPrice}>{formatDisplayMoney(product.price, product.currency, selectedCurrency)}</Text>
                   <TouchableOpacity onPress={() => handleAddToCart(product)} activeOpacity={0.86} style={styles.addButton}>
@@ -202,6 +217,7 @@ export default function VendorDetailScreen() {
                     ))}
                   </View>
                   <Text style={styles.reviewName}>{review.userName}</Text>
+                  <Text style={styles.reviewRole}>Buyer</Text>
                 </View>
               ))
             )}
@@ -264,6 +280,23 @@ const styles = StyleSheet.create({
   reviewText: { fontSize: 13, lineHeight: 20, fontFamily: "Outfit-Regular", color: "#282828", minHeight: 80 },
   reviewStars: { flexDirection: "row", gap: 3, marginTop: 12 },
   reviewName: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 12 },
+  reviewRole: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#9AA3A0", marginTop: 2 },
+  heartBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585" },
   messageButton: { marginTop: 22, height: 54, borderRadius: 16, backgroundColor: "#1A2E24", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
   messageButtonText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },

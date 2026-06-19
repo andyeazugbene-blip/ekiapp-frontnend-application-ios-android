@@ -4,6 +4,7 @@
 import { apiClient } from "./api";
 
 export type RewardType = "DISCOUNT_COUPON" | "WALLET_BONUS" | "FREE_SHIPPING";
+const HOT_DEAL_MARKER = "[HOT_DEAL]";
 
 export interface Reward {
   id: string;
@@ -17,6 +18,7 @@ export interface Reward {
   claimedCount: number;
   expiresAt: string | null;
   createdAt: string;
+  isHotDeal: boolean;
 }
 
 export interface UserReward {
@@ -33,10 +35,12 @@ export interface UserReward {
 }
 
 function normalizeReward(raw: any): Reward {
+  const rawDescription = raw.description ?? null;
+  const isHotDeal = typeof rawDescription === "string" && rawDescription.startsWith(HOT_DEAL_MARKER);
   return {
     id: raw.id,
     name: raw.name ?? "",
-    description: raw.description ?? null,
+    description: isHotDeal ? rawDescription.replace(HOT_DEAL_MARKER, "").trim() || null : rawDescription,
     type: raw.type ?? "WALLET_BONUS",
     value: typeof raw.value === "number" ? raw.value / 100 : 0,
     currency: (raw.currency ?? "GBP").toUpperCase(),
@@ -45,6 +49,7 @@ function normalizeReward(raw: any): Reward {
     claimedCount: raw.claimedCount ?? 0,
     expiresAt: raw.expiresAt ?? null,
     createdAt: raw.createdAt ?? "",
+    isHotDeal,
   };
 }
 

@@ -25,6 +25,14 @@ export interface SubmitReviewInput {
 interface ReviewListResponse {
   reviews?: any[];
   items?: any[];
+  averageRating?: number;
+  totalReviews?: number;
+}
+
+export interface ReviewsWithStats {
+  reviews: Review[];
+  averageRating: number;
+  totalReviews: number;
 }
 
 interface SingleReviewResponse {
@@ -57,20 +65,28 @@ function normalizeAdminReview(raw: any): AdminReview {
 }
 
 export const reviewService = {
-  async getForVendor(vendorId: string): Promise<Review[]> {
+  async getForVendor(vendorId: string): Promise<ReviewsWithStats> {
     const res = await apiClient.get<ReviewListResponse>(
-      `/api/reviews?vendorId=${encodeURIComponent(vendorId)}`,
+      `/api/reviews?vendorId=${encodeURIComponent(vendorId)}&limit=50`,
       { skipAuth: true },
     );
-    return (res.reviews ?? res.items ?? []).map(normalizeReview);
+    return {
+      reviews: (res.reviews ?? res.items ?? []).map(normalizeReview),
+      averageRating: res.averageRating ?? 0,
+      totalReviews: res.totalReviews ?? 0,
+    };
   },
 
-  async getForProduct(productId: string): Promise<Review[]> {
+  async getForProduct(productId: string): Promise<ReviewsWithStats> {
     const res = await apiClient.get<ReviewListResponse>(
-      `/api/reviews?productId=${encodeURIComponent(productId)}`,
+      `/api/reviews?productId=${encodeURIComponent(productId)}&limit=50`,
       { skipAuth: true },
     );
-    return (res.reviews ?? res.items ?? []).map(normalizeReview);
+    return {
+      reviews: (res.reviews ?? res.items ?? []).map(normalizeReview),
+      averageRating: res.averageRating ?? 0,
+      totalReviews: res.totalReviews ?? 0,
+    };
   },
 
   async submitReview(input: SubmitReviewInput): Promise<Review> {

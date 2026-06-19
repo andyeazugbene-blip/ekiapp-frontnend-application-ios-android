@@ -87,6 +87,9 @@ export default function FoodstuffScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Your foodstuff</Text>
         <Text style={styles.headerSubtitle}>Manage your inventory and listings.</Text>
 
@@ -219,7 +222,8 @@ export default function FoodstuffScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
-  header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 20, paddingBottom: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+  header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 10 },
   headerTitle: { fontSize: 26, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   headerSubtitle: { fontSize: 14, fontFamily: "Outfit-Light", color: "rgba(255,255,255,0.8)", marginTop: 4 },
   addButton: { marginTop: 16, height: 50, borderRadius: 14, backgroundColor: "#FFFFFF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },

@@ -12,6 +12,7 @@ export interface VendorSummary {
   country: string;
   city: string;
   rating: number;
+  totalReviews?: number;
   totalProducts: number;
   totalOrders: number;
   joinedAt: string;

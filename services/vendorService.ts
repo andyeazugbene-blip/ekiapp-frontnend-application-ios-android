@@ -156,6 +156,7 @@ function normalizeVendor(raw: any): VendorSummary {
     country: toText(raw?.country),
     city: toText(raw?.city),
     rating: toNumber(raw?.rating),
+    totalReviews: typeof raw?.totalReviews === "number" ? raw.totalReviews : undefined,
     totalProducts: toNumber(raw?.totalProducts),
     totalOrders: toNumber(raw?.totalOrders),
     joinedAt: toText(raw?.joinedAt ?? raw?.createdAt),

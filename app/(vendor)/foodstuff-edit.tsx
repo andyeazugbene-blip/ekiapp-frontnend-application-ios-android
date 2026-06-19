@@ -71,7 +71,8 @@ export default function FoodstuffEditScreen() {
 
   // If we land here via a deep link, fetch the product directly.
   useEffect(() => {
-    if (selectedProduct || !id) return;
+    if (selectedProduct) { setLoading(false); return; }
+    if (!id) { setLoading(false); return; }
     let cancelled = false;
     (async () => {
       try {

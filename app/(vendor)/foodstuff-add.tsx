@@ -128,7 +128,7 @@ export default function FoodstuffAddScreen() {
         vendorName: vendor.storeName,
         vendorCity: vendor.city ?? "",
         stock: parsedStock,
-        status: publish && isPublished ? "active" : "draft",
+        status: publish || isPublished ? "active" : "draft",
         weight: parsedWeight,
         unit,
       };

@@ -202,8 +202,8 @@ export default function EditStoreProfileScreen() {
               <Text style={styles.fieldLabel}>Country</Text>
               <SelectBox
                 options={COUNTRY_NAMES}
-                selected={country}
-                onSelect={(value) => setCountry(value)}
+                value={country}
+                onChange={(value: string) => setCountry(value)}
                 placeholder="Select country"
               />
             </View>

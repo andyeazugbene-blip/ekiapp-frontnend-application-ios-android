@@ -37,7 +37,7 @@ export default function ForgotPasswordScreen() {
     <View style={styles.page}>
       <SafeAreaView edges={["top"]} style={styles.heroSafe}>
         <View style={styles.hero}>
-          <TouchableOpacity onPress={() => router.push({ pathname: "/(auth)/login", params: { role } })} activeOpacity={0.86} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.86} style={styles.backButton}>
             <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.heroPill}>

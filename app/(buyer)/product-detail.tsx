@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,6 +13,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { type Product, type Review } from "../../types/product";
+import type { ReviewsWithStats } from "../../services/reviewService";
 import { openConversationThread } from "../../utils/messaging";
 import { vendorService } from "../../services/vendorService";
 import { goBackOrReplace } from "../../utils/navigation";
@@ -32,6 +34,7 @@ export default function ProductDetailScreen() {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewStats, setReviewStats] = useState<{ averageRating: number; totalReviews: number }>({ averageRating: 0, totalReviews: 0 });
   const [estimatedDays, setEstimatedDays] = useState("Calculated at checkout");
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -48,12 +51,13 @@ export default function ProductDetailScreen() {
 
     Promise.all([
       productService.getById(id).catch(() => null),
-      reviewService.getForProduct(id).catch(() => [] as Review[]),
+      reviewService.getForProduct(id).catch((): ReviewsWithStats => ({ reviews: [], averageRating: 0, totalReviews: 0 })),
       deliveryService.listAllZones().catch(() => []),
-    ]).then(([nextProduct, nextReviews, zones]) => {
+    ]).then(([nextProduct, nextReviewData, zones]) => {
       if (cancelled) return;
       setProduct(nextProduct);
-      setReviews(nextReviews ?? []);
+      setReviews(nextReviewData.reviews);
+      setReviewStats({ averageRating: nextReviewData.averageRating, totalReviews: nextReviewData.totalReviews });
 
       const match = zones.find((zone) =>
         buyerCountry ? matchesDeliveryZoneCountry(zone, buyerCountry) : zone.countryCode === "UK",
@@ -74,11 +78,6 @@ export default function ProductDetailScreen() {
     ensureCurrency(product?.currency).catch(() => undefined);
   }, [ensureCurrency, product?.currency]);
 
-  const ratingText = useMemo(() => {
-    if (reviews.length === 0) return "No reviews yet";
-    const average = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
-    return `${average.toFixed(1)} (${reviews.length} reviews)`;
-  }, [reviews]);
 
   const handleAddToCart = async () => {
     if (!product) return;
@@ -143,34 +142,46 @@ export default function ProductDetailScreen() {
     );
   }
 
+  const avgRating = reviewStats.averageRating > 0
+    ? reviewStats.averageRating
+    : reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      : 0;
+  const totalReviewCount = reviewStats.totalReviews > 0 ? reviewStats.totalReviews : reviews.length;
+
   return (
     <View style={styles.container}>
+      {/* Large image */}
       <View style={styles.hero}>
         <RemoteImage uri={product.images?.[0]} style={styles.heroImage} borderRadius={0} fallbackIcon="cube-outline" />
-        <View style={styles.heroOverlay} />
-
         <SafeAreaView edges={["top"]} style={styles.heroSafe}>
           <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.86} style={styles.heroButton}>
             <Ionicons name="arrow-back" size={22} color="#0A6C52" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleOpenVendorStore} activeOpacity={0.86} style={styles.heroButton}>
-            <Ionicons name="storefront-outline" size={22} color="#0A6C52" />
+          <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.86} style={styles.heroButton}>
+            <Ionicons name="heart-outline" size={22} color="#0A6C52" />
           </TouchableOpacity>
         </SafeAreaView>
-
-        <View style={styles.heroCopy}>
-          <Text style={styles.productName}>{product.name}</Text>
-          <View style={styles.heroMetaRow}>
-            <Text style={styles.priceText}>{formatDisplayMoney(product.price, product.currency, selectedCurrency)}</Text>
-            <View style={styles.ratingRow}>
-              <Text style={styles.ratingText}>{ratingText}</Text>
-              {reviews.length > 0 ? <Ionicons name="star" size={18} color="#F4B400" /> : null}
-            </View>
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.78)"]}
+          style={styles.heroGradient}
+          pointerEvents="none"
+        >
+          <Text style={styles.heroProductName} numberOfLines={2}>{product.name}</Text>
+          <Text style={styles.heroPriceText}>{formatDisplayMoney(product.price, product.currency, selectedCurrency)}</Text>
+          <View style={styles.heroRatingRow}>
+            {avgRating > 0 ? (
+              <>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Ionicons key={star} name="star" size={13} color={star <= Math.round(avgRating) ? "#F4B400" : "rgba(255,255,255,0.35)"} />
+                ))}
+                <Text style={styles.heroRatingText}>{avgRating.toFixed(1)} ({totalReviewCount} reviews)</Text>
+              </>
+            ) : (
+              <Text style={styles.heroRatingText}>No reviews yet</Text>
+            )}
           </View>
-          <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.86} style={styles.currencyBadge}>
-            <Text style={styles.currencyBadgeText}>{selectedCurrency}</Text>
-          </TouchableOpacity>
-        </View>
+        </LinearGradient>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -199,21 +210,6 @@ export default function ProductDetailScreen() {
             {product.description?.trim() || "No description has been added for this product yet."}
           </Text>
 
-          <View style={styles.vendorCard}>
-            <View style={styles.vendorMeta}>
-              <Text style={styles.vendorLabel}>Sold by</Text>
-              <Text style={styles.vendorName}>{product.vendorName}</Text>
-              <Text style={styles.vendorLocation}>{product.vendorCity || "Vendor location unavailable"}</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.push({ pathname: "/(buyer)/vendor-detail", params: { id: product.vendorId } } as any)}
-              activeOpacity={0.86}
-              style={styles.vendorButton}
-            >
-              <Text style={styles.vendorButtonText}>View Store</Text>
-            </TouchableOpacity>
-          </View>
-
           <Text style={styles.sectionTitle}>Reviews</Text>
           {reviews.length === 0 ? (
             <View style={styles.reviewFallbackCard}>
@@ -240,6 +236,10 @@ export default function ProductDetailScreen() {
               ))}
             </ScrollView>
           )}
+          <View style={styles.paymentBanner}>
+            <Ionicons name="shield-checkmark-outline" size={20} color="#076B51" />
+            <Text style={styles.paymentBannerText}>Payment is protected until delivery is confirmed</Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -299,23 +299,13 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope-Bold",
   },
   hero: {
-    height: 360,
-    borderBottomLeftRadius: 38,
-    borderBottomRightRadius: 38,
+    height: 320,
+    backgroundColor: "#E8EFE9",
     overflow: "hidden",
-    backgroundColor: "#173B31",
   },
   heroImage: {
     width: "100%",
-    height: 210,
-  },
-  heroOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 210,
-    backgroundColor: "rgba(0,0,0,0.36)",
+    height: "100%",
   },
   heroSafe: {
     position: "absolute",
@@ -329,67 +319,57 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   heroButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  heroCopy: {
+  heroGradient: {
     position: "absolute",
-    left: 24,
-    right: 24,
-    bottom: 28,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 20,
+    paddingTop: 48,
+    paddingBottom: 20,
   },
-  currencyBadge: {
-    alignSelf: "flex-start",
-    marginTop: 14,
-    borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.16)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  currencyBadgeText: {
+  heroProductName: {
     color: "#FFFFFF",
-    fontSize: 12,
-    fontFamily: "Manrope-Bold",
-  },
-  productName: {
-    color: "#FFFFFF",
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 24,
+    lineHeight: 30,
     fontFamily: "Manrope-ExtraBold",
+    marginBottom: 4,
   },
-  heroMetaRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 10,
-    marginTop: 12,
-  },
-  priceText: {
+  heroPriceText: {
     color: "#FFFFFF",
-    fontSize: 30,
-    lineHeight: 34,
+    fontSize: 22,
+    lineHeight: 28,
     fontFamily: "Manrope-ExtraBold",
+    marginBottom: 8,
   },
-  ratingRow: {
+  heroRatingRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 4,
   },
-  ratingText: {
-    color: "rgba(255,255,255,0.88)",
-    fontSize: 15,
+  heroRatingText: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 13,
     fontFamily: "Outfit-Regular",
+    marginLeft: 4,
   },
   scrollContent: {
     paddingBottom: 18,
   },
   contentCard: {
-    marginTop: -16,
+    marginTop: 12,
     marginHorizontal: 16,
     borderRadius: 34,
     backgroundColor: "#FFFFFF",
@@ -459,29 +439,23 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Regular",
     marginBottom: 18,
   },
-  vendorCard: {
+  paymentBanner: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 14,
-    borderRadius: 22,
-    backgroundColor: "#F4F8F6",
-    padding: 16,
-    marginBottom: 22,
-  },
-  vendorMeta: { flex: 1 },
-  vendorLabel: { color: "#687076", fontSize: 12, fontFamily: "Outfit-Medium" },
-  vendorName: { color: "#2B2B2B", fontSize: 16, fontFamily: "Manrope-Bold", marginTop: 4 },
-  vendorLocation: { color: "#687076", fontSize: 12, fontFamily: "Outfit-Regular", marginTop: 4 },
-  vendorButton: {
-    height: 42,
+    gap: 12,
+    backgroundColor: "#EDF6F2",
+    borderRadius: 16,
     paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: "#0A6C52",
-    alignItems: "center",
-    justifyContent: "center",
+    paddingVertical: 14,
+    marginTop: 18,
   },
-  vendorButtonText: { color: "#FFFFFF", fontSize: 13, fontFamily: "Manrope-Bold" },
+  paymentBannerText: {
+    flex: 1,
+    color: "#076B51",
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: "Outfit-Medium",
+  },
   reviewFallbackCard: {
     borderRadius: 22,
     backgroundColor: "#F7F7F4",

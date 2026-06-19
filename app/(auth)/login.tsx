@@ -106,7 +106,7 @@ export default function LoginScreen() {
   if (isAdmin) {
     return (
       <SafeAreaView style={styles.adminPage} edges={["top", "bottom"]}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.adminKeyboard}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.adminKeyboard}>
           <ScrollView
             contentContainerStyle={styles.adminContent}
             keyboardShouldPersistTaps="handled"
@@ -189,7 +189,7 @@ export default function LoginScreen() {
         </View>
       </SafeAreaView>
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"

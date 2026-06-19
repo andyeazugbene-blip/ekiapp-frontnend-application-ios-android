@@ -118,7 +118,7 @@ export default function OrdersScreen() {
                     <Text style={styles.orderAmount}>{formatDisplayMoney(order.total, order.currency, selectedCurrency)}</Text>
                   </View>
                   {isEscrowOrder ? <Text style={styles.escrowHint}>Protected payment</Text> : null}
-                  {order.status === "delivered" && (
+                  {(order.status === "delivered" || order.status === "completed") && (
                     <TouchableOpacity
                       onPress={(event) => {
                         event.stopPropagation?.();

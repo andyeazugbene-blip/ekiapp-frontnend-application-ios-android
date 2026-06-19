@@ -308,40 +308,35 @@ export default function VendorDashboardScreen() {
         >
           <SafeAreaView edges={["top"]}>
             <View style={styles.heroTopRow}>
-              <View style={styles.datePill}>
-                <Text style={styles.dateText}>{formatToday()}</Text>
-              </View>
-              <View style={styles.heroIconsRow}>
-                <TouchableOpacity
-                  accessibilityLabel="Open menu"
-                  accessibilityRole="button"
-                  activeOpacity={0.8}
-                  onPress={() => setDrawerOpen(true)}
-                  style={styles.headerIconPill}
-                >
-                  <Ionicons name="menu" size={20} color="#282828" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  accessibilityLabel="Notifications"
-                  accessibilityRole="button"
-                  activeOpacity={0.8}
-                  onPress={() => navigate("/(vendor)/notifications")}
-                  style={styles.headerIconPill}
-                >
-                  <Ionicons name="notifications" size={18} color="#282828" />
-                  {unreadMessages > 0 || alertUnreadMessages > 0 ? (
-                    <View style={styles.headerIconBadge} />
-                  ) : null}
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                accessibilityLabel="Open menu"
+                accessibilityRole="button"
+                activeOpacity={0.8}
+                onPress={() => setDrawerOpen(true)}
+                style={styles.headerIconPill}
+              >
+                <Ionicons name="menu" size={20} color="#282828" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityLabel="Notifications"
+                accessibilityRole="button"
+                activeOpacity={0.8}
+                onPress={() => navigate("/(vendor)/notifications")}
+                style={styles.headerIconPill}
+              >
+                <Ionicons name="notifications-outline" size={18} color="#282828" />
+                {unreadMessages > 0 || alertUnreadMessages > 0 ? (
+                  <View style={styles.headerIconBadge} />
+                ) : null}
+              </TouchableOpacity>
             </View>
 
+            <Text style={styles.dateText}>{formatToday()}</Text>
             <Text style={styles.welcome}>
               {asText(data?.greeting).trim() || "Welcome back,"}
             </Text>
             <Text style={styles.storeName} numberOfLines={1}>
-              {storeName}
-              {isVerifiedVendor ? <Text style={styles.wave}> ✓</Text> : null}
+              {storeName} {isVerifiedVendor ? "✓" : "👋"}
             </Text>
           </SafeAreaView>
         </LinearGradient>
@@ -426,9 +421,6 @@ export default function VendorDashboardScreen() {
                   <Text style={styles.insightLabel}>Best selling foodstuff</Text>
                   <Text style={styles.insightTitle}>{bestSellingText}</Text>
                 </View>
-                <View style={styles.timelineRightCol}>
-                  <Sparkline points={[8, 14, 10, 18, 12, 22]} />
-                </View>
               </View>
 
               {/* Row 2 */}
@@ -443,9 +435,6 @@ export default function VendorDashboardScreen() {
                   <Text style={styles.insightLabel}>Repeat Buyers</Text>
                   <Text style={styles.insightTitle}>{repeatBuyerCount.toLocaleString("en-US")}</Text>
                 </View>
-                <View style={styles.timelineRightCol}>
-                  <Sparkline points={[14, 8, 18, 12, 22, 16]} />
-                </View>
               </View>
 
               {/* Row 3 */}
@@ -458,9 +447,6 @@ export default function VendorDashboardScreen() {
                 <View style={styles.timelineContentCol}>
                   <Text style={styles.insightLabel}>Sells by country</Text>
                   <Text style={styles.insightTitle}>{sellsCountryText}</Text>
-                </View>
-                <View style={styles.timelineRightCol}>
-                  <Sparkline points={[6, 12, 18, 14, 20, 24]} />
                 </View>
               </View>
             </View>
@@ -476,15 +462,15 @@ export default function VendorDashboardScreen() {
               />
               <GrowCard
                 tone="dark"
-                icon="bar-chart-outline"
-                title="View analytics"
-                onPress={() => navigate("/(vendor)/analytics")}
+                icon="gift-outline"
+                title="Create bundle"
+                onPress={() => navigate("/(vendor)/create-bundle")}
               />
               <GrowCard
                 tone="black"
-                icon="chatbubble-ellipses-outline"
-                title="Message buyers"
-                onPress={() => navigate("/(vendor)/send-offer")}
+                icon="flash-outline"
+                title="Flash sale"
+                onPress={() => navigate("/(vendor)/create-flash-sale")}
               />
               <GrowCard
                 tone="light"
@@ -496,10 +482,10 @@ export default function VendorDashboardScreen() {
 
             <TouchableOpacity
               activeOpacity={0.86}
-              onPress={() => undefined}
-              style={styles.hiddenMarketingButton}
+              onPress={() => navigate("/(vendor)/send-offer")}
+              style={styles.sendOfferBtn}
             >
-              <Text style={styles.sendOfferText}>Open marketing tools</Text>
+              <Text style={styles.sendOfferText}>Send offer to buyers</Text>
               <Ionicons name={"arrow-up-forward" as any} size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
             </TouchableOpacity>
 
@@ -668,20 +654,17 @@ export default function VendorDashboardScreen() {
                 </TouchableOpacity>
               </View>
               {planOrdersRemaining != null ? (
-                <Text style={styles.planSub}>Orders remaining {planOrdersRemaining}</Text>
-              ) : (
-                <Text style={styles.planSub}>Orders remaining unavailable</Text>
-              )}
-              <Text style={styles.planSub}>Status {subscriptionStatus}</Text>
+                <Text style={styles.planSub}>Orders remaining: {planOrdersRemaining}</Text>
+              ) : null}
               <Text style={styles.planBody}>
-                Your current plan, limits, and fees are synced from your account. Contact support for plan changes.
+                Upgrade to keep receiving new orders and unlock powerful growth tools for your store.
               </Text>
               <TouchableOpacity
                 activeOpacity={0.86}
                 onPress={() => navigate("/(vendor)/subscription-plans")}
                 style={styles.upgradeBtn}
               >
-                <Text style={styles.upgradeText}>View current plan</Text>
+                <Text style={styles.upgradeText}>View Plan</Text>
                 <Ionicons name={"arrow-up-forward" as any} size={14} color="#076B51" />
               </TouchableOpacity>
             </View>
@@ -964,15 +947,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingTop: 4,
+    marginBottom: 14,
   },
-  datePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.14)",
-  },
-  dateText: { color: "#FFFFFF", fontSize: 11, fontFamily: "Manrope-SemiBold" },
-  heroIconsRow: { flexDirection: "row", gap: 10 },
+  dateText: { color: "rgba(255,255,255,0.75)", fontSize: 12, fontFamily: "Outfit-Regular", marginBottom: 4 },
   headerIconPill: {
     width: 38,
     height: 38,
@@ -1145,7 +1122,6 @@ const styles = StyleSheet.create({
   growCardTitle: { color: "#282828", fontSize: 13, fontFamily: "Manrope-Bold" },
 
   // ── Send offer ───────────────────────────────────────────────────────
-  hiddenMarketingButton: { display: "none" },
   sendOfferBtn: { height: 50, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6, marginBottom: 18 },
   sendOfferText: { color: "#FFFFFF", fontSize: 14, fontFamily: "Manrope-SemiBold" },
 

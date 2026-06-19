@@ -193,6 +193,9 @@ export default function ActivationScreen() {
       <SafeAreaView style={styles.introContainer} edges={["top", "bottom"]}>
         <StatusBar style="dark" />
 
+        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={[styles.backButton, { backgroundColor: "#F4F4F4", alignSelf: "flex-start", marginLeft: 4 }]}>
+          <Ionicons name="arrow-back" size={20} color="#282828" />
+        </TouchableOpacity>
         <View style={styles.introTop}>
           <View style={styles.introIconWrap}>
             <Ionicons name="cube-outline" size={56} color="#076B51" />
@@ -233,6 +236,9 @@ export default function ActivationScreen() {
         style={styles.hero}
       >
         <SafeAreaView edges={["top"]}>
+          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
           <Text style={styles.heroTitle}>Get your first order</Text>
           <Text style={styles.heroSubtitle}>Complete the steps below to start receiving buyers</Text>
 
@@ -659,12 +665,20 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
   heroTitle: {
     fontSize: 28,
     fontFamily: "Manrope-ExtraBold",
     color: "#FFFFFF",
     lineHeight: 34,
-    marginTop: 8,
   },
   heroSubtitle: {
     fontSize: 13,

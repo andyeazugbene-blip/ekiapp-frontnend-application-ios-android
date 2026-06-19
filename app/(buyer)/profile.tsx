@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Linking, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,6 +26,9 @@ export default function ProfileScreen() {
   const updateProfile = useAuthStore((s) => s.updateProfile);
   const [copied, setCopied] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(user?.name ?? "");
+  const [savingName, setSavingName] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -71,12 +74,26 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleSaveName = async () => {
+    const trimmed = nameValue.trim();
+    if (!trimmed) { Alert.alert("Name required", "Please enter your name."); return; }
+    setSavingName(true);
+    try {
+      await updateProfile({ name: trimmed });
+      setEditingName(false);
+    } catch (err) {
+      Alert.alert("Update failed", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setSavingName(false);
+    }
+  };
+
   const items: MenuItem[] = [
     { icon: "receipt-outline", label: "My Orders", action: "navigate", target: "/(buyer)/orders" },
     { icon: "wallet-outline", label: "Wallet & Rewards", action: "navigate", target: "/(buyer)/wallet" },
     { icon: "chatbubble-ellipses-outline", label: "Messages", action: "navigate", target: "/(buyer)/messages" },
     { icon: "people-outline", label: "Refer a Friend", action: "navigate", target: "/(buyer)/referral-program" },
-    { icon: "storefront-outline", label: "Switch to Vendor", action: "navigate", target: "/(vendor)" },
+    ...(user?.hasVendor ? [{ icon: "storefront-outline", label: "Switch to Vendor", action: "navigate", target: "/(vendor)" } as MenuItem] : []),
     { icon: "warning-outline", label: "Report an issue", action: "navigate", target: "/(buyer)/report-issue" },
     { icon: "mail-outline", label: "Email support", action: "external", target: `mailto:${SUPPORT_EMAIL}` },
     { icon: "help-circle-outline", label: "How Eki Works", action: "navigate", target: "/how-eki-works" },
@@ -134,7 +151,33 @@ export default function ProfileScreen() {
             </View>
           </TouchableOpacity>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{user?.name ?? "User"}</Text>
+            {editingName ? (
+              <View style={styles.nameEditRow}>
+                <TextInput
+                  value={nameValue}
+                  onChangeText={setNameValue}
+                  style={styles.nameInput}
+                  placeholder="Your name"
+                  placeholderTextColor="rgba(255,255,255,0.5)"
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveName}
+                />
+                <TouchableOpacity onPress={handleSaveName} activeOpacity={0.8} disabled={savingName}>
+                  {savingName
+                    ? <ActivityIndicator size="small" color="#FFFFFF" />
+                    : <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />}
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setEditingName(false); setNameValue(user?.name ?? ""); }} activeOpacity={0.8}>
+                  <Ionicons name="close-circle-outline" size={22} color="rgba(255,255,255,0.7)" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity onPress={() => { setNameValue(user?.name ?? ""); setEditingName(true); }} activeOpacity={0.8} style={styles.nameRow}>
+                <Text style={styles.profileName}>{user?.name ?? "User"}</Text>
+                <Ionicons name="pencil-outline" size={14} color="rgba(255,255,255,0.7)" />
+              </TouchableOpacity>
+            )}
             {user?.email ? (
               <TouchableOpacity onPress={handleCopyEmail} activeOpacity={0.7} style={styles.emailRow}>
                 <Text style={styles.profileEmail} numberOfLines={1}>{user.email}</Text>
@@ -220,6 +263,9 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 22, fontWeight: "700", color: "#FFFFFF" },
   profileInfo: { flex: 1 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  nameEditRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
+  nameInput: { flex: 1, fontSize: 16, fontFamily: "Manrope-Bold", color: "#FFFFFF", borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.4)", paddingVertical: 2 },
   profileName: { fontSize: 20, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   emailRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
   profileEmail: {

@@ -119,7 +119,7 @@ export default function CheckoutScreen() {
       return;
     }
     if (paymentMethod === "stripe" && !isPaymentSheetAvailable()) {
-      setError("Stripe not available in Expo Go. Use a development build.");
+      setError("Card payment is not available on this device. Please use wallet payment or try again.");
       return;
     }
 
@@ -226,7 +226,7 @@ export default function CheckoutScreen() {
           <View style={styles.infoBanner}>
             <Ionicons name="information-circle-outline" size={18} color="#856B0E" style={{ marginTop: 1 }} />
             <Text style={styles.infoBannerText}>
-              Card payments need a development build. In Expo Go, only Wallet payment will complete.
+              Card payment is not available on this device. Please use wallet payment instead.
             </Text>
           </View>
         ) : null}

@@ -109,7 +109,7 @@ export default function EditVendorPersonalProfileScreen() {
         </View>
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
             <View style={styles.avatarSection}>
@@ -136,8 +136,8 @@ export default function EditVendorPersonalProfileScreen() {
               <Text style={styles.fieldLabel}>Country</Text>
               <SelectBox
                 options={COUNTRY_NAMES}
-                selected={country}
-                onSelect={(value) => setCountry(value)}
+                value={country}
+                onChange={(value: string) => setCountry(value)}
                 placeholder="Select your country"
               />
             </View>
@@ -187,8 +187,8 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
   card: { backgroundColor: "#FFFFFF", borderRadius: 24, padding: 18, marginBottom: 16 },
   avatarSection: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 18 },
-  avatarButton: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#EAF5F0", alignItems: "center", justifyContent: "center" },
-  avatarImage: { width: "100%", height: "100%", borderRadius: 36 },
+  avatarButton: { width: 96, height: 96, borderRadius: 48, backgroundColor: "#EAF5F0", alignItems: "center", justifyContent: "center" },
+  avatarImage: { width: "100%", height: "100%", borderRadius: 48 },
   avatarBadge: { position: "absolute", right: 0, bottom: 0, width: 25, height: 25, borderRadius: 13, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFFFFF" },
   avatarTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
   avatarCopy: { fontSize: 12, lineHeight: 17, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 3 },

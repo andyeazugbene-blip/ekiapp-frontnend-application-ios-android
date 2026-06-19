@@ -17,6 +17,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { rewardService, type Reward } from "../../services/rewardService";
+import { giftCardService, type GiftCard } from "../../services/giftCardService";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -25,7 +26,7 @@ import { type VendorSummary } from "../../types/vendor";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { vendorService } from "../../services/vendorService";
 import { CurrencySelector } from "../../components/ui/CurrencySelector";
-import { CURRENCY_SYMBOLS, formatDisplayMoney } from "../../utils/currency";
+import { formatDisplayMoney } from "../../utils/currency";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const DEAL_CARD_WIDTH = Math.min(SCREEN_WIDTH - 96, 280);
@@ -109,6 +110,7 @@ export default function BuyerHomeScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [vendors, setVendors] = useState<VendorSummary[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
+  const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDealIndex, setActiveDealIndex] = useState(0);
   const [currencyOpen, setCurrencyOpen] = useState(false);
@@ -116,14 +118,16 @@ export default function BuyerHomeScreen() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [prods, vendorList, activeRewards] = await Promise.all([
+      const [prods, vendorList, activeRewards, activeGiftCards] = await Promise.all([
         productService.getAll({ limit: 24 }).catch(() => [] as Product[]),
         vendorService.getAllVendors({ search: "", status: "active" }).catch(() => [] as VendorSummary[]),
         rewardService.getActiveRewards().catch(() => [] as Reward[]),
+        giftCardService.getActive().catch(() => [] as GiftCard[]),
       ]);
       setProducts((prods ?? []).filter(Boolean));
       setVendors(rankVendors(vendorList ?? [], prods ?? []).slice(0, 6));
       setRewards(activeRewards ?? []);
+      setGiftCards(activeGiftCards ?? []);
     } finally {
       setLoading(false);
     }
@@ -163,30 +167,26 @@ export default function BuyerHomeScreen() {
   }, [activeProducts]);
 
   const bestSellers = useMemo(() => rankProducts(activeProducts, vendors).slice(0, 6), [activeProducts, vendors]);
-  const featuredProduct = activeProducts[0];
-  const firstCurrency = featuredProduct?.currency ?? "GBP";
-  const firstSymbol = CURRENCY_SYMBOLS[selectedCurrency] ?? CURRENCY_SYMBOLS[firstCurrency];
+  const giftRewards = useMemo(() => rewards.filter((reward) => !reward.isHotDeal), [rewards]);
 
-  const hotDeals = useMemo<HomeDeal[]>(() => {
-    const deals: HomeDeal[] = [];
-
-    if (featuredProduct) {
-      deals.push({
-        id: `product-${featuredProduct.id}`,
-        colors: ["#E59A00", "#F4C01B"],
-        badge: "Fresh Pick",
-        title: featuredProduct.name,
-        highlight: formatDisplayMoney(featuredProduct.price, featuredProduct.currency, selectedCurrency),
-        body: featuredProduct.description?.trim() || "Now available to order from the buyer marketplace.",
-        cta: "View Product",
-        icon: "cube",
-        onPress: () =>
-          router.push({ pathname: "/(buyer)/product-detail", params: { id: featuredProduct.id } } as any),
-      });
-    }
-
-    return deals;
-  }, [featuredProduct, router, selectedCurrency]);
+  const hotDeals = useMemo<HomeDeal[]>(
+    () =>
+      rewards
+        .filter((reward) => reward.isHotDeal && reward.isActive)
+        .slice(0, 6)
+        .map((reward) => ({
+          id: `hot-deal-${reward.id}`,
+          colors: ["#E59A00", "#F4C01B"],
+          badge: "Hot Deal",
+          title: reward.name,
+          highlight: formatDisplayMoney(reward.value, reward.currency, selectedCurrency),
+          body: reward.description?.trim() || "Limited-time marketplace deal from Eki.",
+          cta: "Shop Deals",
+          icon: "flame",
+          onPress: () => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any),
+        })),
+    [rewards, router, selectedCurrency],
+  );
 
   const openSearch = (value = "") => {
     const trimmed = value.trim();
@@ -317,24 +317,33 @@ export default function BuyerHomeScreen() {
         </View>
         ) : null}
 
-        {rewards.length > 0 ? (
+        {giftCards.length > 0 ? (
           <View style={styles.sectionBlock}>
-            <Text style={styles.sectionTitle}>Gifts & Rewards</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitleInline}>Gift Cards</Text>
+              <TouchableOpacity onPress={() => router.push("/(buyer)/wallet" as any)} activeOpacity={0.8}>
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-              {rewards.map((reward) => (
+              {giftCards.map((card) => (
                 <TouchableOpacity
-                  key={reward.id}
+                  key={card.id}
                   onPress={() => router.push("/(buyer)/wallet" as any)}
                   activeOpacity={0.86}
                   style={styles.giftCard}
                 >
-                  <View style={styles.giftIconWrap}>
-                    <Ionicons name="gift-outline" size={24} color="#076B51" />
-                  </View>
-                  <Text style={styles.giftName} numberOfLines={1}>{reward.name}</Text>
-                  <Text style={styles.giftValue}>{reward.currency} {reward.value.toFixed(2)}</Text>
-                  {reward.description ? (
-                    <Text style={styles.giftDesc} numberOfLines={1}>{reward.description}</Text>
+                  {card.imageUrl ? (
+                    <RemoteImage uri={card.imageUrl} style={styles.giftCardImage} borderRadius={12} />
+                  ) : (
+                    <View style={styles.giftIconWrap}>
+                      <Ionicons name="gift-outline" size={24} color="#076B51" />
+                    </View>
+                  )}
+                  <Text style={styles.giftName} numberOfLines={1}>{card.title}</Text>
+                  <Text style={styles.giftValue}>{card.currency} {card.priceFormatted}</Text>
+                  {card.description ? (
+                    <Text style={styles.giftDesc} numberOfLines={1}>{card.description}</Text>
                   ) : null}
                 </TouchableOpacity>
               ))}
@@ -391,7 +400,7 @@ export default function BuyerHomeScreen() {
                 <Text style={styles.viewAllText}>View All</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vendorsScroll}>
+            <View style={styles.vendorsGrid}>
               {vendors.map((vendor) => (
                 <TouchableOpacity
                   key={vendor.id}
@@ -404,7 +413,7 @@ export default function BuyerHomeScreen() {
                     <View style={styles.ratingPill}>
                       <Ionicons name="star" size={12} color="#F4B400" />
                       <Text style={styles.ratingPillText}>
-                        {vendor.rating > 0 ? `${vendor.rating.toFixed(1)} (${Math.max(vendor.totalOrders, 0)})` : "New store"}
+                        {vendor.rating > 0 ? `${vendor.rating.toFixed(1)} (${vendor.totalReviews ?? 0})` : "New store"}
                       </Text>
                     </View>
                   </View>
@@ -420,7 +429,7 @@ export default function BuyerHomeScreen() {
                   </View>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
           </View>
         ) : null}
 
@@ -435,37 +444,33 @@ export default function BuyerHomeScreen() {
                 <Text style={styles.viewAllText}>View All</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bestSellerScroll}>
-              {bestSellers.map((product) => {
-                return (
-                  <TouchableOpacity
-                    key={product.id}
-                    onPress={() => router.push({ pathname: "/(buyer)/product-detail", params: { id: product.id } } as any)}
-                    activeOpacity={0.86}
-                    style={styles.bestCard}
-                  >
-                    <View style={styles.bestImageWrap}>
-                      <RemoteImage uri={product.images?.[0]} style={styles.bestImage} borderRadius={18} />
-                      <TouchableOpacity
-                        onPress={() => handleOpenVendor(product.vendorId)}
-                        activeOpacity={0.86}
-                        style={styles.heartButton}
-                      >
-                        <Ionicons name="storefront-outline" size={18} color="#4A6A5E" />
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={styles.bestName} numberOfLines={1}>
-                      {product.name}
-                    </Text>
-                    <Text style={styles.bestPrice}>{formatDisplayMoney(product.price, product.currency, selectedCurrency)}</Text>
-                    <TouchableOpacity onPress={() => handleAddToCart(product)} activeOpacity={0.86} style={styles.addToCartButton}>
-                      <Text style={styles.addToCartText}>Add to cart</Text>
-                      <Ionicons name="cart-outline" size={16} color="#FFFFFF" />
+            <View style={styles.bestSellerGrid}>
+              {bestSellers.map((product) => (
+                <TouchableOpacity
+                  key={product.id}
+                  onPress={() => router.push({ pathname: "/(buyer)/product-detail", params: { id: product.id } } as any)}
+                  activeOpacity={0.86}
+                  style={styles.bestCard}
+                >
+                  <View style={styles.bestImageWrap}>
+                    <RemoteImage uri={product.images?.[0]} style={styles.bestImage} borderRadius={18} />
+                    <TouchableOpacity
+                      onPress={() => handleOpenVendor(product.vendorId)}
+                      activeOpacity={0.86}
+                      style={styles.heartButton}
+                    >
+                      <Ionicons name="heart-outline" size={18} color="#4A6A5E" />
                     </TouchableOpacity>
+                  </View>
+                  <Text style={styles.bestName} numberOfLines={1}>{product.name}</Text>
+                  <Text style={styles.bestPrice}>{formatDisplayMoney(product.price, product.currency, selectedCurrency)}</Text>
+                  <TouchableOpacity onPress={() => handleAddToCart(product)} activeOpacity={0.86} style={styles.addToCartButton}>
+                    <Text style={styles.addToCartText}>Add to cart</Text>
+                    <Ionicons name="cart-outline" size={16} color="#FFFFFF" />
                   </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         ) : null}
 
@@ -775,12 +780,14 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
     alignItems: "center",
   },
-  vendorsScroll: {
+  vendorsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     paddingHorizontal: 16,
-    gap: 14,
+    gap: 12,
   },
   vendorCard: {
-    width: 214,
+    width: (SCREEN_WIDTH - 44) / 2,
     backgroundColor: "#FFFFFF",
     borderRadius: 22,
     padding: 12,
@@ -790,7 +797,7 @@ const styles = StyleSheet.create({
   },
   vendorImage: {
     width: "100%",
-    height: 150,
+    height: 120,
     backgroundColor: "#E7E3D8",
   },
   ratingPill: {
@@ -851,12 +858,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Manrope-Bold",
   },
-  bestSellerScroll: {
+  bestSellerGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     paddingHorizontal: 16,
-    gap: 14,
+    gap: 12,
   },
   bestCard: {
-    width: Math.min(SCREEN_WIDTH * 0.48, 190),
+    width: (SCREEN_WIDTH - 44) / 2,
     backgroundColor: "#FFFFFF",
     borderRadius: 22,
     padding: 12,
@@ -866,7 +875,7 @@ const styles = StyleSheet.create({
   },
   bestImage: {
     width: "100%",
-    height: 155,
+    height: 130,
     backgroundColor: "#E8E5DC",
   },
   heartButton: {
@@ -1019,6 +1028,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 2,
+  },
+  giftCardImage: {
+    width: "100%",
+    height: 72,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: "#E8F4ED",
   },
   giftIconWrap: {
     width: 48,

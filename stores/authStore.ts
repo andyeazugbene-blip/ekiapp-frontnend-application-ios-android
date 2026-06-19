@@ -97,6 +97,9 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
   setOnUnauthorized(() => {
     const state = get();
+    // During initialization checkAuth() handles expired-token cleanup itself.
+    // Firing here would clear auth state mid-init and race with a concurrent login.
+    if (state.isInitializing) return;
     clearLocalSession();
     void clearAuthCache();
     if (state.isAuthenticated) {
@@ -235,9 +238,15 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           };
           const actualLabel = roleLabels[user.role] ?? user.role;
           const expectedLabel = roleLabels[payload.role] ?? payload.role;
+          clearLocalSession();
+          await clearAuthCache();
           set({
-            error: `This account was created as ${actualLabel}, but you selected ${expectedLabel}. Please go back and choose the correct role.`,
+            user: null,
+            token: null,
+            pushToken: null,
+            isAuthenticated: false,
             isLoading: false,
+            error: `This account was created as ${actualLabel}, but you selected ${expectedLabel}. Please go back and choose the correct role.`,
           });
           return;
         }

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Eki",
     "slug": "eki-app",
-    "version": "1.5.1",
+    "version": "1.5.3",
     "orientation": "portrait",
     "scheme": "ekiapp",
     "userInterfaceStyle": "automatic",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ekiapp.mobilee",
-      "buildNumber": "16",
+      "buildNumber": "17",
       "splash": {
         "image": "./assets/splash-icon.png",
         "resizeMode": "contain",
@@ -34,7 +34,7 @@
     },
     "android": {
       "package": "com.ekiapp.mobile",
-      "versionCode": 19,
+      "versionCode": 42,
       "splash": {
         "image": "./assets/splash-icon.png",
         "resizeMode": "contain",
@@ -149,13 +149,13 @@
       "vercelFallbackUrl": "https://ekiapp-backend.vercel.app",
       "router": {},
       "eas": {
-        "projectId": "6fe3b15e-3066-4ba8-9c88-47f64194d828"
+        "projectId": "bfa91bf9-65f6-452a-9848-cbf277acb08c"
       }
     },
-    "owner": "mouaduae",
-    "runtimeVersion": "1.5.1",
+    "owner": "chialimouad",
+    "runtimeVersion": "1.5.3",
     "updates": {
-      "url": "https://u.expo.dev/6fe3b15e-3066-4ba8-9c88-47f64194d828"
+      "url": "https://u.expo.dev/bfa91bf9-65f6-452a-9848-cbf277acb08c"
     }
   }
 }
