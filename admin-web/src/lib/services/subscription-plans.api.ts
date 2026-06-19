@@ -1,5 +1,21 @@
 import { apiClient } from "../api";
-import { AdminSubscriptionPlan } from "@/types";
+import { AdminCommissionTier, AdminSubscriptionPlan } from "@/types";
+
+function normalizeTiers(raw: any): AdminCommissionTier[] {
+  const tiers = Array.isArray(raw) ? raw : [];
+  if (tiers.length === 0) {
+    return [{ minSubtotalCents: 0, platformFeeBps: 1000, isActive: true, displayOrder: 0 }];
+  }
+  return tiers.map((tier: any, index: number) => ({
+    id: tier.id,
+    label: tier.label ?? null,
+    minSubtotalCents: tier.minSubtotalCents ?? 0,
+    maxSubtotalCents: tier.maxSubtotalCents ?? null,
+    platformFeeBps: tier.platformFeeBps ?? 1000,
+    isActive: tier.isActive ?? true,
+    displayOrder: tier.displayOrder ?? index,
+  }));
+}
 
 function normalizePlan(raw: any): AdminSubscriptionPlan {
   return {
@@ -24,6 +40,7 @@ function normalizePlan(raw: any): AdminSubscriptionPlan {
     isActive: Boolean(raw.isActive ?? true),
     isDefault: Boolean(raw.isDefault ?? false),
     displayOrder: raw.displayOrder ?? 0,
+    commissionTiers: normalizeTiers(raw.commissionTiers),
   };
 }
 

@@ -222,6 +222,16 @@ export interface AdminPayoutRequest {
   };
 }
 
+export interface AdminCommissionTier {
+  id?: string;
+  label?: string | null;
+  minSubtotalCents: number;
+  maxSubtotalCents?: number | null;
+  platformFeeBps: number;
+  isActive: boolean;
+  displayOrder: number;
+}
+
 export interface AdminSubscriptionPlan {
   id: string;
   plan: string;
@@ -244,6 +254,7 @@ export interface AdminSubscriptionPlan {
   isActive: boolean;
   isDefault: boolean;
   displayOrder: number;
+  commissionTiers: AdminCommissionTier[];
 }
 
 export interface EscrowProviderConfig {

@@ -28,6 +28,7 @@ const EMPTY_PLAN = (): AdminSubscriptionPlan => ({
   isActive: true,
   isDefault: false,
   displayOrder: 0,
+  commissionTiers: [{ minSubtotalCents: 0, platformFeeBps: 1200, isActive: true, displayOrder: 0 }],
 });
 
 export default function SubscriptionPlansPage() {
@@ -239,6 +240,107 @@ export default function SubscriptionPlansPage() {
                     className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
                   />
                 </label>
+              </div>
+
+              <div className="mt-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">Commission tiers</h3>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDraft((current) => ({
+                        ...current,
+                        commissionTiers: [
+                          ...current.commissionTiers,
+                          { minSubtotalCents: 0, platformFeeBps: current.platformFeeBps, isActive: true, displayOrder: current.commissionTiers.length },
+                        ],
+                      }))
+                    }
+                    className="text-xs font-semibold text-gray-900 hover:underline"
+                  >
+                    + Add tier
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">At least one active tier must start at 0 (min subtotal cents).</p>
+                <div className="mt-3 space-y-3">
+                  {draft.commissionTiers.map((tier, index) => (
+                    <div key={tier.id ?? index} className="grid grid-cols-2 gap-3 rounded-lg border border-gray-200 p-3 md:grid-cols-5">
+                      <Field
+                        label="Min subtotal (cents)"
+                        value={String(tier.minSubtotalCents)}
+                        type="number"
+                        onChange={(value) =>
+                          setDraft((current) => ({
+                            ...current,
+                            commissionTiers: current.commissionTiers.map((t, i) => (i === index ? { ...t, minSubtotalCents: Number(value || 0) } : t)),
+                          }))
+                        }
+                      />
+                      <Field
+                        label="Max subtotal (cents, optional)"
+                        value={tier.maxSubtotalCents == null ? "" : String(tier.maxSubtotalCents)}
+                        type="number"
+                        onChange={(value) =>
+                          setDraft((current) => ({
+                            ...current,
+                            commissionTiers: current.commissionTiers.map((t, i) => (i === index ? { ...t, maxSubtotalCents: value === "" ? null : Number(value) } : t)),
+                          }))
+                        }
+                      />
+                      <Field
+                        label="Fee (basis points)"
+                        value={String(tier.platformFeeBps)}
+                        type="number"
+                        onChange={(value) =>
+                          setDraft((current) => ({
+                            ...current,
+                            commissionTiers: current.commissionTiers.map((t, i) => (i === index ? { ...t, platformFeeBps: Number(value || 0) } : t)),
+                          }))
+                        }
+                      />
+                      <Field
+                        label="Label (optional)"
+                        value={tier.label ?? ""}
+                        onChange={(value) =>
+                          setDraft((current) => ({
+                            ...current,
+                            commissionTiers: current.commissionTiers.map((t, i) => (i === index ? { ...t, label: value } : t)),
+                          }))
+                        }
+                      />
+                      <div className="flex items-end justify-between gap-2">
+                        <label className="flex items-center gap-2 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={tier.isActive}
+                            onChange={(event) =>
+                              setDraft((current) => ({
+                                ...current,
+                                commissionTiers: current.commissionTiers.map((t, i) => (i === index ? { ...t, isActive: event.target.checked } : t)),
+                              }))
+                            }
+                            className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                          />
+                          Active
+                        </label>
+                        {draft.commissionTiers.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDraft((current) => ({
+                                ...current,
+                                commissionTiers: current.commissionTiers.filter((_, i) => i !== index),
+                              }))
+                            }
+                            className="text-xs font-semibold text-red-600 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
