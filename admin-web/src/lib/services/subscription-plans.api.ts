@@ -22,6 +22,7 @@ function normalizePlan(raw: any): AdminSubscriptionPlan {
     marketingTools: Boolean(raw.marketingTools),
     canReceiveOrders: Boolean(raw.canReceiveOrders ?? true),
     isActive: Boolean(raw.isActive ?? true),
+    isDefault: Boolean(raw.isDefault ?? false),
     displayOrder: raw.displayOrder ?? 0,
   };
 }

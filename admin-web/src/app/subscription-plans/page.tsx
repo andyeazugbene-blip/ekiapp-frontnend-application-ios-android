@@ -6,13 +6,11 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { subscriptionPlansAPI } from "@/lib/services/subscription-plans.api";
 import { AdminSubscriptionPlan } from "@/types";
 
-const PLAN_OPTIONS = ["FREE", "GROWTH", "PRO"] as const;
-
 const EMPTY_PLAN = (): AdminSubscriptionPlan => ({
   id: "",
-  plan: "FREE",
-  slug: "free",
-  name: "Free",
+  plan: "",
+  slug: "",
+  name: "New plan",
   description: "",
   monthlyPriceCents: 0,
   platformFeeBps: 1200,
@@ -28,12 +26,13 @@ const EMPTY_PLAN = (): AdminSubscriptionPlan => ({
   marketingTools: false,
   canReceiveOrders: true,
   isActive: true,
+  isDefault: false,
   displayOrder: 0,
 });
 
 export default function SubscriptionPlansPage() {
   const [plans, setPlans] = useState<AdminSubscriptionPlan[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<string>("FREE");
+  const [selectedId, setSelectedId] = useState<string>("");
   const [draft, setDraft] = useState<AdminSubscriptionPlan>(EMPTY_PLAN());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,11 +44,11 @@ export default function SubscriptionPlansPage() {
   }, []);
 
   useEffect(() => {
-    const match = plans.find((plan) => plan.plan === selectedPlan);
+    const match = plans.find((plan) => plan.id === selectedId);
     if (match) {
       setDraft(match);
     }
-  }, [plans, selectedPlan]);
+  }, [plans, selectedId]);
 
   async function load() {
     setLoading(true);
@@ -57,9 +56,9 @@ export default function SubscriptionPlansPage() {
     try {
       const nextPlans = await subscriptionPlansAPI.getPlans();
       setPlans(nextPlans);
-      const first = nextPlans.find((plan) => PLAN_OPTIONS.includes(plan.plan as any));
+      const first = nextPlans[0];
       if (first) {
-        setSelectedPlan(first.plan);
+        setSelectedId(first.id);
         setDraft(first);
       }
     } catch (err) {
@@ -67,6 +66,13 @@ export default function SubscriptionPlansPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function newPlan() {
+    setSelectedId("");
+    setDraft(EMPTY_PLAN());
+    setMessage("");
+    setError("");
   }
 
   const featureRows = useMemo(
@@ -107,11 +113,13 @@ export default function SubscriptionPlansPage() {
     try {
       const saved = await subscriptionPlansAPI.savePlan(draft);
       setPlans((current) => {
-        const without = current.filter((plan) => plan.plan !== saved.plan);
-        return [...without, saved].sort((a, b) => a.displayOrder - b.displayOrder);
+        const without = current.filter((plan) => plan.id !== saved.id);
+        const next = saved.isDefault ? without.map((plan) => ({ ...plan, isDefault: false })) : without;
+        return [...next, saved].sort((a, b) => a.displayOrder - b.displayOrder);
       });
+      setSelectedId(saved.id);
       setDraft(saved);
-      setMessage(`${saved.name} updated.`);
+      setMessage(`${saved.name} saved.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save plan.");
     } finally {
@@ -135,35 +143,37 @@ export default function SubscriptionPlansPage() {
 
           <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
             <div className="rounded-xl bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-gray-900">Plans</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-900">Plans</h2>
+                <button type="button" onClick={newPlan} className="text-xs font-semibold text-gray-900 hover:underline">
+                  + New plan
+                </button>
+              </div>
               <div className="mt-4 space-y-2">
                 {loading ? (
                   <p className="text-sm text-gray-500">Loading plans…</p>
                 ) : (
-                  PLAN_OPTIONS.map((planCode) => {
-                    const plan = plans.find((item) => item.plan === planCode);
-                    const active = selectedPlan === planCode;
+                  plans.map((plan) => {
+                    const active = selectedId === plan.id;
                     return (
                       <button
-                        key={planCode}
+                        key={plan.id}
                         type="button"
                         onClick={() => {
-                          setSelectedPlan(planCode);
-                          setDraft(plan ?? { ...EMPTY_PLAN(), plan: planCode, slug: planCode.toLowerCase(), name: planCode[0] + planCode.slice(1).toLowerCase() });
+                          setSelectedId(plan.id);
+                          setDraft(plan);
                         }}
                         className={`w-full rounded-lg border px-4 py-3 text-left transition ${
                           active ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200 bg-white text-gray-900 hover:border-gray-400"
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold">{plan?.name ?? planCode}</span>
+                          <span className="font-semibold">{plan.name}</span>
                           <span className={`text-xs ${active ? "text-gray-200" : "text-gray-500"}`}>
-                            {plan?.isActive ? "Active" : "Hidden"}
+                            {plan.isDefault ? "Default" : plan.isActive ? "Active" : "Hidden"}
                           </span>
                         </div>
-                        <p className={`mt-1 text-xs ${active ? "text-gray-300" : "text-gray-500"}`}>
-                          {plan?.slug ?? planCode.toLowerCase()}
-                        </p>
+                        <p className={`mt-1 text-xs ${active ? "text-gray-300" : "text-gray-500"}`}>{plan.slug}</p>
                       </button>
                     );
                   })
@@ -173,7 +183,7 @@ export default function SubscriptionPlansPage() {
 
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Plan code" value={draft.plan} disabled />
+                <Field label="Plan code (legacy, optional)" value={draft.plan} disabled={Boolean(draft.id)} onChange={(value) => setDraft((current) => ({ ...current, plan: value.toUpperCase() }))} />
                 <Field label="Slug" value={draft.slug} onChange={(value) => setDraft((current) => ({ ...current, slug: value.toLowerCase() }))} />
                 <Field label="Display name" value={draft.name} onChange={(value) => setDraft((current) => ({ ...current, name: value }))} />
                 <Field label="Currency" value={draft.currency} onChange={(value) => setDraft((current) => ({ ...current, currency: value.toUpperCase() }))} />
@@ -214,6 +224,18 @@ export default function SubscriptionPlansPage() {
                     type="checkbox"
                     checked={draft.isActive}
                     onChange={(event) => setDraft((current) => ({ ...current, isActive: event.target.checked }))}
+                    className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                  />
+                </label>
+                <label className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3">
+                  <div>
+                    <span className="text-sm font-medium text-gray-800">Default plan for new vendors</span>
+                    <p className="text-xs text-gray-500">Only one plan can be default. Saving this unsets it on all others.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={draft.isDefault}
+                    onChange={(event) => setDraft((current) => ({ ...current, isDefault: event.target.checked }))}
                     className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
                   />
                 </label>

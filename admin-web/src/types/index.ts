@@ -242,6 +242,7 @@ export interface AdminSubscriptionPlan {
   marketingTools: boolean;
   canReceiveOrders: boolean;
   isActive: boolean;
+  isDefault: boolean;
   displayOrder: number;
 }
 
