@@ -36,4 +36,8 @@ export const subscriptionPlansAPI = {
     const response = await apiClient.post<any>("/admin/subscription-plans", plan);
     return normalizePlan(response.plan ?? response);
   },
+
+  async deletePlan(planId: string): Promise<void> {
+    await apiClient.delete(`/admin/subscription-plans/${planId}`);
+  },
 };

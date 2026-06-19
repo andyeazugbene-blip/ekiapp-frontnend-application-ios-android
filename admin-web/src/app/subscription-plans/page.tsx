@@ -82,6 +82,24 @@ export default function SubscriptionPlansPage() {
     [],
   );
 
+  async function deletePlan() {
+    if (!draft.id) return;
+    if (!window.confirm(`Delete plan "${draft.name}"? Vendors on this plan stay on it until reassigned.`)) return;
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      await subscriptionPlansAPI.deletePlan(draft.id);
+      setPlans((current) => current.filter((plan) => plan.id !== draft.id));
+      setMessage(`${draft.name} deleted.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete plan.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function savePlan() {
     setSaving(true);
     setError("");
@@ -201,7 +219,17 @@ export default function SubscriptionPlansPage() {
                 </label>
               </div>
 
-              <div className="mt-6 flex justify-end">
+              <div className="mt-6 flex justify-end gap-3">
+                {draft.id ? (
+                  <button
+                    type="button"
+                    onClick={deletePlan}
+                    disabled={saving}
+                    className="rounded-lg border border-red-300 px-5 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Delete plan
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={savePlan}
