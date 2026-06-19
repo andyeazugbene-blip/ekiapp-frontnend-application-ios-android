@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { rewardService, type Reward } from "../../services/rewardService";
 import { giftCardService, type GiftCard } from "../../services/giftCardService";
+import { campaignService, campaignColors, type Campaign } from "../../services/campaignService";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -25,7 +26,6 @@ import { type Product } from "../../types/product";
 import { type VendorSummary } from "../../types/vendor";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { vendorService } from "../../services/vendorService";
-import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { formatDisplayMoney } from "../../utils/currency";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -101,19 +101,32 @@ export default function BuyerHomeScreen() {
   const addItem = useCartStore((s) => s.addItem);
   const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
   const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
-  const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
   const user = useAuthStore((s) => s.user);
-  const switchRole = useAuthStore((s) => s.switchRole);
-  const hasVendor = useAuthStore((s) => s.user?.hasVendor === true);
   const deliveryCountry = user && "country" in user ? user.country : undefined;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [vendors, setVendors] = useState<VendorSummary[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(true);
+  const [campaignsError, setCampaignsError] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeDealIndex, setActiveDealIndex] = useState(0);
-  const [currencyOpen, setCurrencyOpen] = useState(false);
+
+  const loadCampaigns = useCallback(async () => {
+    setCampaignsLoading(true);
+    setCampaignsError("");
+    try {
+      const myCampaigns = await campaignService.getMyCampaigns();
+      setCampaigns(myCampaigns);
+    } catch (err) {
+      setCampaignsError(err instanceof Error ? err.message : "Could not load campaigns.");
+      setCampaigns([]);
+    } finally {
+      setCampaignsLoading(false);
+    }
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -131,7 +144,8 @@ export default function BuyerHomeScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+    void loadCampaigns();
+  }, [loadCampaigns]);
 
   useFocusEffect(
     useCallback(() => {
@@ -169,23 +183,30 @@ export default function BuyerHomeScreen() {
   const bestSellers = useMemo(() => rankProducts(activeProducts, vendors).slice(0, 6), [activeProducts, vendors]);
   const giftRewards = useMemo(() => rewards.filter((reward) => !reward.isHotDeal), [rewards]);
 
+  const hotDealCampaigns = useMemo(
+    () => campaignService.getHotDeals(campaigns).slice(0, 6),
+    [campaigns],
+  );
+
+  const giftCardCampaigns = useMemo(
+    () => campaignService.getGiftCardCampaigns(campaigns).slice(0, 6),
+    [campaigns],
+  );
+
   const hotDeals = useMemo<HomeDeal[]>(
     () =>
-      rewards
-        .filter((reward) => reward.isHotDeal && reward.isActive)
-        .slice(0, 6)
-        .map((reward) => ({
-          id: `hot-deal-${reward.id}`,
-          colors: ["#E59A00", "#F4C01B"],
-          badge: "Hot Deal",
-          title: reward.name,
-          highlight: formatDisplayMoney(reward.value, reward.currency, selectedCurrency),
-          body: reward.description?.trim() || "Limited-time marketplace deal from Eki.",
-          cta: "Shop Deals",
-          icon: "flame",
-          onPress: () => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any),
-        })),
-    [rewards, router, selectedCurrency],
+      hotDealCampaigns.map((campaign) => ({
+        id: `hot-deal-${campaign.id}`,
+        colors: campaignColors(campaign) as unknown as readonly [string, string],
+        badge: "Hot Deal",
+        title: campaign.title,
+        highlight: campaign.subtitle || "",
+        body: campaign.subtitle?.trim() || "Limited-time marketplace deal from Eki.",
+        cta: "Shop Deals",
+        icon: "flash",
+        onPress: () => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any),
+      })),
+    [hotDealCampaigns, router],
   );
 
   const openSearch = (value = "") => {
@@ -231,27 +252,6 @@ export default function BuyerHomeScreen() {
               </View>
 
               <View style={styles.headerActions}>
-                {hasVendor ? (
-                  <TouchableOpacity
-                    onPress={async () => {
-                      try {
-                        await switchRole();
-                        router.replace("/(vendor)" as any);
-                      } catch {}
-                    }}
-                    activeOpacity={0.86}
-                    style={styles.headerIconBtn}
-                  >
-                    <Ionicons name="storefront-outline" size={22} color="#FFFFFF" />
-                  </TouchableOpacity>
-                ) : null}
-                <TouchableOpacity
-                  onPress={() => router.push("/(buyer)/notifications" as any)}
-                  activeOpacity={0.86}
-                  style={styles.headerIconBtn}
-                >
-                  <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
-                </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => router.push("/(buyer)/profile" as any)}
                   activeOpacity={0.86}
@@ -271,14 +271,30 @@ export default function BuyerHomeScreen() {
                 <Ionicons name="search-outline" size={20} color="#9AA3A0" />
                 <Text style={styles.searchPlaceholder}>Search for foodstuff</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.86} style={styles.currencyButton}>
-                <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
-              </TouchableOpacity>
             </View>
           </LinearGradient>
         </View>
 
-        {hotDeals.length > 0 ? (
+        {campaignsLoading ? (
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionTitle}>Hot Deals</Text>
+            <View style={styles.loaderBlock}>
+              <ActivityIndicator color="#076B51" />
+            </View>
+          </View>
+        ) : campaignsError ? (
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionTitle}>Hot Deals</Text>
+            <View style={styles.emptyState}>
+              <Ionicons name="alert-circle-outline" size={28} color="#D6552F" />
+              <Text style={styles.emptyTitle}>Couldn't load deals</Text>
+              <Text style={styles.emptyText}>{campaignsError}</Text>
+              <TouchableOpacity onPress={() => void loadCampaigns()} activeOpacity={0.86} style={styles.dealButton}>
+                <Text style={styles.dealButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : hotDeals.length === 0 ? null : (
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionTitle}>Hot Deals</Text>
           <ScrollView
@@ -315,7 +331,7 @@ export default function BuyerHomeScreen() {
             ))}
           </View>
         </View>
-        ) : null}
+        )}
 
         {giftCards.length > 0 ? (
           <View style={styles.sectionBlock}>
@@ -346,6 +362,39 @@ export default function BuyerHomeScreen() {
                     <Text style={styles.giftDesc} numberOfLines={1}>{card.description}</Text>
                   ) : null}
                 </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
+        {!campaignsLoading && !campaignsError && giftCardCampaigns.length > 0 ? (
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitleInline}>Gift Card Offers</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dealsScroll}>
+              {giftCardCampaigns.map((campaign) => (
+                <LinearGradient
+                  key={campaign.id}
+                  colors={campaignColors(campaign) as unknown as readonly [string, string]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.dealCard}
+                >
+                  <View style={styles.dealTopRow}>
+                    <View style={styles.dealBadge}>
+                      <Text style={styles.dealBadgeText}>Gift Card</Text>
+                    </View>
+                    <View style={styles.dealIconBubble}>
+                      <Ionicons name="gift" size={18} color="#FFFFFF" />
+                    </View>
+                  </View>
+                  <Text style={styles.dealTitle}>{campaign.title}</Text>
+                  {campaign.subtitle ? <Text style={styles.dealBody}>{campaign.subtitle}</Text> : null}
+                  <TouchableOpacity onPress={() => router.push("/(buyer)/wallet" as any)} activeOpacity={0.86} style={styles.dealButton}>
+                    <Text style={styles.dealButtonText}>View Offer</Text>
+                  </TouchableOpacity>
+                </LinearGradient>
               ))}
             </ScrollView>
           </View>
@@ -521,13 +570,6 @@ export default function BuyerHomeScreen() {
           </View>
         ) : null}
       </ScrollView>
-
-      <CurrencySelector
-        selectedCurrency={selectedCurrency}
-        onChange={setSelectedCurrency}
-        visible={currencyOpen}
-        onClose={() => setCurrencyOpen(false)}
-      />
     </SafeAreaView>
   );
 }
@@ -568,14 +610,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-  },
-  headerIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
   },
   deliveryTitle: {
     color: "#FFFFFF",
@@ -627,20 +661,6 @@ const styles = StyleSheet.create({
     color: "#9AA3A0",
     fontSize: 14,
     fontFamily: "Outfit-Regular",
-  },
-  currencyButton: {
-    minWidth: 66,
-    height: 58,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-  currencyButtonText: {
-    color: "#076B51",
-    fontSize: 13,
-    fontFamily: "Manrope-Bold",
   },
   sectionBlock: {
     marginTop: 24,
@@ -881,7 +901,7 @@ const styles = StyleSheet.create({
   heartButton: {
     position: "absolute",
     right: 10,
-    bottom: 10,
+    top: 10,
     width: 34,
     height: 34,
     borderRadius: 17,

@@ -20,13 +20,13 @@ import { goBackOrReplace } from "../../utils/navigation";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { formatDisplayMoney } from "../../utils/currency";
 
-function paymentProviderLabel(order?: Order | null) {
-  const provider = (order?.paymentProvider ?? "").toLowerCase();
-  if (provider === "paystack") return "Paystack";
-  if (provider === "stripe") return "Stripe";
-  if (provider === "wallet") return "Wallet";
-  if ((order?.escrowType ?? "").toLowerCase() === "domestic_africa") return "Paystack";
-  return "Provider unavailable";
+function timelineIcon(key: string): React.ComponentProps<typeof Ionicons>["name"] {
+  if (key === "paid" || key === "placed") return "calendar-outline";
+  if (key === "accepted" || key === "confirmed") return "checkmark-outline";
+  if (key === "processing") return "settings-outline";
+  if (key === "shipped" || key === "dispatched" || key === "in_transit") return "car-outline";
+  if (key === "delivered" || key === "completed" || key === "released") return "checkmark-done-outline";
+  return "ellipse-outline";
 }
 
 function formatShipmentStatus(status?: Shipment["status"]): string {
@@ -103,9 +103,11 @@ export default function OrderDetailScreen() {
   const standardOrderStatus = (order?.status ?? "").replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
   const displayStatusLabel = isEscrowOrder ? getEscrowStatusLabel(escrowStatus) : standardOrderStatus;
   const actionEnabled = isEscrowOrder ? canConfirmEscrow : order?.status === "pending" || order?.status === "paid";
-  const actionDeadlineText = order?.escrowExpiresAt
-    ? `Protection expires ${new Date(order.escrowExpiresAt).toLocaleString()}`
-    : "Review the order details and confirm when everything is correct.";
+  const actionDeadlineText = actionEnabled
+    ? "You have 24 hours to accept this order before it expires. Please review the items and shipping details."
+    : order?.escrowExpiresAt
+      ? `Protection expires ${new Date(order.escrowExpiresAt).toLocaleString()}`
+      : "Review the order details and confirm when everything is correct.";
 
   const handleAccept = async () => {
     if (!order) return;
@@ -161,8 +163,9 @@ export default function OrderDetailScreen() {
                 <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Order Details</Text>
-              <TouchableOpacity onPress={handleMessageBuyer} activeOpacity={0.86} style={styles.heroButton}>
-                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFFFFF" />
+              <TouchableOpacity onPress={() => router.push("/(vendor)/notifications" as any)} activeOpacity={0.86} style={styles.heroButton}>
+                <Ionicons name="notifications" size={18} color="#FFFFFF" />
+                <View style={styles.heroBell} />
               </TouchableOpacity>
             </View>
 
@@ -180,14 +183,8 @@ export default function OrderDetailScreen() {
             </View>
 
             <View style={styles.heroFooter}>
-              <View>
-                <Text style={styles.heroFooterLabel}>Order date</Text>
-                <Text style={styles.heroFooterValue}>{new Date(order.createdAt).toLocaleDateString()}</Text>
-              </View>
-              <View>
-                <Text style={styles.heroFooterLabel}>Payment provider</Text>
-                <Text style={styles.heroFooterValue}>{paymentProviderLabel(order)}</Text>
-              </View>
+              <Text style={styles.heroFooterLabel}>Order Date</Text>
+              <Text style={styles.heroFooterValue}>{new Date(order.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</Text>
             </View>
           </SafeAreaView>
         </LinearGradient>
@@ -263,7 +260,9 @@ export default function OrderDetailScreen() {
           <View style={styles.paymentTop}>
             <View>
               <Text style={styles.paymentTitle}>Payment Status</Text>
-              <Text style={styles.paymentSubtitle}>Payment: {displayStatusLabel}</Text>
+              <Text style={styles.paymentSubtitle}>
+                Payment: {escrowStatus === "RELEASED" || displayStatusLabel.toLowerCase().includes("paid") ? "Secured" : displayStatusLabel}
+              </Text>
             </View>
             <View style={[styles.paymentIcon, { backgroundColor: "rgba(255,255,255,0.14)" }]}>
               <Ionicons name="card-outline" size={18} color="#FFFFFF" />
@@ -271,19 +270,8 @@ export default function OrderDetailScreen() {
           </View>
           <View style={styles.paymentNotice}>
             <Text style={styles.paymentNoticeText}>
-              {isEscrowOrder
-                ? escrowStatus === "RELEASED"
-                  ? "Eligible funds are now visible in your available balance."
-                  : `Payment is protected until delivery confirmation. Available balance: ${formatMoney(order, earnings?.availableBalance)}.`
-                : `Payment is confirmed. Payout timing follows your seller plan and platform review rules. Available balance: ${formatMoney(order, earnings?.availableBalance)}.`}
+              Note: Payment will be released after delivery confirmation.
             </Text>
-          </View>
-
-          <View style={styles.shipmentGrid}>
-            <ShipmentMeta label="Shipment status" value={formatShipmentStatus(shipment?.status)} />
-            <ShipmentMeta label="Estimated delivery" value={deriveDeliveryLabel(order, shipment)} />
-            <ShipmentMeta label="Carrier" value={shipment?.carrier || "Not assigned"} />
-            <ShipmentMeta label="Tracking number" value={shipment?.trackingNumber || "Not added yet"} />
           </View>
         </LinearGradient>
 
@@ -315,7 +303,13 @@ export default function OrderDetailScreen() {
           {timeline.map((step, index) => (
             <View key={step.key} style={styles.timelineRow}>
               <View style={styles.timelineRail}>
-                <View style={[styles.timelineDot, step.done && styles.timelineDotDone, step.current && styles.timelineDotCurrent]} />
+                <View style={[styles.timelineDot, step.done && styles.timelineDotDone, step.current && styles.timelineDotCurrent]}>
+                  <Ionicons
+                    name={timelineIcon(step.key)}
+                    size={14}
+                    color={step.done || step.current ? "#FFFFFF" : "#9AA6A1"}
+                  />
+                </View>
                 {index < timeline.length - 1 ? <View style={[styles.timelineLine, (step.done || step.current) && styles.timelineLineActive]} /> : null}
               </View>
               <View style={{ flex: 1 }}>
@@ -390,15 +384,6 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
     <View style={styles.summaryRow}>
       <Text style={styles.summaryLabel}>{label}</Text>
       <Text style={styles.summaryValue}>{value}</Text>
-    </View>
-  );
-}
-
-function ShipmentMeta({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.shipmentMetaCard}>
-      <Text style={styles.shipmentMetaLabel}>{label}</Text>
-      <Text style={styles.shipmentMetaValue}>{value}</Text>
     </View>
   );
 }
@@ -492,7 +477,8 @@ const styles = StyleSheet.create({
   shipmentMetaValue: { color: "#FFFFFF", fontSize: 14, fontFamily: "Manrope-SemiBold", marginTop: 6 },
   timelineRow: { flexDirection: "row", minHeight: 68 },
   timelineRail: { width: 26, alignItems: "center" },
-  timelineDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: "#D6E3DD", marginTop: 4 },
+  timelineDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: "#D6E3DD", marginTop: 4, alignItems: "center", justifyContent: "center" },
+  heroBell: { position: "absolute", top: 8, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: "#FB6363" },
   timelineDotDone: { backgroundColor: "#076B51" },
   timelineDotCurrent: { backgroundColor: "#D97706" },
   timelineLine: { width: 2, flex: 1, marginTop: 4, backgroundColor: "#D6E3DD" },

@@ -90,6 +90,7 @@ export default function ProfileScreen() {
 
   const items: MenuItem[] = [
     { icon: "receipt-outline", label: "My Orders", action: "navigate", target: "/(buyer)/orders" },
+    { icon: "notifications-outline", label: "Notifications", action: "navigate", target: "/(buyer)/notifications" },
     { icon: "wallet-outline", label: "Wallet & Rewards", action: "navigate", target: "/(buyer)/wallet" },
     { icon: "chatbubble-ellipses-outline", label: "Messages", action: "navigate", target: "/(buyer)/messages" },
     { icon: "people-outline", label: "Refer a Friend", action: "navigate", target: "/(buyer)/referral-program" },
@@ -185,6 +186,22 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             ) : null}
             {copied ? <Text style={styles.copiedText}>Copied to clipboard</Text> : null}
+            {(user as any)?.phone || (user as any)?.country ? (
+              <View style={styles.metaRow}>
+                {(user as any)?.phone ? (
+                  <View style={styles.metaItem}>
+                    <Ionicons name="call-outline" size={12} color="rgba(255,255,255,0.7)" />
+                    <Text style={styles.metaText}>{(user as any).phone}</Text>
+                  </View>
+                ) : null}
+                {(user as any)?.country ? (
+                  <View style={styles.metaItem}>
+                    <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.7)" />
+                    <Text style={styles.metaText}>{(user as any).country}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         </View>
       </View>
@@ -280,6 +297,9 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.95)",
     marginTop: 2,
   },
+  metaRow: { flexDirection: "row", gap: 14, marginTop: 6, flexWrap: "wrap" },
+  metaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  metaText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.7)" },
   scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 },
   card: { backgroundColor: "#FFFFFF", borderRadius: 24, padding: 8, marginBottom: 16 },
   menuItem: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 12 },
