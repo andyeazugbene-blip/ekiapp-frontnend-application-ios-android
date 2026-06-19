@@ -11,7 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -231,6 +230,8 @@ export default function VendorDashboardScreen() {
   const deliveryHealth =
     zones.length === 0 ? "Setup" : zones.every((z) => z.active) ? "Good" : "Paused";
   const ratingDisplay = safeRatingValue > 0 ? `${safeRatingValue.toFixed(1)}/5` : "No rating yet";
+  const totalReviewsValue = Number((profile as any)?.totalReviews ?? 0);
+  const reviewsDisplay = Number.isFinite(totalReviewsValue) ? totalReviewsValue.toLocaleString("en-US") : "0";
   const ordersDisplay = totalOrders.toLocaleString("en-US");
   const deliveryDisplay = avgDeliveryText || "Not set";
 
@@ -283,7 +284,7 @@ export default function VendorDashboardScreen() {
 
   return (
     <View style={styles.scene}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <Animated.View
         style={[
@@ -299,13 +300,8 @@ export default function VendorDashboardScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Green hero ─────────────────────────────────────────────────── */}
-        <LinearGradient
-          colors={["#064E3B", "#076B51", "#0B8E6B"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
-        >
+        {/* ── Hero ───────────────────────────────────────────────────────── */}
+        <View style={styles.hero}>
           <SafeAreaView edges={["top"]}>
             <View style={styles.heroTopRow}>
               <TouchableOpacity
@@ -315,7 +311,7 @@ export default function VendorDashboardScreen() {
                 onPress={() => setDrawerOpen(true)}
                 style={styles.headerIconPill}
               >
-                <Ionicons name="menu" size={20} color="#282828" />
+                <Ionicons name="menu" size={18} color="#282828" />
               </TouchableOpacity>
               <TouchableOpacity
                 accessibilityLabel="Notifications"
@@ -339,7 +335,7 @@ export default function VendorDashboardScreen() {
               {storeName} {isVerifiedVendor ? "✓" : "👋"}
             </Text>
           </SafeAreaView>
-        </LinearGradient>
+        </View>
 
         <View style={styles.body}>
           {loading ? (
@@ -349,21 +345,19 @@ export default function VendorDashboardScreen() {
           ) : (
             <>
             {/* ── Alerts ──────────────────────────────────────────────── */}
-            <View style={styles.alertsCard}>
+            <View style={styles.alertsList}>
               <AlertRow
                 icon="cart-outline"
                 label="Orders requiring action"
                 count={alertOrderAction}
                 onPress={() => navigate("/(vendor)/orders")}
               />
-              <View style={styles.divider} />
               <AlertRow
                 icon="cube-outline"
                 label="Low stock alerts"
                 count={alertLowStock}
                 onPress={() => navigate("/(vendor)/foodstuff")}
               />
-              <View style={styles.divider} />
               <AlertRow
                 icon="chatbubble-ellipses-outline"
                 label="Unread buyer messages"
@@ -459,18 +453,21 @@ export default function VendorDashboardScreen() {
                 icon="pricetag-outline"
                 title="Create discount"
                 onPress={() => navigate("/(vendor)/create-discount")}
+                locked={agg.limits ? !agg.limits.discounts : false}
               />
               <GrowCard
                 tone="dark"
                 icon="gift-outline"
                 title="Create bundle"
                 onPress={() => navigate("/(vendor)/create-bundle")}
+                locked={agg.limits ? !agg.limits.bundles : false}
               />
               <GrowCard
                 tone="black"
                 icon="flash-outline"
                 title="Flash sale"
                 onPress={() => navigate("/(vendor)/create-flash-sale")}
+                locked={agg.limits ? !agg.limits.flashSales : false}
               />
               <GrowCard
                 tone="light"
@@ -608,6 +605,7 @@ export default function VendorDashboardScreen() {
                 value={ratingDisplay}
               />
               <PerfCard tone="dark" label="Orders" value={ordersDisplay} />
+              <PerfCard tone="light" label="Reviews" value={reviewsDisplay} />
             </View>
             <View style={styles.deliveryCard}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -798,41 +796,51 @@ function GrowCard({
   icon,
   title,
   onPress,
+  locked,
 }: {
   tone: "dark" | "light" | "black";
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   onPress: () => void;
+  locked?: boolean;
 }) {
   const isDark = tone === "dark";
   const isBlack = tone === "black";
-  
+
   const cardStyle = [
-    styles.growCard, 
-    isDark ? styles.growDark : isBlack ? styles.growBlack : styles.growLight
+    styles.growCard,
+    isDark ? styles.growDark : isBlack ? styles.growBlack : styles.growLight,
+    locked && styles.growLocked,
   ];
-  
-  const iconBg = isDark 
-    ? "rgba(255,255,255,0.15)" 
-    : isBlack 
-      ? "rgba(255,255,255,0.12)" 
+
+  const iconBg = isDark
+    ? "rgba(255,255,255,0.15)"
+    : isBlack
+      ? "rgba(255,255,255,0.12)"
       : "rgba(7,107,81,0.08)";
-      
+
   const iconColor = (isDark || isBlack) ? "#FFFFFF" : "#076B51";
 
   return (
     <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={onPress}
+      activeOpacity={locked ? 1 : 0.85}
+      onPress={locked ? undefined : onPress}
+      disabled={locked}
       style={cardStyle}
     >
+      {locked ? (
+        <View style={styles.growLockBadge}>
+          <Ionicons name="lock-closed" size={12} color="#FFFFFF" />
+        </View>
+      ) : null}
       <View style={[styles.growIconContainer, { backgroundColor: iconBg }]}>
         <Ionicons name={icon} size={22} color={iconColor} />
       </View>
       <Text style={[
-        styles.growCardTitle, 
+        styles.growCardTitle,
         (isDark || isBlack) && { color: "#FFFFFF" }
       ]}>{title}</Text>
+      {locked ? <Text style={styles.growUpgradeHint}>Upgrade to unlock</Text> : null}
     </TouchableOpacity>
   );
 }
@@ -923,7 +931,7 @@ function PerfCard({
 }
 
 const styles = StyleSheet.create({
-  scene: { flex: 1, backgroundColor: "#076B51" },
+  scene: { flex: 1, backgroundColor: "#F4F4F4" },
   dashboardSurface: { flex: 1, backgroundColor: "#F4F4F4" },
   dashboardSurfaceOpen: {
     borderRadius: 28,
@@ -937,8 +945,9 @@ const styles = StyleSheet.create({
 
   // ── Hero ─────────────────────────────────────────────────────────────
   hero: {
+    backgroundColor: "#076B51",
     paddingHorizontal: 18,
-    paddingBottom: 22,
+    paddingBottom: 24,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
@@ -949,12 +958,26 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     marginBottom: 14,
   },
-  dateText: { color: "rgba(255,255,255,0.75)", fontSize: 12, fontFamily: "Outfit-Regular", marginBottom: 4 },
+  dateText: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: "Outfit-Regular", marginBottom: 4 },
   headerIconPill: {
     width: 38,
     height: 38,
     borderRadius: 19,
     backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+  },
+  headerIconPillAccent: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#076B51",
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
@@ -971,10 +994,10 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   welcome: {
-    color: "rgba(255,255,255,0.8)",
+    color: "rgba(255,255,255,0.85)",
     fontSize: 13,
     fontFamily: "Outfit-Regular",
-    marginTop: 22,
+    marginTop: 18,
   },
   storeName: {
     color: "#FFFFFF",
@@ -988,18 +1011,23 @@ const styles = StyleSheet.create({
   loadingBlock: { paddingVertical: 60, alignItems: "center" },
 
   // ── Alerts ───────────────────────────────────────────────────────────
-  alertsCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 6,
+  alertsList: {
+    gap: 10,
     marginBottom: 18,
   },
   alertRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 11,
-    paddingHorizontal: 8,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
     gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
   },
   alertIcon: {
     width: 32,
@@ -1028,8 +1056,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  divider: { height: 1, backgroundColor: "#F2F2F2", marginHorizontal: 6 },
-
   // ── Section title ────────────────────────────────────────────────────
   section: {
     color: "#1A1A1A",
@@ -1120,6 +1146,12 @@ const styles = StyleSheet.create({
   growBlack: { backgroundColor: "#282828" },
   growIconContainer: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   growCardTitle: { color: "#282828", fontSize: 13, fontFamily: "Manrope-Bold" },
+  growLocked: { opacity: 0.45 },
+  growLockBadge: {
+    position: "absolute", top: 10, right: 10, width: 22, height: 22, borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center", zIndex: 1,
+  },
+  growUpgradeHint: { color: "#FB6363", fontSize: 10, fontFamily: "Outfit-Medium", marginTop: 2 },
 
   // ── Send offer ───────────────────────────────────────────────────────
   sendOfferBtn: { height: 50, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6, marginBottom: 18 },

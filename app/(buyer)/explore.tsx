@@ -46,7 +46,7 @@ export default function ExploreScreen() {
   const loadData = useCallback(async (query?: string) => {
     setLoading(true);
     const [prods, vends] = await Promise.all([
-      productService.getAll({ search: query || undefined, limit: 200 }).catch(() => [] as Product[]),
+      productService.getAll().catch(() => [] as Product[]),
       vendorService.getAllVendors({ status: "active", search: query || undefined, sort: params.sort || "newest", limit: 200 }).catch(() => [] as VendorSummary[]),
     ]);
     setProducts(prods ?? []);

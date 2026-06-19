@@ -15,16 +15,24 @@ interface ProductResponse {
 
 export const productService = {
   async getAll(params?: { category?: string; vendorId?: string; search?: string; page?: number; limit?: number }) {
-    const query = new URLSearchParams();
-    if (params?.category) query.set("category", params.category);
-    if (params?.vendorId) query.set("vendorId", params.vendorId);
-    if (params?.search) query.set("search", params.search);
-    if (params?.page) query.set("page", String(params.page));
-    if (params?.limit) query.set("limit", String(params.limit));
+    const all: any[] = [];
+    let cursor: string | undefined;
+    const pageSize = 100; // backend MAX_LIMIT
 
-    const qs = query.toString();
-    const response = await apiClient.get<ProductListResponse>(`/api/products${qs ? `?${qs}` : ""}`, { skipAuth: true });
-    return normalizeProducts(response?.items ?? response?.products ?? []);
+    do {
+      const query = new URLSearchParams();
+      if (params?.category) query.set("category", params.category);
+      if (params?.vendorId) query.set("vendorId", params.vendorId);
+      query.set("limit", String(pageSize));
+      if (cursor) query.set("cursor", cursor);
+
+      const response = await apiClient.get<ProductListResponse>(`/api/products?${query.toString()}`, { skipAuth: true });
+      const items = response?.items ?? response?.products ?? [];
+      all.push(...items);
+      cursor = response?.nextCursor ?? undefined;
+    } while (cursor);
+
+    return normalizeProducts(all);
   },
 
   async getById(id: string) {
