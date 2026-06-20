@@ -92,6 +92,10 @@ export default function VendorDashboardScreen() {
   const formatCurrency = (n: number, currencyCode = "GBP") => {
     return formatDisplayMoney(n, currencyCode, selectedCurrency);
   };
+  const formatCurrencySub = (n: number, currencyCode = "GBP") => {
+    if (currencyCode.toUpperCase() === selectedCurrency.toUpperCase()) return "";
+    return `≈ ${formatDisplayMoney(n, currencyCode, currencyCode)}`;
+  };
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
@@ -194,7 +198,7 @@ export default function VendorDashboardScreen() {
   const subscriptionPlan = subscription?.slug ?? "free";
   const subscriptionStatus = subscription?.status === "active" ? "Active" : "Inactive";
   const bestSellingText = asText(insights?.bestSellingProduct).trim() || "No order data yet";
-  const repeatBuyerCount = asNumber(insights?.repeatBuyers);
+  const repeatBuyerCount = buyers.filter((b) => asNumber(b.totalOrders) >= 2).length;
   const backendAlerts = asArray<{ type?: string; count?: unknown }>(data?.alerts);
 
   // Alerts — prefer the backend-provided alerts; fall back to derived values.
@@ -375,28 +379,28 @@ export default function VendorDashboardScreen() {
                 icon="trending-up-outline"
                 label="Sales today"
                 value={formatCurrency(earnings?.salesToday ?? 0, earnings?.currency)}
-                sub="Live backend total"
+                sub={formatCurrencySub(earnings?.salesToday ?? 0, earnings?.currency)}
               />
               <SalesTile
                 tone="dark"
                 icon="calendar-outline"
                 label="Sales this week"
                 value={formatCurrency(earnings?.salesThisWeek ?? 0, earnings?.currency)}
-                sub="Live backend total"
+                sub={formatCurrencySub(earnings?.salesThisWeek ?? 0, earnings?.currency)}
               />
               <SalesTile
                 tone="black"
                 icon="bar-chart-outline"
                 label="Sales this month"
                 value={formatCurrency(earnings?.salesThisMonth ?? 0, earnings?.currency)}
-                sub="Live backend total"
+                sub={formatCurrencySub(earnings?.salesThisMonth ?? 0, earnings?.currency)}
               />
               <SalesTile
                 tone="light"
                 icon="card-outline"
                 label="Pending Payout"
                 value={formatCurrency(earnings?.pendingPayout ?? 0, earnings?.currency)}
-                sub="Available after delivery"
+                sub={formatCurrencySub(earnings?.pendingPayout ?? 0, earnings?.currency)}
                 onPress={() => navigate("/(vendor)/earnings")}
               />
             </View>
@@ -416,6 +420,9 @@ export default function VendorDashboardScreen() {
                   <Text style={styles.insightLabel}>Best selling foodstuff</Text>
                   <Text style={styles.insightTitle}>{bestSellingText}</Text>
                 </View>
+                <View style={styles.timelineRightCol}>
+                  <Sparkline points={[8, 14, 10, 18, 12, 20, 16]} />
+                </View>
               </View>
 
               {/* Row 2 */}
@@ -427,8 +434,11 @@ export default function VendorDashboardScreen() {
                   <View style={styles.timelineVerticalLine} />
                 </View>
                 <View style={styles.timelineContentCol}>
-                  <Text style={styles.insightLabel}>Repeat Buyers</Text>
+                  <Text style={styles.insightLabel}>Repeat buyers</Text>
                   <Text style={styles.insightTitle}>{repeatBuyerCount.toLocaleString("en-US")}</Text>
+                </View>
+                <View style={styles.timelineRightCol}>
+                  <Sparkline points={[6, 10, 8, 16, 12, 14, 18]} />
                 </View>
               </View>
 
@@ -440,8 +450,11 @@ export default function VendorDashboardScreen() {
                   </View>
                 </View>
                 <View style={styles.timelineContentCol}>
-                  <Text style={styles.insightLabel}>Sells by country</Text>
+                  <Text style={styles.insightLabel}>Sales by country</Text>
                   <Text style={styles.insightTitle}>{sellsCountryText}</Text>
+                </View>
+                <View style={styles.timelineRightCol}>
+                  <Sparkline points={[10, 6, 14, 8, 18, 12, 16]} />
                 </View>
               </View>
             </View>
@@ -993,9 +1006,9 @@ const styles = StyleSheet.create({
   },
   welcome: {
     color: "rgba(255,255,255,0.85)",
-    fontSize: 13,
-    fontFamily: "Outfit-Regular",
-    marginTop: 18,
+    fontSize: 24,
+    fontFamily: "Manrope-Bold",
+    marginTop: 8,
   },
   storeNameRow: {
     flexDirection: "row",
@@ -1145,7 +1158,7 @@ const styles = StyleSheet.create({
   },
 
   // ── Grow grid ────────────────────────────────────────────────────────
-  growGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 12 },
+  growGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10, marginBottom: 12 },
   growCard: { width: (SCREEN_WIDTH - 16 * 2 - 10) / 2, minHeight: 114, borderRadius: 20, padding: 14, justifyContent: "space-between" },
   growDark: { backgroundColor: "#076B51" },
   growLight: { backgroundColor: "#FFFFFF" },

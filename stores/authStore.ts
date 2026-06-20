@@ -155,6 +155,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
             user: result.user,
             token: result.token,
             pushToken: get().pushToken ?? cached?.pushToken ?? null,
+            lastRole: result.user.role,
             isAuthenticated: true,
             isInitializing: false,
             hasSeenOnboarding: true,
@@ -360,7 +361,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     switchRole: async () => {
       try {
         const { user, token } = await authService.switchRole();
-        set({ user, token });
+        set({ user, token, lastRole: user.role });
         setMonitoringUser({ id: user.id, role: user.role });
         persistState();
       } catch (err) {
