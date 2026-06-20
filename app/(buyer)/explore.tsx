@@ -30,6 +30,7 @@ export default function ExploreScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [vendors, setVendors] = useState<VendorSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasLoadedOnceRef = useRef(false);
   const [search, setSearch] = useState(params.search ?? "");
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(params.category ?? null);
@@ -44,7 +45,7 @@ export default function ExploreScreen() {
     activeView === "products" ? "All foodstuff" : activeView === "vendors" ? "All vendors" : "Browse foodstuff";
 
   const loadData = useCallback(async (query?: string) => {
-    setLoading(true);
+    if (!hasLoadedOnceRef.current) setLoading(true);
     const [prods, vends] = await Promise.all([
       productService.getAll().catch(() => [] as Product[]),
       vendorService.getAllVendors({ status: "active", search: query || undefined, sort: params.sort || "newest", limit: 200 }).catch(() => [] as VendorSummary[]),
@@ -52,6 +53,7 @@ export default function ExploreScreen() {
     setProducts(prods ?? []);
     setVendors(vends ?? []);
     setLoading(false);
+    hasLoadedOnceRef.current = true;
   }, [params.sort]);
 
   useFocusEffect(

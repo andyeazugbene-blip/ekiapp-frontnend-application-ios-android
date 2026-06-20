@@ -230,8 +230,6 @@ export default function VendorDashboardScreen() {
   const deliveryHealth =
     zones.length === 0 ? "Setup" : zones.every((z) => z.active) ? "Good" : "Paused";
   const ratingDisplay = safeRatingValue > 0 ? `${safeRatingValue.toFixed(1)}/5` : "No rating yet";
-  const totalReviewsValue = Number((profile as any)?.totalReviews ?? 0);
-  const reviewsDisplay = Number.isFinite(totalReviewsValue) ? totalReviewsValue.toLocaleString("en-US") : "0";
   const ordersDisplay = totalOrders.toLocaleString("en-US");
   const deliveryDisplay = avgDeliveryText || "Not set";
 
@@ -605,7 +603,6 @@ export default function VendorDashboardScreen() {
                 value={ratingDisplay}
               />
               <PerfCard tone="dark" label="Orders" value={ordersDisplay} />
-              <PerfCard tone="light" label="Reviews" value={reviewsDisplay} />
             </View>
             <View style={styles.deliveryCard}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -810,7 +807,6 @@ function GrowCard({
   const cardStyle = [
     styles.growCard,
     isDark ? styles.growDark : isBlack ? styles.growBlack : styles.growLight,
-    locked && styles.growLocked,
   ];
 
   const iconBg = isDark
@@ -840,7 +836,6 @@ function GrowCard({
         styles.growCardTitle,
         (isDark || isBlack) && { color: "#FFFFFF" }
       ]}>{title}</Text>
-      {locked ? <Text style={styles.growUpgradeHint}>Upgrade to unlock</Text> : null}
     </TouchableOpacity>
   );
 }
@@ -1011,8 +1006,11 @@ const styles = StyleSheet.create({
   loadingBlock: { paddingVertical: 60, alignItems: "center" },
 
   // ── Alerts ───────────────────────────────────────────────────────────
+  // Negative marginTop floats these cards up over the hero's bottom edge
+  // (net -18 over the hero, matching the same float pattern used in vendor-detail.tsx).
   alertsList: {
     gap: 10,
+    marginTop: -32,
     marginBottom: 18,
   },
   alertRow: {
@@ -1059,22 +1057,22 @@ const styles = StyleSheet.create({
   // ── Section title ────────────────────────────────────────────────────
   section: {
     color: "#1A1A1A",
-    fontSize: 14,
+    fontSize: 18,
     fontFamily: "Manrope-Bold",
-    marginBottom: 10,
-    marginTop: 6,
+    marginBottom: 14,
+    marginTop: 8,
   },
 
   // ── Sales tiles (2×2 grid) ───────────────────────────────────────────
-  salesGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 18 },
-  salesTile: { width: (SCREEN_WIDTH - 16 * 2 - 12) / 2, backgroundColor: "#FFFFFF", borderRadius: 22, paddingHorizontal: 16, paddingVertical: 18, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
-  salesTileIconContainer: { width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  salesGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12, marginBottom: 18 },
+  salesTile: { width: (SCREEN_WIDTH - 16 * 2 - 12) / 2, backgroundColor: "#FFFFFF", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 14, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
+  salesTileIconContainer: { width: 26, height: 26, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   tileDark: { backgroundColor: "#076B51" },
   tileLight: { backgroundColor: "#FFFFFF" },
   tileBlack: { backgroundColor: "#282828" },
   tileLabel: { color: "#858585", fontSize: 11, fontFamily: "Outfit-Regular" },
   tileLabelDark: { color: "rgba(255,255,255,0.75)" },
-  tileValue: { color: "#282828", fontSize: 20, fontFamily: "Manrope-Bold", marginTop: 6 },
+  tileValue: { color: "#282828", fontSize: 18, fontFamily: "Manrope-Bold", marginTop: 6 },
   tileValueDark: { color: "#FFFFFF" },
   tileSub: { fontSize: 10, fontFamily: "Outfit-Regular", marginTop: 4 },
   tileSubDark: { color: "rgba(255,255,255,0.6)" },
@@ -1146,12 +1144,10 @@ const styles = StyleSheet.create({
   growBlack: { backgroundColor: "#282828" },
   growIconContainer: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   growCardTitle: { color: "#282828", fontSize: 13, fontFamily: "Manrope-Bold" },
-  growLocked: { opacity: 0.45 },
   growLockBadge: {
     position: "absolute", top: 10, right: 10, width: 22, height: 22, borderRadius: 11,
     backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center", zIndex: 1,
   },
-  growUpgradeHint: { color: "#FB6363", fontSize: 10, fontFamily: "Outfit-Medium", marginTop: 2 },
 
   // ── Send offer ───────────────────────────────────────────────────────
   sendOfferBtn: { height: 50, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6, marginBottom: 18 },
