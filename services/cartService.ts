@@ -51,6 +51,11 @@ export interface CheckoutIntent {
   amount: number;
   currency: string;
   clientSecret: string;
+  discountAmount?: number;
+  promoCode?: string;
+  campaignId?: string;
+  campaignTitle?: string;
+  campaignDiscount?: number;
 }
 
 // ─── Cart Service ──────────────────────────────────────────────────────────────

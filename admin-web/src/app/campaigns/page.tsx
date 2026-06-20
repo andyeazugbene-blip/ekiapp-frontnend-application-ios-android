@@ -23,6 +23,8 @@ interface Campaign {
   minimumOrders: number | null;
   minimumSpendCents: number | null;
   newCustomerOnly: boolean;
+  discountType: "PERCENTAGE" | "FIXED_AMOUNT" | null;
+  discountValue: number | null;
   createdAt: string;
 }
 
@@ -43,6 +45,8 @@ const EMPTY_FORM = {
   minimumOrders: "",
   minimumSpendCents: "",
   newCustomerOnly: false,
+  discountType: "" as "" | "PERCENTAGE" | "FIXED_AMOUNT",
+  discountValue: "",
 };
 
 function toFormFromCampaign(c: Campaign) {
@@ -63,6 +67,13 @@ function toFormFromCampaign(c: Campaign) {
     minimumOrders: c.minimumOrders != null ? String(c.minimumOrders) : "",
     minimumSpendCents: c.minimumSpendCents != null ? String(c.minimumSpendCents / 100) : "",
     newCustomerOnly: c.newCustomerOnly,
+    discountType: (c.discountType ?? "") as "" | "PERCENTAGE" | "FIXED_AMOUNT",
+    discountValue:
+      c.discountValue == null
+        ? ""
+        : c.discountType === "FIXED_AMOUNT"
+          ? String(c.discountValue / 100)
+          : String(c.discountValue),
   };
 }
 
@@ -84,6 +95,12 @@ function toPayload(form: typeof EMPTY_FORM) {
     minimumOrders: form.minimumOrders ? Number(form.minimumOrders) : null,
     minimumSpendCents: form.minimumSpendCents ? Math.round(Number(form.minimumSpendCents) * 100) : null,
     newCustomerOnly: form.newCustomerOnly,
+    discountType: form.discountType || null,
+    discountValue: !form.discountType || !form.discountValue
+      ? null
+      : form.discountType === "FIXED_AMOUNT"
+        ? Math.round(Number(form.discountValue) * 100)
+        : Math.round(Number(form.discountValue)),
   };
 }
 
@@ -213,6 +230,30 @@ export default function CampaignsPage() {
             <input className={inputClass} placeholder="Required category names (comma separated)" value={form.requiredCategoryIds} onChange={(e) => setForm({ ...form, requiredCategoryIds: e.target.value })} />
           </div>
 
+          <h3 className="mt-6 text-sm font-bold uppercase text-slate-500">Checkout discount</h3>
+          <p className="text-xs text-slate-400">Auto-applied at checkout for eligible buyers. Platform-funded — vendor payout is unaffected. Leave blank for no discount.</p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <select
+              className={inputClass}
+              value={form.discountType}
+              onChange={(e) => setForm({ ...form, discountType: e.target.value as "" | "PERCENTAGE" | "FIXED_AMOUNT", discountValue: "" })}
+            >
+              <option value="">No discount</option>
+              <option value="PERCENTAGE">Percentage off</option>
+              <option value="FIXED_AMOUNT">Fixed amount off</option>
+            </select>
+            <input
+              type="number"
+              min="0"
+              step={form.discountType === "FIXED_AMOUNT" ? "0.01" : "1"}
+              className={inputClass}
+              placeholder={form.discountType === "PERCENTAGE" ? "Percent off (1-100)" : "Amount off (e.g. 10.00)"}
+              value={form.discountValue}
+              disabled={!form.discountType}
+              onChange={(e) => setForm({ ...form, discountValue: e.target.value })}
+            />
+          </div>
+
           <div className="mt-4 flex gap-3">
             <Button disabled={saving} onClick={() => void save()}>{saving ? "Saving..." : "Save Campaign"}</Button>
             <Button variant="ghost" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</Button>
@@ -228,6 +269,7 @@ export default function CampaignsPage() {
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Type</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Priority</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Window</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Discount</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Active</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Actions</th>
             </tr></thead>
@@ -240,6 +282,13 @@ export default function CampaignsPage() {
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {c.startDate ? new Date(c.startDate).toLocaleDateString() : "—"} → {c.endDate ? new Date(c.endDate).toLocaleDateString() : "—"}
                   </td>
+                  <td className="px-6 py-4 text-sm text-gray-700">
+                    {c.discountType && c.discountValue != null
+                      ? c.discountType === "PERCENTAGE"
+                        ? `${c.discountValue}% off`
+                        : `$${(c.discountValue / 100).toFixed(2)} off`
+                      : "—"}
+                  </td>
                   <td className="px-6 py-4 text-sm">{c.active ? "✅" : "❌"}</td>
                   <td className="px-6 py-4 text-sm flex gap-2">
                     <Button variant="ghost" onClick={() => openEdit(c)}>Edit</Button>
@@ -248,7 +297,7 @@ export default function CampaignsPage() {
                   </td>
                 </tr>
               ))}
-              {campaigns.length === 0 && <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">No campaigns created yet.</td></tr>}
+              {campaigns.length === 0 && <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-500">No campaigns created yet.</td></tr>}
             </tbody>
           </table>
         </div></Card>

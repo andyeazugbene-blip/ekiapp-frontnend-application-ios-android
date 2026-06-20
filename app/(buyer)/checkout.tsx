@@ -57,6 +57,7 @@ export default function CheckoutScreen() {
   const [error, setError] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [createdOrderIds, setCreatedOrderIds] = useState<string[]>([]);
+  const [appliedCampaign, setAppliedCampaign] = useState<{ title: string; discount: number } | null>(null);
   const [currencyOpen, setCurrencyOpen] = useState(false);
 
   const walletBalance = wallet?.balance ?? 0;
@@ -128,6 +129,11 @@ export default function CheckoutScreen() {
       const walletCents = paymentMethod === "wallet" ? Math.round(grandTotal * 100) : undefined;
       const intent = await createCheckout(address.trim(), walletCents, country.trim());
       setCreatedOrderIds(intent.orderIds);
+      setAppliedCampaign(
+        intent.campaignTitle && intent.campaignDiscount
+          ? { title: intent.campaignTitle, discount: intent.campaignDiscount }
+          : null,
+      );
       if (paymentMethod === "wallet") {
         await clearCart(); setShowSuccess(true); return;
       }
@@ -283,6 +289,11 @@ export default function CheckoutScreen() {
             </View>
             <Text style={styles.modalTitle}>Payment Submitted</Text>
             <Text style={styles.modalBody}>Your order is being confirmed. The vendor will be notified once payment is processed.</Text>
+            {appliedCampaign ? (
+              <Text style={styles.modalDiscount}>
+                {appliedCampaign.title} applied: −{formatDisplayMoney(appliedCampaign.discount / 100, checkoutCurrency, checkoutCurrency)}
+              </Text>
+            ) : null}
             <TouchableOpacity onPress={() => { setShowSuccess(false); router.push("/(buyer)/orders" as any); }} activeOpacity={0.85} style={styles.trackBtn}>
               <Text style={styles.trackBtnText}>View Orders</Text>
             </TouchableOpacity>
@@ -348,6 +359,7 @@ const styles = StyleSheet.create({
   modalIcon: { marginBottom: 16 },
   modalTitle: { fontSize: 20, fontFamily: "Manrope-Bold", color: "#282828", textAlign: "center" },
   modalBody: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", marginTop: 8, lineHeight: 21 },
+  modalDiscount: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#076B51", textAlign: "center", marginTop: 8 },
   trackBtn: { width: "100%", height: 52, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", marginTop: 20 },
   trackBtnText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
   closeModalBtn: { width: "100%", height: 44, alignItems: "center", justifyContent: "center", marginTop: 10 },

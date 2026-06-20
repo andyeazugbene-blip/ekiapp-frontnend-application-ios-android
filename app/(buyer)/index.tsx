@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { rewardService, type Reward } from "../../services/rewardService";
 import { giftCardService, type GiftCard } from "../../services/giftCardService";
-import { campaignService, campaignColors, type Campaign } from "../../services/campaignService";
+import { campaignService, campaignColors, campaignConditionLabel, campaignDiscountLabel, type Campaign } from "../../services/campaignService";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -204,7 +204,21 @@ export default function BuyerHomeScreen() {
         body: campaign.subtitle?.trim() || "Limited-time marketplace deal from Eki.",
         cta: "Shop Deals",
         icon: "flash",
-        onPress: () => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any),
+        onPress: () => {
+          const discount = campaignDiscountLabel(campaign);
+          const condition = campaignConditionLabel(campaign);
+          if (discount) {
+            const lines = [`You qualify for: ${discount}`];
+            if (condition) lines.push(condition);
+            lines.push("It auto-applies at checkout — no code needed.");
+            Alert.alert(campaign.title, lines.join("\n"), [
+              { text: "Shop Now", onPress: () => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any) },
+              { text: "Close", style: "cancel" },
+            ]);
+          } else {
+            router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any);
+          }
+        },
       })),
     [hotDealCampaigns, router],
   );
