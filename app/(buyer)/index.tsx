@@ -307,19 +307,21 @@ export default function BuyerHomeScreen() {
           >
             {hotDeals.map((deal) => (
               <LinearGradient key={deal.id} colors={[...deal.colors]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dealCard}>
-                <View style={styles.dealTopRow}>
-                  <View style={styles.dealBadge}>
-                    <Text style={styles.dealBadgeText}>{deal.badge}</Text>
+                <TouchableOpacity onPress={deal.onPress} activeOpacity={0.9} style={{ flex: 1 }}>
+                  <View style={styles.dealTopRow}>
+                    <View style={styles.dealBadge}>
+                      <Text style={styles.dealBadgeText}>{deal.badge}</Text>
+                    </View>
+                    <View style={styles.dealIconBubble}>
+                      <Ionicons name={deal.icon} size={18} color="#FFFFFF" />
+                    </View>
                   </View>
-                  <View style={styles.dealIconBubble}>
-                    <Ionicons name={deal.icon} size={18} color="#FFFFFF" />
+                  <Text style={styles.dealTitle}>{deal.title}</Text>
+                  <Text style={styles.dealHighlight}>{deal.highlight}</Text>
+                  <Text style={styles.dealBody}>{deal.body}</Text>
+                  <View style={styles.dealButton} pointerEvents="none">
+                    <Text style={styles.dealButtonText}>{deal.cta}</Text>
                   </View>
-                </View>
-                <Text style={styles.dealTitle}>{deal.title}</Text>
-                <Text style={styles.dealHighlight}>{deal.highlight}</Text>
-                <Text style={styles.dealBody}>{deal.body}</Text>
-                <TouchableOpacity onPress={deal.onPress} activeOpacity={0.86} style={styles.dealButton}>
-                  <Text style={styles.dealButtonText}>{deal.cta}</Text>
                 </TouchableOpacity>
               </LinearGradient>
             ))}
