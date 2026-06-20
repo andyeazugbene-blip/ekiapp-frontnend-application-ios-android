@@ -329,9 +329,12 @@ export default function VendorDashboardScreen() {
             <Text style={styles.welcome}>
               {asText(data?.greeting).trim() || "Welcome back,"}
             </Text>
-            <Text style={styles.storeName} numberOfLines={1}>
-              {storeName} {isVerifiedVendor ? "✓" : "👋"}
-            </Text>
+            <View style={styles.storeNameRow}>
+              <Text style={styles.storeName} numberOfLines={1}>{storeName}</Text>
+              {isVerifiedVendor ? (
+                <Ionicons name="checkmark-circle" size={20} color="#4ADE80" style={styles.verifiedIcon} />
+              ) : null}
+            </View>
           </SafeAreaView>
         </View>
 
@@ -659,7 +662,7 @@ export default function VendorDashboardScreen() {
                 onPress={() => navigate("/(vendor)/subscription-plans")}
                 style={styles.upgradeBtn}
               >
-                <Text style={styles.upgradeText}>View Plan</Text>
+                <Text style={styles.upgradeText}>Upgrade Now</Text>
                 <Ionicons name={"arrow-up-forward" as any} size={14} color="#076B51" />
               </TouchableOpacity>
             </View>
@@ -994,13 +997,18 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Regular",
     marginTop: 18,
   },
+  storeNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
   storeName: {
     color: "#FFFFFF",
     fontSize: 26,
     fontFamily: "Manrope-ExtraBold",
-    marginTop: 2,
+    flexShrink: 1,
   },
-  wave: { fontSize: 22 },
+  verifiedIcon: { marginLeft: 6 },
 
   body: { paddingHorizontal: 14, paddingTop: 14 },
   loadingBlock: { paddingVertical: 60, alignItems: "center" },
