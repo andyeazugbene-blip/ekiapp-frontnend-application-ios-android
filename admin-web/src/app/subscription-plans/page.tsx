@@ -14,6 +14,7 @@ const EMPTY_PLAN = (): AdminSubscriptionPlan => ({
   description: "",
   monthlyPriceCents: 0,
   platformFeeBps: 1200,
+  withdrawalFeeBps: 0,
   currency: "GBP",
   maxProducts: 10,
   maxImagesPerProduct: 3,
@@ -190,6 +191,7 @@ export default function SubscriptionPlansPage() {
                 <Field label="Currency" value={draft.currency} onChange={(value) => setDraft((current) => ({ ...current, currency: value.toUpperCase() }))} />
                 <Field label="Monthly price (cents)" value={String(draft.monthlyPriceCents)} onChange={(value) => setDraft((current) => ({ ...current, monthlyPriceCents: Number(value || 0) }))} type="number" />
                 <Field label="Platform fee (basis points)" value={String(draft.platformFeeBps)} onChange={(value) => setDraft((current) => ({ ...current, platformFeeBps: Number(value || 0) }))} type="number" />
+                <Field label="Withdrawal fee (basis points)" value={String(draft.withdrawalFeeBps)} onChange={(value) => setDraft((current) => ({ ...current, withdrawalFeeBps: Number(value || 0) }))} type="number" />
                 <Field label="Display order" value={String(draft.displayOrder)} onChange={(value) => setDraft((current) => ({ ...current, displayOrder: Number(value || 0) }))} type="number" />
                 <Field label="Max products" value={String(draft.maxProducts)} onChange={(value) => setDraft((current) => ({ ...current, maxProducts: Number(value || 0) }))} type="number" />
                 <Field label="Max images / product" value={String(draft.maxImagesPerProduct)} onChange={(value) => setDraft((current) => ({ ...current, maxImagesPerProduct: Number(value || 0) }))} type="number" />

@@ -26,6 +26,7 @@ function normalizePlan(raw: any): AdminSubscriptionPlan {
     description: raw.description ?? null,
     monthlyPriceCents: raw.monthlyPriceCents ?? 0,
     platformFeeBps: raw.platformFeeBps ?? 1000,
+    withdrawalFeeBps: raw.withdrawalFeeBps ?? 0,
     currency: raw.currency ?? "GBP",
     maxProducts: raw.maxProducts ?? 0,
     maxImagesPerProduct: raw.maxImagesPerProduct ?? 0,

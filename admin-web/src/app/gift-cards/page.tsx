@@ -15,7 +15,7 @@ export default function GiftCardsPage() {
   const [loading, setLoading] = useState(true); const [error, setError] = useState("");
   const [showDealForm, setShowDealForm] = useState(false);
   const [savingDeal, setSavingDeal] = useState(false);
-  const [dealForm, setDealForm] = useState({ name: "", description: "", value: "", currency: "GBP", expiresAt: "" });
+  const [dealForm, setDealForm] = useState({ name: "", description: "", value: "", currency: "GBP", expiresAt: "", minOrderAmount: "" });
   const [editCard, setEditCard] = useState<GiftCard | null>(null);
   const [editForm, setEditForm] = useState({ title: "", priceAmount: "", currency: "GBP", isActive: true });
   const [savingCard, setSavingCard] = useState(false);
@@ -41,6 +41,10 @@ export default function GiftCardsPage() {
       setError("Hot deal name and value are required.");
       return;
     }
+    if (!dealForm.minOrderAmount || Number(dealForm.minOrderAmount) <= 0) {
+      setError("Minimum order amount is required — buyer must spend at least this much to unlock the deal.");
+      return;
+    }
     try {
       setSavingDeal(true);
       setError("");
@@ -50,10 +54,11 @@ export default function GiftCardsPage() {
         type: "DISCOUNT_COUPON",
         value: Number(dealForm.value),
         currency: dealForm.currency,
+        minOrderAmount: Number(dealForm.minOrderAmount),
         expiresAt: dealForm.expiresAt ? new Date(dealForm.expiresAt).toISOString() : undefined,
         isHotDeal: true,
       });
-      setDealForm({ name: "", description: "", value: "", currency: "GBP", expiresAt: "" });
+      setDealForm({ name: "", description: "", value: "", currency: "GBP", expiresAt: "", minOrderAmount: "" });
       setShowDealForm(false);
       await load();
     } catch (err) {
@@ -114,8 +119,10 @@ export default function GiftCardsPage() {
                 {SUPPORTED_CURRENCIES.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
               </select>
               <input type="datetime-local" value={dealForm.expiresAt} onChange={(e) => setDealForm({ ...dealForm, expiresAt: e.target.value })} className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
+              <input type="number" min="0.01" step="0.01" required value={dealForm.minOrderAmount} onChange={(e) => setDealForm({ ...dealForm, minOrderAmount: e.target.value })} placeholder="Min order amount e.g. 25.00 (required)" className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
               <textarea value={dealForm.description} onChange={(e) => setDealForm({ ...dealForm, description: e.target.value })} rows={2} placeholder="Short message shown on buyer Home" className="sm:col-span-2 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
             </div>
+            <p className="mt-2 text-xs text-slate-500">Condition: buyer must spend at least this amount in one order to unlock the deal.</p>
             <div className="mt-4 flex gap-3">
               <Button disabled={savingDeal} onClick={() => void saveHotDeal()}>{savingDeal ? "Saving..." : "Create Hot Deal"}</Button>
               <Button variant="ghost" onClick={() => setShowDealForm(false)}>Cancel</Button>
@@ -139,7 +146,11 @@ export default function GiftCardsPage() {
                       <span className="font-black">{deal.name}</span>
                       <span className={`h-2.5 w-2.5 rounded-full ${deal.isActive ? "bg-green-500" : "bg-slate-300"}`} />
                     </div>
-                    <p className="text-sm text-slate-500">{formatDisplayMoney(deal.value, deal.currency, selectedCurrency)}{deal.description ? ` · ${deal.description}` : ""}</p>
+                    <p className="text-sm text-slate-500">
+                      {formatDisplayMoney(deal.value, deal.currency, selectedCurrency)}
+                      {deal.minOrderAmount ? ` · Min spend ${formatDisplayMoney(deal.minOrderAmount, deal.currency, selectedCurrency)}` : ""}
+                      {deal.description ? ` · ${deal.description}` : ""}
+                    </p>
                   </div>
                   <Button variant="ghost" onClick={() => void toggleHotDeal(deal)}>{deal.isActive ? "Pause" : "Activate"}</Button>
                   <Button variant="danger" onClick={async () => { await giftsAPI.deleteGift(deal.id); await load(); }}>Delete</Button>

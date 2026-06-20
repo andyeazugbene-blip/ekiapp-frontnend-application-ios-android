@@ -240,6 +240,7 @@ export interface AdminSubscriptionPlan {
   description?: string | null;
   monthlyPriceCents: number;
   platformFeeBps: number;
+  withdrawalFeeBps: number;
   currency: string;
   maxProducts: number;
   maxImagesPerProduct: number;
