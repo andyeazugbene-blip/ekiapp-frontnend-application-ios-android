@@ -168,6 +168,15 @@ export default function UploadBusinessScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <View style={styles.dashboardPeek}>
+        <TouchableOpacity
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
         <Text style={styles.peekTitle}>Get your first order</Text>
         <Text style={styles.peekSub}>Complete the steps below to start selling</Text>
       </View>
@@ -291,6 +300,15 @@ const styles = StyleSheet.create({
   },
   peekTitle: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   peekSub: { fontSize: 13, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.75)", marginTop: 4 },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
   cardWrap: { flex: 1, paddingHorizontal: 20, paddingTop: 16, alignItems: "center" },
   cardScroll: { width: "100%", alignItems: "center", paddingBottom: 20 },
   card: {

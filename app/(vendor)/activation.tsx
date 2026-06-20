@@ -77,7 +77,8 @@ export default function ActivationScreen() {
   const progress = (doneCount / checklist.length) * 100;
 
   const refresh = useCallback(async () => {
-    if (!vendor) return;
+    const current = useAuthStore.getState().user;
+    if (!current || current.role !== "vendor") return;
     setRefreshing(true);
     try {
       await useAuthStore.getState().checkAuth().catch(() => null);
@@ -90,7 +91,7 @@ export default function ActivationScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [vendor]);
+  }, []);
 
 
   useFocusEffect(

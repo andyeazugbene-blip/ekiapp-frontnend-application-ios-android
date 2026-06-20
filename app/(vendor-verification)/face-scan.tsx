@@ -1,6 +1,7 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function FaceScanScreen() {
   const router = useRouter();
@@ -11,6 +12,18 @@ export default function FaceScanScreen() {
 
   return (
     <View style={styles.container}>
+      <SafeAreaView style={styles.backWrap}>
+        <TouchableOpacity
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+      </SafeAreaView>
+
       {/* Face frame area */}
       <View style={styles.frameWrap}>
         {/* Corner brackets */}
@@ -45,6 +58,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#1C1C1C",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backWrap: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    zIndex: 5,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
   },

@@ -51,6 +51,11 @@ export const uploadService = {
       sizeBytes: upload.sizeBytes,
     });
 
+    // Verification docs are stored privately by design: backend returns no publicUrl
+    // for this category and resolves access via the storage key instead. The key itself
+    // is the correct value to persist (see verification.service.ts's key/publicUrl lookup).
+    if (completed.privateReadUrl) return completed.key;
+
     const url = completed.publicUrl ?? completed.key;
     // Throw early so callers don't silently persist an S3 key as an image URL.
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
