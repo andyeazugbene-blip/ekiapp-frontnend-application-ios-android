@@ -23,7 +23,7 @@ interface MenuEntry {
 }
 
 const MENU_ITEMS: MenuEntry[] = [
-  { icon: "grid-outline", label: "Dashboard", route: "/(vendor)" },
+  { icon: "cart-outline", label: "Add foodstuff", route: "/(vendor)/foodstuff-add" },
   { icon: "car-outline", label: "Edit delivery", route: "/(vendor)/delivery" },
   { icon: "link-outline", label: "Share store", route: "/(vendor)/promo-link" },
   { icon: "eye-outline", label: "View orders", route: "/(vendor)/orders" },
@@ -53,7 +53,7 @@ function getGreeting(date: Date) {
  *  • Logout → useAuthStore().logout() (real backend call)
  *
  * Layout:
- *  • Compact left menu while the live dashboard shrinks and peeks on the right
+ *  • Wide left menu (figma_036) while the live dashboard shrinks and peeks on the right
  *  • Big translucent round close button on top-right
  *  • Active item has a translucent pill background; others are flat rows
  *  • Logout sits below a vertical gap to mirror the screenshot
@@ -65,7 +65,7 @@ export function VendorDrawer({ visible, onClose }: DrawerProps) {
   const vendor = user as VendorProfile | null;
   const insets = useSafeAreaInsets();
   const screenWidth = Dimensions.get("window").width;
-  const drawerWidth = screenWidth * 0.58;
+  const drawerWidth = screenWidth * 0.72;
 
   const [mounted, setMounted] = useState(visible);
   const opacity = useRef(new Animated.Value(0)).current;
@@ -166,7 +166,7 @@ export function VendorDrawer({ visible, onClose }: DrawerProps) {
                   onPress={() => navigate(item.route)}
                   style={[styles.menuItem, isActive && styles.menuItemActive]}
                 >
-                  <Ionicons name={item.icon} size={14} color="#FFFFFF" />
+                  <Ionicons name={item.icon} size={21} color="#FFFFFF" />
                   <Text style={styles.menuLabel}>{item.label}</Text>
                 </TouchableOpacity>
               );
@@ -181,7 +181,7 @@ export function VendorDrawer({ visible, onClose }: DrawerProps) {
               onPress={handleLogout}
               style={styles.menuItem}
             >
-              <Ionicons name="log-out-outline" size={14} color="#FFFFFF" />
+              <Ionicons name="log-out-outline" size={21} color="#FFFFFF" />
               <Text style={styles.menuLabel}>Logout</Text>
             </TouchableOpacity>
           </View>
@@ -206,7 +206,7 @@ export function VendorDrawer({ visible, onClose }: DrawerProps) {
         onPress={onClose}
         style={[styles.closeButton, { top: insets.top + 8 }]}
       >
-        <Ionicons name="close" size={20} color="#FFFFFF" />
+        <Ionicons name="close" size={22} color="#FFFFFF" />
       </TouchableOpacity>
     </Animated.View>
   );
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   },
   panel: {
     flex: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: 20,
   },
 
   // ── Profile header ─────────────────────────────────────────────────
@@ -230,9 +230,9 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     overflow: "hidden",
     backgroundColor: "rgba(255,255,255,0.10)",
   },
@@ -246,21 +246,21 @@ const styles = StyleSheet.create({
   avatarInitial: {
     color: "#FFFFFF",
     fontFamily: "Manrope-Bold",
-    fontSize: 15,
+    fontSize: 22,
   },
   profileText: {
-    marginLeft: 8,
+    marginLeft: 12,
     flex: 1,
   },
   greeting: {
     color: "rgba(255,255,255,0.78)",
     fontFamily: "Outfit-Regular",
-    fontSize: 10,
+    fontSize: 13,
   },
   name: {
     color: "#FFFFFF",
     fontFamily: "Manrope-ExtraBold",
-    fontSize: 15,
+    fontSize: 26,
     marginTop: 2,
   },
 
@@ -269,43 +269,39 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 16,
     zIndex: 5,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(255,255,255,0.14)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
   },
 
   // ── Menu list ──────────────────────────────────────────────────────
   menuList: {
-    marginTop: 22,
-    gap: 2,
+    marginTop: 36,
+    gap: 14,
   },
   menuItem: {
-    minHeight: 36,
-    borderRadius: 13,
-    paddingHorizontal: 9,
+    minHeight: 52,
+    borderRadius: 16,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 16,
   },
   menuItemActive: {
     backgroundColor: "rgba(255,255,255,0.14)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
   },
   menuLabel: {
     flex: 1,
     color: "#FFFFFF",
     fontFamily: "Manrope-SemiBold",
-    fontSize: 11,
+    fontSize: 17,
   },
 
   // ── Logout ─────────────────────────────────────────────────────────
-  logoutWrap: { marginTop: 18 },
+  logoutWrap: { marginTop: 28 },
 
   // ── Outside tap area ───────────────────────────────────────────────
   outsideTap: {

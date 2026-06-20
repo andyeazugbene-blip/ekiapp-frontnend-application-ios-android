@@ -28,6 +28,8 @@ interface ChecklistItem {
   done: boolean;
 }
 
+type VerifyModal = "intro" | "why" | "identity" | null;
+
 /**
  * "Get your first order" activation screen — pixel-matched to screenshots
  * 8, 13–18.
@@ -44,6 +46,7 @@ export default function ActivationScreen() {
   const router = useRouter();
 
   const [introShown, setIntroShown] = useState(false);
+  const [verifyModal, setVerifyModal] = useState<VerifyModal>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [hasFoodstuff, setHasFoodstuff] = useState(false);
@@ -61,6 +64,7 @@ export default function ActivationScreen() {
   });
 
   const isVerified = vendor?.verificationStatus === "verified";
+  const verificationStatus = vendor?.verificationStatus ?? "pending_docs";
 
   const checklist: ChecklistItem[] = [
     { id: "foodstuff", label: "Add your first foodstuff", done: hasFoodstuff },
@@ -97,7 +101,14 @@ export default function ActivationScreen() {
 
   const handleStepPress = (id: ChecklistItem["id"]) => {
     if (id === "share") setShowShareModal(true);
-    else if (id === "verify") router.push("/(vendor-verification)" as any);
+    else if (id === "verify") {
+      // Already-decided statuses go straight to the matching outcome screen;
+      // only an unstarted verification opens the local intro/why/identity steps.
+      if (verificationStatus === "verified") router.push("/(vendor-verification)/approved" as any);
+      else if (verificationStatus === "under_review") router.push("/(vendor-verification)/pending" as any);
+      else if (verificationStatus === "rejected") router.push("/(vendor-verification)/rejected" as any);
+      else setVerifyModal("intro");
+    }
     else if (id === "foodstuff") router.push("/(vendor)/foodstuff-add" as any);
     else if (id === "delivery") router.push("/(vendor)/delivery" as any);
   };
@@ -134,9 +145,6 @@ export default function ActivationScreen() {
       <SafeAreaView style={styles.introContainer} edges={["top", "bottom"]}>
         <StatusBar style="dark" />
 
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={[styles.backButton, { backgroundColor: "#F4F4F4", alignSelf: "flex-start", marginLeft: 4 }]}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
-        </TouchableOpacity>
         <View style={styles.introTop}>
           <View style={styles.introIconWrap}>
             <Ionicons name="cube-outline" size={56} color="#076B51" />
@@ -177,9 +185,6 @@ export default function ActivationScreen() {
         style={styles.hero}
       >
         <SafeAreaView edges={["top"]}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
           <Text style={styles.heroTitle}>Get your first order</Text>
           <Text style={styles.heroSubtitle}>Complete the steps below to start receiving buyers</Text>
 
@@ -223,7 +228,7 @@ export default function ActivationScreen() {
                 style={styles.checkRow}
               >
                 <View style={[styles.checkbox, item.done && styles.checkboxDone]}>
-                  {item.done ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
+                  {item.done ? <Ionicons name="checkmark" size={14} color="#076B51" /> : null}
                 </View>
                 <Text style={[styles.checkLabel, !item.done && styles.checkLabelMuted]}>
                   {item.label}
@@ -290,11 +295,106 @@ export default function ActivationScreen() {
         </ModalScrim>
       </Modal>
 
+      {/* ── Verify modal — intro (figma_025) ───────────────────────────── */}
+      <Modal visible={verifyModal === "intro"} transparent animationType="fade" onRequestClose={() => setVerifyModal(null)}>
+        <ModalScrim onClose={() => setVerifyModal(null)}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Verify Your Account To{"\n"}Receive Orders</Text>
+            <Text style={styles.modalBody}>
+              This helps protect your payment, build{"\n"}buyer trust, and keep the platform secure
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setVerifyModal("why")}
+              activeOpacity={0.86}
+              style={styles.primaryModalBtn}
+            >
+              <Text style={styles.primaryModalText}>Verify Now</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setVerifyModal(null)}
+              activeOpacity={0.86}
+              style={styles.outlineModalBtn}
+            >
+              <Text style={styles.outlineModalText}>Do This Later</Text>
+            </TouchableOpacity>
+
+            <View style={styles.warningNote}>
+              <Text style={styles.warningNoteText}>
+                Your dashboard will still work, but buyers cannot place orders until your account is verified.
+              </Text>
+            </View>
+          </View>
+        </ModalScrim>
+      </Modal>
+
+      {/* ── Verify modal — why (figma_026) ─────────────────────────────── */}
+      <Modal visible={verifyModal === "why"} transparent animationType="fade" onRequestClose={() => setVerifyModal(null)}>
+        <ModalScrim onClose={() => setVerifyModal(null)}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Why Verification Matters</Text>
+
+            <View style={styles.whyList}>
+              <WhyRow icon="home-outline" label="Receive orders safely" />
+              <WhyRow icon="wallet-outline" label="Get paid securely" />
+              <WhyRow icon="person-outline" label="Show buyers your store is trusted" />
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setVerifyModal("identity")}
+              activeOpacity={0.86}
+              style={[styles.primaryModalBtn, { marginTop: 8 }]}
+            >
+              <Text style={styles.primaryModalText}>Continue to Verification</Text>
+            </TouchableOpacity>
+          </View>
+        </ModalScrim>
+      </Modal>
+
+      {/* ── Verify modal — identity (figma_027) ─────────────────────────── */}
+      <Modal visible={verifyModal === "identity"} transparent animationType="fade" onRequestClose={() => setVerifyModal(null)}>
+        <ModalScrim onClose={() => setVerifyModal(null)}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Secure Identity Check</Text>
+            <Text style={styles.modalBody}>
+              You'll need a valid ID and a quick face scan.
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                setVerifyModal(null);
+                router.push("/(vendor-verification)/upload-id" as any);
+              }}
+              activeOpacity={0.86}
+              style={styles.primaryModalBtn}
+            >
+              <Text style={styles.primaryModalText}>Start Verification Now</Text>
+            </TouchableOpacity>
+
+            <View style={styles.timerNote}>
+              <Ionicons name="time-outline" size={14} color="#856B0E" />
+              <Text style={styles.timerNoteText}>This usually takes only a few minutes</Text>
+            </View>
+          </View>
+        </ModalScrim>
+      </Modal>
     </View>
   );
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────
+
+function WhyRow({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
+  return (
+    <View style={styles.whyRow}>
+      <View style={styles.whyIcon}>
+        <Ionicons name={icon} size={18} color="#076B51" />
+      </View>
+      <Text style={styles.whyLabel}>{label}</Text>
+    </View>
+  );
+}
 
 function ModalScrim({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
@@ -373,15 +473,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
   heroTitle: {
     fontSize: 28,
     fontFamily: "Manrope-ExtraBold",
@@ -457,13 +548,11 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 6,
-    backgroundColor: "transparent",
-    borderWidth: 1.5,
-    borderColor: "#C5C5C5",
+    backgroundColor: "#E4E4E4",
     alignItems: "center",
     justifyContent: "center",
   },
-  checkboxDone: { backgroundColor: "#076B51", borderColor: "#076B51" },
+  checkboxDone: { borderRadius: 12, backgroundColor: "rgba(7,107,81,0.15)" },
   checkLabel: { flex: 1, fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#1A1A1A" },
   checkLabelMuted: { color: "#858585", fontFamily: "Outfit-Medium" },
 
@@ -567,6 +656,80 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   doneBtnText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+
+  // Verify modals (figma_025–027)
+  primaryModalBtn: {
+    width: "100%",
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: "#076B51",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  primaryModalText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+  outlineModalBtn: {
+    width: "100%",
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#076B51",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+  },
+  outlineModalText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  warningNote: {
+    width: "100%",
+    backgroundColor: "#FFF6E0",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 14,
+  },
+  warningNoteText: {
+    fontSize: 12,
+    fontFamily: "Outfit-Regular",
+    color: "#856B0E",
+    lineHeight: 17,
+    textAlign: "center",
+  },
+  whyList: { width: "100%", gap: 8, marginTop: 6, marginBottom: 14 },
+  whyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F4F4F4",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  whyIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  whyLabel: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#1A1A1A", flex: 1 },
+  timerNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    width: "100%",
+    backgroundColor: "#FFF6E0",
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    marginTop: 12,
+  },
+  timerNoteText: {
+    fontSize: 12,
+    fontFamily: "Outfit-Regular",
+    color: "#856B0E",
+    flex: 1,
+  },
 
   closeCircle: {
     width: 38,
