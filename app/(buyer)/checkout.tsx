@@ -8,6 +8,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { walletService, type Wallet } from "../../services/walletService";
+import { campaignService, type Campaign } from "../../services/campaignService";
 import { presentPayment, isPaymentSheetAvailable } from "../../services/stripePayment";
 import { orderService } from "../../services/orderService";
 import { CurrencySelector } from "../../components/ui/CurrencySelector";
@@ -58,6 +59,7 @@ export default function CheckoutScreen() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [createdOrderIds, setCreatedOrderIds] = useState<string[]>([]);
   const [appliedCampaign, setAppliedCampaign] = useState<{ title: string; discount: number } | null>(null);
+  const [eligibleDeal, setEligibleDeal] = useState<Campaign | null>(null);
   const [currencyOpen, setCurrencyOpen] = useState(false);
 
   const walletBalance = wallet?.balance ?? 0;
@@ -68,10 +70,26 @@ export default function CheckoutScreen() {
   const parsedWalletAmountInCheckoutCurrency = walletMatchesCheckoutCurrency ? parsedWalletAmount : 0;
   const canPayFullyWithWallet = walletMatchesCheckoutCurrency && walletBalance >= grandTotal;
 
+  const estimatedDiscount = eligibleDeal && eligibleDeal.discountValue != null
+    ? eligibleDeal.discountType === "PERCENTAGE"
+      ? grandTotal * eligibleDeal.discountValue / 100
+      : Math.min(eligibleDeal.discountValue / 100, grandTotal)
+    : 0;
+  const estimatedTotal = Math.max(0, grandTotal - estimatedDiscount);
+
   useEffect(() => {
     walletService
       .getWallet()
       .then((nextWallet) => setWallet(nextWallet))
+      .catch(() => {});
+    campaignService
+      .getMyCampaigns()
+      .then((campaigns) => {
+        const best = campaigns.find(
+          (c) => c.type === "HOT_DEAL" && c.discountType && c.discountValue != null && c.discountValue > 0,
+        );
+        setEligibleDeal(best ?? null);
+      })
       .catch(() => {});
   }, []);
 
@@ -255,17 +273,25 @@ export default function CheckoutScreen() {
             <Text style={styles.summaryLabel}>Shipping</Text>
             <Text style={styles.summaryValue}>{formatDisplayMoney(deliveryTotal, checkoutCurrency, checkoutCurrency)}</Text>
           </View>
+          {eligibleDeal && estimatedDiscount > 0 ? (
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: "#D6552F" }]}>{eligibleDeal.title}</Text>
+              <Text style={[styles.summaryValue, { color: "#D6552F" }]}>
+                −{formatDisplayMoney(estimatedDiscount, checkoutCurrency, checkoutCurrency)}
+              </Text>
+            </View>
+          ) : null}
           {paymentMethod === "wallet" ? (
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: "#076B51" }]}>Paid with wallet</Text>
               <Text style={[styles.summaryValue, { color: "#076B51" }]}>
-                {formatDisplayMoney(grandTotal, checkoutCurrency, checkoutCurrency)}
+                {formatDisplayMoney(estimatedDiscount > 0 ? estimatedTotal : grandTotal, checkoutCurrency, checkoutCurrency)}
               </Text>
             </View>
           ) : null}
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Final total</Text>
-            <Text style={styles.totalValue}>{formatDisplayMoney(grandTotal, checkoutCurrency, checkoutCurrency)}</Text>
+            <Text style={styles.totalValue}>{formatDisplayMoney(estimatedDiscount > 0 ? estimatedTotal : grandTotal, checkoutCurrency, checkoutCurrency)}</Text>
           </View>
         </View>
 

@@ -123,6 +123,7 @@ export default function BuyerLayout() {
       <Tabs.Screen name="gift-card-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="gift-cards" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="leave-review" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="deals" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>
   );

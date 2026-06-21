@@ -360,4 +360,11 @@ export const marketingService = {
   async deleteDiscount(id: string): Promise<void> {
     await apiClient.delete(`/api/promo-codes/me/${id}`);
   },
+
+  async getPublicDeals(): Promise<{
+    bundles: Array<{ id: string; vendorId: string; code: string; value: number; type: string; storeName: string; productIds: string[] }>;
+    flashSales: Array<{ id: string; vendorId: string; code: string; value: number; type: string; storeName: string; productId: string; endsAt: string | null }>;
+  }> {
+    return apiClient.get("/api/promo-codes/deals", { skipAuth: true });
+  },
 };

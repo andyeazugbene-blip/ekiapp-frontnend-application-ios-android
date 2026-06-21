@@ -211,7 +211,7 @@ export default function BuyerHomeScreen() {
         title: campaign.title,
         highlight: campaign.subtitle || "",
         body: campaign.subtitle?.trim() || "Limited-time marketplace deal from Eki.",
-        cta: "Get Reward",
+        cta: "Shop Now",
         icon: "flash",
         onPress: () => {
           router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any);
