@@ -1103,8 +1103,8 @@ const styles = StyleSheet.create({
   // ── Insights vertical timeline ───────────────────────────────────────
   insightsCardContainer: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 18,
+    padding: 14,
     marginBottom: 18,
   },
   insightTimelineRow: {
@@ -1262,11 +1262,11 @@ const styles = StyleSheet.create({
   buyersEmptyText: { flex: 1, color: "#858585", fontSize: 12, fontFamily: "Outfit-Regular", lineHeight: 18 },
 
   // ── Performance ──────────────────────────────────────────────────────
-  perfRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
-  perfCard: { flex: 1, minHeight: 90, borderRadius: 16, padding: 14, gap: 6 },
+  perfRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
+  perfCard: { flex: 1, minHeight: 90, borderRadius: 18, padding: 14, gap: 8 },
   perfIcon: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  perfValue: { color: "#282828", fontSize: 20, fontFamily: "Manrope-ExtraBold", marginTop: 4 },
-  perfLabel: { color: "#858585", fontSize: 12, fontFamily: "Outfit-Regular" },
+  perfValue: { color: "#282828", fontSize: 18, fontFamily: "Manrope-Bold", marginTop: 4 },
+  perfLabel: { color: "#858585", fontSize: 11, fontFamily: "Outfit-Regular" },
 
   deliveryCard: {
     flexDirection: "row",

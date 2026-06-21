@@ -152,8 +152,11 @@ export default function CheckoutScreen() {
           ? { title: intent.campaignTitle, discount: intent.campaignDiscount }
           : null,
       );
-      if (paymentMethod === "wallet") {
+      if (intent.clientSecret === "wallet_paid") {
         await clearCart(); setShowSuccess(true); return;
+      }
+      if (!intent.clientSecret || intent.clientSecret === "") {
+        setError("Payment could not be processed. Please try again."); return;
       }
       const result = await presentPayment({ clientSecret: intent.clientSecret, merchantDisplayName: "Eki" });
       if (result.status === "succeeded") { await clearCart(); setShowSuccess(true); return; }

@@ -160,40 +160,39 @@ export default function ProductDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Large image */}
-      <View style={styles.hero}>
-        <RemoteImage uri={product.images?.[0]} style={styles.heroImage} borderRadius={0} fallbackIcon="cube-outline" />
-        <SafeAreaView edges={["top"]} style={styles.heroSafe}>
-          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.86} style={styles.heroButton}>
-            <Ionicons name="arrow-back" size={22} color="#0A6C52" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleToggleFavorite} activeOpacity={0.86} style={styles.heroButton}>
-            <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={22} color="#0A6C52" />
-          </TouchableOpacity>
-        </SafeAreaView>
-        <LinearGradient
-          colors={["transparent", "rgba(0,0,0,0.78)"]}
-          style={styles.heroGradient}
-          pointerEvents="none"
-        >
-          <Text style={styles.heroProductName} numberOfLines={2}>{product.name}</Text>
-          <Text style={styles.heroPriceText}>{formatDisplayMoney(product.price, product.currency, selectedCurrency)}</Text>
-          <View style={styles.heroRatingRow}>
-            {avgRating > 0 ? (
-              <>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Ionicons key={star} name="star" size={13} color={star <= Math.round(avgRating) ? "#F4B400" : "rgba(255,255,255,0.35)"} />
-                ))}
-                <Text style={styles.heroRatingText}>{avgRating.toFixed(1)} ({totalReviewCount} reviews)</Text>
-              </>
-            ) : (
-              <Text style={styles.heroRatingText}>No reviews yet</Text>
-            )}
-          </View>
-        </LinearGradient>
-      </View>
+      <SafeAreaView edges={["top"]} style={styles.floatingHeader}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.86} style={styles.heroButton}>
+          <Ionicons name="arrow-back" size={22} color="#0A6C52" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleToggleFavorite} activeOpacity={0.86} style={styles.heroButton}>
+          <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={22} color="#0A6C52" />
+        </TouchableOpacity>
+      </SafeAreaView>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.hero}>
+          <RemoteImage uri={product.images?.[0]} style={styles.heroImage} borderRadius={0} fallbackIcon="cube-outline" />
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.55)"]}
+            style={styles.heroGradient}
+            pointerEvents="none"
+          >
+            <Text style={styles.heroProductName} numberOfLines={2}>{product.name}</Text>
+            <Text style={styles.heroPriceText}>{formatDisplayMoney(product.price, product.currency, selectedCurrency)}</Text>
+            <View style={styles.heroRatingRow}>
+              {avgRating > 0 ? (
+                <>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Ionicons key={star} name="star" size={13} color={star <= Math.round(avgRating) ? "#F4B400" : "rgba(255,255,255,0.35)"} />
+                  ))}
+                  <Text style={styles.heroRatingText}>{avgRating.toFixed(1)} ({totalReviewCount} reviews)</Text>
+                </>
+              ) : (
+                <Text style={styles.heroRatingText}>No reviews yet</Text>
+              )}
+            </View>
+          </LinearGradient>
+        </View>
         <View style={styles.contentCard}>
           <Text style={styles.sectionTitle}>Delivery Info</Text>
           <View style={styles.deliveryGrid}>
@@ -316,11 +315,12 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  heroSafe: {
+  floatingHeader: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
+    zIndex: 10,
     paddingHorizontal: 16,
     paddingTop: 8,
     flexDirection: "row",

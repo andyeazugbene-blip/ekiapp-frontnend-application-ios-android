@@ -134,7 +134,18 @@ export default function NotificationsScreen() {
             return (
               <TouchableOpacity
                 key={notif.id}
-                onPress={() => !notif.read && handleMarkAsRead(notif.id)}
+                onPress={() => {
+                  if (!notif.read) handleMarkAsRead(notif.id);
+                  if (notif.type === "order") {
+                    router.push("/(vendor)/orders" as any);
+                  } else if (notif.type === "payout") {
+                    router.push("/(vendor)/earnings" as any);
+                  } else if (notif.type === "verification") {
+                    router.push("/(vendor)/settings" as any);
+                  } else if (notif.type === "stock") {
+                    router.push("/(vendor)/foodstuff" as any);
+                  }
+                }}
                 activeOpacity={0.85}
                 style={styles.notifCard}
               >

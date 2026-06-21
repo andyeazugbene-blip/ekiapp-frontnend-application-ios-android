@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { giftCardService, type GiftCard } from "../../services/giftCardService";
-import { isPaymentSheetAvailable, presentPayment } from "../../services/stripePayment";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { goBackOrReplace } from "../../utils/navigation";
 
@@ -14,8 +13,6 @@ export default function GiftCardDetailScreen() {
   const [card, setCard] = useState<GiftCard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [purchasing, setPurchasing] = useState(false);
-
   useEffect(() => {
     if (!id) {
       setLoading(false);
@@ -45,38 +42,6 @@ export default function GiftCardDetailScreen() {
       cancelled = true;
     };
   }, [id]);
-
-  const handlePurchase = async () => {
-    if (!card) return;
-
-    if (!isPaymentSheetAvailable()) {
-      Alert.alert(
-        "Payment unavailable",
-        "Stripe PaymentSheet is not available in Expo Go. Use a development build to buy gift cards.",
-      );
-      return;
-    }
-
-    setPurchasing(true);
-    try {
-      const intent = await giftCardService.purchase(card.id);
-      const result = await presentPayment({ clientSecret: intent.clientSecret, merchantDisplayName: "Eki Gift Cards" });
-
-      if (result.status === "succeeded") {
-        Alert.alert("Gift card purchased", `${card.title} has been added to your account.`, [
-          { text: "Done", onPress: () => router.back() },
-        ]);
-      } else if (result.status === "cancelled") {
-        // no-op, buyer cancelled the sheet
-      } else {
-        Alert.alert("Payment failed", result.message);
-      }
-    } catch (err) {
-      Alert.alert("Purchase failed", err instanceof Error ? err.message : "Could not start gift card purchase.");
-    } finally {
-      setPurchasing(false);
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -110,20 +75,15 @@ export default function GiftCardDetailScreen() {
 
           {error ? <Text style={styles.inlineError}>{error}</Text> : null}
 
-          <TouchableOpacity
-            onPress={handlePurchase}
-            activeOpacity={0.86}
-            disabled={purchasing}
-            style={[styles.buyButton, purchasing && { opacity: 0.6 }]}
-          >
-            {purchasing ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buyButtonText}>Buy this gift card</Text>}
-          </TouchableOpacity>
-
-          {!isPaymentSheetAvailable() ? (
-            <Text style={styles.inlineHint}>
-              Card payments need a development build with Stripe PaymentSheet enabled.
-            </Text>
-          ) : null}
+          <View style={styles.rewardBanner}>
+            <Ionicons name="gift-outline" size={22} color="#076B51" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.rewardBannerTitle}>Reward Gift Card</Text>
+              <Text style={styles.rewardBannerText}>
+                Earn this gift card by completing orders, referring friends, or meeting campaign requirements.
+              </Text>
+            </View>
+          </View>
         </ScrollView>
       )}
     </View>
@@ -205,6 +165,28 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontFamily: "Outfit-Regular",
     marginTop: 14,
+  },
+  rewardBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0F7F4",
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: "#D6EDE5",
+  },
+  rewardBannerTitle: {
+    fontSize: 15,
+    fontFamily: "Manrope-Bold",
+    color: "#076B51",
+  },
+  rewardBannerText: {
+    fontSize: 13,
+    fontFamily: "Outfit-Regular",
+    color: "#858585",
+    marginTop: 4,
+    lineHeight: 18,
   },
   buyButton: {
     height: 58,

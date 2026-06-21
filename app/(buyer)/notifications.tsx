@@ -150,7 +150,14 @@ export default function BuyerNotificationsScreen() {
             return (
               <TouchableOpacity
                 key={notif.id}
-                onPress={() => !notif.read && handleMarkAsRead(notif.id)}
+                onPress={() => {
+                  if (!notif.read) handleMarkAsRead(notif.id);
+                  if (notif.type === "order" && notif.data?.orderId) {
+                    router.push({ pathname: "/(buyer)/track-order", params: { id: notif.data.orderId } } as any);
+                  } else if (notif.type === "message") {
+                    router.push("/(buyer)/messages" as any);
+                  }
+                }}
                 activeOpacity={0.85}
                 style={styles.notifCard}
               >

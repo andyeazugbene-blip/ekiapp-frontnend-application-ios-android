@@ -20,6 +20,7 @@ import { productService } from "../../services/productService";
 import { rewardService, type Reward } from "../../services/rewardService";
 import { giftCardService, type GiftCard } from "../../services/giftCardService";
 import { campaignService, campaignColors, type Campaign } from "../../services/campaignService";
+import { marketingService } from "../../services/marketingService";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -116,6 +117,7 @@ export default function BuyerHomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeDealIndex, setActiveDealIndex] = useState(0);
+  const [vendorDealsCount, setVendorDealsCount] = useState(0);
 
   const loadCampaigns = useCallback(async () => {
     setCampaignsLoading(true);
@@ -134,16 +136,18 @@ export default function BuyerHomeScreen() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [prods, vendorList, activeRewards, activeGiftCards] = await Promise.all([
+      const [prods, vendorList, activeRewards, activeGiftCards, publicDeals] = await Promise.all([
         productService.getAll({ limit: 24 }).catch(() => [] as Product[]),
         vendorService.getAllVendors({ search: "", status: "active" }).catch(() => [] as VendorSummary[]),
         rewardService.getActiveRewards().catch(() => [] as Reward[]),
         giftCardService.getActive().catch(() => [] as GiftCard[]),
+        marketingService.getPublicDeals().catch(() => ({ bundles: [], flashSales: [] })),
       ]);
       setProducts((prods ?? []).filter(Boolean));
       setVendors(rankVendors(vendorList ?? [], prods ?? []).slice(0, 6));
       setRewards(activeRewards ?? []);
       setGiftCards(activeGiftCards ?? []);
+      setVendorDealsCount((publicDeals?.bundles?.length ?? 0) + (publicDeals?.flashSales?.length ?? 0));
     } finally {
       setLoading(false);
     }
@@ -426,6 +430,22 @@ export default function BuyerHomeScreen() {
           </View>
         ) : null}
 
+        {vendorDealsCount > 0 ? (
+          <View style={styles.sectionBlock}>
+            <TouchableOpacity
+              onPress={() => router.push("/(buyer)/deals" as any)}
+              activeOpacity={0.86}
+              style={styles.vendorDealsBanner}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.vendorDealsBannerTitle}>Vendor Deals & Offers</Text>
+                <Text style={styles.vendorDealsBannerSub}>{vendorDealsCount} bundle{vendorDealsCount !== 1 ? "s" : ""} & flash sale{vendorDealsCount !== 1 ? "s" : ""} available</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={18} color="#076B51" />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         <View style={styles.sectionBlock}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitleInline}>Popular foodstuff</Text>
@@ -519,7 +539,7 @@ export default function BuyerHomeScreen() {
                 <Text style={styles.viewAllText}>View All</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.bestSellerGrid}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bestSellerScroll}>
               {bestSellers.map((product) => (
                 <TouchableOpacity
                   key={product.id}
@@ -545,7 +565,7 @@ export default function BuyerHomeScreen() {
                   </TouchableOpacity>
                 </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
           </View>
         ) : null}
 
@@ -716,6 +736,27 @@ const styles = StyleSheet.create({
     color: "#076B51",
     fontSize: 13,
     fontFamily: "Manrope-Bold",
+  },
+  vendorDealsBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0F7F4",
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "#D6EDE5",
+  },
+  vendorDealsBannerTitle: {
+    fontSize: 15,
+    fontFamily: "Manrope-Bold",
+    color: "#282828",
+  },
+  vendorDealsBannerSub: {
+    fontSize: 12,
+    fontFamily: "Outfit-Regular",
+    color: "#858585",
+    marginTop: 2,
   },
   dealsScroll: {
     paddingHorizontal: 16,
@@ -904,9 +945,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Manrope-Bold",
   },
-  bestSellerGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  bestSellerScroll: {
     paddingHorizontal: 16,
     gap: 12,
   },

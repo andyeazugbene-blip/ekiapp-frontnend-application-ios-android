@@ -195,7 +195,13 @@ export default function VendorSettingsScreen() {
             label="Verification Documents"
             description="Upload or review your ID and business verification steps"
             value={getVerificationText(vendor?.verificationStatus)}
-            onPress={() => router.push("/(vendor-verification)" as any)}
+            onPress={() => {
+              if (vendor?.verificationStatus === "verified") {
+                Alert.alert("Already Verified", "Your store is already verified. No further action is needed.");
+                return;
+              }
+              router.push("/(vendor-verification)" as any);
+            }}
           />
           <SettingRow
             icon="airplane-outline"

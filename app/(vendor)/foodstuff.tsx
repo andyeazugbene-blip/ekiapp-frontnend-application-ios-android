@@ -87,16 +87,15 @@ export default function FoodstuffScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Your foodstuff</Text>
-        <Text style={styles.headerSubtitle}>Manage your inventory and listings.</Text>
-
-        <TouchableOpacity onPress={handleAdd} activeOpacity={0.85} style={styles.addButton}>
-          <Text style={styles.addButtonText}>Add Foodstuff</Text>
-          <Ionicons name="add-circle-outline" size={20} color="#282828" />
-        </TouchableOpacity>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitleInline}>Your foodstuff</Text>
+          <TouchableOpacity onPress={handleAdd} activeOpacity={0.85} style={styles.addButtonSmall}>
+            <Ionicons name="add" size={20} color="#076B51" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Tabs — fixed above the list so categories stay usable while scrolling */}
@@ -222,20 +221,19 @@ export default function FoodstuffScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
-  header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 10 },
-  headerTitle: { fontSize: 26, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
-  headerSubtitle: { fontSize: 14, fontFamily: "Outfit-Light", color: "rgba(255,255,255,0.8)", marginTop: 4 },
-  addButton: { marginTop: 16, height: 50, borderRadius: 14, backgroundColor: "#FFFFFF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-  addButtonText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#282828" },
+  header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 12, paddingBottom: 14, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  headerTopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  backButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  headerTitleInline: { flex: 1, fontSize: 20, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  addButtonSmall: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
-  tabContainer: { paddingTop: 16, marginBottom: 12, backgroundColor: "#F4F4F4" },
+  tabContainer: { paddingTop: 8, marginBottom: 6, backgroundColor: "#F4F4F4" },
   tabRow: { flexDirection: "row", gap: 8, paddingVertical: 4, paddingHorizontal: 16 },
   tab: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E8E8E8" },
   tabActive: { backgroundColor: "#076B51", borderColor: "#076B51" },
   tabText: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#858585" },
   tabTextActive: { color: "#FFFFFF", fontFamily: "Manrope-SemiBold" },
-  searchBar: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 14, height: 48, paddingHorizontal: 14, gap: 10, marginBottom: 16, borderWidth: 1, borderColor: "#E8E8E8" },
+  searchBar: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 14, height: 44, paddingHorizontal: 14, gap: 10, marginBottom: 10, borderWidth: 1, borderColor: "#E8E8E8" },
   searchInput: { flex: 1, fontSize: 14, color: "#282828" },
   placeholder: { paddingVertical: 30, alignItems: "center" },
   emptyText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", paddingVertical: 30 },
