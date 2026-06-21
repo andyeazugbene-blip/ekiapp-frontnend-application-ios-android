@@ -66,6 +66,21 @@ export default function InviteFriendScreen() {
     } catch {}
   };
 
+  const handleRewardPress = (reward: Reward) => {
+    const haystack = `${reward.name} ${reward.description ?? ""}`.toLowerCase();
+    if (haystack.includes("referral") || haystack.includes("invite")) {
+      handleShare();
+      return;
+    }
+    if (haystack.includes("bundle")) {
+      router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any);
+      return;
+    }
+    // Minimum-spend and admin-defined rewards: send the buyer to the products
+    // that qualify them, since rewards carry no dedicated landing screen.
+    router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any);
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <View style={styles.header}>
@@ -141,7 +156,7 @@ export default function InviteFriendScreen() {
           <View style={styles.rewardSection}>
             <Text style={styles.rewardSectionTitle}>Available gifts</Text>
             {rewards.map((reward) => (
-              <View key={reward.id} style={styles.rewardCard}>
+              <TouchableOpacity key={reward.id} onPress={() => handleRewardPress(reward)} activeOpacity={0.85} style={styles.rewardCard}>
                 <View style={styles.rewardIcon}>
                   <Ionicons name={reward.type === "WALLET_BONUS" ? "wallet-outline" : reward.type === "FREE_SHIPPING" ? "car-outline" : "pricetag-outline"} size={18} color="#076B51" />
                 </View>
@@ -150,7 +165,7 @@ export default function InviteFriendScreen() {
                   <Text style={styles.rewardDesc}>{reward.description || `${reward.currency} ${reward.value.toFixed(2)} ${reward.type.replace(/_/g, " ").toLowerCase()}`}</Text>
                 </View>
                 <Text style={styles.rewardValue}>{reward.currency} {reward.value.toFixed(2)}</Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         ) : null}

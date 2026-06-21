@@ -29,7 +29,7 @@ import { vendorService } from "../../services/vendorService";
 import { formatDisplayMoney } from "../../utils/currency";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const DEAL_CARD_WIDTH = Math.min(SCREEN_WIDTH - 96, 280);
+const DEAL_CARD_WIDTH = (SCREEN_WIDTH - 44) / 2;
 
 type HomeDeal = {
   id: string;
@@ -357,7 +357,7 @@ export default function BuyerHomeScreen() {
                 <Text style={styles.viewAllText}>View All</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dealsScroll}>
               {giftCards.map((card) => (
                 <TouchableOpacity
                   key={card.id}
@@ -1053,12 +1053,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   giftCard: {
-    width: 140,
+    width: DEAL_CARD_WIDTH,
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 14,
     alignItems: "center",
-    marginRight: 12,
     shadowColor: "#182722",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,

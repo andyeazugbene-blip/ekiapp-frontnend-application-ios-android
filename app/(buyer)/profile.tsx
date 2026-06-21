@@ -92,6 +92,7 @@ export default function ProfileScreen() {
     { icon: "receipt-outline", label: "My Orders", action: "navigate", target: "/(buyer)/orders" },
     { icon: "notifications-outline", label: "Notifications", action: "navigate", target: "/(buyer)/notifications" },
     { icon: "wallet-outline", label: "Wallet & Rewards", action: "navigate", target: "/(buyer)/wallet" },
+    { icon: "heart-outline", label: "Favorites", action: "navigate", target: "/(buyer)/favorites" },
     { icon: "chatbubble-ellipses-outline", label: "Messages", action: "navigate", target: "/(buyer)/messages" },
     { icon: "people-outline", label: "Refer a Friend", action: "navigate", target: "/(buyer)/referral-program" },
     ...(user?.hasVendor ? [{ icon: "storefront-outline", label: "Switch to Vendor", action: "navigate", target: "/(vendor)" } as MenuItem] : []),

@@ -11,6 +11,7 @@ import { matchesDeliveryZoneCountry } from "../../services/deliveryService";
 import { useCartStore } from "../../stores/cartStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
+import { useFavoritesStore } from "../../stores/favoritesStore";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { type Product, type Review } from "../../types/product";
 import type { ReviewsWithStats } from "../../services/reviewService";
@@ -28,6 +29,7 @@ export default function ProductDetailScreen() {
     const user = s.user;
     return user && "country" in user ? user.country : undefined;
   });
+  const userId = useAuthStore((s) => s.user?.id);
   const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
   const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
   const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
@@ -39,6 +41,8 @@ export default function ProductDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const isFavorite = useFavoritesStore((s) => (product ? s.isFavorite(product.id) : false));
+  const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite);
 
   useEffect(() => {
     if (!id) {
@@ -117,6 +121,11 @@ export default function ProductDetailScreen() {
       });
   };
 
+  const handleToggleFavorite = () => {
+    if (!product) return;
+    toggleFavorite(product, userId);
+  };
+
   const handleOpenVendorStore = () => {
     if (!product?.vendorId) return;
     router.push({ pathname: "/(buyer)/vendor-detail", params: { id: product.vendorId } } as any);
@@ -158,8 +167,8 @@ export default function ProductDetailScreen() {
           <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.86} style={styles.heroButton}>
             <Ionicons name="arrow-back" size={22} color="#0A6C52" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.86} style={styles.heroButton}>
-            <Ionicons name="heart-outline" size={22} color="#0A6C52" />
+          <TouchableOpacity onPress={handleToggleFavorite} activeOpacity={0.86} style={styles.heroButton}>
+            <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={22} color="#0A6C52" />
           </TouchableOpacity>
         </SafeAreaView>
         <LinearGradient

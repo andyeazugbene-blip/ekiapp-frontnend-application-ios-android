@@ -99,18 +99,18 @@ export default function FoodstuffScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Tabs */}
-        <View style={styles.tabContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
-            {TABS.map((tab) => (
-              <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} activeOpacity={0.85} style={[styles.tab, activeTab === tab && styles.tabActive]}>
-                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+      {/* Tabs — fixed above the list so categories stay usable while scrolling */}
+      <View style={styles.tabContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
+          {TABS.map((tab) => (
+            <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} activeOpacity={0.85} style={[styles.tab, activeTab === tab && styles.tabActive]}>
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Search */}
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={18} color="#858585" />
@@ -228,9 +228,9 @@ const styles = StyleSheet.create({
   headerSubtitle: { fontSize: 14, fontFamily: "Outfit-Light", color: "rgba(255,255,255,0.8)", marginTop: 4 },
   addButton: { marginTop: 16, height: 50, borderRadius: 14, backgroundColor: "#FFFFFF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   addButtonText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#282828" },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 },
-  tabContainer: { marginBottom: 12 },
-  tabRow: { flexDirection: "row", gap: 8, paddingVertical: 4 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
+  tabContainer: { paddingTop: 16, marginBottom: 12, backgroundColor: "#F4F4F4" },
+  tabRow: { flexDirection: "row", gap: 8, paddingVertical: 4, paddingHorizontal: 16 },
   tab: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E8E8E8" },
   tabActive: { backgroundColor: "#076B51", borderColor: "#076B51" },
   tabText: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#858585" },
