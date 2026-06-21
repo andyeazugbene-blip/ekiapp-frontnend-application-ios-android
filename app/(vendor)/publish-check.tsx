@@ -1,22 +1,105 @@
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { FakeStatusBar } from "../../components/onboarding/FigmaNativeUI";
 import { goBackOrReplace } from "../../utils/navigation";
+import { useAuthStore } from "../../stores/authStore";
+import { productService } from "../../services/productService";
+import { deliveryService } from "../../services/deliveryService";
+import { ApiRequestError } from "../../services/api";
+import { Product } from "../../types/product";
 
-const CHECKS = [
-  { label: "Image added", done: true },
-  { label: "Price added", done: false },
-  { label: "Weight added", done: false },
-  { label: "Delivery set", done: true },
-  { label: "Stock available", done: true },
-];
+function parseMoneyInput(value: string): number {
+  const normalized = (value ?? "").replace(",", ".").replace(/[^\d.]/g, "");
+  return Number(normalized) || 0;
+}
 
 export default function PublishCheckScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    name?: string;
+    description?: string;
+    price?: string;
+    costPrice?: string;
+    weight?: string;
+    unit?: string;
+    stock?: string;
+    category?: string;
+    imageUrl?: string;
+  }>();
+  const user = useAuthStore((s) => s.user);
+  const vendor = user?.role === "vendor" ? user : null;
+
+  const [hasDelivery, setHasDelivery] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    deliveryService.listZones()
+      .then((zones) => setHasDelivery((zones ?? []).length > 0))
+      .catch(() => setHasDelivery(false));
+  }, []);
+
+  const name = params.name ?? "";
+  const category = params.category ?? "";
+  const imageUrl = params.imageUrl ?? "";
+  const price = parseMoneyInput(params.price ?? "");
+  const stock = Number(params.stock) || 0;
+
+  const CHECKS = [
+    { label: "Image added", done: !!imageUrl },
+    { label: "Name added", done: !!name.trim() },
+    { label: "Category selected", done: !!category.trim() },
+    { label: "Price added", done: price > 0 },
+    { label: "Stock available", done: stock > 0 },
+    { label: "Delivery set", done: hasDelivery },
+  ];
   const allDone = CHECKS.every((item) => item.done);
+
+  const handlePublish = async () => {
+    if (!allDone || !vendor) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const payload: Omit<Product, "id" | "createdAt" | "updatedAt"> = {
+        name: name.trim(),
+        description: (params.description ?? "").trim(),
+        price,
+        costPrice: params.costPrice?.trim() ? parseMoneyInput(params.costPrice) : undefined,
+        currency: "GBP",
+        images: imageUrl ? [imageUrl] : [],
+        category: category || "General",
+        vendorId: vendor.id,
+        vendorName: vendor.storeName,
+        vendorCity: vendor.city ?? "",
+        stock,
+        status: "active",
+        weight: Number(params.weight) || 0,
+        unit: params.unit || "kg",
+      };
+      await productService.createProduct(payload);
+      Alert.alert("Published", `"${payload.name}" has been published.`, [
+        { text: "OK", onPress: () => goBackOrReplace(router, "/(vendor)/foodstuff" as any) },
+      ]);
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 403) {
+        Alert.alert(
+          "Verification required",
+          "You need to verify your account before publishing.",
+          [
+            { text: "Verify now", onPress: () => router.push("/(vendor-verification)" as any) },
+            { text: "Cancel", style: "cancel" },
+          ]
+        );
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Could not publish foodstuff.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -65,21 +148,29 @@ export default function PublishCheckScreen() {
           ))}
         </View>
 
-        <View style={styles.warningBox}>
-          <Ionicons name="warning-outline" size={17} color="#FF5F5F" />
-          <Text style={styles.warningText}>
-            Set delivery and add weight before buyers can order this foodstuff
-          </Text>
-        </View>
+        {!allDone ? (
+          <View style={styles.warningBox}>
+            <Ionicons name="warning-outline" size={17} color="#FF5F5F" />
+            <Text style={styles.warningText}>
+              Complete {CHECKS.filter((c) => !c.done).map((c) => c.label).join(", ")} before buyers can order this foodstuff
+            </Text>
+          </View>
+        ) : null}
+
+        {error ? <Text style={styles.warningText}>{error}</Text> : null}
 
         <TouchableOpacity
           accessibilityRole="button"
           activeOpacity={allDone ? 0.86 : 1}
-          disabled={!allDone}
-          onPress={() => goBackOrReplace(router, "/(vendor)/foodstuff-add" as any)}
-          style={[styles.publishButton, !allDone && styles.publishDisabled]}
+          disabled={!allDone || submitting}
+          onPress={handlePublish}
+          style={[styles.publishButton, (!allDone || submitting) && styles.publishDisabled]}
         >
-          <Text style={styles.publishText}>Publish</Text>
+          {submitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.publishText}>Publish</Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity

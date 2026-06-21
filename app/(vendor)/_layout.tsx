@@ -144,7 +144,9 @@ export default function VendorLayout() {
       <Tabs.Screen name="coupon-history" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="create-discount" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="create-bundle" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="bundle-history" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="create-flash-sale" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="flash-sale-history" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="send-offer" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="promo-link" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="share-store-link" options={{ href: null, tabBarStyle: { display: "none" } }} />

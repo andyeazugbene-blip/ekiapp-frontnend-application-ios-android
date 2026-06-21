@@ -347,4 +347,8 @@ export const vendorService = {
       body
     );
   },
+
+  async resetVerification() {
+    return apiClient.delete<{ message: string }>("/api/vendors/me/verification");
+  },
 };

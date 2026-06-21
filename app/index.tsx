@@ -60,7 +60,7 @@ export default function Index() {
   const handleGetStarted = () => {
     if (hasNavigated.current) return;
     hasNavigated.current = true;
-    router.replace({ pathname: "/(auth)/onboarding", params: typeof ref === "string" && ref.trim() ? { ref } : {} } as any);
+    router.replace({ pathname: "/(auth)/role-select", params: typeof ref === "string" && ref.trim() ? { ref } : {} } as any);
   };
 
   return (

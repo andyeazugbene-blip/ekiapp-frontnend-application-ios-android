@@ -3,16 +3,21 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuthStore } from "../../stores/authStore";
+import { toCompactStoreSlug } from "../../utils/shareLinks";
 
 export default function StoreReadyScreen() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const vendor = user?.role === "vendor" ? user : null;
 
   const handleDashboard = () => {
     router.replace("/(vendor)" as any);
   };
 
   const handleViewStore = () => {
-    router.replace("/(vendor)" as any);
+    const slug = toCompactStoreSlug(vendor?.storeSlug ?? vendor?.storeName);
+    router.push({ pathname: "/store/[slug]", params: { slug, preview: "1" } } as any);
   };
 
   return (

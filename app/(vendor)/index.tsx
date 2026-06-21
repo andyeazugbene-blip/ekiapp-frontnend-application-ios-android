@@ -491,6 +491,21 @@ export default function VendorDashboardScreen() {
               />
             </View>
 
+            <View style={styles.historyRow}>
+              <TouchableOpacity onPress={() => navigate("/(vendor)/coupon-history")} activeOpacity={0.8} style={styles.historyLink}>
+                <Ionicons name="pricetag-outline" size={14} color="#076B51" />
+                <Text style={styles.historyLinkText}>Coupons</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigate("/(vendor)/bundle-history")} activeOpacity={0.8} style={styles.historyLink}>
+                <Ionicons name="layers-outline" size={14} color="#076B51" />
+                <Text style={styles.historyLinkText}>Bundles</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigate("/(vendor)/flash-sale-history")} activeOpacity={0.8} style={styles.historyLink}>
+                <Ionicons name="flash-outline" size={14} color="#076B51" />
+                <Text style={styles.historyLinkText}>Flash Sales</Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity
               activeOpacity={0.86}
               onPress={() => navigate("/(vendor)/send-offer")}
@@ -1158,7 +1173,10 @@ const styles = StyleSheet.create({
   },
 
   // ── Grow grid ────────────────────────────────────────────────────────
-  growGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10, marginBottom: 12 },
+  growGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10, marginBottom: 8 },
+  historyRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
+  historyLink: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 12, backgroundColor: "#EAF7F1" },
+  historyLinkText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   growCard: { width: (SCREEN_WIDTH - 16 * 2 - 10) / 2, minHeight: 114, borderRadius: 20, padding: 14, justifyContent: "space-between" },
   growDark: { backgroundColor: "#076B51" },
   growLight: { backgroundColor: "#FFFFFF" },

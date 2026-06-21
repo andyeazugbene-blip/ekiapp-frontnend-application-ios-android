@@ -19,6 +19,7 @@ export default function RoleSelectScreen() {
   const [selected, setSelected] = useState<Role>("vendor");
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
+  const hasSeenOnboarding = useAuthStore((s) => s.hasSeenOnboarding);
 
   const handleContinue = () => {
     // If already logged in, route directly based on selection
@@ -49,13 +50,14 @@ export default function RoleSelectScreen() {
       return;
     }
 
-    router.push({
-      pathname: "/(auth)/welcome",
-      params: {
-        role: selected,
-        ...(typeof ref === "string" && ref.trim() ? { ref } : {}),
-      },
-    });
+    const sharedParams = { role: selected, ...(typeof ref === "string" && ref.trim() ? { ref } : {}) };
+
+    if (!hasSeenOnboarding) {
+      router.push({ pathname: "/(auth)/onboarding", params: sharedParams });
+      return;
+    }
+
+    router.push({ pathname: "/(auth)/welcome", params: sharedParams });
   };
 
   return (

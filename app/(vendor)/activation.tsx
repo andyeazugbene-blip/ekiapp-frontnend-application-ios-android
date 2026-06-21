@@ -186,6 +186,15 @@ export default function ActivationScreen() {
         style={styles.hero}
       >
         <SafeAreaView edges={["top"]}>
+          <TouchableOpacity
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
           <Text style={styles.heroTitle}>Get your first order</Text>
           <Text style={styles.heroSubtitle}>Complete the steps below to start receiving buyers</Text>
 
@@ -468,6 +477,15 @@ const styles = StyleSheet.create({
   },
   introContinueBtnText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
 
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
   hero: {
     paddingHorizontal: 22,
     paddingBottom: 26,

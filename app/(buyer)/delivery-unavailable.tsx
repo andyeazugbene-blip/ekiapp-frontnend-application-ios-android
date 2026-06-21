@@ -1,12 +1,35 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
+import { openConversationThread } from "../../utils/messaging";
 
 export default function DeliveryUnavailableScreen() {
   const router = useRouter();
+  const { vendorUserId, vendorName, vendorAvatar } = useLocalSearchParams<{
+    vendorUserId?: string;
+    vendorName?: string;
+    vendorAvatar?: string;
+  }>();
+
+  const handleMessageVendor = () => {
+    if (!vendorUserId) {
+      Alert.alert("Message unavailable", "This vendor cannot receive messages at the moment. Please try again later or contact support.");
+      return;
+    }
+    openConversationThread({
+      participantId: vendorUserId,
+      participantName: vendorName || "Vendor",
+      participantAvatar: vendorAvatar,
+      participantRole: "vendor",
+    })
+      .then(() => router.push("/(buyer)/message-chat" as any))
+      .catch((err) => {
+        Alert.alert("Message unavailable", err instanceof Error ? err.message : "Could not open the conversation.");
+      });
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -31,8 +54,12 @@ export default function DeliveryUnavailableScreen() {
           <Text style={styles.primaryButtonText}>Browse Other Vendors</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push("/(buyer)" as any)} activeOpacity={0.85} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>Go Home</Text>
+        <TouchableOpacity onPress={handleMessageVendor} activeOpacity={0.85} style={styles.secondaryButton}>
+          <Text style={styles.secondaryButtonText}>Message Vendor</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => router.push("/(buyer)" as any)} activeOpacity={0.85} style={styles.tertiaryButton}>
+          <Text style={styles.tertiaryButtonText}>Go Home</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -51,4 +78,6 @@ const styles = StyleSheet.create({
   primaryButtonText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
   secondaryButton: { width: "100%", height: 56, borderRadius: 14, borderWidth: 1, borderColor: "#076B51", alignItems: "center", justifyContent: "center", marginTop: 12 },
   secondaryButtonText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  tertiaryButton: { height: 44, alignItems: "center", justifyContent: "center", marginTop: 8 },
+  tertiaryButtonText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#858585" },
 });

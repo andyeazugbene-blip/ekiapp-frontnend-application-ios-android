@@ -268,7 +268,18 @@ export const marketingService = {
   },
 
   async listBundles(): Promise<Bundle[]> {
-    return [];
+    const all = await this.listDiscounts();
+    return all
+      .filter((d) => d.code?.startsWith("BUNDLE"))
+      .map((d) => ({
+        id: d.id,
+        name: d.code ?? "",
+        productIds: d.productIds,
+        bundlePrice: 0,
+        currency: "",
+        shareUrl: d.shareUrl,
+        createdAt: d.createdAt,
+      }));
   },
 
   async createFlashSale(input: FlashSaleInput): Promise<FlashSale> {
@@ -302,7 +313,19 @@ export const marketingService = {
   },
 
   async listFlashSales(): Promise<FlashSale[]> {
-    return [];
+    const all = await this.listDiscounts();
+    return all
+      .filter((d) => d.code?.startsWith("FLASH"))
+      .map((d) => ({
+        id: d.id,
+        productId: d.productIds[0] ?? "",
+        salePrice: 0,
+        currency: "",
+        startsAt: d.startsAt ?? d.createdAt,
+        endsAt: d.endsAt ?? "",
+        shareUrl: d.shareUrl,
+        createdAt: d.createdAt,
+      }));
   },
 
   async sendOffer(input: OfferInput): Promise<Offer> {
@@ -332,5 +355,9 @@ export const marketingService = {
 
   async listOffers(): Promise<Offer[]> {
     return [];
+  },
+
+  async deleteDiscount(id: string): Promise<void> {
+    await apiClient.delete(`/api/promo-codes/me/${id}`);
   },
 };

@@ -36,11 +36,13 @@ export default function UploadIdScreen() {
     let mounted = true;
     vendorService
       .getMyProfile()
-      .then((profile) => {
+      .then(async (profile) => {
         if (!mounted) return;
         if (profile.verificationStatus === "verified") {
           setAlreadyVerified(true);
           setError("Your identity is already verified.");
+        } else {
+          await vendorService.resetVerification().catch(() => undefined);
         }
       })
       .catch(() => undefined);

@@ -1,13 +1,66 @@
-import React from "react";
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { uploadService } from "../../services/uploadService";
+import { vendorService } from "../../services/vendorService";
 
 export default function FaceScanScreen() {
   const router = useRouter();
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
 
-  const onContinue = () => {
-    router.push("/(vendor-verification)/upload-business" as any);
+  const takeSelfie = async () => {
+    setError("");
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      setError("Camera access is required for face verification.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.85,
+      cameraType: ImagePicker.CameraType.front,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    setPhotoUri(result.assets[0].uri);
+  };
+
+  const onContinue = async () => {
+    if (!photoUri) {
+      setError("Take a selfie first.");
+      return;
+    }
+    setUploading(true);
+    setError("");
+    try {
+      const fileName = `face_${Date.now()}.jpg`;
+      const remoteUrl = await uploadService.uploadImage(
+        photoUri,
+        fileName,
+        "image/jpeg",
+        "verification/selfie",
+      );
+      await vendorService.submitVerificationDocument({
+        type: "selfie",
+        fileUrl: remoteUrl,
+      });
+      router.push("/(vendor-verification)/upload-business" as any);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not upload selfie.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -24,26 +77,56 @@ export default function FaceScanScreen() {
         </TouchableOpacity>
       </SafeAreaView>
 
-      {/* Face frame area */}
-      <View style={styles.frameWrap}>
-        {/* Corner brackets */}
-        <View style={[styles.corner, styles.cornerTL]} />
-        <View style={[styles.corner, styles.cornerTR]} />
-        <View style={[styles.corner, styles.cornerBL]} />
-        <View style={[styles.corner, styles.cornerBR]} />
-        {/* Scan line */}
-        <View style={styles.scanLine} />
-      </View>
+      {/* Frame area — shows captured selfie or capture prompt */}
+      <TouchableOpacity
+        style={styles.frameWrap}
+        activeOpacity={0.85}
+        onPress={takeSelfie}
+        disabled={uploading}
+      >
+        {photoUri ? (
+          <Image source={{ uri: photoUri }} style={styles.preview} />
+        ) : (
+          <>
+            <View style={[styles.corner, styles.cornerTL]} />
+            <View style={[styles.corner, styles.cornerTR]} />
+            <View style={[styles.corner, styles.cornerBL]} />
+            <View style={[styles.corner, styles.cornerBR]} />
+            <View style={styles.capturePrompt}>
+              <Ionicons name="camera-outline" size={40} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.captureText}>Tap to take selfie</Text>
+            </View>
+          </>
+        )}
+      </TouchableOpacity>
 
       {/* Bottom content */}
       <View style={styles.bottomContent}>
         <Text style={styles.title}>Confirm Your Identity</Text>
         <Text style={styles.subtitle}>
-          Take a quick face scan so we can match it to your ID.
+          Take a clear selfie so we can match it to your ID.
         </Text>
 
-        <TouchableOpacity style={styles.continueButton} onPress={onContinue} activeOpacity={0.85}>
-          <Text style={styles.continueButtonText}>Continue</Text>
+        {photoUri && !uploading && (
+          <TouchableOpacity onPress={takeSelfie} activeOpacity={0.7} style={styles.retakeRow}>
+            <Ionicons name="refresh-outline" size={16} color="rgba(255,255,255,0.8)" />
+            <Text style={styles.retakeText}>Retake</Text>
+          </TouchableOpacity>
+        )}
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        <TouchableOpacity
+          style={[styles.continueButton, (!photoUri || uploading) && styles.continueButtonDisabled]}
+          onPress={onContinue}
+          activeOpacity={0.85}
+          disabled={!photoUri || uploading}
+        >
+          {uploading ? (
+            <ActivityIndicator color="#1A1A1A" />
+          ) : (
+            <Text style={styles.continueButtonText}>Continue</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -84,6 +167,22 @@ const styles = StyleSheet.create({
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  preview: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 16,
+  },
+  capturePrompt: {
+    alignItems: "center",
+    gap: 10,
+  },
+  captureText: {
+    fontSize: 14,
+    fontFamily: "Outfit-Regular",
+    color: "rgba(255,255,255,0.7)",
   },
   corner: {
     position: "absolute",
@@ -119,14 +218,23 @@ const styles = StyleSheet.create({
     borderRightWidth: CORNER_THICKNESS,
     borderBottomRightRadius: 6,
   },
-  scanLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: "50%",
-    height: 2,
-    backgroundColor: "rgba(255,255,255,0.6)",
-    marginTop: -1,
+  retakeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 16,
+  },
+  retakeText: {
+    fontSize: 13,
+    fontFamily: "Outfit-Medium",
+    color: "rgba(255,255,255,0.8)",
+  },
+  errorText: {
+    fontSize: 12,
+    fontFamily: "Outfit-Regular",
+    color: "#FB6363",
+    textAlign: "center",
+    marginBottom: 12,
   },
   bottomContent: {
     position: "absolute",
@@ -161,6 +269,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
+  },
+  continueButtonDisabled: {
+    opacity: 0.5,
   },
   continueButtonText: {
     fontSize: 16,

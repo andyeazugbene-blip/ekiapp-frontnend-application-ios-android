@@ -158,6 +158,32 @@ export default function FoodstuffAddScreen() {
     }
   };
 
+  const handlePublishPress = () => {
+    setError("");
+    if (!name.trim()) {
+      setError("Product name is required.");
+      return;
+    }
+    if (!vendor) {
+      setError("Please log in as a vendor to continue.");
+      return;
+    }
+    router.push({
+      pathname: "/(vendor)/publish-check",
+      params: {
+        name: name.trim(),
+        description: description.trim(),
+        price,
+        costPrice,
+        weight,
+        unit,
+        stock,
+        category: category || "General",
+        imageUrl: imageRemoteUrl ?? "",
+      },
+    } as any);
+  };
+
   // Last-resort save-as-draft if backend rejected the publish.
   const handleSaveDraftFallback = async () => {
     if (!vendor) return;
@@ -388,11 +414,11 @@ export default function FoodstuffAddScreen() {
               <Text style={styles.secondaryButtonText}>Save Foodstuff</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => handleSave(true)}
+              onPress={handlePublishPress}
               style={[styles.primaryButton, (uploading || submitting) && { opacity: 0.6 }]}
               disabled={uploading || submitting}
             >
-              <Text style={styles.primaryButtonText}>{submitting ? "Saving..." : "Publish"}</Text>
+              <Text style={styles.primaryButtonText}>Publish</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

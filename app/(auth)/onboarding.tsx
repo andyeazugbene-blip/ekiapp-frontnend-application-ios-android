@@ -14,12 +14,17 @@ import { useAuthStore } from "../../stores/authStore";
  */
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { ref } = useLocalSearchParams<{ ref?: string }>();
+  const { ref, role } = useLocalSearchParams<{ ref?: string; role?: string }>();
   const setHasSeenOnboarding = useAuthStore((s) => s.setHasSeenOnboarding);
+  const resolvedRole = role === "buyer" ? "buyer" : "vendor";
+  const isBuyer = resolvedRole === "buyer";
 
   const handleGetStarted = () => {
     setHasSeenOnboarding();
-    router.replace({ pathname: "/(auth)/role-select", params: typeof ref === "string" && ref.trim() ? { ref } : {} } as any);
+    router.replace({
+      pathname: "/(auth)/welcome",
+      params: { role: resolvedRole, ...(typeof ref === "string" && ref.trim() ? { ref } : {}) },
+    } as any);
   };
 
   return (
@@ -34,65 +39,118 @@ export default function OnboardingScreen() {
         style={styles.hero}
       >
         <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-          {/* Top-right floating "Sales this week" card */}
-          <View style={styles.weekCard}>
-            <View style={styles.weekCardIcon}>
-              <Ionicons name="calendar-outline" size={22} color="#FFFFFF" />
-            </View>
-            <View>
-              <Text style={styles.weekCardLabel}>Sales this week</Text>
-              <Text style={styles.weekCardValue}>$540</Text>
-              <Text style={styles.weekCardSub}>≈ ₦810,000</Text>
-            </View>
-          </View>
+          {isBuyer ? (
+            <>
+              {/* Top-right floating "Rewards" card */}
+              <View style={styles.weekCard}>
+                <View style={styles.weekCardIcon}>
+                  <Ionicons name="gift-outline" size={22} color="#FFFFFF" />
+                </View>
+                <View>
+                  <Text style={styles.weekCardLabel}>Earn Rewards</Text>
+                  <Text style={styles.weekCardValue}>Cashback</Text>
+                  <Text style={styles.weekCardSub}>on every order</Text>
+                </View>
+              </View>
 
-          {/* Center floating tasks card */}
-          <View style={styles.tasksCard}>
-            <TaskRow
-              iconName="cart-outline"
-              iconBg="rgba(7,107,81,0.10)"
-              iconColor="#076B51"
-              label="Orders requiring action"
-              count={3}
-            />
-            <View style={styles.taskDivider} />
-            <TaskRow
-              iconName="cube-outline"
-              iconBg="rgba(7,107,81,0.10)"
-              iconColor="#076B51"
-              label="Low stock alerts"
-              count={3}
-            />
-            <View style={styles.taskDivider} />
-            <TaskRow
-              iconName="chatbubble-ellipses-outline"
-              iconBg="rgba(7,107,81,0.10)"
-              iconColor="#076B51"
-              label="Unread buyer messages"
-              count={5}
-            />
-          </View>
+              {/* Center floating benefits card */}
+              <View style={styles.tasksCard}>
+                <TaskRow
+                  iconName="lock-closed-outline"
+                  iconBg="rgba(7,107,81,0.10)"
+                  iconColor="#076B51"
+                  label="Secure Payments"
+                />
+                <View style={styles.taskDivider} />
+                <TaskRow
+                  iconName="shield-checkmark-outline"
+                  iconBg="rgba(7,107,81,0.10)"
+                  iconColor="#076B51"
+                  label="Buyer Protection"
+                />
+                <View style={styles.taskDivider} />
+                <TaskRow
+                  iconName="car-outline"
+                  iconBg="rgba(7,107,81,0.10)"
+                  iconColor="#076B51"
+                  label="Fast Delivery"
+                />
+              </View>
+            </>
+          ) : (
+            <>
+              {/* Top-right floating "Sales this week" card */}
+              <View style={styles.weekCard}>
+                <View style={styles.weekCardIcon}>
+                  <Ionicons name="calendar-outline" size={22} color="#FFFFFF" />
+                </View>
+                <View>
+                  <Text style={styles.weekCardLabel}>Sales this week</Text>
+                  <Text style={styles.weekCardValue}>$540</Text>
+                  <Text style={styles.weekCardSub}>≈ ₦810,000</Text>
+                </View>
+              </View>
 
-          {/* "Sales today" floating card */}
-          <View style={styles.todayCard}>
-            <View style={styles.todayIcon}>
-              <Ionicons name="sunny-outline" size={22} color="#076B51" />
-            </View>
-            <View>
-              <Text style={styles.todayLabel}>Sales today</Text>
-              <Text style={styles.todayValue}>$120</Text>
-              <Text style={styles.todaySub}>≈ ₦180,000</Text>
-            </View>
-          </View>
+              {/* Center floating tasks card */}
+              <View style={styles.tasksCard}>
+                <TaskRow
+                  iconName="cart-outline"
+                  iconBg="rgba(7,107,81,0.10)"
+                  iconColor="#076B51"
+                  label="Orders requiring action"
+                  count={3}
+                />
+                <View style={styles.taskDivider} />
+                <TaskRow
+                  iconName="cube-outline"
+                  iconBg="rgba(7,107,81,0.10)"
+                  iconColor="#076B51"
+                  label="Low stock alerts"
+                  count={3}
+                />
+                <View style={styles.taskDivider} />
+                <TaskRow
+                  iconName="chatbubble-ellipses-outline"
+                  iconBg="rgba(7,107,81,0.10)"
+                  iconColor="#076B51"
+                  label="Unread buyer messages"
+                  count={5}
+                />
+              </View>
+
+              {/* "Sales today" floating card */}
+              <View style={styles.todayCard}>
+                <View style={styles.todayIcon}>
+                  <Ionicons name="sunny-outline" size={22} color="#076B51" />
+                </View>
+                <View>
+                  <Text style={styles.todayLabel}>Sales today</Text>
+                  <Text style={styles.todayValue}>$120</Text>
+                  <Text style={styles.todaySub}>≈ ₦180,000</Text>
+                </View>
+              </View>
+            </>
+          )}
         </SafeAreaView>
       </LinearGradient>
 
       {/* Bottom content */}
       <View style={styles.bottom}>
-        <Text style={styles.headline}>Sell your foodstuff{"\n"}to buyers abroad</Text>
-        <Text style={styles.subhead}>
-          Get orders, receive secure payment,{"\n"}and grow your business with Eki
-        </Text>
+        {isBuyer ? (
+          <>
+            <Text style={styles.headline}>Shop authentic foodstuff{"\n"}from trusted vendors</Text>
+            <Text style={styles.subhead}>
+              Order with confidence, track deliveries,{"\n"}and earn rewards with Eki
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.headline}>Sell your foodstuff{"\n"}to buyers abroad</Text>
+            <Text style={styles.subhead}>
+              Get orders, receive secure payment,{"\n"}and grow your business with Eki
+            </Text>
+          </>
+        )}
 
         <TouchableOpacity activeOpacity={0.86} onPress={handleGetStarted} style={styles.cta}>
           <Text style={styles.ctaText}>Get Started</Text>
@@ -102,9 +160,20 @@ export default function OnboardingScreen() {
         </TouchableOpacity>
 
         <View style={styles.trustRow}>
-          <TrustBadge icon="shield-checkmark-outline" label="Trusted selling" />
-          <TrustBadge icon="lock-closed-outline" label="Secure payment" />
-          <TrustBadge icon="car-outline" label="Smooth delivery" />
+          {isBuyer ? (
+            <>
+              <TrustBadge icon="shield-checkmark-outline" label="Buyer Protection" />
+              <TrustBadge icon="lock-closed-outline" label="Secure Payments" />
+              <TrustBadge icon="gift-outline" label="Rewards" />
+              <TrustBadge icon="car-outline" label="Fast Delivery" />
+            </>
+          ) : (
+            <>
+              <TrustBadge icon="shield-checkmark-outline" label="Trusted selling" />
+              <TrustBadge icon="lock-closed-outline" label="Secure payment" />
+              <TrustBadge icon="car-outline" label="Smooth delivery" />
+            </>
+          )}
         </View>
       </View>
     </View>
@@ -122,7 +191,7 @@ function TaskRow({
   iconBg: string;
   iconColor: string;
   label: string;
-  count: number;
+  count?: number;
 }) {
   return (
     <View style={styles.taskRow}>
@@ -130,9 +199,11 @@ function TaskRow({
         <Ionicons name={iconName} size={18} color={iconColor} />
       </View>
       <Text style={styles.taskLabel}>{label}</Text>
-      <View style={styles.countPill}>
-        <Text style={styles.countText}>{count}</Text>
-      </View>
+      {count !== undefined ? (
+        <View style={styles.countPill}>
+          <Text style={styles.countText}>{count}</Text>
+        </View>
+      ) : null}
       <View style={styles.arrowPill}>
         <Ionicons name="arrow-up" size={14} color="#076B51" style={{ transform: [{ rotate: "45deg" }] }} />
       </View>
