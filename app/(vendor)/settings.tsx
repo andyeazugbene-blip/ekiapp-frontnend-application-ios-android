@@ -221,10 +221,22 @@ export default function VendorSettingsScreen() {
           />
           <SettingRow
             icon="pricetag-outline"
-            label="Coupons Created"
+            label="Coupons"
             description="Review created coupon codes, linked products, dates, and share links"
             value={loadingCounts ? "..." : String(discountCount)}
             onPress={() => router.push("/(vendor)/coupon-history" as any)}
+          />
+          <SettingRow
+            icon="layers-outline"
+            label="Bundles"
+            description="Manage your product bundles"
+            onPress={() => router.push("/(vendor)/bundle-history" as any)}
+          />
+          <SettingRow
+            icon="flash-outline"
+            label="Flash Sales"
+            description="Review and manage your flash sales"
+            onPress={() => router.push("/(vendor)/flash-sale-history" as any)}
           />
           <SettingRow
             icon="chatbubble-ellipses-outline"

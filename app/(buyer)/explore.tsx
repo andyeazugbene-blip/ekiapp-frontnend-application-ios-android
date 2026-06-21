@@ -172,7 +172,7 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
+      {activeView !== "products" ? (
       <View style={styles.header}>
         <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
@@ -182,6 +182,7 @@ export default function ExploreScreen() {
           <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
         </TouchableOpacity>
       </View>
+      ) : null}
 
       {/* Search */}
       <View style={styles.searchBar}>
@@ -377,22 +378,19 @@ export default function ExploreScreen() {
 
             {/* ── PRODUCTS VIEW: grid with category chips ─────────────── */}
             {activeView === "products" && filteredProducts.length > 0 && (
-              <>
-                <Text style={styles.sectionTitlePadded}>All available foodstuff</Text>
-                <View style={styles.productGrid}>
-                  {filteredProducts.map((product) => (
-                    <ProductResultCard
-                      key={product.id}
-                      product={product}
-                      selectedCurrency={selectedCurrency}
-                      recentlyAddedId={recentlyAddedId}
-                      onOpen={() => router.push({ pathname: "/(buyer)/product-detail", params: { id: product.id } } as any)}
-                      onOpenVendor={() => handleOpenVendor(product.vendorId)}
-                      onAdd={() => handleAddToCart(product)}
-                    />
-                  ))}
-                </View>
-              </>
+              <View style={styles.productGrid}>
+                {filteredProducts.map((product) => (
+                  <ProductResultCard
+                    key={product.id}
+                    product={product}
+                    selectedCurrency={selectedCurrency}
+                    recentlyAddedId={recentlyAddedId}
+                    onOpen={() => router.push({ pathname: "/(buyer)/product-detail", params: { id: product.id } } as any)}
+                    onOpenVendor={() => handleOpenVendor(product.vendorId)}
+                    onAdd={() => handleAddToCart(product)}
+                  />
+                ))}
+              </View>
             )}
 
             {/* ── VENDORS VIEW: full list ──────────────────────────────── */}

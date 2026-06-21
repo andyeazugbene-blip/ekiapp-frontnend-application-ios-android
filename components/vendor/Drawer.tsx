@@ -127,9 +127,9 @@ export function VendorDrawer({ visible, onClose }: DrawerProps) {
         ]}
       >
         <LinearGradient
-          colors={["#076B51", "#096F55", "#0B8E6B"]}
+          colors={["#087356", "#079064", "#087554"]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 1, y: 0.35 }}
           style={StyleSheet.absoluteFillObject}
         />
 
@@ -204,9 +204,9 @@ export function VendorDrawer({ visible, onClose }: DrawerProps) {
         accessibilityRole="button"
         activeOpacity={0.78}
         onPress={onClose}
-        style={[styles.closeButton, { top: insets.top + 8 }]}
+        style={[styles.closeButton, { top: insets.top + 17 }]}
       >
-        <Ionicons name="close" size={22} color="#FFFFFF" />
+        <Ionicons name="close" size={34} color="#FFFFFF" />
       </TouchableOpacity>
     </Animated.View>
   );
@@ -226,13 +226,13 @@ const styles = StyleSheet.create({
   profileRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: 8,
+    paddingTop: 17,
     paddingRight: 8,
   },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     overflow: "hidden",
     backgroundColor: "rgba(255,255,255,0.10)",
   },
@@ -249,59 +249,63 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
   profileText: {
-    marginLeft: 12,
+    marginLeft: 24,
     flex: 1,
   },
   greeting: {
-    color: "rgba(255,255,255,0.78)",
+    color: "#FFFFFF",
     fontFamily: "Outfit-Regular",
-    fontSize: 13,
+    fontSize: 16,
   },
   name: {
     color: "#FFFFFF",
     fontFamily: "Manrope-ExtraBold",
-    fontSize: 26,
-    marginTop: 2,
+    fontSize: 30,
+    lineHeight: 38,
+    marginTop: 1,
   },
 
   // Close button (absolute)
   closeButton: {
     position: "absolute",
-    right: 16,
+    right: 20,
     zIndex: 5,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.18)",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(255,255,255,0.13)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
     alignItems: "center",
     justifyContent: "center",
   },
 
   // ── Menu list ──────────────────────────────────────────────────────
   menuList: {
-    marginTop: 36,
-    gap: 14,
+    marginTop: 58,
+    gap: 11,
   },
   menuItem: {
     minHeight: 52,
-    borderRadius: 16,
-    paddingHorizontal: 14,
+    borderRadius: 24,
+    paddingHorizontal: 28,
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 24,
   },
   menuItemActive: {
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.13)",
   },
   menuLabel: {
     flex: 1,
     color: "#FFFFFF",
-    fontFamily: "Manrope-SemiBold",
+    fontFamily: "Outfit-Regular",
     fontSize: 17,
+    lineHeight: 24,
   },
 
   // ── Logout ─────────────────────────────────────────────────────────
-  logoutWrap: { marginTop: 28 },
+  logoutWrap: { marginTop: 25 },
 
   // ── Outside tap area ───────────────────────────────────────────────
   outsideTap: {

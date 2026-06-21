@@ -266,19 +266,19 @@ export default function VendorDashboardScreen() {
       {
         translateX: drawerProgress.interpolate({
           inputRange: [0, 1],
-          outputRange: [0, SCREEN_WIDTH * 0.5],
+          outputRange: [0, SCREEN_WIDTH * 0.62],
         }),
       },
       {
         translateY: drawerProgress.interpolate({
           inputRange: [0, 1],
-          outputRange: [0, 18],
+          outputRange: [0, 30],
         }),
       },
       {
         scale: drawerProgress.interpolate({
           inputRange: [0, 1],
-          outputRange: [1, 0.76],
+          outputRange: [1, 0.72],
         }),
       },
     ],
@@ -286,7 +286,7 @@ export default function VendorDashboardScreen() {
 
   return (
     <View style={styles.scene}>
-      <StatusBar style="dark" />
+      <StatusBar style={drawerOpen ? "light" : "dark"} />
 
       <Animated.View
         style={[
@@ -489,21 +489,6 @@ export default function VendorDashboardScreen() {
                 title="Share store link"
                 onPress={() => navigate("/(vendor)/share-store-link")}
               />
-            </View>
-
-            <View style={styles.historyRow}>
-              <TouchableOpacity onPress={() => navigate("/(vendor)/coupon-history")} activeOpacity={0.8} style={styles.historyLink}>
-                <Ionicons name="pricetag-outline" size={14} color="#076B51" />
-                <Text style={styles.historyLinkText}>Coupons</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigate("/(vendor)/bundle-history")} activeOpacity={0.8} style={styles.historyLink}>
-                <Ionicons name="layers-outline" size={14} color="#076B51" />
-                <Text style={styles.historyLinkText}>Bundles</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigate("/(vendor)/flash-sale-history")} activeOpacity={0.8} style={styles.historyLink}>
-                <Ionicons name="flash-outline" size={14} color="#076B51" />
-                <Text style={styles.historyLinkText}>Flash Sales</Text>
-              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
@@ -957,11 +942,13 @@ function PerfCard({
 }
 
 const styles = StyleSheet.create({
-  scene: { flex: 1, backgroundColor: "#F4F4F4" },
+  scene: { flex: 1, backgroundColor: "#087554" },
   dashboardSurface: { flex: 1, backgroundColor: "#F4F4F4" },
   dashboardSurfaceOpen: {
     borderRadius: 28,
     overflow: "hidden",
+    borderWidth: 4,
+    borderColor: "#F7F7F7",
     shadowColor: "#000",
     shadowOffset: { width: -8, height: 10 },
     shadowOpacity: 0.18,
@@ -1174,9 +1161,6 @@ const styles = StyleSheet.create({
 
   // ── Grow grid ────────────────────────────────────────────────────────
   growGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10, marginBottom: 8 },
-  historyRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
-  historyLink: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 12, backgroundColor: "#EAF7F1" },
-  historyLinkText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   growCard: { width: (SCREEN_WIDTH - 16 * 2 - 10) / 2, minHeight: 114, borderRadius: 20, padding: 14, justifyContent: "space-between" },
   growDark: { backgroundColor: "#076B51" },
   growLight: { backgroundColor: "#FFFFFF" },
