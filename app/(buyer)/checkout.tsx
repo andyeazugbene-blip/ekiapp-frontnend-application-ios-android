@@ -287,8 +287,8 @@ export default function CheckoutScreen() {
             <View style={styles.modalIcon}>
               <Ionicons name="checkmark-circle" size={40} color="#076B51" />
             </View>
-            <Text style={styles.modalTitle}>Payment Submitted</Text>
-            <Text style={styles.modalBody}>Your order is being confirmed. The vendor will be notified once payment is processed.</Text>
+            <Text style={styles.modalTitle}>Payment Successful</Text>
+            <Text style={styles.modalBody}>Your order has been placed and the vendor has been notified.</Text>
             {appliedCampaign ? (
               <Text style={styles.modalDiscount}>
                 {appliedCampaign.title} applied: −{formatDisplayMoney(appliedCampaign.discount / 100, checkoutCurrency, checkoutCurrency)}
