@@ -342,10 +342,21 @@ export const vendorService = {
     if (payload.backUrl) body.backUrl = payload.backUrl;
     if (payload.idSubtype) body.idType = ID_SUBTYPE_MAP[payload.idSubtype] ?? payload.idSubtype;
 
-    return apiClient.post<{ document: { id: string; type: string; status: string } }>(
-      "/api/vendors/me/verification",
-      body
-    );
+    try {
+      return await apiClient.post<{ document: { id: string; type: string; status: string } }>(
+        "/api/vendors/me/verification",
+        body
+      );
+    } catch (err: any) {
+      if (err?.status === 409) {
+        await apiClient.delete<{ message: string }>("/api/vendors/me/verification");
+        return apiClient.post<{ document: { id: string; type: string; status: string } }>(
+          "/api/vendors/me/verification",
+          body
+        );
+      }
+      throw err;
+    }
   },
 
   async resetVerification() {

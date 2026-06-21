@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { rewardService, type Reward } from "../../services/rewardService";
 import { giftCardService, type GiftCard } from "../../services/giftCardService";
-import { campaignService, campaignColors, campaignConditionLabel, campaignDiscountLabel, type Campaign } from "../../services/campaignService";
+import { campaignService, campaignColors, type Campaign } from "../../services/campaignService";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -199,26 +199,14 @@ export default function BuyerHomeScreen() {
       hotDealCampaigns.map((campaign) => ({
         id: `hot-deal-${campaign.id}`,
         colors: campaignColors(campaign) as unknown as readonly [string, string],
-        badge: "Hot Deal",
+        badge: "Limited Time",
         title: campaign.title,
         highlight: campaign.subtitle || "",
         body: campaign.subtitle?.trim() || "Limited-time marketplace deal from Eki.",
-        cta: "Shop Deals",
+        cta: "Get Reward",
         icon: "flash",
         onPress: () => {
-          const discount = campaignDiscountLabel(campaign);
-          const condition = campaignConditionLabel(campaign);
-          if (discount) {
-            const lines = [`You qualify for: ${discount}`];
-            if (condition) lines.push(condition);
-            lines.push("It auto-applies at checkout — no code needed.");
-            Alert.alert(campaign.title, lines.join("\n"), [
-              { text: "Shop Now", onPress: () => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any) },
-              { text: "Close", style: "cancel" },
-            ]);
-          } else {
-            router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any);
-          }
+          router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any);
         },
       })),
     [hotDealCampaigns, router],
@@ -409,21 +397,7 @@ export default function BuyerHomeScreen() {
                   <Text style={styles.dealTitle}>{campaign.title}</Text>
                   {campaign.subtitle ? <Text style={styles.dealBody}>{campaign.subtitle}</Text> : null}
                   <TouchableOpacity
-                    onPress={() => {
-                      const discount = campaignDiscountLabel(campaign);
-                      const condition = campaignConditionLabel(campaign);
-                      if (discount) {
-                        const lines = [`You qualify for: ${discount}`];
-                        if (condition) lines.push(condition);
-                        lines.push("It auto-applies at checkout — no code needed.");
-                        Alert.alert(campaign.title, lines.join("\n"), [
-                          { text: "Shop Now", onPress: () => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any) },
-                          { text: "Close", style: "cancel" },
-                        ]);
-                      } else {
-                        router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any);
-                      }
-                    }}
+                    onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any)}
                     activeOpacity={0.86}
                     style={styles.dealButton}
                   >
