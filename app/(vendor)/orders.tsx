@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deriveEscrowStatus, getEscrowStatusColor, getEscrowStatusLabel } from "../../services/escrowStatus";
@@ -47,33 +47,45 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const selectedCurrency = useCurrencyStore((state) => state.selectedCurrency);
   const ensureCurrency = useCurrencyStore((state) => state.ensureCurrency);
   const setSelectedCurrency = useCurrencyStore((state) => state.setSelectedCurrency);
 
-  const load = useCallback(async () => {
+  const hasLoaded = useRef(false);
+  const load = useCallback(async (silent = false) => {
     if (!vendor) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError("");
     try {
       const list = await orderService.getVendorOrders(vendor.id);
       setOrders(list ?? []);
+      hasLoaded.current = true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load orders.");
+      if (!silent) setError(err instanceof Error ? err.message : "Could not load orders.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [vendor]);
 
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useFocusEffect(
     useCallback(() => {
       load();
+      intervalRef.current = setInterval(() => { load(true); }, 30000);
+      return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
     }, [load]),
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
   const filtered = useMemo(
     () => (orders ?? []).filter((order) => TAB_TO_STATUSES[activeTab].includes(order.status)),
@@ -94,7 +106,7 @@ export default function OrdersScreen() {
         <Text style={styles.headerSubtitle}>Manage paid orders, shipment, and buyer updates.</Text>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#076B51" colors={["#076B51"]} />}>
         <View style={styles.tabContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
             {TABS.map((tab) => (

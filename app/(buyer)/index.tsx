@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -113,6 +114,7 @@ export default function BuyerHomeScreen() {
   const [campaignsLoading, setCampaignsLoading] = useState(true);
   const [campaignsError, setCampaignsError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeDealIndex, setActiveDealIndex] = useState(0);
 
   const loadCampaigns = useCallback(async () => {
@@ -153,6 +155,12 @@ export default function BuyerHomeScreen() {
       loadData();
     }, [loadData]),
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const activeProducts = useMemo(
     () => products.filter((product) => product && product.status === "active"),
@@ -238,7 +246,7 @@ export default function BuyerHomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#076B51" colors={["#076B51"]} />}>
         <View style={styles.headerWrap}>
           <LinearGradient colors={["#0B7658", "#0A6C52"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerCard}>
             <View style={styles.headerTop}>
@@ -297,7 +305,16 @@ export default function BuyerHomeScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        ) : hotDeals.length === 0 ? null : (
+        ) : hotDeals.length === 0 ? (
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionTitle}>Hot Deals</Text>
+            <View style={styles.emptyState}>
+              <Ionicons name="flame-outline" size={28} color="#D6A700" />
+              <Text style={styles.emptyTitle}>No deals right now</Text>
+              <Text style={styles.emptyText}>Check back soon for hot deals and discounts!</Text>
+            </View>
+          </View>
+        ) : (
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionTitle}>Hot Deals</Text>
           <ScrollView
