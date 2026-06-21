@@ -29,7 +29,8 @@ import { vendorService } from "../../services/vendorService";
 import { formatDisplayMoney } from "../../utils/currency";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const DEAL_CARD_WIDTH = (SCREEN_WIDTH - 44) / 2;
+const DEAL_CARD_WIDTH = Math.min(SCREEN_WIDTH - 96, 280);
+const GIFT_CARD_WIDTH = 150;
 
 type HomeDeal = {
   id: string;
@@ -353,7 +354,7 @@ export default function BuyerHomeScreen() {
           <View style={styles.sectionBlock}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitleInline}>Gift Cards</Text>
-              <TouchableOpacity onPress={() => router.push("/(buyer)/wallet" as any)} activeOpacity={0.8}>
+              <TouchableOpacity onPress={() => router.push("/(buyer)/gift-cards" as any)} activeOpacity={0.8}>
                 <Text style={styles.viewAllText}>View All</Text>
               </TouchableOpacity>
             </View>
@@ -361,7 +362,7 @@ export default function BuyerHomeScreen() {
               {giftCards.map((card) => (
                 <TouchableOpacity
                   key={card.id}
-                  onPress={() => router.push("/(buyer)/wallet" as any)}
+                  onPress={() => router.push({ pathname: "/(buyer)/gift-card-detail", params: { id: card.id } } as any)}
                   activeOpacity={0.86}
                   style={styles.giftCard}
                 >
@@ -407,7 +408,25 @@ export default function BuyerHomeScreen() {
                   </View>
                   <Text style={styles.dealTitle}>{campaign.title}</Text>
                   {campaign.subtitle ? <Text style={styles.dealBody}>{campaign.subtitle}</Text> : null}
-                  <TouchableOpacity onPress={() => router.push("/(buyer)/wallet" as any)} activeOpacity={0.86} style={styles.dealButton}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const discount = campaignDiscountLabel(campaign);
+                      const condition = campaignConditionLabel(campaign);
+                      if (discount) {
+                        const lines = [`You qualify for: ${discount}`];
+                        if (condition) lines.push(condition);
+                        lines.push("It auto-applies at checkout — no code needed.");
+                        Alert.alert(campaign.title, lines.join("\n"), [
+                          { text: "Shop Now", onPress: () => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any) },
+                          { text: "Close", style: "cancel" },
+                        ]);
+                      } else {
+                        router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any);
+                      }
+                    }}
+                    activeOpacity={0.86}
+                    style={styles.dealButton}
+                  >
                     <Text style={styles.dealButtonText}>View Offer</Text>
                   </TouchableOpacity>
                 </LinearGradient>
@@ -1053,9 +1072,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   giftCard: {
-    width: DEAL_CARD_WIDTH,
+    width: GIFT_CARD_WIDTH,
     backgroundColor: "#FFFFFF",
-    borderRadius: 22,
+    borderRadius: 20,
     padding: 14,
     alignItems: "center",
     shadowColor: "#182722",

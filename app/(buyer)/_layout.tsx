@@ -105,7 +105,7 @@ export default function BuyerLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="wallet-outline" size={size} color={color} />,
         }}
       />
-      <Tabs.Screen name="explore" options={{ href: null }} />
+      <Tabs.Screen name="explore" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="orders" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="profile" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="checkout" options={{ href: null, tabBarStyle: { display: "none" } }} />
@@ -120,6 +120,8 @@ export default function BuyerLayout() {
       <Tabs.Screen name="invite-friend" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="reward-history" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="favorites" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="gift-card-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="gift-cards" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="leave-review" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -111,9 +111,13 @@ export default function BuyersScreen() {
           return (
             <View key={buyer.id} style={styles.buyerCard}>
               <View style={styles.buyerTop}>
-                <View style={styles.buyerAvatar}>
-                  <Ionicons name="person" size={24} color="#858585" />
-                </View>
+                {buyer.avatar ? (
+                  <Image source={{ uri: buyer.avatar }} style={styles.buyerAvatarImage} />
+                ) : (
+                  <View style={styles.buyerAvatar}>
+                    <Ionicons name="person" size={24} color="#858585" />
+                  </View>
+                )}
                 <View style={styles.buyerInfo}>
                   <View style={styles.buyerNameRow}>
                     <Text style={styles.buyerName} numberOfLines={1}>{buyer.name}</Text>
@@ -183,6 +187,7 @@ const styles = StyleSheet.create({
   buyerCard: { backgroundColor: "#FFFFFF", borderRadius: 18, padding: 16, marginBottom: 14, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
   buyerTop: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   buyerAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center", marginRight: 12 },
+  buyerAvatarImage: { width: 52, height: 52, borderRadius: 26, marginRight: 12 },
   buyerInfo: { flex: 1 },
   buyerNameRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   buyerName: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", flex: 1, marginRight: 8 },
