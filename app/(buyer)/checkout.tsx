@@ -145,7 +145,7 @@ export default function CheckoutScreen() {
 
     setSubmitting(true);
     try {
-      const walletCents = paymentMethod === "wallet" ? Math.round(grandTotal * 100) : undefined;
+      const walletCents = paymentMethod === "wallet" ? Math.round(walletBalance * 100) : undefined;
       const trimmedPromo = promoCode.trim() || undefined;
       const intent = await createCheckout(address.trim(), walletCents, country.trim(), trimmedPromo);
       setCreatedOrderIds(intent.orderIds);
@@ -156,6 +156,9 @@ export default function CheckoutScreen() {
       );
       if (intent.clientSecret === "wallet_paid") {
         await clearCart(); setShowSuccess(true); return;
+      }
+      if (paymentMethod === "wallet") {
+        setError("Wallet payment failed. Please try again or use Card."); return;
       }
       if (!intent.clientSecret || intent.clientSecret === "") {
         setError("Payment could not be processed. Please try again."); return;

@@ -206,7 +206,7 @@ export default function ExploreScreen() {
 
       {/* Category chips — only in "products" view */}
       {activeView === "products" && categories.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 44, flexGrow: 0 }} contentContainerStyle={styles.chipsScroll}>
           <TouchableOpacity
             onPress={() => setSelectedCategory(null)}
             activeOpacity={0.8}
@@ -227,7 +227,14 @@ export default function ExploreScreen() {
         </ScrollView>
       ) : null}
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
+        keyboardShouldPersistTaps="handled"
+      >
         {loading ? (
           <View style={styles.centerBlock}>
             <ActivityIndicator color="#076B51" />
