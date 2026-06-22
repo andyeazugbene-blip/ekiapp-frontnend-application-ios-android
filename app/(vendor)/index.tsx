@@ -754,14 +754,14 @@ function SalesTile({
 
   const content = (
     <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
         <View style={[styles.salesTileIconContainer, { backgroundColor: iconBg }]}>
-          <Ionicons name={icon} size={18} color={iconColor} />
+          <Ionicons name={icon} size={14} color={iconColor} />
         </View>
         <Text style={[
           styles.tileLabel,
           (isDark || isBlack) && styles.tileLabelDark,
-          { flex: 1, marginLeft: 8 }
+          { flex: 1, marginLeft: 6 }
         ]} numberOfLines={1}>{label}</Text>
       </View>
       <Text style={[styles.tileValue, (isDark || isBlack) && styles.tileValueDark]}>{value}</Text>
@@ -1088,16 +1088,16 @@ const styles = StyleSheet.create({
 
   // ── Sales tiles (2×2 grid) ───────────────────────────────────────────
   salesGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12, marginBottom: 18 },
-  salesTile: { width: (SCREEN_WIDTH - 16 * 2 - 12) / 2, backgroundColor: "#FFFFFF", borderRadius: 16, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1, borderColor: "#F0F0F0", elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 10 },
-  salesTileIconContainer: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  salesTile: { width: (SCREEN_WIDTH - 16 * 2 - 12) / 2, backgroundColor: "#FFFFFF", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12, borderWidth: 1, borderColor: "#F0F0F0", elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 10 },
+  salesTileIconContainer: { width: 26, height: 26, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   tileDark: { backgroundColor: "#076B51", borderColor: "#0A8A66" },
   tileLight: { backgroundColor: "#FFFFFF", borderColor: "#F0F0F0" },
   tileBlack: { backgroundColor: "#282828", borderColor: "#3A3A3A" },
-  tileLabel: { color: "#858585", fontSize: 12, fontFamily: "Outfit-Regular" },
+  tileLabel: { color: "#858585", fontSize: 11, fontFamily: "Outfit-Regular" },
   tileLabelDark: { color: "rgba(255,255,255,0.75)" },
-  tileValue: { color: "#282828", fontSize: 24, fontFamily: "Manrope-Bold", marginTop: 6 },
+  tileValue: { color: "#282828", fontSize: 20, fontFamily: "Manrope-Bold", marginTop: 4 },
   tileValueDark: { color: "#FFFFFF" },
-  tileSub: { fontSize: 12, fontFamily: "Outfit-Regular", marginTop: 4, color: "#858585" },
+  tileSub: { fontSize: 10, fontFamily: "Outfit-Regular", marginTop: 2, color: "#858585" },
   tileSubDark: { color: "rgba(255,255,255,0.6)" },
 
   // ── Insights vertical timeline ───────────────────────────────────────
