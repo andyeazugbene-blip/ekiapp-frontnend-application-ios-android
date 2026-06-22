@@ -172,69 +172,62 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{activeView === "products" ? "Foodstuff" : title}</Text>
-        <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
-          <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Search */}
-      <View style={styles.searchBar}>
-        <Ionicons name="search-outline" size={18} color="#858585" />
-        <TextInput
-          autoFocus={activeView === "all"}
-          style={styles.searchInput}
-          placeholder="Search for foodstuff"
-          placeholderTextColor="#858585"
-          value={search}
-          onChangeText={handleSearch}
-          returnKeyType="search"
-        />
-        {search.length > 0 ? (
-          <TouchableOpacity onPress={() => { setSearch(""); loadData(""); }} activeOpacity={0.7}>
-            <Ionicons name="close-circle" size={18} color="#858585" />
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      {/* View toggle for "all" */}
-      {activeView === "all" && !normalizedSearch ? null : null}
-
-      {/* Category chips — only in "products" view */}
-      {activeView === "products" && categories.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 44, flexGrow: 0 }} contentContainerStyle={styles.chipsScroll}>
-          <TouchableOpacity
-            onPress={() => setSelectedCategory(null)}
-            activeOpacity={0.8}
-            style={[styles.chip, !selectedCategory && styles.chipActive]}
-          >
-            <Text style={[styles.chipText, !selectedCategory && styles.chipTextActive]}>All</Text>
-          </TouchableOpacity>
-          {categories.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              onPress={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-              activeOpacity={0.8}
-              style={[styles.chip, selectedCategory === cat && styles.chipActive]}
-            >
-              <Text style={[styles.chipText, selectedCategory === cat && styles.chipTextActive]}>{cat}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      ) : null}
-
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        automaticallyAdjustContentInsets={false}
-        contentInsetAdjustmentBehavior="never"
         keyboardShouldPersistTaps="handled"
       >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.85} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={20} color="#282828" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{activeView === "products" ? "Foodstuff" : title}</Text>
+          <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
+            <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.searchBar}>
+          <Ionicons name="search-outline" size={18} color="#858585" />
+          <TextInput
+            autoFocus={activeView === "all"}
+            style={styles.searchInput}
+            placeholder="Search for foodstuff"
+            placeholderTextColor="#858585"
+            value={search}
+            onChangeText={handleSearch}
+            returnKeyType="search"
+          />
+          {search.length > 0 ? (
+            <TouchableOpacity onPress={() => { setSearch(""); loadData(""); }} activeOpacity={0.7}>
+              <Ionicons name="close-circle" size={18} color="#858585" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {activeView === "products" && categories.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 44, flexGrow: 0 }} contentContainerStyle={styles.chipsScroll}>
+            <TouchableOpacity
+              onPress={() => setSelectedCategory(null)}
+              activeOpacity={0.8}
+              style={[styles.chip, !selectedCategory && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, !selectedCategory && styles.chipTextActive]}>All</Text>
+            </TouchableOpacity>
+            {categories.map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                activeOpacity={0.8}
+                style={[styles.chip, selectedCategory === cat && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, selectedCategory === cat && styles.chipTextActive]}>{cat}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        ) : null}
+
         {loading ? (
           <View style={styles.centerBlock}>
             <ActivityIndicator color="#076B51" />
@@ -247,7 +240,6 @@ export default function ExploreScreen() {
           </View>
         ) : (
           <>
-            {/* ── ALL VIEW: discovery sections ───────────────────────── */}
             {activeView === "all" && (
               <>
                 {/* Popular foodstuff */}
