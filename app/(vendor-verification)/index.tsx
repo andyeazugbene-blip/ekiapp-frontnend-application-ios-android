@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -17,6 +17,19 @@ export default function VerificationIntroScreen() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("prompt");
   const [checking, setChecking] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  useEffect(() => {
+    vendorService
+      .getMyProfile()
+      .then((profile) => {
+        if (profile.verificationStatus === "verified") {
+          router.replace("/(vendor-verification)/approved" as any);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setInitialLoading(false));
+  }, [router]);
 
   const startVerification = async () => {
     if (checking) return;
@@ -36,6 +49,16 @@ export default function VerificationIntroScreen() {
   };
 
   const onClose = () => router.replace("/(vendor)" as any);
+
+  if (initialLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator color="#076B51" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>

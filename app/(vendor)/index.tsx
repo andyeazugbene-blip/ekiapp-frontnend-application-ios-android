@@ -756,10 +756,10 @@ function SalesTile({
     <View style={{ flex: 1 }}>
       <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
         <View style={[styles.salesTileIconContainer, { backgroundColor: iconBg }]}>
-          <Ionicons name={icon} size={16} color={iconColor} />
+          <Ionicons name={icon} size={20} color={iconColor} />
         </View>
         <Text style={[
-          styles.tileLabel, 
+          styles.tileLabel,
           (isDark || isBlack) && styles.tileLabelDark,
           { flex: 1, marginLeft: 8 }
         ]} numberOfLines={1}>{label}</Text>
@@ -1089,15 +1089,15 @@ const styles = StyleSheet.create({
   // ── Sales tiles (2×2 grid) ───────────────────────────────────────────
   salesGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12, marginBottom: 18 },
   salesTile: { width: (SCREEN_WIDTH - 16 * 2 - 12) / 2, backgroundColor: "#FFFFFF", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 16, borderWidth: 1, borderColor: "#F0F0F0", elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 10 },
-  salesTileIconContainer: { width: 28, height: 28, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  salesTileIconContainer: { width: 34, height: 34, borderRadius: 11, alignItems: "center", justifyContent: "center" },
   tileDark: { backgroundColor: "#076B51", borderColor: "#0A8A66" },
   tileLight: { backgroundColor: "#FFFFFF", borderColor: "#F0F0F0" },
   tileBlack: { backgroundColor: "#282828", borderColor: "#3A3A3A" },
   tileLabel: { color: "#858585", fontSize: 12, fontFamily: "Outfit-Regular" },
   tileLabelDark: { color: "rgba(255,255,255,0.75)" },
-  tileValue: { color: "#282828", fontSize: 22, fontFamily: "Manrope-Bold", marginTop: 8 },
+  tileValue: { color: "#282828", fontSize: 26, fontFamily: "Manrope-Bold", marginTop: 8 },
   tileValueDark: { color: "#FFFFFF" },
-  tileSub: { fontSize: 11, fontFamily: "Outfit-Regular", marginTop: 4, color: "#858585" },
+  tileSub: { fontSize: 12, fontFamily: "Outfit-Regular", marginTop: 4, color: "#858585" },
   tileSubDark: { color: "rgba(255,255,255,0.6)" },
 
   // ── Insights vertical timeline ───────────────────────────────────────

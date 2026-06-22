@@ -157,9 +157,6 @@ export default function CheckoutScreen() {
       if (intent.clientSecret === "wallet_paid") {
         await clearCart(); setShowSuccess(true); return;
       }
-      if (paymentMethod === "wallet") {
-        setError("Wallet payment could not be completed. Please try again."); return;
-      }
       if (!intent.clientSecret || intent.clientSecret === "") {
         setError("Payment could not be processed. Please try again."); return;
       }

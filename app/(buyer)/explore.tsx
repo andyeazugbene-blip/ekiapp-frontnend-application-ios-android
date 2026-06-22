@@ -542,13 +542,13 @@ const styles = StyleSheet.create({
   searchBar: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, backgroundColor: "#FFFFFF", borderRadius: 12, height: 44, paddingHorizontal: 12, gap: 8, borderWidth: 1, borderColor: "#EEEEEE", marginBottom: 8 },
   searchInput: { flex: 1, fontSize: 13, fontFamily: "Outfit-Regular", color: "#282828" },
   // Category chips
-  chipsScroll: { paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
+  chipsScroll: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
   chip: { height: 32, borderRadius: 16, backgroundColor: "#F4F4F4", paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
   chipActive: { backgroundColor: "#076B51" },
   chipText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#282828" },
   chipTextActive: { color: "#FFFFFF" },
   // Scroll content
-  scrollContent: { paddingBottom: 100, paddingTop: 4, flexGrow: 0 },
+  scrollContent: { paddingBottom: 100, paddingTop: 0 },
   centerBlock: { paddingVertical: 60, alignItems: "center", paddingHorizontal: 24 },
   emptyTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 },
   emptyBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 6, textAlign: "center" },
