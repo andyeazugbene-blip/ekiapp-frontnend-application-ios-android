@@ -16,6 +16,7 @@ import { payoutService } from "../../services/payoutService";
 import type { Order, VendorEarnings } from "../../types/order";
 import { openConversationThread } from "../../utils/messaging";
 import { goBackOrReplace } from "../../utils/navigation";
+import { RemoteImage } from "../../components/ui/RemoteImage";
 
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { formatDisplayMoney } from "../../utils/currency";
@@ -193,7 +194,11 @@ export default function OrderDetailScreen() {
           <Text style={styles.sectionTitle}>Buyer Information</Text>
           <View style={styles.buyerRow}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{(order.buyerName || "B").charAt(0).toUpperCase()}</Text>
+              {order.buyerAvatar ? (
+                <RemoteImage uri={order.buyerAvatar} style={{ width: 48, height: 48, borderRadius: 24 }} />
+              ) : (
+                <Text style={styles.avatarText}>{(order.buyerName || "B").charAt(0).toUpperCase()}</Text>
+              )}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.buyerName}>{order.buyerName || "Buyer"}</Text>
@@ -224,7 +229,11 @@ export default function OrderDetailScreen() {
           {(order.items ?? []).map((item, index) => (
             <View key={`${item.product.id}-${index}`} style={[styles.lineItem, index > 0 && styles.lineItemBorder]}>
               <View style={styles.lineItemThumb}>
-                <Ionicons name="cube-outline" size={18} color="#0A6C52" />
+                {item.product.images?.[0] ? (
+                  <RemoteImage uri={item.product.images[0]} style={{ width: 50, height: 50, borderRadius: 16 }} />
+                ) : (
+                  <Ionicons name="cube-outline" size={18} color="#0A6C52" />
+                )}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.lineItemName}>{item.product.name}</Text>

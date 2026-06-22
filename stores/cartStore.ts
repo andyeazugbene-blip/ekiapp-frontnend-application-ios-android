@@ -27,7 +27,7 @@ interface CartStore {
   syncWithServer: () => Promise<void>;
   calculateDelivery: (country: string) => Promise<void>;
   setDeliveryCountry: (country: string) => void;
-  createCheckout: (address: string, walletAmount?: number, deliveryCountryOverride?: string) => Promise<CheckoutIntent>;
+  createCheckout: (address: string, walletAmount?: number, deliveryCountryOverride?: string, promoCode?: string) => Promise<CheckoutIntent>;
 
   subtotal: () => number;
   totalItems: () => number;
@@ -305,7 +305,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
     set({ deliveryCountry: nextCountry, error: null });
   },
 
-  createCheckout: async (address, walletAmount, deliveryCountryOverride) => {
+  createCheckout: async (address, walletAmount, deliveryCountryOverride, promoCode) => {
     set({ isLoading: true, error: null });
     try {
       const uniqueCurrencies = new Set(get().items.map((item) => normalizeCurrency(item.product.currency)).filter(Boolean));
@@ -340,6 +340,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
         deliveryAddress: address,
         deliveryCountry: country,
         walletAmount,
+        promoCode,
       });
       set({ checkoutIntent: intent, isLoading: false });
       return intent;

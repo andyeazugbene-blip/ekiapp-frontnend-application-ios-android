@@ -163,6 +163,7 @@ export const cartService = {
     deliveryAddress?: string;
     deliveryCountry?: string;
     walletAmount?: number;
+    promoCode?: string;
   }): Promise<CheckoutIntent> {
     return apiClient.post<CheckoutIntent>("/api/payments/create-intent", payload);
   },

@@ -209,6 +209,7 @@ export function normalizeOrder(raw: Record<string, any>): Order {
     orderNumber: raw.orderNumber ?? `EKI-${(raw.id ?? "").slice(-6).toUpperCase()}`,
     buyerId: raw.buyerId ?? "",
     buyerName: raw.buyer?.name ?? raw.buyerName ?? "",
+    buyerAvatar: raw.buyer?.avatar ?? undefined,
     vendorId: raw.items?.[0]?.vendorId ?? raw.vendorId ?? "",
     vendorName: raw.vendorName ?? raw.vendor?.storeName ?? raw.items?.[0]?.vendor?.storeName ?? "",
     items,

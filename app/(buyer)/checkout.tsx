@@ -61,6 +61,7 @@ export default function CheckoutScreen() {
   const [appliedCampaign, setAppliedCampaign] = useState<{ title: string; discount: number } | null>(null);
   const [eligibleDeal, setEligibleDeal] = useState<Campaign | null>(null);
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
 
   const walletBalance = wallet?.balance ?? 0;
   const checkoutCurrency = items[0]?.product.currency ?? wallet?.currency ?? "GBP";
@@ -145,7 +146,8 @@ export default function CheckoutScreen() {
     setSubmitting(true);
     try {
       const walletCents = paymentMethod === "wallet" ? Math.round(grandTotal * 100) : undefined;
-      const intent = await createCheckout(address.trim(), walletCents, country.trim());
+      const trimmedPromo = promoCode.trim() || undefined;
+      const intent = await createCheckout(address.trim(), walletCents, country.trim(), trimmedPromo);
       setCreatedOrderIds(intent.orderIds);
       setAppliedCampaign(
         intent.campaignTitle && intent.campaignDiscount
@@ -209,6 +211,21 @@ export default function CheckoutScreen() {
             value={address}
             onChangeText={(value) => {
               setAddress(value);
+              if (error) setError("");
+            }}
+          />
+        </View>
+
+        <Text style={styles.fieldLabel}>Promo code</Text>
+        <View style={styles.inputWrap}>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter promo or deal code (optional)"
+            placeholderTextColor="#858585"
+            value={promoCode}
+            autoCapitalize="characters"
+            onChangeText={(value) => {
+              setPromoCode(value);
               if (error) setError("");
             }}
           />

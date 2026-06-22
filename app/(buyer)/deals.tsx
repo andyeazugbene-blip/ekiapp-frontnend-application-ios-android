@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Clipboard from "expo-clipboard";
 import { marketingService } from "../../services/marketingService";
 import { goBackOrReplace } from "../../utils/navigation";
 
@@ -17,6 +18,13 @@ export default function DealsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const copyCode = async (code: string) => {
+    await Clipboard.setStringAsync(code);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
 
   const load = useCallback(async () => {
     setError("");
@@ -104,7 +112,12 @@ export default function DealsScreen() {
                       <View style={{ flex: 1, marginLeft: 12 }}>
                         <Text style={styles.dealTitle}>{formatDiscount(sale.type, sale.value)}</Text>
                         <Text style={styles.dealSub}>{sale.storeName}</Text>
-                        <Text style={styles.dealMeta}>Code: {sale.code} · {formatTimeLeft(sale.endsAt)}</Text>
+                        <View style={styles.codeRow}>
+                          <Text style={styles.dealMeta}>Code: {sale.code} · {formatTimeLeft(sale.endsAt)}</Text>
+                          <TouchableOpacity onPress={() => copyCode(sale.code)} activeOpacity={0.7} style={styles.copyButton}>
+                            <Text style={styles.copyButtonText}>{copiedCode === sale.code ? "Copied!" : "Copy"}</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -126,7 +139,12 @@ export default function DealsScreen() {
                       <View style={{ flex: 1, marginLeft: 12 }}>
                         <Text style={styles.dealTitle}>{formatDiscount(bundle.type, bundle.value)}</Text>
                         <Text style={styles.dealSub}>{bundle.storeName}</Text>
-                        <Text style={styles.dealMeta}>Code: {bundle.code} · {bundle.productIds.length} products</Text>
+                        <View style={styles.codeRow}>
+                          <Text style={styles.dealMeta}>Code: {bundle.code} · {bundle.productIds.length} products</Text>
+                          <TouchableOpacity onPress={() => copyCode(bundle.code)} activeOpacity={0.7} style={styles.copyButton}>
+                            <Text style={styles.copyButtonText}>{copiedCode === bundle.code ? "Copied!" : "Copy"}</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -156,5 +174,8 @@ const styles = StyleSheet.create({
   dealCard: { flexDirection: "row", alignItems: "center", borderRadius: 16, padding: 16, marginBottom: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
   dealTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   dealSub: { fontSize: 13, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.85)", marginTop: 2 },
-  dealMeta: { fontSize: 11, fontFamily: "Outfit-Light", color: "rgba(255,255,255,0.7)", marginTop: 4 },
+  dealMeta: { fontSize: 11, fontFamily: "Outfit-Light", color: "rgba(255,255,255,0.7)", marginTop: 4, flex: 1 },
+  codeRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+  copyButton: { backgroundColor: "rgba(255,255,255,0.25)", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8 },
+  copyButtonText: { fontSize: 11, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
 });

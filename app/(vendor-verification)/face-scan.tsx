@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Linking,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -20,13 +22,21 @@ export default function FaceScanScreen() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
+  const [permDeniedPermanently, setPermDeniedPermanently] = useState(false);
+
   const takeSelfie = async () => {
     setError("");
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      setError("Camera access is required for face verification.");
+      if (!perm.canAskAgain) {
+        setPermDeniedPermanently(true);
+        setError("Camera access was denied. Please enable it in your device Settings to continue.");
+      } else {
+        setError("Camera access is required for face verification.");
+      }
       return;
     }
+    setPermDeniedPermanently(false);
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       quality: 0.85,
@@ -116,6 +126,15 @@ export default function FaceScanScreen() {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+        {permDeniedPermanently ? (
+          <TouchableOpacity
+            style={styles.continueButton}
+            onPress={() => Linking.openSettings()}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.continueButtonText}>Open Settings</Text>
+          </TouchableOpacity>
+        ) : (
         <TouchableOpacity
           style={[styles.continueButton, (!photoUri || uploading) && styles.continueButtonDisabled]}
           onPress={onContinue}
@@ -128,6 +147,7 @@ export default function FaceScanScreen() {
             <Text style={styles.continueButtonText}>Continue</Text>
           )}
         </TouchableOpacity>
+        )}
       </View>
     </View>
   );

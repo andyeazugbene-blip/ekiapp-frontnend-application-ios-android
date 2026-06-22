@@ -290,16 +290,23 @@ export default function BuyerHomeScreen() {
           </LinearGradient>
         </View>
 
-        {campaignsLoading ? (
-          <View style={styles.sectionBlock}>
-            <Text style={styles.sectionTitle}>Hot Deals</Text>
+        {/* ─── Unified Rewards & Deals Section ─── */}
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitleInline}>Rewards & Deals</Text>
+            {giftCards.length > 0 ? (
+              <TouchableOpacity onPress={() => router.push("/(buyer)/gift-cards" as any)} activeOpacity={0.8}>
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {/* Hot Deals */}
+          {campaignsLoading ? (
             <View style={styles.loaderBlock}>
               <ActivityIndicator color="#076B51" />
             </View>
-          </View>
-        ) : campaignsError ? (
-          <View style={styles.sectionBlock}>
-            <Text style={styles.sectionTitle}>Hot Deals</Text>
+          ) : campaignsError ? (
             <View style={styles.emptyState}>
               <Ionicons name="alert-circle-outline" size={28} color="#D6552F" />
               <Text style={styles.emptyTitle}>Couldn't load deals</Text>
@@ -308,96 +315,47 @@ export default function BuyerHomeScreen() {
                 <Text style={styles.dealButtonText}>Retry</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        ) : hotDeals.length === 0 ? (
-          <View style={styles.sectionBlock}>
-            <Text style={styles.sectionTitle}>Hot Deals</Text>
-            <View style={styles.emptyState}>
-              <Ionicons name="flame-outline" size={28} color="#D6A700" />
-              <Text style={styles.emptyTitle}>No deals right now</Text>
-              <Text style={styles.emptyText}>Check back soon for hot deals and discounts!</Text>
-            </View>
-          </View>
-        ) : (
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionTitle}>Hot Deals</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            snapToInterval={DEAL_CARD_WIDTH + 14}
-            decelerationRate="fast"
-            contentContainerStyle={styles.dealsScroll}
-            onMomentumScrollEnd={onDealsMomentumEnd}
-          >
-            {hotDeals.map((deal) => (
-              <LinearGradient key={deal.id} colors={[...deal.colors]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dealCard}>
-                <TouchableOpacity onPress={deal.onPress} activeOpacity={0.9} style={{ flex: 1 }}>
-                  <View style={styles.dealTopRow}>
-                    <View style={styles.dealBadge}>
-                      <Text style={styles.dealBadgeText}>{deal.badge}</Text>
-                    </View>
-                    <View style={styles.dealIconBubble}>
-                      <Ionicons name={deal.icon} size={18} color="#FFFFFF" />
-                    </View>
-                  </View>
-                  <Text style={styles.dealTitle}>{deal.title}</Text>
-                  <Text style={styles.dealHighlight}>{deal.highlight}</Text>
-                  <Text style={styles.dealBody}>{deal.body}</Text>
-                  <View style={styles.dealButton} pointerEvents="none">
-                    <Text style={styles.dealButtonText}>{deal.cta}</Text>
-                  </View>
-                </TouchableOpacity>
-              </LinearGradient>
-            ))}
-          </ScrollView>
+          ) : hotDeals.length > 0 ? (
+            <>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                snapToInterval={DEAL_CARD_WIDTH + 14}
+                decelerationRate="fast"
+                contentContainerStyle={styles.dealsScroll}
+                onMomentumScrollEnd={onDealsMomentumEnd}
+              >
+                {hotDeals.map((deal) => (
+                  <LinearGradient key={deal.id} colors={[...deal.colors]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dealCard}>
+                    <TouchableOpacity onPress={deal.onPress} activeOpacity={0.9} style={{ flex: 1 }}>
+                      <View style={styles.dealTopRow}>
+                        <View style={styles.dealBadge}>
+                          <Text style={styles.dealBadgeText}>{deal.badge}</Text>
+                        </View>
+                        <View style={styles.dealIconBubble}>
+                          <Ionicons name={deal.icon} size={18} color="#FFFFFF" />
+                        </View>
+                      </View>
+                      <Text style={styles.dealTitle}>{deal.title}</Text>
+                      <Text style={styles.dealHighlight}>{deal.highlight}</Text>
+                      <Text style={styles.dealBody}>{deal.body}</Text>
+                      <View style={styles.dealButton} pointerEvents="none">
+                        <Text style={styles.dealButtonText}>{deal.cta}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </LinearGradient>
+                ))}
+              </ScrollView>
+              <View style={styles.dotsRow}>
+                {hotDeals.map((deal, index) => (
+                  <View key={deal.id} style={[styles.dot, index === activeDealIndex && styles.dotActive]} />
+                ))}
+              </View>
+            </>
+          ) : null}
 
-          <View style={styles.dotsRow}>
-            {hotDeals.map((deal, index) => (
-              <View key={deal.id} style={[styles.dot, index === activeDealIndex && styles.dotActive]} />
-            ))}
-          </View>
-        </View>
-        )}
-
-        {giftCards.length > 0 ? (
-          <View style={styles.sectionBlock}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitleInline}>Gift Cards</Text>
-              <TouchableOpacity onPress={() => router.push("/(buyer)/gift-cards" as any)} activeOpacity={0.8}>
-                <Text style={styles.viewAllText}>View All</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dealsScroll}>
-              {giftCards.map((card) => (
-                <TouchableOpacity
-                  key={card.id}
-                  onPress={() => router.push({ pathname: "/(buyer)/gift-card-detail", params: { id: card.id } } as any)}
-                  activeOpacity={0.86}
-                  style={styles.giftCard}
-                >
-                  {card.imageUrl ? (
-                    <RemoteImage uri={card.imageUrl} style={styles.giftCardImage} borderRadius={12} />
-                  ) : (
-                    <View style={styles.giftIconWrap}>
-                      <Ionicons name="gift-outline" size={24} color="#076B51" />
-                    </View>
-                  )}
-                  <Text style={styles.giftName} numberOfLines={1}>{card.title}</Text>
-                  <Text style={styles.giftValue}>{card.currency} {card.priceFormatted}</Text>
-                  {card.description ? (
-                    <Text style={styles.giftDesc} numberOfLines={1}>{card.description}</Text>
-                  ) : null}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
-
-        {!campaignsLoading && !campaignsError && giftCardCampaigns.length > 0 ? (
-          <View style={styles.sectionBlock}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitleInline}>Gift Card Offers</Text>
-            </View>
+          {/* Gift Card Offers (campaign-based) */}
+          {!campaignsLoading && !campaignsError && giftCardCampaigns.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dealsScroll}>
               {giftCardCampaigns.map((campaign) => (
                 <LinearGradient
@@ -427,11 +385,37 @@ export default function BuyerHomeScreen() {
                 </LinearGradient>
               ))}
             </ScrollView>
-          </View>
-        ) : null}
+          ) : null}
 
-        {vendorDealsCount > 0 ? (
-          <View style={styles.sectionBlock}>
+          {/* Gift Cards */}
+          {giftCards.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dealsScroll}>
+              {giftCards.map((card) => (
+                <TouchableOpacity
+                  key={card.id}
+                  onPress={() => router.push({ pathname: "/(buyer)/gift-card-detail", params: { id: card.id } } as any)}
+                  activeOpacity={0.86}
+                  style={styles.giftCard}
+                >
+                  {card.imageUrl ? (
+                    <RemoteImage uri={card.imageUrl} style={styles.giftCardImage} borderRadius={12} />
+                  ) : (
+                    <View style={styles.giftIconWrap}>
+                      <Ionicons name="gift-outline" size={24} color="#076B51" />
+                    </View>
+                  )}
+                  <Text style={styles.giftName} numberOfLines={1}>{card.title}</Text>
+                  <Text style={styles.giftValue}>{card.currency} {card.priceFormatted}</Text>
+                  {card.description ? (
+                    <Text style={styles.giftDesc} numberOfLines={1}>{card.description}</Text>
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : null}
+
+          {/* Vendor Deals Banner */}
+          {vendorDealsCount > 0 ? (
             <TouchableOpacity
               onPress={() => router.push("/(buyer)/deals" as any)}
               activeOpacity={0.86}
@@ -443,8 +427,17 @@ export default function BuyerHomeScreen() {
               </View>
               <Ionicons name="arrow-forward" size={18} color="#076B51" />
             </TouchableOpacity>
-          </View>
-        ) : null}
+          ) : null}
+
+          {/* Empty state when nothing available */}
+          {!campaignsLoading && !campaignsError && hotDeals.length === 0 && giftCards.length === 0 && giftCardCampaigns.length === 0 && vendorDealsCount === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="flame-outline" size={28} color="#D6A700" />
+              <Text style={styles.emptyTitle}>No deals right now</Text>
+              <Text style={styles.emptyText}>Check back soon for hot deals, gift cards and discounts!</Text>
+            </View>
+          ) : null}
+        </View>
 
         <View style={styles.sectionBlock}>
           <View style={styles.sectionHeaderRow}>

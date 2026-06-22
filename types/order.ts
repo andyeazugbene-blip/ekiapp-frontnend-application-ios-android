@@ -54,6 +54,7 @@ export interface Order {
   orderNumber: string;
   buyerId: string;
   buyerName: string;
+  buyerAvatar?: string;
   vendorId: string;
   vendorName: string;
   items: CartItem[];
