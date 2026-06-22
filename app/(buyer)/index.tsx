@@ -259,7 +259,7 @@ export default function BuyerHomeScreen() {
                   <Ionicons name="location" size={20} color="#076B51" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.deliveryTitle}>🍕 Delivery</Text>
+                  <Text style={styles.deliveryTitle}>Delivery</Text>
                   <Text style={styles.deliverySubtitle} numberOfLines={1}>
                     {deliveryCountry || "Set your country"}
                   </Text>
@@ -290,15 +290,10 @@ export default function BuyerHomeScreen() {
           </LinearGradient>
         </View>
 
-        {/* ─── Unified Rewards & Deals Section ─── */}
+        {/* ─── Hot Deals Section ─── */}
         <View style={styles.sectionBlock}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitleInline}>Rewards & Deals</Text>
-            {giftCards.length > 0 ? (
-              <TouchableOpacity onPress={() => router.push("/(buyer)/gift-cards" as any)} activeOpacity={0.8}>
-                <Text style={styles.viewAllText}>View All</Text>
-              </TouchableOpacity>
-            ) : null}
+            <Text style={styles.sectionTitleInline}>Hot Deals</Text>
           </View>
 
           {/* Hot Deals */}
@@ -354,96 +349,8 @@ export default function BuyerHomeScreen() {
             </>
           ) : null}
 
-          {/* Gift Card Offers (campaign-based) */}
-          {!campaignsLoading && !campaignsError && giftCardCampaigns.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dealsScroll}>
-              {giftCardCampaigns.map((campaign) => (
-                <LinearGradient
-                  key={campaign.id}
-                  colors={campaignColors(campaign) as unknown as readonly [string, string]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.dealCard}
-                >
-                  <View style={styles.dealTopRow}>
-                    <View style={styles.dealBadge}>
-                      <Text style={styles.dealBadgeText}>Gift Card</Text>
-                    </View>
-                    <View style={styles.dealIconBubble}>
-                      <Ionicons name="gift" size={18} color="#FFFFFF" />
-                    </View>
-                  </View>
-                  <Text style={styles.dealTitle}>{campaign.title}</Text>
-                  {campaign.subtitle ? <Text style={styles.dealBody}>{campaign.subtitle}</Text> : null}
-                  <TouchableOpacity
-                    onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "products" } } as any)}
-                    activeOpacity={0.86}
-                    style={styles.dealButton}
-                  >
-                    <Text style={styles.dealButtonText}>View Offer</Text>
-                  </TouchableOpacity>
-                </LinearGradient>
-              ))}
-            </ScrollView>
-          ) : null}
-
-          {/* Gift Cards */}
-          {giftCards.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dealsScroll}>
-              {giftCards.map((card, idx) => {
-                const gradients: readonly [string, string][] = [
-                  ["#8B5CF6", "#6D28D9"],
-                  ["#F59E0B", "#D97706"],
-                  ["#10B981", "#047857"],
-                  ["#EC4899", "#BE185D"],
-                  ["#3B82F6", "#1D4ED8"],
-                ];
-                const colors = gradients[idx % gradients.length];
-                return (
-                  <LinearGradient key={card.id} colors={[...colors]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dealCard}>
-                    <TouchableOpacity
-                      onPress={() => router.push({ pathname: "/(buyer)/gift-card-detail", params: { id: card.id } } as any)}
-                      activeOpacity={0.9}
-                      style={{ flex: 1 }}
-                    >
-                      <View style={styles.dealTopRow}>
-                        <View style={styles.dealBadge}>
-                          <Text style={styles.dealBadgeText}>Gift Card</Text>
-                        </View>
-                        <View style={styles.dealIconBubble}>
-                          <Ionicons name="gift" size={18} color="#FFFFFF" />
-                        </View>
-                      </View>
-                      <Text style={styles.dealTitle}>{card.title}</Text>
-                      <Text style={styles.dealHighlight}>{card.currency} {card.priceFormatted}</Text>
-                      {card.description ? <Text style={styles.dealBody} numberOfLines={2}>{card.description}</Text> : null}
-                      <View style={styles.dealButton} pointerEvents="none">
-                        <Text style={styles.dealButtonText}>View Card</Text>
-                      </View>
-                    </TouchableOpacity>
-                  </LinearGradient>
-                );
-              })}
-            </ScrollView>
-          ) : null}
-
-          {/* Vendor Deals Banner */}
-          {vendorDealsCount > 0 ? (
-            <TouchableOpacity
-              onPress={() => router.push("/(buyer)/deals" as any)}
-              activeOpacity={0.86}
-              style={styles.vendorDealsBanner}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.vendorDealsBannerTitle}>Vendor Deals & Offers</Text>
-                <Text style={styles.vendorDealsBannerSub}>{vendorDealsCount} bundle{vendorDealsCount !== 1 ? "s" : ""} & flash sale{vendorDealsCount !== 1 ? "s" : ""} available</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={18} color="#076B51" />
-            </TouchableOpacity>
-          ) : null}
-
           {/* Empty state when nothing available */}
-          {!campaignsLoading && !campaignsError && hotDeals.length === 0 && giftCards.length === 0 && giftCardCampaigns.length === 0 && vendorDealsCount === 0 ? (
+          {!campaignsLoading && !campaignsError && hotDeals.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="flame-outline" size={28} color="#D6A700" />
               <Text style={styles.emptyTitle}>No deals right now</Text>
@@ -546,31 +453,39 @@ export default function BuyerHomeScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bestSellerScroll}>
-              {bestSellers.map((product) => (
-                <TouchableOpacity
-                  key={product.id}
-                  onPress={() => router.push({ pathname: "/(buyer)/product-detail", params: { id: product.id } } as any)}
-                  activeOpacity={0.86}
-                  style={styles.bestCard}
-                >
-                  <View style={styles.bestImageWrap}>
-                    <RemoteImage uri={product.images?.[0]} style={styles.bestImage} borderRadius={18} />
-                    <TouchableOpacity
-                      onPress={() => handleOpenVendor(product.vendorId)}
-                      activeOpacity={0.86}
-                      style={styles.heartButton}
-                    >
-                      <Ionicons name="heart-outline" size={18} color="#4A6A5E" />
+              {bestSellers.map((product) => {
+                const v = vendors.find((ven) => ven.id === product.vendorId);
+                const ratingLabel = v && v.rating > 0 ? `${v.rating.toFixed(1)} (${v.totalReviews ?? 0})` : null;
+                return (
+                  <TouchableOpacity
+                    key={product.id}
+                    onPress={() => router.push({ pathname: "/(buyer)/product-detail", params: { id: product.id } } as any)}
+                    activeOpacity={0.86}
+                    style={styles.bestCard}
+                  >
+                    <View style={styles.bestImageWrap}>
+                      <RemoteImage uri={product.images?.[0]} style={styles.bestImage} borderRadius={18} />
+                      {ratingLabel ? (
+                        <View style={styles.ratingPill}>
+                          <Ionicons name="star" size={12} color="#F4B400" />
+                          <Text style={styles.ratingPillText}>{ratingLabel}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.bestNameRow}>
+                      <Text style={[styles.bestName, { flex: 1 }]} numberOfLines={1}>{product.name}</Text>
+                      <TouchableOpacity onPress={() => handleOpenVendor(product.vendorId)} activeOpacity={0.86} style={styles.heartButtonInline}>
+                        <Ionicons name="heart-outline" size={18} color="#4A6A5E" />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.bestPrice}>{formatDisplayMoney(product.price, product.currency, selectedCurrency)}</Text>
+                    <TouchableOpacity onPress={() => handleAddToCart(product)} activeOpacity={0.86} style={styles.addToCartButton}>
+                      <Text style={styles.addToCartText}>Add to cart</Text>
+                      <Ionicons name="cart-outline" size={16} color="#FFFFFF" />
                     </TouchableOpacity>
-                  </View>
-                  <Text style={styles.bestName} numberOfLines={1}>{product.name}</Text>
-                  <Text style={styles.bestPrice}>{formatDisplayMoney(product.price, product.currency, selectedCurrency)}</Text>
-                  <TouchableOpacity onPress={() => handleAddToCart(product)} activeOpacity={0.86} style={styles.addToCartButton}>
-                    <Text style={styles.addToCartText}>Add to cart</Text>
-                    <Ionicons name="cart-outline" size={16} color="#FFFFFF" />
                   </TouchableOpacity>
-                </TouchableOpacity>
-              ))}
+                );
+              })}
             </ScrollView>
           </View>
         ) : null}
@@ -969,23 +884,25 @@ const styles = StyleSheet.create({
     height: 130,
     backgroundColor: "#E8E5DC",
   },
-  heartButton: {
-    position: "absolute",
-    right: 10,
-    top: 10,
+  bestNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  heartButtonInline: {
     width: 34,
     height: 34,
     borderRadius: 17,
     backgroundColor: "#F4FBF7",
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: 6,
   },
   bestName: {
     color: "#2B2B2B",
     fontSize: 16,
     lineHeight: 22,
     fontFamily: "Manrope-Bold",
-    marginTop: 12,
   },
   bestPrice: {
     color: "#2B2B2B",
