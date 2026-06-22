@@ -313,16 +313,16 @@ export default function VendorDashboardScreen() {
                 onPress={() => setDrawerOpen(true)}
                 style={styles.headerIconPill}
               >
-                <Ionicons name="menu" size={18} color="#282828" />
+                <Ionicons name="options" size={18} color="#282828" />
               </TouchableOpacity>
               <TouchableOpacity
                 accessibilityLabel="Notifications"
                 accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => navigate("/(vendor)/notifications")}
-                style={styles.headerIconPill}
+                style={styles.headerIconPillAccent}
               >
-                <Ionicons name="notifications-outline" size={18} color="#282828" />
+                <Ionicons name="notifications" size={18} color="#FFFFFF" />
                 {unreadMessages > 0 || alertUnreadMessages > 0 ? (
                   <View style={styles.headerIconBadge} />
                 ) : null}
@@ -334,7 +334,7 @@ export default function VendorDashboardScreen() {
               {asText(data?.greeting).trim() || "Welcome back,"}
             </Text>
             <View style={styles.storeNameRow}>
-              <Text style={styles.storeName} numberOfLines={1}>{storeName}</Text>
+              <Text style={styles.storeName} numberOfLines={1}>{storeName} 👋</Text>
               {isVerifiedVendor ? (
                 <Ionicons name="checkmark-circle" size={20} color="#4ADE80" style={styles.verifiedIcon} />
               ) : null}

@@ -87,15 +87,12 @@ export default function FoodstuffScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitleInline}>Your foodstuff</Text>
-          <TouchableOpacity onPress={handleAdd} activeOpacity={0.85} style={styles.addButtonSmall}>
-            <Ionicons name="add" size={20} color="#076B51" />
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.headerTitle}>Your foodstuff</Text>
+        <Text style={styles.headerSubtitle}>Manage your inventory and listings.</Text>
+        <TouchableOpacity onPress={handleAdd} activeOpacity={0.85} style={styles.addButton}>
+          <Text style={styles.addButtonText}>Add Foodstuff</Text>
+          <Ionicons name="add-circle-outline" size={22} color="#076B51" />
+        </TouchableOpacity>
       </View>
 
       {/* Tabs — fixed above the list so categories stay usable while scrolling */}
@@ -221,11 +218,11 @@ export default function FoodstuffScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
-  header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 4, paddingBottom: 10, borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
-  headerTopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
-  headerTitleInline: { flex: 1, fontSize: 20, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
-  addButtonSmall: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+  headerTitle: { fontSize: 28, fontFamily: "Manrope-Bold", color: "#FFFFFF", marginBottom: 4 },
+  headerSubtitle: { fontSize: 14, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.8)", marginBottom: 20 },
+  addButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: "#FFFFFF", borderRadius: 16, height: 56, width: "100%" as any },
+  addButtonText: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828" },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
   tabContainer: { paddingTop: 4, marginBottom: 2, backgroundColor: "#F4F4F4" },
   tabRow: { flexDirection: "row", gap: 8, paddingVertical: 2, paddingHorizontal: 16 },
