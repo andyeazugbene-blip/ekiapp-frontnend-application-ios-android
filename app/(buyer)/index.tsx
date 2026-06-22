@@ -390,27 +390,40 @@ export default function BuyerHomeScreen() {
           {/* Gift Cards */}
           {giftCards.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dealsScroll}>
-              {giftCards.map((card) => (
-                <TouchableOpacity
-                  key={card.id}
-                  onPress={() => router.push({ pathname: "/(buyer)/gift-card-detail", params: { id: card.id } } as any)}
-                  activeOpacity={0.86}
-                  style={styles.giftCard}
-                >
-                  {card.imageUrl ? (
-                    <RemoteImage uri={card.imageUrl} style={styles.giftCardImage} borderRadius={12} />
-                  ) : (
-                    <View style={styles.giftIconWrap}>
-                      <Ionicons name="gift-outline" size={24} color="#076B51" />
-                    </View>
-                  )}
-                  <Text style={styles.giftName} numberOfLines={1}>{card.title}</Text>
-                  <Text style={styles.giftValue}>{card.currency} {card.priceFormatted}</Text>
-                  {card.description ? (
-                    <Text style={styles.giftDesc} numberOfLines={1}>{card.description}</Text>
-                  ) : null}
-                </TouchableOpacity>
-              ))}
+              {giftCards.map((card, idx) => {
+                const gradients: readonly [string, string][] = [
+                  ["#8B5CF6", "#6D28D9"],
+                  ["#F59E0B", "#D97706"],
+                  ["#10B981", "#047857"],
+                  ["#EC4899", "#BE185D"],
+                  ["#3B82F6", "#1D4ED8"],
+                ];
+                const colors = gradients[idx % gradients.length];
+                return (
+                  <LinearGradient key={card.id} colors={[...colors]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dealCard}>
+                    <TouchableOpacity
+                      onPress={() => router.push({ pathname: "/(buyer)/gift-card-detail", params: { id: card.id } } as any)}
+                      activeOpacity={0.9}
+                      style={{ flex: 1 }}
+                    >
+                      <View style={styles.dealTopRow}>
+                        <View style={styles.dealBadge}>
+                          <Text style={styles.dealBadgeText}>Gift Card</Text>
+                        </View>
+                        <View style={styles.dealIconBubble}>
+                          <Ionicons name="gift" size={18} color="#FFFFFF" />
+                        </View>
+                      </View>
+                      <Text style={styles.dealTitle}>{card.title}</Text>
+                      <Text style={styles.dealHighlight}>{card.currency} {card.priceFormatted}</Text>
+                      {card.description ? <Text style={styles.dealBody} numberOfLines={2}>{card.description}</Text> : null}
+                      <View style={styles.dealButton} pointerEvents="none">
+                        <Text style={styles.dealButtonText}>View Card</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </LinearGradient>
+                );
+              })}
             </ScrollView>
           ) : null}
 

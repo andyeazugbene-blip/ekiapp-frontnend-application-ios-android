@@ -172,17 +172,15 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {activeView !== "products" ? (
       <View style={styles.header}>
         <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{title}</Text>
+        <Text style={styles.headerTitle}>{activeView === "products" ? "Foodstuff" : title}</Text>
         <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
           <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
         </TouchableOpacity>
       </View>
-      ) : null}
 
       {/* Search */}
       <View style={styles.searchBar}>
@@ -550,7 +548,7 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#282828" },
   chipTextActive: { color: "#FFFFFF" },
   // Scroll content
-  scrollContent: { paddingBottom: 100 },
+  scrollContent: { paddingBottom: 100, paddingTop: 4, flexGrow: 0 },
   centerBlock: { paddingVertical: 60, alignItems: "center", paddingHorizontal: 24 },
   emptyTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 },
   emptyBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 6, textAlign: "center" },

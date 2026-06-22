@@ -92,7 +92,7 @@ export default function UploadIdScreen() {
         backUrl: back.remoteUrl ?? undefined,
         idSubtype: selectedType,
       });
-      router.push("/(vendor-verification)/face-scan" as any);
+      router.push("/(vendor-verification)/upload-business" as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not submit document.");
     } finally {
