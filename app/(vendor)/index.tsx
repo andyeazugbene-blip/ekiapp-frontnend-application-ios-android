@@ -322,7 +322,7 @@ export default function VendorDashboardScreen() {
                 onPress={() => navigate("/(vendor)/notifications")}
                 style={styles.headerIconPillAccent}
               >
-                <Ionicons name="notifications" size={18} color="#FFFFFF" />
+                <Ionicons name="notifications" size={18} color="#E85D5D" />
                 {unreadMessages > 0 || alertUnreadMessages > 0 ? (
                   <View style={styles.headerIconBadge} />
                 ) : null}
@@ -990,7 +990,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#076B51",
+    backgroundColor: "#1C1C1C",
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
@@ -1007,8 +1007,8 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   welcome: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 24,
+    color: "#FFFFFF",
+    fontSize: 28,
     fontFamily: "Manrope-Bold",
     marginTop: 8,
   },
@@ -1019,8 +1019,8 @@ const styles = StyleSheet.create({
   },
   storeName: {
     color: "#FFFFFF",
-    fontSize: 26,
-    fontFamily: "Manrope-ExtraBold",
+    fontSize: 22,
+    fontFamily: "Manrope-Bold",
     flexShrink: 1,
   },
   verifiedIcon: { marginLeft: 6 },
