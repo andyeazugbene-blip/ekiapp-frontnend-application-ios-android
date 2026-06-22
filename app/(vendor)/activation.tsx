@@ -20,6 +20,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { useOnboardingStore } from "../../stores/onboardingStore";
 import { productService } from "../../services/productService";
 import { deliveryService } from "../../services/deliveryService";
+import { vendorService } from "../../services/vendorService";
 import { getPublicStoreUrl } from "../../utils/shareLinks";
 
 interface ChecklistItem {
@@ -51,6 +52,7 @@ export default function ActivationScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [hasFoodstuff, setHasFoodstuff] = useState(false);
   const [hasDelivery, setHasDelivery] = useState(false);
+  const [isVerifiedDirect, setIsVerifiedDirect] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const user = useAuthStore((s) => s.user);
@@ -63,7 +65,7 @@ export default function ActivationScreen() {
     storeName: vendor?.storeName,
   });
 
-  const isVerified = vendor?.verificationStatus === "verified";
+  const isVerified = vendor?.verificationStatus === "verified" || isVerifiedDirect;
   const verificationStatus = vendor?.verificationStatus ?? "pending_docs";
 
   const checklist: ChecklistItem[] = [
@@ -82,12 +84,14 @@ export default function ActivationScreen() {
     setRefreshing(true);
     try {
       await useAuthStore.getState().checkAuth().catch(() => null);
-      const [products, zones] = await Promise.all([
+      const [products, zones, profile] = await Promise.all([
         productService.getMyVendorProducts().catch(() => []),
         deliveryService.listZones().catch(() => []),
+        vendorService.getMyProfile().catch(() => null),
       ]);
       setHasFoodstuff((products ?? []).length > 0);
       setHasDelivery((zones ?? []).length > 0);
+      if (profile?.verificationStatus === "verified") setIsVerifiedDirect(true);
     } finally {
       setRefreshing(false);
     }
