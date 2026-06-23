@@ -258,8 +258,8 @@ export default function VendorDashboardScreen() {
           ? "Share your store link with buyers"
           : "All set — keep growing your store";
 
-  // Plan info (orders remaining) — from backend if available, otherwise blank.
-  const planOrdersRemaining = limits?.ordersRemaining ?? (data as any)?.plan?.ordersRemaining ?? null;
+  // Plan info (orders remaining) — from backend if available, fallback for free plan.
+  const planOrdersRemaining = limits?.ordersRemaining ?? (data as any)?.plan?.ordersRemaining ?? (subscriptionPlan === "free" ? 2 : null);
 
   const dashboardSurfaceStyle = {
     transform: [
@@ -675,7 +675,7 @@ export default function VendorDashboardScreen() {
                 onPress={() => navigate("/(vendor)/subscription-plans")}
                 style={styles.upgradeBtn}
               >
-                <Text style={styles.upgradeText}>View</Text>
+                <Text style={styles.upgradeText}>View Plans</Text>
                 <Ionicons name={"arrow-forward" as any} size={14} color="#076B51" style={{ transform: [{ rotate: "-45deg" }] }} />
               </TouchableOpacity>
             </View>
