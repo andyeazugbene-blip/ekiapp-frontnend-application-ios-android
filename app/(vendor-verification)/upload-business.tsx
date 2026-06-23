@@ -22,29 +22,45 @@ const initialUpload: UploadState = { localUri: null, remoteUrl: null, uploading:
 export default function UploadBusinessScreen() {
   const router = useRouter();
   const { businessInfo, setVerificationStatus } = useOnboardingStore();
-  const isRegistered = businessInfo.type === "registered";
+  const authUser = useAuthStore((s) => s.user);
+  const authRequiresBusinessDocument = authUser?.role === "vendor" && authUser.businessType === "registered";
+  const [requiresBusinessDocument, setRequiresBusinessDocument] = useState(
+    businessInfo.type === "registered" || authRequiresBusinessDocument,
+  );
 
   const [doc, setDoc] = useState<UploadState>(initialUpload);
   const [selfie, setSelfie] = useState<UploadState>(initialUpload);
   const [submitting, setSubmitting] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [alreadyVerified, setAlreadyVerified] = useState(false);
+  const [selfieAlreadySubmitted, setSelfieAlreadySubmitted] = useState(false);
+  const [businessAlreadySubmitted, setBusinessAlreadySubmitted] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let mounted = true;
-    vendorService
-      .getMyProfile()
-      .then((profile) => {
+    Promise.all([
+      vendorService.getMyProfile(),
+      vendorService.getVerificationStatus().catch(() => null),
+    ])
+      .then(([profile, verification]) => {
         if (!mounted) return;
         const verified = profile.verificationStatus === "verified";
+        const nextRequiresBusinessDocument = profile.businessType === "registered" || businessInfo.type === "registered";
+        const docs = verification?.documents ?? [];
+        const hasSubmitted = (type: string) =>
+          docs.some((item: any) => item.type === type && item.status !== "REJECTED");
+
+        setRequiresBusinessDocument(nextRequiresBusinessDocument);
+        setSelfieAlreadySubmitted(hasSubmitted("SELFIE"));
+        setBusinessAlreadySubmitted(hasSubmitted("BUSINESS_REGISTRATION"));
         setAlreadyVerified(verified);
         if (verified) setVerificationStatus("approved");
       })
       .catch(() => undefined)
       .finally(() => { if (mounted) setCheckingStatus(false); });
     return () => { mounted = false; };
-  }, [setVerificationStatus]);
+  }, [businessInfo.type, setVerificationStatus]);
 
   const uploadPickedFile = async (
     setter: React.Dispatch<React.SetStateAction<UploadState>>,
@@ -103,16 +119,22 @@ export default function UploadBusinessScreen() {
     await uploadPickedFile(setDoc, "verification/business", asset.uri, asset.name ?? `business_${Date.now()}`, contentType, contentType.startsWith("image/"));
   };
 
-  const canSubmit = !!selfie.remoteUrl && !selfie.uploading && !doc.uploading && (!isRegistered || !!doc.remoteUrl);
+  const canSubmit =
+    (selfieAlreadySubmitted || !!selfie.remoteUrl) &&
+    !selfie.uploading &&
+    !doc.uploading &&
+    (!requiresBusinessDocument || businessAlreadySubmitted || !!doc.remoteUrl);
 
   const onSubmit = async () => {
-    if (!selfie.remoteUrl) { setError("Upload your selfie with ID."); return; }
-    if (isRegistered && !doc.remoteUrl) { setError("Upload your business document."); return; }
+    if (!selfieAlreadySubmitted && !selfie.remoteUrl) { setError("Upload your selfie with ID."); return; }
+    if (requiresBusinessDocument && !businessAlreadySubmitted && !doc.remoteUrl) { setError("Upload your business document."); return; }
     setSubmitting(true);
     setError("");
     try {
-      await vendorService.submitVerificationDocument({ type: "selfie", fileUrl: selfie.remoteUrl });
-      if (isRegistered && doc.remoteUrl) {
+      if (!selfieAlreadySubmitted && selfie.remoteUrl) {
+        await vendorService.submitVerificationDocument({ type: "selfie", fileUrl: selfie.remoteUrl });
+      }
+      if (requiresBusinessDocument && !businessAlreadySubmitted && doc.remoteUrl) {
         await vendorService.submitVerificationDocument({ type: "business", fileUrl: doc.remoteUrl });
       }
       await useAuthStore.getState().checkAuth().catch(() => null);
@@ -190,15 +212,15 @@ export default function UploadBusinessScreen() {
         >
           <View style={styles.card}>
             <Text style={styles.title}>
-              {isRegistered ? "Business Document" : "Selfie Verification"}
+              {requiresBusinessDocument ? "Business Document" : "Selfie Verification"}
             </Text>
             <Text style={styles.subtitle}>
-              {isRegistered
+              {requiresBusinessDocument
                 ? "Upload your business registration document"
                 : "Take a selfie holding your ID to complete verification"}
             </Text>
 
-            {isRegistered && (
+            {requiresBusinessDocument && !businessAlreadySubmitted && (
               <>
                 <Text style={styles.fieldLabel}>Business Registration Document</Text>
                 <UploadZone
@@ -210,15 +232,31 @@ export default function UploadBusinessScreen() {
               </>
             )}
 
-            <Text style={styles.fieldLabel}>
-              Selfie with ID <Text style={styles.fieldLabelHint}>(hold ID clearly visible)</Text>
-            </Text>
-            <UploadZone
-              state={selfie}
-              label="Take Selfie with ID"
-              icon="camera-outline"
-              onPick={() => pickAndUpload(setSelfie, "verification/selfie", true)}
-            />
+            {!selfieAlreadySubmitted ? (
+              <>
+                <Text style={styles.fieldLabel}>
+                  Selfie with ID <Text style={styles.fieldLabelHint}>(hold ID clearly visible)</Text>
+                </Text>
+                <UploadZone
+                  state={selfie}
+                  label="Take Selfie with ID"
+                  icon="camera-outline"
+                  onPick={() => pickAndUpload(setSelfie, "verification/selfie", true)}
+                />
+              </>
+            ) : (
+              <View style={styles.submittedNotice}>
+                <Ionicons name="checkmark-circle-outline" size={18} color="#076B51" />
+                <Text style={styles.submittedNoticeText}>Selfie already sent for submission.</Text>
+              </View>
+            )}
+
+            {requiresBusinessDocument && businessAlreadySubmitted ? (
+              <View style={styles.submittedNotice}>
+                <Ionicons name="checkmark-circle-outline" size={18} color="#076B51" />
+                <Text style={styles.submittedNoticeText}>Business document already sent for submission.</Text>
+              </View>
+            ) : null}
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -337,6 +375,17 @@ const styles = StyleSheet.create({
   body: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#6F7478", textAlign: "center", lineHeight: 22, marginBottom: 28 },
   fieldLabel: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#858585", marginBottom: 8 },
   fieldLabelHint: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#B0B0B0" },
+  submittedNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#E8F4ED",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  submittedNoticeText: { flex: 1, fontSize: 13, fontFamily: "Outfit-Medium", color: "#076B51" },
   uploadZone: {
     height: 110,
     borderRadius: 16,

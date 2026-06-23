@@ -141,6 +141,15 @@ export default function VendorSettingsScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
+          <TouchableOpacity
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+            onPress={() => goBackOrReplace(router, "/(vendor)" as any)}
+            activeOpacity={0.85}
+            style={styles.backButton}
+          >
+            <Ionicons name="chevron-back" size={20} color="#282828" />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Settings</Text>
         </View>
 
@@ -343,7 +352,18 @@ export default function VendorSettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F9F9F9" },
   scrollContent: { paddingBottom: 120 },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "#EEF0EF",
+  },
   headerTitle: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#282828" },
   profileCard: {
     marginHorizontal: 16,

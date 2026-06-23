@@ -34,20 +34,29 @@ export default function UploadIdScreen() {
 
   useEffect(() => {
     let mounted = true;
-    vendorService
-      .getMyProfile()
-      .then(async (profile) => {
+    Promise.all([
+      vendorService.getMyProfile(),
+      vendorService.getVerificationStatus().catch(() => null),
+    ])
+      .then(([profile, verif]) => {
         if (!mounted) return;
         if (profile.verificationStatus === "verified") {
           setAlreadyVerified(true);
           setError("Your identity is already verified.");
-        } else {
-          await vendorService.resetVerification().catch(() => undefined);
+          router.replace("/(vendor-verification)/approved" as any);
+          return;
+        }
+        if (profile.verificationStatus === "rejected") {
+          router.replace("/(vendor-verification)/rejected" as any);
+          return;
+        }
+        if (profile.verificationStatus === "under_review" || (verif?.documents ?? []).length > 0) {
+          router.replace("/(vendor-verification)/pending" as any);
         }
       })
       .catch(() => undefined);
     return () => { mounted = false; };
-  }, []);
+  }, [router]);
 
   const pickAndUpload = async (
     setter: React.Dispatch<React.SetStateAction<UploadState>>,

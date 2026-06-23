@@ -71,6 +71,7 @@ interface AggregatedDashboard {
   buyers: VendorBuyerSummary[];
   zones: DeliveryZone[];
   unreadMessages: number;
+  verificationSubmitted: boolean;
 }
 
 /**
@@ -110,6 +111,7 @@ export default function VendorDashboardScreen() {
     buyers: [],
     zones: [],
     unreadMessages: 0,
+    verificationSubmitted: false,
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -132,7 +134,7 @@ export default function VendorDashboardScreen() {
       const profile = await vendorService.getMyProfile().catch(() => null);
 
       // 2. Everything else in parallel; each call is independent + best-effort.
-      const [data, subscription, limits, products, orders, conversations, buyers, zones] = await Promise.all([
+      const [data, subscription, limits, products, orders, conversations, buyers, zones, verification] = await Promise.all([
         vendorService.getVendorDashboard().catch(() => null),
         subscriptionService.getCurrentSubscription().catch(() => null),
         subscriptionService.getLimits().catch(() => null),
@@ -143,6 +145,7 @@ export default function VendorDashboardScreen() {
         messageService.getConversations().catch(() => []),
         buyerService.listMyBuyers().catch(() => [] as VendorBuyerSummary[]),
         deliveryService.listZones().catch(() => [] as DeliveryZone[]),
+        vendorService.getVerificationStatus().catch(() => null),
       ]);
 
       const unreadMessages = asArray<any>(conversations).reduce(
@@ -160,6 +163,7 @@ export default function VendorDashboardScreen() {
         buyers: asArray<VendorBuyerSummary>(buyers),
         zones: asArray<DeliveryZone>(zones),
         unreadMessages,
+        verificationSubmitted: asArray<any>(verification?.documents).some((doc) => doc.status !== "REJECTED"),
       });
     } finally {
       setLoading(false);
@@ -188,7 +192,7 @@ export default function VendorDashboardScreen() {
   const navigate = (path: string) => router.push(path as any);
 
   // ── Live-derived values (no hardcoded numbers) ─────────────────────────
-  const { profile, data, subscription, limits, products, orders, buyers, zones, unreadMessages } = agg;
+  const { profile, data, subscription, limits, products, orders, buyers, zones, unreadMessages, verificationSubmitted } = agg;
 
   const storeName =
     asText(profile?.storeName).trim() || asText(data?.storeName).trim() || asText(user?.name, "your store") || "your store";
@@ -241,7 +245,7 @@ export default function VendorDashboardScreen() {
   const stepFoodstuff = productsCount > 0;
   const stepDelivery = zones.length > 0;
   const isVerifiedVendor = profile?.verificationStatus === "verified";
-  const stepVerify = isVerifiedVendor;
+  const stepVerify = isVerifiedVendor || profile?.verificationStatus === "under_review" || verificationSubmitted;
   // Share is tracked by the onboarding store; we treat "any unread message
   // received" or "any past order" as a strong signal that the link has been shared.
   const stepShare = orders.length > 0 || buyers.length > 0;
@@ -253,13 +257,22 @@ export default function VendorDashboardScreen() {
     : !stepDelivery
       ? "Set delivery so buyers can place orders"
       : !stepVerify
-        ? "Verify your account to start receiving payments"
+        ? "Submit verification so buyers can place orders"
         : !stepShare
           ? "Share your store link with buyers"
           : "All set — keep growing your store";
 
-  // Plan info (orders remaining) — from backend if available, fallback for free plan.
-  const planOrdersRemaining = limits?.ordersRemaining ?? (data as any)?.plan?.ordersRemaining ?? (subscriptionPlan === "free" ? 2 : null);
+  const dashboardPlanRemaining = asNumber((data as any)?.plan?.ordersRemaining, NaN);
+  const planOrdersRemaining =
+    limits?.ordersRemaining ??
+    (limits?.maxOrders != null ? Math.max(0, limits.maxOrders - limits.currentOrders) : null) ??
+    (Number.isFinite(dashboardPlanRemaining) ? Math.max(0, dashboardPlanRemaining) : null);
+  const planOrdersText =
+    limits?.maxOrders === null
+      ? "Unlimited orders"
+      : planOrdersRemaining != null
+        ? `Orders remaining: ${planOrdersRemaining.toLocaleString("en-US")}`
+        : null;
 
   const dashboardSurfaceStyle = {
     transform: [
@@ -664,8 +677,8 @@ export default function VendorDashboardScreen() {
                   <Ionicons name="ribbon" size={14} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
-              {planOrdersRemaining != null ? (
-                <Text style={styles.planSub}>Orders remaining: {planOrdersRemaining}</Text>
+              {planOrdersText ? (
+                <Text style={styles.planSub}>{planOrdersText}</Text>
               ) : null}
               <Text style={styles.planBody}>
                 Upgrade to keep receiving new orders and unlock powerful growth tools for your store.

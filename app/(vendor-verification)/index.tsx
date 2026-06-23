@@ -42,9 +42,20 @@ export default function VerificationIntroScreen() {
     if (checking) return;
     setChecking(true);
     try {
-      const profile = await vendorService.getMyProfile();
+      const [profile, verif] = await Promise.all([
+        vendorService.getMyProfile(),
+        vendorService.getVerificationStatus().catch(() => null),
+      ]);
       if (profile.verificationStatus === "verified") {
         router.replace("/(vendor-verification)/approved" as any);
+        return;
+      }
+      if (profile.verificationStatus === "rejected") {
+        router.replace("/(vendor-verification)/rejected" as any);
+        return;
+      }
+      if (profile.verificationStatus === "under_review" || (verif?.documents ?? []).length > 0) {
+        router.replace("/(vendor-verification)/pending" as any);
         return;
       }
       router.push("/(vendor-verification)/upload-id" as any);

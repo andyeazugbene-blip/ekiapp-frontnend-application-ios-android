@@ -23,7 +23,7 @@ export default function VerificationPendingScreen() {
 
           <Text style={styles.title}>Verification Submitted</Text>
           <Text style={styles.body}>
-            We're reviewing your details. We'll notify you as soon as your account is approved.
+            You've already sent your verification for submission. We're reviewing your details and will notify you as soon as your account is approved.
           </Text>
 
           <TouchableOpacity

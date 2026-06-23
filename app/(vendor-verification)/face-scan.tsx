@@ -65,8 +65,17 @@ export default function FaceScanScreen() {
         type: "selfie",
         fileUrl: remoteUrl,
       });
-      router.push("/(vendor-verification)/upload-business" as any);
+      const profile = await vendorService.getMyProfile().catch(() => null);
+      if (profile?.businessType === "registered") {
+        router.push("/(vendor-verification)/upload-business" as any);
+      } else {
+        router.replace("/(vendor-verification)/pending" as any);
+      }
     } catch (err) {
+      if (err instanceof Error && /pending document|already exists|already submitted/i.test(err.message)) {
+        router.replace("/(vendor-verification)/pending" as any);
+        return;
+      }
       setError(err instanceof Error ? err.message : "Could not upload selfie.");
     } finally {
       setUploading(false);

@@ -53,6 +53,7 @@ export default function ActivationScreen() {
   const [hasFoodstuff, setHasFoodstuff] = useState(false);
   const [hasDelivery, setHasDelivery] = useState(false);
   const [isVerifiedDirect, setIsVerifiedDirect] = useState(false);
+  const [verificationSubmitted, setVerificationSubmitted] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const user = useAuthStore((s) => s.user);
@@ -67,11 +68,13 @@ export default function ActivationScreen() {
 
   const isVerified = vendor?.verificationStatus === "verified" || isVerifiedDirect;
   const verificationStatus = vendor?.verificationStatus ?? "pending_docs";
+  const isVerificationSubmitted = verificationStatus === "under_review" || verificationSubmitted;
+  const isVerificationStepDone = isVerified || isVerificationSubmitted;
 
   const checklist: ChecklistItem[] = [
     { id: "foodstuff", label: "Add your first foodstuff", done: hasFoodstuff },
     { id: "delivery", label: "Set delivery", done: hasDelivery },
-    { id: "verify", label: "Verify your account", done: isVerified },
+    { id: "verify", label: "Verify your account", done: isVerificationStepDone },
     { id: "share", label: "Share your store link", done: hasSharedLink },
   ];
 
@@ -84,14 +87,18 @@ export default function ActivationScreen() {
     setRefreshing(true);
     try {
       await useAuthStore.getState().checkAuth().catch(() => null);
-      const [products, zones, profile] = await Promise.all([
+      const [products, zones, profile, verification] = await Promise.all([
         productService.getMyVendorProducts().catch(() => []),
         deliveryService.listZones().catch(() => []),
         vendorService.getMyProfile().catch(() => null),
+        vendorService.getVerificationStatus().catch(() => null),
       ]);
       setHasFoodstuff((products ?? []).length > 0);
       setHasDelivery((zones ?? []).length > 0);
       if (profile?.verificationStatus === "verified") setIsVerifiedDirect(true);
+      setVerificationSubmitted(
+        (verification?.documents ?? []).some((doc: any) => doc.status !== "REJECTED"),
+      );
     } finally {
       setRefreshing(false);
     }
@@ -110,7 +117,7 @@ export default function ActivationScreen() {
       // Already-decided statuses go straight to the matching outcome screen;
       // only an unstarted verification opens the local intro/why/identity steps.
       if (verificationStatus === "verified") router.push("/(vendor-verification)/approved" as any);
-      else if (verificationStatus === "under_review") router.push("/(vendor-verification)/pending" as any);
+      else if (verificationStatus === "under_review" || verificationSubmitted) router.push("/(vendor-verification)/pending" as any);
       else if (verificationStatus === "rejected") router.push("/(vendor-verification)/rejected" as any);
       else setVerifyModal("intro");
     }
