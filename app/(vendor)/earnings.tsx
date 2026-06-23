@@ -69,9 +69,14 @@ export default function EarningsScreen() {
           <View style={styles.earningsLabel}>
             <Text style={styles.earningsLabelText}>Your Earnings</Text>
           </View>
-          <TouchableOpacity activeOpacity={0.85} style={styles.walletButton} onPress={() => setCurrencyOpen(true)}>
-            <Text style={styles.walletButtonText}>{selectedCurrency}</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <TouchableOpacity activeOpacity={0.85} style={styles.walletButton} onPress={() => setCurrencyOpen(true)}>
+              <Text style={styles.walletButtonText}>{selectedCurrency}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.85} onPress={() => router.push("/(vendor)/settings" as any)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#F0F0F0", alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="settings-outline" size={18} color="#202124" />
+            </TouchableOpacity>
+          </View>
         </View>
         <Text style={styles.balanceLabel}>Available Balance</Text>
         <Text style={styles.balanceValue}>{formatDisplayMoney(available, earnings?.currency, selectedCurrency)}</Text>

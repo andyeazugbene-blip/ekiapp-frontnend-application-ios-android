@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "../../stores/authStore";
 import { UserRole } from "../../types/auth";
 import { authService } from "../../services/authService";
@@ -215,6 +217,15 @@ export default function RegisterScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
       >
+        <SafeAreaView edges={["top"]} style={{ backgroundColor: "transparent" }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            activeOpacity={0.8}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        </SafeAreaView>
         <OnboardingHeader
           activeSegments={activeSegments}
           title={
@@ -483,6 +494,16 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#076B51" },
   flex: { flex: 1 },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 16,
+    marginBottom: 4,
+  },
   scrollBody: { flexGrow: 1, paddingBottom: 16 },
   sectionTitle: {
     color: "#1A1A1A",
