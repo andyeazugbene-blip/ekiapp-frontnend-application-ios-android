@@ -20,11 +20,18 @@ export default function VerificationIntroScreen() {
   const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
-    vendorService
-      .getMyProfile()
-      .then((profile) => {
-        if (profile.verificationStatus === "verified") {
+    Promise.all([
+      vendorService.getMyProfile(),
+      vendorService.getVerificationStatus().catch(() => null),
+    ])
+      .then(([profile, verif]) => {
+        const vs = profile.verificationStatus;
+        if (vs === "verified") {
           router.replace("/(vendor-verification)/approved" as any);
+        } else if (vs === "rejected") {
+          router.replace("/(vendor-verification)/rejected" as any);
+        } else if (verif && verif.documents && verif.documents.length > 0) {
+          router.replace("/(vendor-verification)/pending" as any);
         }
       })
       .catch(() => {})

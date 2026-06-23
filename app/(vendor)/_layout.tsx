@@ -98,45 +98,35 @@ export default function VendorLayout() {
       <Tabs.Screen
         name="foodstuff"
         options={{
-          title: "Product",
+          title: "Foodstuff",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon focused={focused} color={color} name="basket" outline="basket-outline" />
+            <TabIcon focused={focused} color={color} name="cart" outline="cart-outline" />
           ),
         }}
       />
       <Tabs.Screen
         name="buyers"
         options={{
-          href: null,
           title: "Buyers",
-          tabBarStyle: { display: "none" },
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color} name="people" outline="people-outline" />
           ),
         }}
       />
       <Tabs.Screen
-        name="messages"
+        name="earnings"
         options={{
-          title: "Inbox",
+          title: "Earnings",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon focused={focused} color={color} name="chatbubbles" outline="chatbubbles-outline" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon focused={focused} color={color} name="settings" outline="settings-outline" />
+            <TabIcon focused={focused} color={color} name="wallet" outline="wallet-outline" />
           ),
         }}
       />
 
+      <Tabs.Screen name="messages" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="settings" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="edit-store-profile" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="edit-personal-profile" options={{ href: null, tabBarStyle: { display: "none" } }} />
-      <Tabs.Screen name="earnings" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="activation" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="buyers-profile" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="analytics" options={{ href: null, tabBarStyle: { display: "none" } }} />

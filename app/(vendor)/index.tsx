@@ -675,8 +675,8 @@ export default function VendorDashboardScreen() {
                 onPress={() => navigate("/(vendor)/subscription-plans")}
                 style={styles.upgradeBtn}
               >
-                <Text style={styles.upgradeText}>View Plan</Text>
-                <Ionicons name={"arrow-up-forward" as any} size={14} color="#076B51" />
+                <Text style={styles.upgradeText}>Upgrade Now</Text>
+                <Ionicons name={"arrow-forward" as any} size={14} color="#076B51" style={{ transform: [{ rotate: "-45deg" }] }} />
               </TouchableOpacity>
             </View>
           </>

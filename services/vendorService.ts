@@ -359,6 +359,10 @@ export const vendorService = {
     }
   },
 
+  async getVerificationStatus(): Promise<{ verificationStatus: string; documents: any[] }> {
+    return apiClient.get<{ verificationStatus: string; documents: any[] }>("/api/vendors/me/verification");
+  },
+
   async resetVerification() {
     return apiClient.delete<{ message: string }>("/api/vendors/me/verification");
   },
