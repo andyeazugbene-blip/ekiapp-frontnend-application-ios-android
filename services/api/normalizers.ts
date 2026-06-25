@@ -56,6 +56,7 @@ export function normalizeProduct(raw: Record<string, any>): Product {
 
   return {
     id: raw.id ?? "",
+    productCode: raw.productCode ?? undefined,
     name: raw.title ?? raw.name ?? "",
     description: raw.description ?? "",
     price: priceGBP,

@@ -108,7 +108,7 @@ export default function SubscriptionPlansScreen() {
 
               {priceLabel ? (
                 <View style={styles.priceRow}>
-                  <Text style={styles.priceValue}>{priceLabel}</Text>
+                  <Text style={styles.priceValue} numberOfLines={1} adjustsFontSizeToFit>{priceLabel}</Text>
                   {currentPlanDetails && currentPlanDetails.price > 0 ? <Text style={styles.priceUnit}>/month</Text> : null}
                 </View>
               ) : null}
@@ -233,7 +233,7 @@ function LimitRow({
         <Ionicons name={icon} size={18} color="#076B51" />
       </View>
       <Text style={styles.limitLabel}>{label}</Text>
-      <Text style={styles.limitValue}>{value}</Text>
+      <Text style={styles.limitValue} numberOfLines={2}>{value}</Text>
     </View>
   );
 }
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   limitRow: { minHeight: 48, flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderTopColor: "#F0F0F0", gap: 10 },
   limitIcon: { width: 30, height: 30, borderRadius: 10, backgroundColor: "#E8F4ED", alignItems: "center", justifyContent: "center" },
   limitLabel: { flex: 1, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
-  limitValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#1A1A1A" },
+  limitValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#1A1A1A", flexShrink: 1, textAlign: "right" },
   bottomBar: { paddingHorizontal: 16, paddingVertical: 12 },
   refreshButton: { height: 56, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
   refreshButtonText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },

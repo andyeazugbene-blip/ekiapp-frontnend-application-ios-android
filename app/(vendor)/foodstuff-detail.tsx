@@ -242,6 +242,13 @@ export default function FoodstuffDetailScreen() {
           <RemoteImage uri={product.images?.[0]} style={styles.photo} />
         </View>
 
+        {product.productCode ? (
+          <View style={styles.productCodeRow}>
+            <Ionicons name="barcode-outline" size={16} color="#076B51" />
+            <Text style={styles.productCodeText}>{product.productCode}</Text>
+          </View>
+        ) : null}
+
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>Stock</Text>
@@ -368,6 +375,8 @@ const styles = StyleSheet.create({
   placeholder: { paddingVertical: 40, alignItems: "center" },
   photoCard: { backgroundColor: "#FFFFFF", borderRadius: 30, padding: 14, marginBottom: 20, marginTop: 2 },
   photo: { width: "100%", height: 220, borderRadius: 20 },
+  productCodeRow: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#E8F4ED", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12, alignSelf: "flex-start" },
+  productCodeText: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#076B51", letterSpacing: 0.5 },
   statsRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
   statCard: { flex: 1, backgroundColor: "#FFFFFF", borderRadius: 30, padding: 20 },
   statLabel: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#858585" },

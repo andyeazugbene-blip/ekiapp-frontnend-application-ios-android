@@ -2,6 +2,7 @@ export type ProductStatus = "active" | "draft" | "low_stock" | "out_of_stock";
 
 export interface Product {
   id: string;
+  productCode?: string;
   name: string;
   description: string;
   price: number;

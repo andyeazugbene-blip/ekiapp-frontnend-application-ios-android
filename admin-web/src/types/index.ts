@@ -91,9 +91,59 @@ export interface VerificationDocument {
   type: "id" | "business" | "selfie";
   status: VerificationStatus;
   fileUrl: string;
+  frontReadUrl?: string;
+  backReadUrl?: string;
+  frontUrl?: string;
+  backUrl?: string | null;
   submittedAt: string;
   reviewedAt?: string;
+  reviewedById?: string | null;
   reviewNote?: string;
+  rejectionReason?: string | null;
+  deleteAfterAt?: string | null;
+  deletedAt?: string | null;
+}
+
+export interface VerificationDocSummary {
+  governmentId: number;
+  businessRegistration: number;
+  selfie: number;
+  total: number;
+}
+
+export interface VerificationQueueItem {
+  vendorId: string;
+  storeName: string;
+  vendorName: string;
+  email: string;
+  phone?: string | null;
+  verificationStatus: "PENDING" | "VERIFIED" | "REJECTED";
+  latestSubmissionDate: string;
+  uploadedDocSummary: VerificationDocSummary;
+  docsAlreadyDeleted: boolean;
+}
+
+export interface VerificationReviewDetails {
+  vendor: {
+    vendorId: string;
+    storeName: string;
+    storeSlug?: string | null;
+    vendorName: string;
+    email: string;
+    phone?: string | null;
+    country?: string | null;
+    city?: string | null;
+    verificationStatus: "PENDING" | "VERIFIED" | "REJECTED";
+    joinedAt: string;
+  };
+  verificationStatus: "PENDING" | "VERIFIED" | "REJECTED";
+  uploadedDocSummary: VerificationDocSummary;
+  docsAlreadyDeleted: boolean;
+  latestSubmissionDate?: string | null;
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
+  rejectionReason?: string | null;
+  proofs: VerificationDocument[];
 }
 
 export interface DashboardStats {

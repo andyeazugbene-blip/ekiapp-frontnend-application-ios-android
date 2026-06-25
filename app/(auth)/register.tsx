@@ -72,7 +72,7 @@ export default function RegisterScreen() {
     if (user.role !== resolvedRole) return;
 
     if (isVendor && user.role === "vendor") {
-      router.replace("/(vendor-onboarding)/otp" as any);
+      router.push("/(vendor-onboarding)/otp" as any);
       return;
     }
 
@@ -219,7 +219,16 @@ export default function RegisterScreen() {
       >
         <SafeAreaView edges={["top"]} style={{ backgroundColor: "transparent" }}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => {
+              if (!isVendor && buyerStep === "details") {
+                setBuyerStep("otp");
+              } else if (!isVendor && buyerStep === "otp") {
+                setOtpCode("");
+                setBuyerStep("account");
+              } else {
+                router.back();
+              }
+            }}
             activeOpacity={0.8}
             style={styles.backButton}
           >
@@ -328,16 +337,31 @@ export default function RegisterScreen() {
               <>
                 <View style={styles.noticeCard}>
                   <Text style={styles.noticeTitle}>Check your email</Text>
-                  <Text style={styles.noticeText}>We sent a verification code to {email.trim().toLowerCase()}.</Text>
+                  <Text style={styles.noticeText}>
+                    We sent a verification code to:
+                  </Text>
+                  <Text style={{ color: "#076B51", fontFamily: "Manrope-Bold", fontSize: 14, marginTop: 6 }}>
+                    {email.trim().toLowerCase()}
+                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => { setOtpCode(""); setBuyerStep("account"); }}
+                    style={{ marginTop: 10 }}
+                  >
+                    <Text style={{ color: "#076B51", fontFamily: "Manrope-Bold", fontSize: 13 }}>
+                      Wrong email? Go back
+                    </Text>
+                  </TouchableOpacity>
                 </View>
+
                 <View style={styles.fieldGroup}>
                   <FieldLabel>Verification code:</FieldLabel>
                   <TextInput
-                    autoCapitalize="none"
+                    autoFocus
                     keyboardType="number-pad"
                     maxLength={6}
-                    onChangeText={(value) => setOtpCode(value.replace(/\D/g, "").slice(0, 6))}
-                    placeholder="6-digit OTP"
+                    onChangeText={setOtpCode}
+                    placeholder="Enter 4-6 digit code"
                     placeholderTextColor="#858585"
                     style={[styles.input, styles.otpInput]}
                     value={otpCode}

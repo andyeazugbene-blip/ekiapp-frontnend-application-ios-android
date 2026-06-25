@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -102,7 +105,10 @@ export default function OtpScreen() {
   }, [sending, contact]);
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <StatusBar style="light" />
 
       {/* Behind: ghost register form */}
@@ -131,61 +137,67 @@ export default function OtpScreen() {
       {/* Dark scrim */}
       <View style={styles.dimLayer} />
 
-      {/* Centered modal */}
-      <View style={styles.modal}>
-        <Text style={styles.modalTitle}>Confirm Your Email</Text>
-        <Text style={styles.modalSubtitle}>We sent a code to your email to confirm your account</Text>
+      {/* Centered modal — scrollable when keyboard open */}
+      <ScrollView
+        contentContainerStyle={styles.modalScroll}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+      >
+        <View style={styles.modal}>
+          <Text style={styles.modalTitle}>Confirm Your Email</Text>
+          <Text style={styles.modalSubtitle}>We sent a code to your email to confirm your account</Text>
 
-        <TextInput
-          autoFocus
-          keyboardType="number-pad"
-          maxLength={6}
-          onChangeText={setCode}
-          placeholder="Enter code"
-          placeholderTextColor="#858585"
-          style={styles.codeInput}
-          value={code}
-        />
+          <TextInput
+            autoFocus
+            keyboardType="number-pad"
+            maxLength={6}
+            onChangeText={setCode}
+            placeholder="Enter code"
+            placeholderTextColor="#858585"
+            style={styles.codeInput}
+            value={code}
+          />
 
+          <TouchableOpacity
+            accessibilityRole="button"
+            activeOpacity={0.86}
+            disabled={verifying}
+            onPress={handleVerify}
+            style={[styles.verifyButton, verifying && styles.disabled]}
+          >
+            <Text style={styles.verifyText}>{verifying ? "Verifying..." : "Verify"}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            accessibilityRole="button"
+            activeOpacity={0.72}
+            disabled={sending}
+            onPress={handleResend}
+            style={styles.linkButton}
+          >
+            <Text style={styles.linkText}>{sending ? "Sending..." : "Resend code"}</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.editText}>
+            Wrong email?{" "}
+            <Text onPress={() => router.back()} style={styles.editLink}>
+              Edit details
+            </Text>
+          </Text>
+        </View>
+
+        {/* Round close button */}
         <TouchableOpacity
-          accessibilityRole="button"
-          activeOpacity={0.86}
-          disabled={verifying}
-          onPress={handleVerify}
-          style={[styles.verifyButton, verifying && styles.disabled]}
-        >
-          <Text style={styles.verifyText}>{verifying ? "Verifying..." : "Verify"}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
+          accessibilityLabel="Close"
           accessibilityRole="button"
           activeOpacity={0.72}
-          disabled={sending}
-          onPress={handleResend}
-          style={styles.linkButton}
+          onPress={() => router.back()}
+          style={styles.closeButtonInline}
         >
-          <Text style={styles.linkText}>{sending ? "Sending..." : "Resend code"}</Text>
+          <Ionicons name="close" size={22} color="#1A1A1A" />
         </TouchableOpacity>
-
-        <Text style={styles.editText}>
-          Wrong email?{" "}
-          <Text onPress={() => router.back()} style={styles.editLink}>
-            Edit details
-          </Text>
-        </Text>
-      </View>
-
-      {/* Round close button */}
-      <TouchableOpacity
-        accessibilityLabel="Close"
-        accessibilityRole="button"
-        activeOpacity={0.72}
-        onPress={() => router.back()}
-        style={styles.closeButton}
-      >
-        <Ionicons name="close" size={22} color="#1A1A1A" />
-      </TouchableOpacity>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -216,11 +228,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.42)",
   },
+  modalScroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 40,
+  },
   modal: {
-    position: "absolute",
-    left: 18,
-    right: 18,
-    top: "30%",
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
     paddingHorizontal: 28,
@@ -285,10 +299,9 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Medium",
     textDecorationLine: "underline",
   },
-  closeButton: {
-    position: "absolute",
-    top: "62%",
+  closeButtonInline: {
     alignSelf: "center",
+    marginTop: 16,
     width: 40,
     height: 40,
     borderRadius: 20,

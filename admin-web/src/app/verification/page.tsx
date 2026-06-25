@@ -3,250 +3,302 @@
 import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { Badge, Button, Card, EmptyState, ErrorPanel, Icon, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import { verificationAPI } from "@/lib/services/verification.api";
-import { VerificationDocument, VerificationStatus } from "@/types";
-import { APIError, API2FARequiredError } from "@/lib/api";
+import { VerificationQueueItem, VerificationReviewDetails } from "@/types";
+import { APIError } from "@/lib/api";
+
+type QueueStatus = "all" | "pending" | "verified" | "rejected";
+
+const filters: Array<{ id: QueueStatus; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "pending", label: "Pending" },
+  { id: "verified", label: "Verified" },
+  { id: "rejected", label: "Rejected" },
+];
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString();
+}
+
+function statusTone(status: string): "green" | "amber" | "red" | "gray" {
+  if (status === "VERIFIED") return "green";
+  if (status === "REJECTED") return "red";
+  if (status === "PENDING") return "amber";
+  return "gray";
+}
+
+function docIndicators(item: VerificationQueueItem) {
+  const summary = item.uploadedDocSummary;
+  return [
+    summary.governmentId > 0 ? "ID" : null,
+    summary.selfie > 0 ? "Selfie" : null,
+    summary.businessRegistration > 0 ? "Business" : null,
+  ].filter(Boolean).join(" / ") || "None";
+}
 
 export default function VerificationPage() {
-  const [documents, setDocuments] = useState<VerificationDocument[]>([]);
+  const [items, setItems] = useState<VerificationQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
-  const [statusFilter, setStatusFilter] = useState<VerificationStatus | "all">("pending");
-  const [selectedDoc, setSelectedDoc] = useState<VerificationDocument | null>(null);
-  const [reviewNote, setReviewNote] = useState("");
-  const [twoFactorCode, setTwoFactorCode] = useState("");
-  const [show2FAModal, setShow2FAModal] = useState(false);
-  const [pendingReview, setPendingReview] = useState<{ docId: string; decision: "approved" | "rejected" } | null>(null);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<QueueStatus>("pending");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [selected, setSelected] = useState<VerificationReviewDetails | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
-  const loadDocuments = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const data = await verificationAPI.getDocuments(
-        statusFilter === "all" ? undefined : statusFilter
-      );
-      setDocuments(data);
+      const result = await verificationAPI.getQueue({ search, status, page, limit: 20 });
+      setItems(result.items);
+      setTotalPages(Math.max(1, result.pagination.totalPages || 1));
     } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
-      } else {
-        setError("Failed to load documents");
-      }
+      setError(err instanceof APIError ? err.message : "Failed to load verification queue");
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [page, search, status]);
 
   useEffect(() => {
-    void loadDocuments();
-  }, [loadDocuments]);
+    void load();
+  }, [load]);
 
-  const handleReview = async (docId: string, decision: "approved" | "rejected") => {
+  const openDetails = async (vendorId: string) => {
     try {
-      await verificationAPI.reviewDocument(docId, decision, reviewNote || undefined, twoFactorCode || undefined);
-      setSelectedDoc(null);
-      setReviewNote("");
-      setTwoFactorCode("");
-      setShow2FAModal(false);
-      await loadDocuments();
+      setActionLoading(true);
+      setSelected(await verificationAPI.getReview(vendorId));
+      setRejectionReason("");
     } catch (err) {
-      if (err instanceof API2FARequiredError) {
-        setPendingReview({ docId, decision });
-        setShow2FAModal(true);
-      } else if (err instanceof APIError) {
-        alert(err.message);
-      } else {
-        alert("Failed to review document");
-      }
+      alert(err instanceof APIError ? err.message : "Failed to load review details");
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <AdminLayout>
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          </div>
-        </AdminLayout>
-      </ProtectedRoute>
-    );
-  }
+  const refreshSelected = async (vendorId: string) => {
+    setSelected(await verificationAPI.getReview(vendorId));
+    await load();
+  };
+
+  const approve = async () => {
+    if (!selected) return;
+    try {
+      setActionLoading(true);
+      setSelected(await verificationAPI.approveVendor(selected.vendor.vendorId));
+      await load();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Failed to approve vendor");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const reject = async () => {
+    if (!selected) return;
+    if (!rejectionReason.trim()) {
+      alert("Enter a rejection reason.");
+      return;
+    }
+    try {
+      setActionLoading(true);
+      setSelected(await verificationAPI.rejectVendor(selected.vendor.vendorId, rejectionReason.trim()));
+      await load();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Failed to reject vendor");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const deleteFiles = async () => {
+    if (!selected) return;
+    if (!confirm("Delete verification proof files now? Status and review history will be kept.")) return;
+    try {
+      setActionLoading(true);
+      const result = await verificationAPI.deleteFilesNow(selected.vendor.vendorId);
+      if (result.failedDocuments > 0) {
+        alert(`Some files could not be deleted. Failed documents: ${result.failedDocuments}`);
+      }
+      await refreshSelected(selected.vendor.vendorId);
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Failed to delete files");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
     <ProtectedRoute>
       <AdminLayout>
         <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Verification Documents</h1>
-            <p className="mt-1 text-sm text-gray-600">Review vendor verification documents</p>
-          </div>
+          <PageHeader
+            title="Verification Review"
+            subtitle="Search vendor submissions, review proofs, and purge temporary files after decisions."
+            actions={<Button variant="ghost" onClick={() => void load()} disabled={loading}>Refresh</Button>}
+          />
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-              <button onClick={loadDocuments} className="ml-4 underline">Retry</button>
-            </div>
-          )}
+          {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
 
-          <div className="bg-white p-4 rounded-lg shadow">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as VerificationStatus | "all")}
-              className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-            >
-              <option value="all">All Documents</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
-
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {documents.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500">No documents found</p>
+          <Card>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative w-full lg:max-w-xl">
+                <Icon name="search" className="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={(event) => { setPage(1); setSearch(event.target.value); }}
+                  placeholder="Search store, vendor, email, or phone"
+                  className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-4 text-sm font-semibold text-slate-800 outline-none focus:border-[#096B4A]"
+                />
               </div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {documents.map((doc) => (
-                    <tr key={doc.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{doc.vendorName}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 capitalize">{doc.type}</td>
-                      <td className="px-6 py-4 text-sm">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          doc.status === "approved" ? "bg-green-100 text-green-800" :
-                          doc.status === "rejected" ? "bg-red-100 text-red-800" :
-                          "bg-yellow-100 text-yellow-800"
-                        }`}>
-                          {doc.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(doc.submittedAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm space-x-2">
-                        <button
-                          onClick={() => setSelectedDoc(doc)}
-                          className="text-primary-600 hover:text-primary-900 font-medium"
-                        >
-                          Review
-                        </button>
-                        {doc.fileUrl && (
-                          <a
-                            href={doc.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-900 font-medium"
-                          >
-                            View File
-                          </a>
-                        )}
-                      </td>
+              <div className="flex flex-wrap gap-2">
+                {filters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => { setPage(1); setStatus(filter.id); }}
+                    className={`h-11 rounded-xl border px-4 text-sm font-bold transition ${
+                      status === filter.id
+                        ? "border-[#096B4A] bg-emerald-50 text-[#096B4A]"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Card>
+
+          {loading ? (
+            <LoadingPanel label="Loading verification queue..." />
+          ) : items.length === 0 ? (
+            <EmptyState title="No verification submissions found" />
+          ) : (
+            <Card className="overflow-hidden p-0">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-5 py-4 text-left text-xs font-black uppercase text-slate-500">Store</th>
+                      <th className="px-5 py-4 text-left text-xs font-black uppercase text-slate-500">Vendor</th>
+                      <th className="px-5 py-4 text-left text-xs font-black uppercase text-slate-500">Status</th>
+                      <th className="px-5 py-4 text-left text-xs font-black uppercase text-slate-500">Submitted</th>
+                      <th className="px-5 py-4 text-left text-xs font-black uppercase text-slate-500">Proofs</th>
+                      <th className="px-5 py-4 text-right text-xs font-black uppercase text-slate-500">Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {selectedDoc && (
-            <div className="fixed inset-0 z-50 overflow-y-auto">
-              <div className="flex items-center justify-center min-h-screen px-4">
-                <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setSelectedDoc(null)}></div>
-                <div className="relative bg-white rounded-lg max-w-md w-full p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Review Document</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-gray-600">Vendor: <span className="font-medium text-gray-900">{selectedDoc.vendorName}</span></p>
-                      <p className="text-sm text-gray-600">Type: <span className="font-medium text-gray-900 capitalize">{selectedDoc.type}</span></p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Review Note (optional)</label>
-                      <textarea
-                        rows={3}
-                        value={reviewNote}
-                        onChange={(e) => setReviewNote(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                        placeholder="Add a note..."
-                      />
-                    </div>
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={() => handleReview(selectedDoc.id, "approved")}
-                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => handleReview(selectedDoc.id, "rejected")}
-                        className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                      >
-                        Reject
-                      </button>
-                      <button
-                        onClick={() => setSelectedDoc(null)}
-                        className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {items.map((item) => (
+                      <tr key={item.vendorId} className="hover:bg-slate-50/70">
+                        <td className="px-5 py-4">
+                          <p className="font-black text-slate-900">{item.storeName}</p>
+                          <p className="text-xs font-semibold text-slate-500">{item.docsAlreadyDeleted ? "Files deleted" : "Files retained"}</p>
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-slate-800">{item.vendorName}</p>
+                          <p className="text-xs text-slate-500">{item.email}{item.phone ? ` / ${item.phone}` : ""}</p>
+                        </td>
+                        <td className="px-5 py-4"><Badge tone={statusTone(item.verificationStatus)}>{item.verificationStatus}</Badge></td>
+                        <td className="px-5 py-4 text-sm font-semibold text-slate-600">{formatDate(item.latestSubmissionDate)}</td>
+                        <td className="px-5 py-4 text-sm font-bold text-slate-700">{docIndicators(item)}</td>
+                        <td className="px-5 py-4 text-right">
+                          <Button variant="secondary" onClick={() => void openDetails(item.vendorId)} disabled={actionLoading}>Review</Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex items-center justify-between border-t border-slate-100 px-5 py-4">
+                <p className="text-sm font-semibold text-slate-500">Page {page} of {totalPages}</p>
+                <div className="flex gap-2">
+                  <Button variant="ghost" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>Previous</Button>
+                  <Button variant="ghost" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)}>Next</Button>
                 </div>
               </div>
-            </div>
+            </Card>
           )}
 
-          {show2FAModal && pendingReview && (
-            <div className="fixed inset-0 z-50 overflow-y-auto">
-              <div className="flex items-center justify-center min-h-screen px-4">
-                <div className="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
-                <div className="relative bg-white rounded-lg max-w-md w-full p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">2FA Required</h3>
+          {selected ? (
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/45 px-4 py-8">
+              <div className="mx-auto max-w-4xl rounded-2xl bg-white shadow-2xl">
+                <div className="flex items-start justify-between border-b border-slate-200 p-6">
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900">{selected.vendor.storeName}</h2>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">{selected.vendor.vendorName} / {selected.vendor.email}</p>
+                  </div>
+                  <button onClick={() => setSelected(null)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600">Close</button>
+                </div>
+
+                <div className="grid gap-6 p-6 lg:grid-cols-[1fr_320px]">
                   <div className="space-y-4">
-                    <input
-                      type="text"
-                      value={twoFactorCode}
-                      onChange={(e) => setTwoFactorCode(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                      placeholder="Enter 2FA code"
+                    <div className="grid gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-2">
+                      <Info label="Status" value={<Badge tone={statusTone(selected.verificationStatus)}>{selected.verificationStatus}</Badge>} />
+                      <Info label="Submitted" value={formatDate(selected.latestSubmissionDate)} />
+                      <Info label="Reviewed" value={formatDate(selected.reviewedAt)} />
+                      <Info label="Files" value={selected.docsAlreadyDeleted ? "Deleted" : "Available"} />
+                      <Info label="Phone" value={selected.vendor.phone || "-"} />
+                      <Info label="Location" value={[selected.vendor.city, selected.vendor.country].filter(Boolean).join(", ") || "-"} />
+                    </div>
+
+                    {selected.rejectionReason ? (
+                      <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                        {selected.rejectionReason}
+                      </div>
+                    ) : null}
+
+                    <div className="space-y-3">
+                      {selected.proofs.map((proof) => (
+                        <div key={proof.id} className="rounded-xl border border-slate-200 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-black capitalize text-slate-900">{proof.type} proof</p>
+                              <p className="text-xs font-semibold text-slate-500">Submitted {formatDate(proof.submittedAt)}</p>
+                            </div>
+                            <Badge tone={proof.deletedAt ? "gray" : statusTone(proof.status.toUpperCase())}>{proof.deletedAt ? "DELETED" : proof.status.toUpperCase()}</Badge>
+                          </div>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {proof.frontReadUrl ? <a className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-[#096B4A]" href={proof.frontReadUrl} target="_blank" rel="noreferrer">Open front</a> : null}
+                            {proof.backReadUrl ? <a className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-[#096B4A]" href={proof.backReadUrl} target="_blank" rel="noreferrer">Open back</a> : null}
+                            {!proof.frontReadUrl && !proof.backReadUrl ? <span className="text-sm font-semibold text-slate-500">Proof files unavailable</span> : null}
+                          </div>
+                          {proof.deleteAfterAt ? <p className="mt-3 text-xs font-semibold text-slate-500">Deletes after {formatDate(proof.deleteAfterAt)}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <textarea
+                      rows={5}
+                      value={rejectionReason}
+                      onChange={(event) => setRejectionReason(event.target.value)}
+                      placeholder="Rejection reason"
+                      className="w-full rounded-xl border border-slate-200 p-3 text-sm font-semibold text-slate-800 outline-none focus:border-[#096B4A]"
                     />
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={() => handleReview(pendingReview.docId, pendingReview.decision)}
-                        className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
-                      >
-                        Submit
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShow2FAModal(false);
-                          setTwoFactorCode("");
-                          setPendingReview(null);
-                        }}
-                        className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                    <Button className="w-full" onClick={() => void approve()} disabled={actionLoading}>Approve</Button>
+                    <Button className="w-full" variant="danger" onClick={() => void reject()} disabled={actionLoading}>Reject</Button>
+                    <Button className="w-full" variant="ghost" onClick={() => void deleteFiles()} disabled={actionLoading || selected.docsAlreadyDeleted}>Delete Files Now</Button>
                   </div>
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </AdminLayout>
     </ProtectedRoute>
+  );
+}
+
+function Info({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs font-black uppercase text-slate-400">{label}</p>
+      <div className="mt-1 text-sm font-bold text-slate-800">{value}</div>
+    </div>
   );
 }
