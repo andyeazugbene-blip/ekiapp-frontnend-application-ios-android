@@ -1,6 +1,10 @@
 import { apiClient } from "../api";
 import { Vendor, VendorStatus } from "@/types";
 
+function centsToUnit(value: unknown): number {
+  return typeof value === "number" ? value / 100 : 0;
+}
+
 function normalizeVendor(raw: any): Vendor {
   const verification = (raw.verificationStatus ?? "PENDING").toString().toUpperCase();
   const verificationStatus = verification === "VERIFIED" ? "verified" : verification === "REJECTED" ? "rejected" : "pending_docs";
@@ -11,17 +15,21 @@ function normalizeVendor(raw: any): Vendor {
     storeName: raw.storeName ?? "",
     storeSlug: raw.storeSlug,
     ownerName: raw.ownerName ?? raw.user?.name ?? "",
+    email: raw.contactEmail ?? raw.user?.email ?? "",
+    phone: raw.contactPhone ?? "",
     country: raw.country ?? "",
     city: raw.city ?? "",
     rating: raw.rating ?? 0,
     totalProducts: raw.totalProducts ?? raw._count?.products ?? 0,
-    totalOrders: raw.totalOrders ?? raw._count?.orderItems ?? 0,
+    totalOrders: raw.orderCount ?? raw.totalOrders ?? raw._count?.orderItems ?? 0,
+    totalRevenue: centsToUnit(raw.totalRevenue),
     joinedAt: raw.joinedAt ?? raw.createdAt ?? "",
     coverImage: raw.coverImage,
     avatar: raw.avatar,
     verificationStatus,
     adminStatus,
     subscriptionPlan: (raw.subscriptionPlan ?? "free").toString().toLowerCase(),
+    subscriptionStatus: (raw.subscriptionStatus ?? "active").toString().toLowerCase(),
     description: raw.description,
     isSuspended: raw.isSuspended ?? false,
   };
@@ -95,4 +103,42 @@ export const vendorsAPI = {
   async assignSellerPlan(vendorId: string, plan: string): Promise<void> {
     await apiClient.patch(`/admin/vendors/${vendorId}/seller-plan`, { plan });
   },
+
+  async getVendorStats(): Promise<VendorStats> {
+    return apiClient.get<VendorStats>("/admin/vendors/stats");
+  },
+
+  async updateVendor(vendorId: string, data: Record<string, string | null>): Promise<void> {
+    await apiClient.patch(`/admin/vendors/${vendorId}`, data);
+  },
+
+  async deleteVendor(vendorId: string): Promise<void> {
+    await apiClient.delete(`/admin/vendors/${vendorId}`);
+  },
+
+  async bulkApprove(vendorIds: string[]): Promise<{ affected: number }> {
+    return apiClient.post<{ affected: number }>("/admin/vendors/bulk-approve", { vendorIds });
+  },
+
+  async bulkReject(vendorIds: string[], reason?: string): Promise<{ affected: number }> {
+    return apiClient.post<{ affected: number }>("/admin/vendors/bulk-reject", { vendorIds, reason });
+  },
+
+  async bulkSuspend(vendorIds: string[], twoFactorCode?: string): Promise<{ affected: number }> {
+    return apiClient.post<{ affected: number }>("/admin/vendors/bulk-suspend", { vendorIds }, { twoFactorCode });
+  },
 };
+
+export interface VendorStats {
+  total: number;
+  active: number;
+  pending: number;
+  rejected: number;
+  suspended: number;
+  verified: number;
+  unverified: number;
+  withOrders: number;
+  withoutOrders: number;
+  avgRevenue: number;
+  gmv: number;
+}

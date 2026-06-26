@@ -24,17 +24,21 @@ export interface Vendor {
   storeName: string;
   storeSlug?: string;
   ownerName: string;
+  email?: string;
+  phone?: string;
   country: string;
   city: string;
   rating: number;
   totalProducts: number;
   totalOrders: number;
+  totalRevenue?: number;
   joinedAt: string;
   coverImage?: string;
   avatar?: string;
   verificationStatus: "pending_docs" | "verified" | "rejected";
   adminStatus: VendorStatus;
   subscriptionPlan: string;
+  subscriptionStatus?: string;
   description?: string;
   isSuspended?: boolean;
 }
@@ -356,4 +360,129 @@ export interface AuditLogEntry {
     email: string;
     role: string;
   } | null;
+}
+
+export interface AnalyticsOverview {
+  gmv: number;
+  ekiRevenue: number;
+  totalOrders: number;
+  avgOrderValue: number;
+  totalBuyers: number;
+  totalVendors: number;
+  activeBuyers30d: number;
+  activeVendors30d: number;
+  newBuyers: number;
+  newVendors: number;
+  buyerRetentionRate: number;
+  vendorRetentionRate: number;
+  subscriptionRevenue: number;
+  escrowBalance: number;
+  pendingPayouts: number;
+  openDisputes: number;
+  pendingVerifications: number;
+  currency: string;
+}
+
+export interface GrowthPoint {
+  date: string;
+  value: number;
+}
+
+export interface GrowthSeries {
+  gmv: GrowthPoint[];
+  revenue: GrowthPoint[];
+  orders: GrowthPoint[];
+  buyers: GrowthPoint[];
+  vendors: GrowthPoint[];
+  range: string;
+}
+
+export interface BuyerAnalytics {
+  newBuyers: number;
+  returningBuyers: number;
+  repeatPurchaseRate: number;
+  avgOrdersPerBuyer: number;
+  topBuyers: {
+    buyerId: string;
+    name: string;
+    totalOrders: number;
+    totalSpend: number;
+    lastOrderDate: string | null;
+  }[];
+  buyerLocations: { country: string; count: number }[];
+  currency: string;
+}
+
+export interface VendorAnalyticsData {
+  topVendorsByRevenue: {
+    vendorId: string;
+    storeName: string;
+    totalRevenue: number;
+    totalOrders: number;
+  }[];
+  topVendorsByOrders: {
+    vendorId: string;
+    storeName: string;
+    totalOrders: number;
+    totalRevenue: number;
+  }[];
+  vendorsWithNoOrders: number;
+  vendorLocations: { country: string; city: string | null; count: number }[];
+  vendorRetentionRate: number;
+  totalVendors: number;
+  currency: string;
+}
+
+export interface OrderAnalytics {
+  ordersByDay: { date: string; count: number; gmv: number }[];
+  ordersByWeek: { week: string; count: number; gmv: number }[];
+  ordersByMonth: { month: string; count: number; gmv: number }[];
+  avgOrderValue: number;
+  topProducts: {
+    productId: string;
+    title: string;
+    totalQuantity: number;
+    totalRevenue: number;
+  }[];
+  topCategories: {
+    category: string;
+    totalQuantity: number;
+    totalRevenue: number;
+  }[];
+  currency: string;
+}
+
+export interface PaymentAnalytics {
+  successfulPayments: { count: number; amount: number };
+  failedPayments: { count: number; amount: number };
+  refunds: { count: number; amount: number };
+  escrow: {
+    pendingCredits: { count: number; amount: number };
+    releases: { count: number; amount: number };
+    payoutDebits: { count: number; amount: number };
+    adjustments: { count: number; amount: number };
+  };
+  payouts: {
+    totalPaid: { count: number; amount: number };
+    totalPending: { count: number; amount: number };
+    recentPayouts: {
+      id: string;
+      vendorId: string;
+      storeName: string;
+      amount: number;
+      netAmount: number;
+      status: string;
+      paidAt: string | null;
+      createdAt: string;
+    }[];
+  };
+  currency: string;
+}
+
+export interface GeographicAnalytics {
+  ordersByCountry: { country: string; count: number; gmv: number }[];
+  ordersByCity: { city: string; country: string; count: number; gmv: number }[];
+  buyerLocations: { country: string; city: string | null; count: number }[];
+  vendorLocations: { country: string; city: string | null; count: number }[];
+  currency: string;
 }

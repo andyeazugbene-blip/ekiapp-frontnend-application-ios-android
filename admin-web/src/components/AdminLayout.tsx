@@ -38,6 +38,7 @@ const navigation: NavItem[] = [
   { name: "Admin Roles", href: "/roles", icon: "settings" },
   { name: "Seller Plans", href: "/subscription-plans", icon: "orders" },
   { name: "Activity Logs", href: "/activity-logs", icon: "analytics" },
+  { name: "Communications", href: "/communications", icon: "orders" },
   { name: "Analytics", href: "/analytics", icon: "analytics" },
   { name: "Settings", href: "/settings", icon: "settings" },
 ];

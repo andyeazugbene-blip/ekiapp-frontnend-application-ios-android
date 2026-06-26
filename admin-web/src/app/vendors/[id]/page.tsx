@@ -129,10 +129,23 @@ export default function VendorDetailPage() {
 
       <SellerPlanCard vendorId={data.id} currentPlan={data.subscriptionPlan ?? "free"} onSaved={load} />
 
-      <div className="flex gap-3">
-        {data.verificationStatus !== "VERIFIED" && <Button onClick={async () => { await vendorsAPI.approveVendor(data.id); await load(); }}>Approve</Button>}
-        <Button variant="secondary" onClick={() => router.push(`/communication?vendorId=${data.id}`)}>Send Message</Button>
-      </div>
+      <Card><h2 className="text-lg font-bold mb-4">Admin Actions</h2>
+        <div className="flex flex-wrap gap-3">
+          {data.adminStatus === "pending" && <>
+            <Button onClick={async () => { await vendorsAPI.approveVendor(data.id); await load(); }}>Approve</Button>
+            <Button variant="danger" onClick={async () => { if (!confirm("Reject this vendor?")) return; await vendorsAPI.rejectVendor(data.id); await load(); }}>Reject</Button>
+          </>}
+          {data.adminStatus === "active" && <Button variant="danger" onClick={async () => { if (!confirm("Suspend this vendor?")) return; await vendorsAPI.suspendVendor(data.id); await load(); }}>Suspend</Button>}
+          {data.adminStatus === "suspended" && <Button onClick={async () => { await vendorsAPI.unsuspendVendor(data.id); await load(); }}>Reactivate</Button>}
+          <Button variant="secondary" onClick={() => router.push(`/communication?vendorId=${data.id}`)}>Send Message</Button>
+          <Button variant="secondary" onClick={() => router.push(`/orders?vendorId=${data.id}`)}>View Orders</Button>
+          <Button variant="secondary" onClick={() => router.push(`/disputes?vendorId=${data.id}`)}>View Disputes</Button>
+          <Button variant="secondary" onClick={() => router.push(`/verification?vendorId=${data.id}`)}>View Verification</Button>
+          {!data.isSuspended && orders.length === 0 && products.length === 0 && (
+            <Button variant="danger" onClick={async () => { if (!confirm("Permanently delete this vendor? This cannot be undone.")) return; try { await vendorsAPI.deleteVendor(data.id); router.push("/vendors"); } catch (err) { alert(err instanceof APIError ? err.message : "Delete failed"); } }}>Delete Vendor</Button>
+          )}
+        </div>
+      </Card>
     </div></AdminLayout></ProtectedRoute>
   );
 }

@@ -138,7 +138,7 @@ export default function VerificationPage() {
         <div className="space-y-6">
           <PageHeader
             title="Verification Review"
-            subtitle="Search vendor submissions, review proofs, and purge temporary files after decisions."
+            subtitle="New vendors verify via Stripe Identity. Legacy document submissions shown below for review."
             actions={<Button variant="ghost" onClick={() => void load()} disabled={loading}>Refresh</Button>}
           />
 

@@ -385,7 +385,7 @@ export default function ActivationScreen() {
             <TouchableOpacity
               onPress={() => {
                 setVerifyModal(null);
-                router.push("/(vendor-verification)/upload-id" as any);
+                router.push("/(vendor-verification)" as any);
               }}
               activeOpacity={0.86}
               style={styles.primaryModalBtn}

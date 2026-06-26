@@ -355,4 +355,25 @@ export const vendorService = {
   async resetVerification() {
     return apiClient.delete<{ message: string }>("/api/vendors/me/verification");
   },
+
+  async createStripeVerificationSession(): Promise<{ url: string; sessionId: string }> {
+    return apiClient.post<{ url: string; sessionId: string }>(
+      "/api/vendors/me/verification/stripe-session",
+      {},
+    );
+  },
+
+  async getStripeVerificationStatus(): Promise<{
+    verificationStatus: string;
+    stripeVerificationSessionId: string | null;
+    verifiedAt: string | null;
+    verificationFailureReason: string | null;
+  }> {
+    return apiClient.get<{
+      verificationStatus: string;
+      stripeVerificationSessionId: string | null;
+      verifiedAt: string | null;
+      verificationFailureReason: string | null;
+    }>("/api/vendors/me/verification/stripe-status");
+  },
 };

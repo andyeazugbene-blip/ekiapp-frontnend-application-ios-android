@@ -1,19 +1,31 @@
-import React from "react";
-import { Linking, View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { Linking, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useOnboardingStore } from "../../stores/onboardingStore";
+import { vendorService } from "../../services/vendorService";
 
 const SUPPORT_EMAIL = "adminandy@eki.app";
 
 export default function VerificationRejectedScreen() {
   const router = useRouter();
   const { setVerificationStatus } = useOnboardingStore();
+  const [retrying, setRetrying] = useState(false);
 
-  const onRetry = () => {
-    setVerificationStatus("not_started");
-    router.replace("/(vendor-verification)/upload-id" as any);
+  const onRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      const session = await vendorService.createStripeVerificationSession();
+      setVerificationStatus("not_started");
+      await Linking.openURL(session.url);
+      router.replace("/(vendor-verification)/pending" as any);
+    } catch (err: any) {
+      Alert.alert("Verification Error", err?.message ?? "Could not start verification. Please try again.");
+    } finally {
+      setRetrying(false);
+    }
   };
 
   const onContactSupport = () => {
@@ -40,11 +52,16 @@ export default function VerificationRejectedScreen() {
           </Text>
 
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[styles.primaryButton, retrying && { opacity: 0.55 }]}
             onPress={onRetry}
             activeOpacity={0.8}
+            disabled={retrying}
           >
-            <Text style={styles.primaryButtonText}>Try Again</Text>
+            {retrying ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.primaryButtonText}>Try Again</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity

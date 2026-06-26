@@ -347,7 +347,7 @@ export default function VendorDashboardScreen() {
               {asText(data?.greeting).trim() || "Welcome back,"}
             </Text>
             <View style={styles.storeNameRow}>
-              <Text style={styles.storeName} numberOfLines={1}>{storeName} 👋</Text>
+              <Text style={styles.storeName} numberOfLines={1}>{storeName}</Text>
               {isVerifiedVendor ? (
                 <Ionicons name="checkmark-circle" size={20} color="#4ADE80" style={styles.verifiedIcon} />
               ) : null}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Linking, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,17 +20,14 @@ export default function VerificationIntroScreen() {
   const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      vendorService.getMyProfile(),
-      vendorService.getVerificationStatus().catch(() => null),
-    ])
-      .then(([profile, verif]) => {
-        const vs = profile.verificationStatus;
+    vendorService.getStripeVerificationStatus()
+      .then((status) => {
+        const vs = status.verificationStatus?.toLowerCase();
         if (vs === "verified") {
           router.replace("/(vendor-verification)/approved" as any);
         } else if (vs === "rejected") {
           router.replace("/(vendor-verification)/rejected" as any);
-        } else if (verif && verif.documents && verif.documents.length > 0) {
+        } else if (vs === "pending" && status.stripeVerificationSessionId) {
           router.replace("/(vendor-verification)/pending" as any);
         }
       })
@@ -42,25 +39,25 @@ export default function VerificationIntroScreen() {
     if (checking) return;
     setChecking(true);
     try {
-      const [profile, verif] = await Promise.all([
-        vendorService.getMyProfile(),
-        vendorService.getVerificationStatus().catch(() => null),
-      ]);
-      if (profile.verificationStatus === "verified") {
+      const status = await vendorService.getStripeVerificationStatus();
+      const vs = status.verificationStatus?.toLowerCase();
+      if (vs === "verified") {
         router.replace("/(vendor-verification)/approved" as any);
         return;
       }
-      if (profile.verificationStatus === "rejected") {
+      if (vs === "rejected") {
         router.replace("/(vendor-verification)/rejected" as any);
         return;
       }
-      if (profile.verificationStatus === "under_review" || (verif?.documents ?? []).length > 0) {
+      if (vs === "pending" && status.stripeVerificationSessionId) {
         router.replace("/(vendor-verification)/pending" as any);
         return;
       }
-      router.push("/(vendor-verification)/upload-id" as any);
-    } catch {
-      router.push("/(vendor-verification)/upload-id" as any);
+      const session = await vendorService.createStripeVerificationSession();
+      await Linking.openURL(session.url);
+      router.replace("/(vendor-verification)/pending" as any);
+    } catch (err: any) {
+      Alert.alert("Verification Error", err?.message ?? "Could not start verification. Please try again.");
     } finally {
       setChecking(false);
     }
