@@ -10,10 +10,11 @@ import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } fro
 import { adminAPI } from "@/lib/services/admin.api";
 import { disputesAPI } from "@/lib/services/disputes.api";
 import { ordersAPI } from "@/lib/services/orders.api";
-import { DashboardStats, Dispute, Order, RevenueSeries } from "@/types";
+import { AnalyticsOverview, DashboardStats, Dispute, Order, RevenueSeries } from "@/types";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [revenueData, setRevenueData] = useState<RevenueSeries[]>([]);
   const [revenueMeta, setRevenueMeta] = useState<{grossRevenue:number;platformFees:number;vendorEarnings:number;totalPayouts:number;netRevenue:number} | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -26,12 +27,14 @@ export default function DashboardPage() {
       setLoading(true);
       setError("");
       const rev:any = await adminAPI.getRevenueSeries("30d").catch(() => ({ series: [], grossRevenue:0, platformFees:0, vendorEarnings:0, totalPayouts:0, netRevenue:0 }));
-      const [dashboardData, orderData, disputeData] = await Promise.all([
+      const [dashboardData, overviewData, orderData, disputeData] = await Promise.all([
         adminAPI.getDashboard(),
+        adminAPI.getAnalyticsOverview().catch(() => null),
         ordersAPI.getOrders({ limit: 8 }).catch(() => []),
         disputesAPI.getDisputes().catch(() => []),
       ]);
       setStats(dashboardData);
+      setOverview(overviewData);
       setRevenueData(rev.series ?? []);
       setRevenueMeta(rev);
       setOrders(orderData);
@@ -48,13 +51,16 @@ export default function DashboardPage() {
   }, [loadDashboard]);
 
   const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency("EUR");
-  const activeOrders = orders.filter((o) => !["delivered","cancelled","refunded"].includes(o.status)).length || stats?.totalOrders || 0;
-  const pendingDisputes = disputes.filter((d) => !d.resolvedAt && d.status?.toLowerCase() !== "resolved").length;
+  const cur = overview?.currency ?? "GBP";
 
   const chartData = useMemo(
     () => revenueData.map((p) => ({ ...p, label: p.day, amount: Number(p.amount.toFixed(2)) })),
     [revenueData],
   );
+
+  const fmtMoney = (v: number) => formatDisplayMoney(v, cur, selectedCurrency);
+  const fmtNum = (v: number) => v.toLocaleString();
+  const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
   return (
     <ProtectedRoute>
@@ -71,9 +77,12 @@ export default function DashboardPage() {
                     {SUPPORTED_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <Button variant="secondary" onClick={() => downloadCsv("eki-dashboard.csv", [
-                    { metric:"total_vendors", value: stats?.totalVendors ?? 0 },
-                    { metric:"new_vendors_this_week", value: stats?.newVendorsThisWeek ?? 0 },
-                    { metric:"total_orders", value: stats?.totalOrders ?? 0 },
+                    { metric:"gmv", value: overview?.gmv ?? 0 },
+                    { metric:"eki_revenue", value: overview?.ekiRevenue ?? 0 },
+                    { metric:"total_orders", value: overview?.totalOrders ?? 0 },
+                    { metric:"avg_order_value", value: overview?.avgOrderValue ?? 0 },
+                    { metric:"total_buyers", value: overview?.totalBuyers ?? 0 },
+                    { metric:"total_vendors", value: overview?.totalVendors ?? 0 },
                     { metric:"gross_revenue", value: revenueMeta?.grossRevenue ?? 0 },
                     { metric:"net_revenue", value: revenueMeta?.netRevenue ?? 0 },
                     ...chartData.map((p) => ({ metric: `revenue_${p.label}`, value: p.amount })),
@@ -82,24 +91,60 @@ export default function DashboardPage() {
               }
             />
 
+            {/* Revenue & Financial KPIs */}
             <div>
-              <h2 className="mb-4 text-2xl font-black">Revenue (30 days)</h2>
+              <h2 className="mb-4 text-2xl font-black">Revenue & Financial</h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+                <MetricCard label="Total Transaction Value (GMV)" value={overview ? fmtMoney(overview.gmv) : "—"} icon="cash" />
+                <MetricCard label="Eki Revenue" value={overview ? fmtMoney(overview.ekiRevenue) : "—"} icon="trending" />
+                <MetricCard label="Subscription Revenue" value={overview ? fmtMoney(overview.subscriptionRevenue) : "—"} icon="wallet" />
+                <MetricCard label="Escrow Balance" value={overview ? fmtMoney(overview.escrowBalance) : "—"} icon="disputes" />
+                <MetricCard label="Pending Payouts" value={overview ? fmtMoney(overview.pendingPayouts) : "—"} icon="sent" />
+              </div>
+            </div>
+
+            {/* Orders & Operations */}
+            <div>
+              <h2 className="mb-4 text-2xl font-black">Orders & Operations</h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Total Orders" value={fmtNum(overview?.totalOrders ?? 0)} icon="orders" />
+                <MetricCard label="Average Order Value" value={overview ? fmtMoney(overview.avgOrderValue) : "—"} icon="cash" />
+                <MetricCard label="Open Disputes" value={overview?.openDisputes ?? 0} icon="disputes" tone={(overview?.openDisputes ?? 0) > 0 ? "amber" : "green"} />
+                <MetricCard label="Pending Verifications" value={overview?.pendingVerifications ?? 0} icon="verification" tone={(overview?.pendingVerifications ?? 0) > 0 ? "amber" : "green"} />
+              </div>
+            </div>
+
+            {/* Users */}
+            <div>
+              <h2 className="mb-4 text-2xl font-black">Users</h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Total Buyers" value={fmtNum(overview?.totalBuyers ?? 0)} icon="messages" />
+                <MetricCard label="Total Vendors" value={fmtNum(overview?.totalVendors ?? 0)} icon="vendors" />
+                <MetricCard label="New Buyers" value={fmtNum(overview?.newBuyers ?? 0)} icon="messages" />
+                <MetricCard label="New Vendors" value={fmtNum(overview?.newVendors ?? 0)} icon="vendors" />
+              </div>
+            </div>
+
+            {/* Growth & Retention */}
+            <div>
+              <h2 className="mb-4 text-2xl font-black">Growth & Retention</h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Active Buyers (30 Days)" value={fmtNum(overview?.activeBuyers30d ?? 0)} icon="messages" />
+                <MetricCard label="Active Vendors (30 Days)" value={fmtNum(overview?.activeVendors30d ?? 0)} icon="vendors" />
+                <MetricCard label="Buyer Retention Rate" value={fmtPct(overview?.buyerRetentionRate ?? 0)} icon="analytics" />
+                <MetricCard label="Vendor Retention Rate" value={fmtPct(overview?.vendorRetentionRate ?? 0)} icon="analytics" />
+              </div>
+            </div>
+
+            {/* Revenue 30-day breakdown */}
+            <div>
+              <h2 className="mb-4 text-2xl font-black">Revenue Breakdown (30 days)</h2>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
                 <MetricCard label="Gross Revenue" value={revenueMeta ? formatDisplayMoney(revenueMeta.grossRevenue, "EUR", selectedCurrency) : "—"} icon="cash" />
                 <MetricCard label="Platform Fees" value={revenueMeta ? formatDisplayMoney(revenueMeta.platformFees, "EUR", selectedCurrency) : "—"} icon="trending" />
                 <MetricCard label="Vendor Earnings" value={revenueMeta ? formatDisplayMoney(revenueMeta.vendorEarnings, "EUR", selectedCurrency) : "—"} icon="wallet" />
                 <MetricCard label="Payouts Sent" value={revenueMeta ? formatDisplayMoney(revenueMeta.totalPayouts, "EUR", selectedCurrency) : "—"} icon="sent" />
                 <MetricCard label="Net Revenue" value={revenueMeta ? formatDisplayMoney(revenueMeta.netRevenue, "EUR", selectedCurrency) : "—"} icon="profit" />
-              </div>
-            </div>
-
-            <div>
-              <h2 className="mb-4 text-2xl font-black">Overview</h2>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-                <MetricCard icon="vendors" label="Total vendors" value={(stats?.totalVendors ?? 0).toLocaleString()} note={`+${stats?.newVendorsThisWeek ?? 0} new this week`} />
-                <MetricCard icon="vendors" label="Pending approval" value={stats?.pendingApprovals ?? 0} />
-                <MetricCard icon="orders" label="Active orders" value={activeOrders.toLocaleString()} />
-                <MetricCard icon="disputes" label="Disputes" value={pendingDisputes} tone={pendingDisputes > 0 ? "amber" : "green"} />
               </div>
             </div>
 
