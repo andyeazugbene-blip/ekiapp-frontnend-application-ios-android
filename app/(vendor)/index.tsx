@@ -695,7 +695,7 @@ export default function VendorDashboardScreen() {
                   ? "You have reached your order limit. View plans to keep receiving orders."
                   : planWarning
                     ? "You're running low on orders. View plans to keep your store running."
-                    : "To keep receiving new orders and unlock powerful growth tools for your store."}
+                    : "Keep receiving new orders and unlock powerful growth tools for your store."}
               </Text>
               <View style={styles.planDivider} />
               <TouchableOpacity
@@ -1314,7 +1314,7 @@ const styles = StyleSheet.create({
   planCard: { backgroundColor: "#076B51", borderRadius: 24, padding: 24 },
   planHeaderRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
   planTitle: { color: "#FFFFFF", fontSize: 22, fontFamily: "Manrope-Bold", fontStyle: "italic" },
-  planIconBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  planIconBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
   planSub: { color: "rgba(255,255,255,0.85)", fontSize: 14, fontFamily: "Outfit-Regular", marginTop: 5 },
   planBody: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontFamily: "Outfit-Regular", lineHeight: 19, marginTop: 16 },
   planDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.15)", marginTop: 18, marginBottom: 18 },
