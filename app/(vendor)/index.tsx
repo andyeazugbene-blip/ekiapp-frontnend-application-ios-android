@@ -270,11 +270,9 @@ export default function VendorDashboardScreen() {
   const planOrdersText =
     limits?.maxOrders === null
       ? "Unlimited orders"
-      : planOrdersRemaining != null && planMaxOrders != null
-        ? `${planOrdersRemaining} of ${planMaxOrders} orders remaining`
-        : planOrdersRemaining != null
-          ? `${planOrdersRemaining} orders remaining`
-          : null;
+      : planOrdersRemaining != null
+        ? `Orders remaining: ${planOrdersRemaining}`
+        : null;
 
   const planMaxOrders = limits?.maxOrders ?? null;
   const planUsageRatio = planMaxOrders != null && planMaxOrders > 0 && planOrdersRemaining != null
@@ -699,7 +697,6 @@ export default function VendorDashboardScreen() {
                     ? "You're running low on orders. View plans to keep your store running."
                     : "Keep receiving new orders and unlock powerful growth tools for your store."}
               </Text>
-              <View style={styles.planDivider} />
               <TouchableOpacity
                 activeOpacity={0.86}
                 onPress={() => navigate("/(vendor)/subscription-plans")}
@@ -1318,8 +1315,7 @@ const styles = StyleSheet.create({
   planTitle: { color: "#FFFFFF", fontSize: 22, fontFamily: "Manrope-Bold", fontStyle: "italic" },
   planIconBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
   planSub: { color: "rgba(255,255,255,0.85)", fontSize: 14, fontFamily: "Outfit-Regular", marginTop: 5 },
-  planBody: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontFamily: "Outfit-Regular", lineHeight: 19, marginTop: 16 },
-  planDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.15)", marginTop: 18, marginBottom: 18 },
+  planBody: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontFamily: "Outfit-Regular", lineHeight: 19, marginTop: 16, marginBottom: 20 },
   upgradeBtn: { height: 50, borderRadius: 14, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 10 },
   upgradeText: { color: "#076B51", fontSize: 15, fontFamily: "Manrope-SemiBold" },
 });
