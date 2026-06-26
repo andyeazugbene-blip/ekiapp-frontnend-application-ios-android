@@ -29,19 +29,11 @@ type BuyerSignupStep = "account" | "otp" | "details";
 const BUYER_OTP_PURPOSE = "buyer_signup_email";
 
 async function sendBuyerSignupOtp(contact: string) {
-  try {
-    return await authService.sendOtp(contact, BUYER_OTP_PURPOSE);
-  } catch {
-    return authService.sendOtp(contact);
-  }
+  return authService.sendOtp(contact, BUYER_OTP_PURPOSE);
 }
 
 async function verifyBuyerSignupOtp(contact: string, code: string) {
-  try {
-    return await authService.verifyOtp(contact, code, BUYER_OTP_PURPOSE);
-  } catch {
-    return authService.verifyOtp(contact, code);
-  }
+  return authService.verifyOtp(contact, code, BUYER_OTP_PURPOSE);
 }
 
 export default function RegisterScreen() {
