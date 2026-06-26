@@ -15,6 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { useAuthStore } from "../../stores/authStore";
 import { vendorService } from "../../services/vendorService";
@@ -281,6 +282,11 @@ export default function VendorDashboardScreen() {
   const planDegraded = planUsageRatio <= 0;
   const planWarning = planUsageRatio > 0 && planUsageRatio <= 0.25;
   const planCardBg = planDegraded ? "#991B1B" : planWarning ? "#92400E" : "#076B51";
+  const planGradientColors = planDegraded
+    ? ["#B91C1C", "#7F1D1D"] as const
+    : planWarning
+      ? ["#B45309", "#78350F"] as const
+      : ["#0D8C6A", "#054A37"] as const;
 
   const dashboardSurfaceStyle = {
     transform: [
@@ -668,7 +674,12 @@ export default function VendorDashboardScreen() {
             </View>
 
             {/* ── Plan card ────────────────────────────────────────────── */}
-            <View style={[styles.planCard, { backgroundColor: planCardBg }]}>
+            <LinearGradient
+              colors={planGradientColors as unknown as string[]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.planCard}
+            >
               <View style={styles.planHeaderRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.planTitle}>
@@ -705,7 +716,7 @@ export default function VendorDashboardScreen() {
                 <Text style={[styles.upgradeText, { color: planCardBg }]}>View Plans</Text>
                 <Ionicons name={"arrow-forward" as any} size={15} color={planCardBg} style={{ transform: [{ rotate: "-45deg" }] }} />
               </TouchableOpacity>
-            </View>
+            </LinearGradient>
           </>
         )}
         </View>
@@ -1310,7 +1321,7 @@ const styles = StyleSheet.create({
   deliveryBadgeText: { color: "#076B51", fontSize: 11, fontFamily: "Manrope-Bold" },
 
   // ── Plan card ────────────────────────────────────────────────────────
-  planCard: { backgroundColor: "#076B51", borderRadius: 24, padding: 24 },
+  planCard: { borderRadius: 24, padding: 24, overflow: "hidden" as const },
   planHeaderRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
   planTitle: { color: "#FFFFFF", fontSize: 22, fontFamily: "Manrope-Bold", fontStyle: "italic" },
   planIconBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
