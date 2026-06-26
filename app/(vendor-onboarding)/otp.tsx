@@ -137,15 +137,15 @@ export default function OtpScreen() {
       {/* Dark scrim */}
       <View style={styles.dimLayer} />
 
-      {/* Centered modal — scrollable when keyboard open */}
+      {/* Modal at top */}
       <ScrollView
         contentContainerStyle={styles.modalScroll}
         keyboardShouldPersistTaps="handled"
         bounces={false}
       >
         <View style={styles.modal}>
-          <Text style={styles.modalTitle}>Confirm Your Email</Text>
-          <Text style={styles.modalSubtitle}>We sent a code to your email to confirm your account</Text>
+          <Text style={styles.modalTitle}>Confirm Your Phone Or Email</Text>
+          <Text style={styles.modalSubtitle}>We sent you a code to confirm your account</Text>
 
           <TextInput
             autoFocus
@@ -179,23 +179,23 @@ export default function OtpScreen() {
           </TouchableOpacity>
 
           <Text style={styles.editText}>
-            Wrong email?{" "}
+            Wrong number or email?{" "}
             <Text onPress={() => router.back()} style={styles.editLink}>
               Edit details
             </Text>
           </Text>
-        </View>
 
-        {/* Round close button */}
-        <TouchableOpacity
-          accessibilityLabel="Close"
-          accessibilityRole="button"
-          activeOpacity={0.72}
-          onPress={() => router.back()}
-          style={styles.closeButtonInline}
-        >
-          <Ionicons name="close" size={22} color="#1A1A1A" />
-        </TouchableOpacity>
+          {/* Round close button inside modal */}
+          <TouchableOpacity
+            accessibilityLabel="Close"
+            accessibilityRole="button"
+            activeOpacity={0.72}
+            onPress={() => router.back()}
+            style={styles.closeButtonInline}
+          >
+            <Ionicons name="close" size={22} color="#1A1A1A" />
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -230,9 +230,10 @@ const styles = StyleSheet.create({
   },
   modalScroll: {
     flexGrow: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     paddingHorizontal: 18,
-    paddingVertical: 40,
+    paddingTop: 0,
+    paddingBottom: 40,
   },
   modal: {
     backgroundColor: "#FFFFFF",
@@ -301,18 +302,13 @@ const styles = StyleSheet.create({
   },
   closeButtonInline: {
     alignSelf: "center",
-    marginTop: 16,
+    marginTop: 14,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F4F4F4",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
   },
   disabled: { opacity: 0.62 },
 });
