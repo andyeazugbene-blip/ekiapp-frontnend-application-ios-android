@@ -322,10 +322,50 @@ export default function VendorSettingsScreen() {
             onPress={() => router.push("/(vendor)/notifications" as any)}
           />
           <SettingRow
-            icon="document-text-outline"
-            label="Terms, Privacy & Support"
-            description="Open app policies, support, and how Eki works"
+            icon="help-circle-outline"
+            label="How Eki Works"
+            description="A guide to buying, selling, and order tracking"
             onPress={() => router.push("/how-eki-works" as any)}
+          />
+          <SettingRow
+            icon="document-text-outline"
+            label="Terms & Conditions"
+            onPress={() => router.push("/terms" as any)}
+          />
+          <SettingRow
+            icon="shield-checkmark-outline"
+            label="Privacy Policy"
+            onPress={() => router.push("/privacy" as any)}
+          />
+          <SettingRow
+            icon="briefcase-outline"
+            label="Vendor Agreement"
+            onPress={() => router.push("/vendor-agreement" as any)}
+          />
+          <SettingRow
+            icon="card-outline"
+            label="Refund & Cancellation"
+            onPress={() => router.push("/refund-policy" as any)}
+          />
+          <SettingRow
+            icon="receipt-outline"
+            label="Subscription & Billing"
+            onPress={() => router.push("/subscription-policy" as any)}
+          />
+          <SettingRow
+            icon="finger-print-outline"
+            label="Cookie Policy"
+            onPress={() => router.push("/cookie-policy" as any)}
+          />
+          <SettingRow
+            icon="checkmark-circle-outline"
+            label="Acceptable Use"
+            onPress={() => router.push("/acceptable-use" as any)}
+          />
+          <SettingRow
+            icon="chatbox-ellipses-outline"
+            label="Help & Support"
+            onPress={() => router.push("/support" as any)}
           />
           <SettingRow
             icon="trash-outline"

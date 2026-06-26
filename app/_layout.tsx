@@ -186,6 +186,11 @@ export default function RootLayout() {
             <Stack.Screen name="privacy" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="support" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="how-eki-works" options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="refund-policy" options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="cookie-policy" options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="subscription-policy" options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="acceptable-use" options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="vendor-agreement" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="vendor/subscription" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="(vendor-onboarding)" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="(vendor-verification)" options={{ animation: "slide_from_right" }} />

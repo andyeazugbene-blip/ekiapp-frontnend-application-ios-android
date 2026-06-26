@@ -100,7 +100,11 @@ export default function ProfileScreen() {
     { icon: "mail-outline", label: "Email support", action: "external", target: `mailto:${SUPPORT_EMAIL}` },
     { icon: "help-circle-outline", label: "How Eki Works", action: "navigate", target: "/how-eki-works" },
     { icon: "shield-checkmark-outline", label: "Privacy Policy", action: "navigate", target: "/privacy" },
-    { icon: "document-text-outline", label: "Terms of Service", action: "navigate", target: "/terms" },
+    { icon: "document-text-outline", label: "Terms & Conditions", action: "navigate", target: "/terms" },
+    { icon: "card-outline", label: "Refund & Cancellation", action: "navigate", target: "/refund-policy" },
+    { icon: "receipt-outline", label: "Subscription & Billing", action: "navigate", target: "/subscription-policy" },
+    { icon: "finger-print-outline", label: "Cookie Policy", action: "navigate", target: "/cookie-policy" },
+    { icon: "checkmark-circle-outline", label: "Acceptable Use", action: "navigate", target: "/acceptable-use" },
     { icon: "chatbox-ellipses-outline", label: "Help & Support", action: "navigate", target: "/support" },
     { icon: "trash-outline", label: "Delete Account", action: "navigate", target: "/account-deletion" },
   ];

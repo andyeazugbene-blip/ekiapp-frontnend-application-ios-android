@@ -1,0 +1,31 @@
+import React from "react";
+import { LegalPage } from "./terms";
+
+export default function RefundPolicyScreen() {
+  return (
+    <LegalPage
+      title="Refund & Cancellation Policy"
+      subtitle="This Refund & Cancellation Policy explains how refunds, cancellations, subscriptions, disputes, and payment-related matters are handled on the Eki platform."
+      canonicalUrl="https://culinarytales.app/refund-policy"
+      sections={[
+        ["1. About Eki", "Eki is a technology platform operated by Ehimare Co, 5 Marriott Street, Coundon, Coventry, CV6 1BB, United Kingdom.\n\nEki helps African foodstuff and ingredient vendors manage products, customers, orders, and business operations.\n\nEki is not the seller of products listed on the platform. Transactions occur between buyers and vendors."],
+        ["2. Subscription Cancellation", "Vendors may cancel their subscription at any time through their Eki account.\n\nUpon cancellation:\n• The subscription remains active until the end of the current billing period.\n• No further subscription charges will be made.\n• Access to premium features may end when the billing period expires.\n\nCancelling a subscription does not automatically generate a refund."],
+        ["3. Subscription Refunds", "Subscription fees are generally non-refundable.\n\nRefunds may only be issued:\n• Where required by law.\n• In cases of duplicate billing.\n• In cases of proven billing errors.\n• At Eki's sole discretion.\n\nNo refunds are provided for unused subscription periods, partial months, failure to use the platform, business performance expectations, or lack of sales or customers."],
+        ["4. Vendor Product Refunds", "Vendors are responsible for determining their own product refund policies, subject to applicable consumer protection laws.\n\nBuyers should review vendor policies before purchasing.\n\nEki does not guarantee that refunds will be granted by vendors."],
+        ["5. Buyer Order Cancellations", "Buyers may request cancellation before an order has been marked as dispatched by the vendor.\n\nIf the vendor approves the cancellation:\n• The order will be cancelled.\n• Eligible payments may be refunded.\n\nOnce an order has been marked as dispatched, cancellation may not be possible."],
+        ["6. Africa-Based Vendor Transactions", "For certain Africa-based vendor transactions, Eki may operate a payment protection process.\n\nWhere payment protection applies:\n• Buyer funds may be temporarily held.\n• Funds may remain pending until delivery confirmation.\n• Funds may remain pending until successful OTP verification.\n• Funds may be released automatically according to platform rules."],
+        ["7. OTP Delivery Confirmation", "For orders using OTP delivery verification:\n• A unique OTP may be generated for the order.\n• The OTP serves as proof of delivery confirmation.\n• Entry of a valid OTP may trigger payment release.\n\nOnce a valid OTP has been entered:\n• The order may be treated as successfully delivered.\n• Funds may be released to the vendor.\n• Refund requests may be denied unless fraud or exceptional circumstances are proven."],
+        ["8. Non-Delivery Claims", "Where a buyer claims an order was not received, Eki may review delivery status information, OTP verification records, order activity logs, communication history, and supporting evidence provided by both parties.\n\nEki may request additional information before making a determination."],
+        ["9. Fraudulent Claims", "Users must not submit false refund requests, submit false non-delivery claims, manipulate OTP verification, or misrepresent transaction facts.\n\nFraudulent activity may result in account suspension, account termination, restriction of platform access, or referral to relevant authorities where appropriate."],
+        ["10. Failed Deliveries", "Where delivery fails due to incorrect address information, buyer unavailability, or failure to provide necessary delivery information, the vendor may be entitled to payment for reasonable costs incurred.\n\nResolution will depend on the specific circumstances."],
+        ["11. Platform Service Fees", "Platform fees, transaction fees, and payment processing fees may not be refundable once services have been provided.\n\nWhere refunds are issued, applicable processing costs may be deducted where permitted by law."],
+        ["12. Chargebacks", "Buyers must contact Eki support before initiating a payment chargeback.\n\nWhere a chargeback is initiated:\n• Eki may temporarily restrict the relevant account.\n• The transaction may be investigated.\n• Supporting evidence may be submitted by all parties.\n\nRepeated abusive chargebacks may result in account suspension."],
+        ["13. Dispute Resolution", "Where disputes arise between buyers and vendors, Eki may request evidence from both parties, review platform records, review messaging history, and review OTP records where applicable.\n\nEki may facilitate communication between parties but does not guarantee a particular outcome.\n\nEki reserves the right to make final platform decisions regarding access, account standing, and payment protection features."],
+        ["14. Time Limits", "Refund and dispute requests should be submitted as soon as possible.\n\nEki may decline requests submitted after unreasonable delays where evidence can no longer be reliably verified."],
+        ["15. Limitation Of Liability", "To the maximum extent permitted by law, Eki shall not be liable for product quality issues, shipping delays, delivery failures caused by third parties, vendor conduct, buyer conduct, loss of profits, or indirect or consequential losses."],
+        ["16. Changes To This Policy", "Eki may update this Refund & Cancellation Policy from time to time. Updated versions become effective when published on the platform.\n\nContinued use of Eki constitutes acceptance of any revised Policy."],
+        ["17. Governing Law", "This Policy shall be governed by and interpreted in accordance with the laws of England and Wales. Any disputes shall be subject to the exclusive jurisdiction of the courts of England and Wales.\n\nContact: Ehimare Co\nEmail: info@culinarytales.app"],
+      ]}
+    />
+  );
+}
