@@ -23,12 +23,8 @@ export default function VerificationIntroScreen() {
     vendorService.getStripeVerificationStatus()
       .then((status) => {
         const vs = status.verificationStatus?.toLowerCase();
-        if (vs === "verified") {
-          router.replace("/(vendor-verification)/approved" as any);
-        } else if (vs === "rejected") {
+        if (vs === "rejected") {
           router.replace("/(vendor-verification)/rejected" as any);
-        } else if (vs === "pending" && status.stripeVerificationSessionId) {
-          router.replace("/(vendor-verification)/pending" as any);
         }
       })
       .catch(() => {})
@@ -39,20 +35,6 @@ export default function VerificationIntroScreen() {
     if (checking) return;
     setChecking(true);
     try {
-      const status = await vendorService.getStripeVerificationStatus();
-      const vs = status.verificationStatus?.toLowerCase();
-      if (vs === "verified") {
-        router.replace("/(vendor-verification)/approved" as any);
-        return;
-      }
-      if (vs === "rejected") {
-        router.replace("/(vendor-verification)/rejected" as any);
-        return;
-      }
-      if (vs === "pending" && status.stripeVerificationSessionId) {
-        router.replace("/(vendor-verification)/pending" as any);
-        return;
-      }
       const session = await vendorService.createStripeVerificationSession();
       await Linking.openURL(session.url);
       router.replace("/(vendor-verification)/pending" as any);

@@ -1,11 +1,26 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { vendorService } from "../../services/vendorService";
 
 export default function VerificationPendingScreen() {
   const router = useRouter();
+  const [retrying, setRetrying] = useState(false);
+
+  const onVerifyAgain = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      const session = await vendorService.createStripeVerificationSession();
+      await Linking.openURL(session.url);
+    } catch (err: any) {
+      Alert.alert("Verification Error", err?.message ?? "Could not start verification. Please try again.");
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -23,15 +38,28 @@ export default function VerificationPendingScreen() {
 
           <Text style={styles.title}>Verification Submitted</Text>
           <Text style={styles.body}>
-            You've already sent your verification for submission. We're reviewing your details and will notify you as soon as your account is approved.
+            We're reviewing your details and will notify you as soon as your account is approved. If verification didn't complete, you can try again below.
           </Text>
 
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[styles.primaryButton, retrying && { opacity: 0.55 }]}
+            onPress={onVerifyAgain}
+            activeOpacity={0.8}
+            disabled={retrying}
+          >
+            {retrying ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.primaryButtonText}>Verify Again</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryButton}
             onPress={() => router.replace("/(vendor)" as any)}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryButtonText}>Go to Dashboard</Text>
+            <Text style={styles.secondaryButtonText}>Go to Dashboard</Text>
           </TouchableOpacity>
         </View>
 
@@ -108,11 +136,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#076B51",
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 12,
   },
   primaryButtonText: {
     fontSize: 15,
     fontFamily: "Manrope-SemiBold",
     color: "#FFFFFF",
+  },
+  secondaryButton: {
+    width: "100%",
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#076B51",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    fontFamily: "Manrope-SemiBold",
+    color: "#076B51",
   },
   closeButton: {
     marginTop: 20,

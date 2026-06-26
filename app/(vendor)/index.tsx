@@ -274,6 +274,14 @@ export default function VendorDashboardScreen() {
         ? `Orders remaining: ${planOrdersRemaining.toLocaleString("en-US")}`
         : null;
 
+  const planMaxOrders = limits?.maxOrders ?? null;
+  const planUsageRatio = planMaxOrders != null && planMaxOrders > 0 && planOrdersRemaining != null
+    ? planOrdersRemaining / planMaxOrders
+    : 1;
+  const planDegraded = planUsageRatio <= 0;
+  const planWarning = planUsageRatio > 0 && planUsageRatio <= 0.25;
+  const planCardBg = planDegraded ? "#991B1B" : planWarning ? "#92400E" : "#076B51";
+
   const dashboardSurfaceStyle = {
     transform: [
       {
@@ -660,28 +668,34 @@ export default function VendorDashboardScreen() {
             </View>
 
             {/* ── Plan card ────────────────────────────────────────────── */}
-            <View style={styles.planCard}>
+            <View style={[styles.planCard, { backgroundColor: planCardBg }]}>
               <View style={styles.planHeaderRow}>
-                <Text style={styles.planTitle}>
-                  {subscriptionPlan === "free"
-                    ? "Free Plan"
-                    : subscriptionPlan === "growth"
-                      ? "Growth Plan"
-                      : "Pro Plan"}
-                </Text>
+                <View>
+                  <Text style={styles.planTitle}>
+                    {subscriptionPlan === "free"
+                      ? "Free Plan"
+                      : subscriptionPlan === "growth"
+                        ? "Growth Plan"
+                        : "Pro Plan"}
+                  </Text>
+                  {planOrdersText ? (
+                    <Text style={styles.planSub}>{planOrdersText}</Text>
+                  ) : null}
+                </View>
                 <TouchableOpacity
                   activeOpacity={0.85}
                   onPress={() => navigate("/(vendor)/subscription-plans")}
-                  style={styles.planClose}
+                  style={styles.planIconBtn}
                 >
-                  <Ionicons name="briefcase" size={14} color="#FFFFFF" />
+                  <Ionicons name="briefcase" size={16} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
-              {planOrdersText ? (
-                <Text style={styles.planSub}>{planOrdersText}</Text>
-              ) : null}
               <Text style={styles.planBody}>
-                Keep receiving new orders and unlock powerful growth tools for your store.
+                {planDegraded
+                  ? "You have reached your order limit. View plans to keep receiving orders."
+                  : planWarning
+                    ? "You're running low on orders. View plans to keep your store running."
+                    : "Keep receiving new orders and unlock powerful growth tools for your store."}
               </Text>
               <TouchableOpacity
                 activeOpacity={0.86}
@@ -1296,12 +1310,12 @@ const styles = StyleSheet.create({
   deliveryBadgeText: { color: "#076B51", fontSize: 11, fontFamily: "Manrope-Bold" },
 
   // ── Plan card ────────────────────────────────────────────────────────
-  planCard: { backgroundColor: "#076B51", borderRadius: 20, padding: 18 },
-  planHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  planTitle: { color: "#FFFFFF", fontSize: 15, fontFamily: "Manrope-Bold" },
-  planClose: { width: 24, height: 24, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
-  planSub: { color: "rgba(255,255,255,0.7)", fontSize: 11, fontFamily: "Outfit-Regular", marginTop: 6 },
-  planBody: { color: "rgba(255,255,255,0.65)", fontSize: 11, fontFamily: "Outfit-Regular", lineHeight: 16, marginTop: 8, marginBottom: 14 },
-  upgradeBtn: { height: 44, borderRadius: 12, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
-  upgradeText: { color: "#076B51", fontSize: 13, fontFamily: "Manrope-SemiBold" },
+  planCard: { backgroundColor: "#076B51", borderRadius: 20, padding: 20, paddingTop: 22, paddingBottom: 20 },
+  planHeaderRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  planTitle: { color: "#FFFFFF", fontSize: 20, fontFamily: "Manrope-Bold", fontStyle: "italic" },
+  planIconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  planSub: { color: "rgba(255,255,255,0.8)", fontSize: 13, fontFamily: "Outfit-Regular", marginTop: 4 },
+  planBody: { color: "rgba(255,255,255,0.7)", fontSize: 12.5, fontFamily: "Outfit-Regular", lineHeight: 18, marginTop: 14, marginBottom: 18 },
+  upgradeBtn: { height: 48, borderRadius: 14, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
+  upgradeText: { color: "#076B51", fontSize: 14, fontFamily: "Manrope-SemiBold" },
 });
