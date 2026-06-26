@@ -164,6 +164,7 @@ function normalizeVendor(raw: any): VendorSummary {
     avatar: raw?.avatar ? toText(raw.avatar) : undefined,
     verificationStatus: verificationStatus as VendorSummary["verificationStatus"],
     adminStatus: suspended ? "suspended" : verificationStatus === "verified" ? "active" : "pending",
+    currency: raw?.currency ? toText(raw.currency).toUpperCase() : undefined,
     subscriptionPlan: (raw?.subscriptionPlan ?? "free").toString().toLowerCase(),
     description: raw?.description ? toText(raw.description) : undefined,
     businessType: raw?.businessType ? toText(raw.businessType) : undefined,

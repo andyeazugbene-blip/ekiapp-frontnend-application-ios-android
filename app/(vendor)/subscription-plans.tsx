@@ -121,12 +121,27 @@ export default function SubscriptionPlansScreen() {
                 <Text style={styles.feeBannerLabel}>only when you sell</Text>
               </View>
 
+              <View style={styles.noSalesPill}>
+                <Text style={styles.noSalesLabel}>No sales?</Text>
+                <Text style={styles.noSalesValue}>No transaction fee.</Text>
+              </View>
+
               {timeLeft ? (
                 <View style={styles.timeLeftPill}>
                   <Ionicons name="time-outline" size={14} color="#076B51" />
                   <Text style={styles.timeLeftText}>{timeLeft}</Text>
                 </View>
               ) : null}
+            </View>
+
+            <View style={styles.statusCard}>
+              <Text style={styles.sectionTitle}>Why this pays for itself</Text>
+              <Text style={styles.statusBody}>
+                One repeat buyer can cover your monthly plan.
+              </Text>
+              <Text style={styles.payoffHighlight}>
+                Bring back old buyers before they buy elsewhere.
+              </Text>
             </View>
 
             <View style={styles.statusCard}>
@@ -191,11 +206,11 @@ export default function SubscriptionPlansScreen() {
               <LimitRow icon="flash-outline" label="Flash sales" value={limits?.flashSales ? "Available" : "Not available"} />
             </View>
 
-            <View style={styles.statusCard}>
-              <Text style={styles.sectionTitle}>Plan changes</Text>
-              <Text style={styles.statusBody}>
-                Plans are assigned by the Eki team. Contact support to discuss moving to a different plan — no payment is taken in the app.
-              </Text>
+            <View style={styles.upgradeReasonCard}>
+              <Text style={styles.sectionTitle}>Why vendors grow</Text>
+              <UpgradeReasonRow label="More repeat customers" />
+              <UpgradeReasonRow label="Less WhatsApp chaos" />
+              <UpgradeReasonRow label="A more professional foodstuff business" />
             </View>
 
             {message ? <Text style={styles.messageText}>{message}</Text> : null}
@@ -205,16 +220,25 @@ export default function SubscriptionPlansScreen() {
 
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          onPress={() => loadPlanStatus(true)}
+          onPress={() => goBackOrReplace(router, "/(vendor)" as any)}
           activeOpacity={0.85}
-          style={[styles.refreshButton, refreshing && { opacity: 0.6 }]}
-          disabled={refreshing}
+          style={styles.refreshButton}
         >
-          {refreshing ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
-          <Text style={styles.refreshButtonText}>Refresh plan status</Text>
+          <Text style={styles.refreshButtonText}>Continue Growing My Business</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
+  );
+}
+
+function UpgradeReasonRow({ label }: { label: string }) {
+  return (
+    <View style={styles.upgradeReasonRow}>
+      <View style={styles.upgradeReasonCheck}>
+        <Ionicons name="checkmark" size={14} color="#076B51" />
+      </View>
+      <Text style={styles.upgradeReasonLabel}>{label}</Text>
+    </View>
   );
 }
 
@@ -276,6 +300,14 @@ const styles = StyleSheet.create({
   limitLabel: { flex: 1, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
   limitValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#1A1A1A", flexShrink: 1, textAlign: "right" },
   bottomBar: { paddingHorizontal: 16, paddingVertical: 12 },
+  noSalesPill: { marginTop: 12, flexDirection: "row", alignItems: "center", gap: 10, alignSelf: "flex-start", backgroundColor: "#F6F8F7", borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#E8E8E8" },
+  noSalesLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585" },
+  noSalesValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  payoffHighlight: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#076B51", marginTop: 8, lineHeight: 22 },
+  upgradeReasonCard: { backgroundColor: "#F6FBF8", borderRadius: 18, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: "#D9EDE0" },
+  upgradeReasonRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 5 },
+  upgradeReasonCheck: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#E8F4ED", alignItems: "center", justifyContent: "center" },
+  upgradeReasonLabel: { flex: 1, fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   refreshButton: { height: 56, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
   refreshButtonText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
 });

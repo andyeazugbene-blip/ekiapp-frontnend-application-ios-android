@@ -23,7 +23,12 @@ import { productService } from "../../services/productService";
 import { uploadService } from "../../services/uploadService";
 import { ApiRequestError } from "../../services/api";
 import { deliveryService } from "../../services/deliveryService";
+import { vendorService } from "../../services/vendorService";
 import { goBackOrReplace } from "../../utils/navigation";
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  GBP: "£", USD: "$", EUR: "€", NGN: "₦", CAD: "C$", AUD: "A$",
+};
 
 
 const UNITS = ["kg", "g", "lb", "oz", "pack", "bunch", "piece", "litre", "ml"];
@@ -57,11 +62,15 @@ export default function FoodstuffAddScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [hasDelivery, setHasDelivery] = useState(false);
+  const [vendorCurrency, setVendorCurrency] = useState("GBP");
 
   useEffect(() => {
     deliveryService.listZones()
       .then((zones) => setHasDelivery((zones ?? []).length > 0))
       .catch(() => setHasDelivery(false));
+    vendorService.getMyProfile()
+      .then((p) => { if (p?.currency) setVendorCurrency(p.currency); })
+      .catch(() => {});
   }, []);
 
 
@@ -121,7 +130,7 @@ export default function FoodstuffAddScreen() {
         description: description.trim(),
         price: parsedPrice,
         costPrice: parsedCostPrice,
-        currency: "GBP",
+        currency: vendorCurrency as Product["currency"],
         images: imageRemoteUrl ? [imageRemoteUrl] : [],
         category: category || "General",
         vendorId: vendor.id,
@@ -198,7 +207,7 @@ export default function FoodstuffAddScreen() {
         description: description.trim(),
         price: parsedPrice,
         costPrice: parsedCostPrice,
-        currency: "GBP",
+        currency: vendorCurrency as Product["currency"],
         images: imageRemoteUrl ? [imageRemoteUrl] : [],
         category: category || "General",
         vendorId: vendor.id,
@@ -345,8 +354,13 @@ export default function FoodstuffAddScreen() {
             <Text style={styles.sectionTitle}>Pricing and weight</Text>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Price</Text>
-              <TextInput value={price} onChangeText={setPrice} placeholder="£10" placeholderTextColor="#858585" keyboardType="decimal-pad" style={styles.input} />
+              <Text style={styles.fieldLabel}>Price ({vendorCurrency})</Text>
+              <View style={styles.currencyInputRow}>
+                <View style={styles.currencyBadge}>
+                  <Text style={styles.currencyBadgeText}>{CURRENCY_SYMBOLS[vendorCurrency] ?? vendorCurrency}</Text>
+                </View>
+                <TextInput value={price} onChangeText={setPrice} placeholder="0.00" placeholderTextColor="#858585" keyboardType="decimal-pad" style={[styles.input, { flex: 1 }]} />
+              </View>
             </View>
 
             <View style={styles.fieldGroup}>
@@ -679,6 +693,24 @@ const styles = StyleSheet.create({
   },
   checklistTextDone: {
     color: "#076B51",
+  },
+  currencyInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  currencyBadge: {
+    height: 55,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: "#076B51",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  currencyBadgeText: {
+    fontSize: 16,
+    fontFamily: "Manrope-Bold",
+    color: "#FFFFFF",
   },
   inputWarning: {
     fontSize: 12,

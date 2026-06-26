@@ -123,7 +123,7 @@ export default function AddProductScreen() {
         description: description.trim(),
         price: parsedPrice,
         costPrice: parsedCostPrice,
-        currency: "GBP",
+        currency: (vendor.currency ?? "GBP") as Product["currency"],
         images: imageRemoteUrl ? [imageRemoteUrl] : [],
         category: category || "General",
         vendorId: vendor.id,

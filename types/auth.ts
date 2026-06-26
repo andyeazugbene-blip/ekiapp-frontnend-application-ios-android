@@ -35,6 +35,7 @@ export interface VendorProfile extends User {
   totalReviews: number;
   joinedAt: string;
   coverImage?: string;
+  currency?: string;
 }
 
 export interface AdminProfile extends User {

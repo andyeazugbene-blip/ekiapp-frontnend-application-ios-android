@@ -335,7 +335,7 @@ export default function VendorDashboardScreen() {
                 onPress={() => navigate("/(vendor)/notifications")}
                 style={styles.headerIconPillAccent}
               >
-                <Ionicons name="notifications" size={18} color="#E85D5D" />
+                <Ionicons name="notifications" size={18} color="#FFFFFF" />
                 {unreadMessages > 0 || alertUnreadMessages > 0 ? (
                   <View style={styles.headerIconBadge} />
                 ) : null}
@@ -674,14 +674,14 @@ export default function VendorDashboardScreen() {
                   onPress={() => navigate("/(vendor)/subscription-plans")}
                   style={styles.planClose}
                 >
-                  <Ionicons name="ribbon" size={14} color="#FFFFFF" />
+                  <Ionicons name="briefcase" size={14} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
               {planOrdersText ? (
                 <Text style={styles.planSub}>{planOrdersText}</Text>
               ) : null}
               <Text style={styles.planBody}>
-                Upgrade to keep receiving new orders and unlock powerful growth tools for your store.
+                Keep receiving new orders and unlock powerful growth tools for your store.
               </Text>
               <TouchableOpacity
                 activeOpacity={0.86}

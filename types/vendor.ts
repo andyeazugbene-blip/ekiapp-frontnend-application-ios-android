@@ -20,6 +20,7 @@ export interface VendorSummary {
   avatar?: string;
   verificationStatus: VendorVerificationStatus;
   adminStatus: VendorAdminStatus;
+  currency?: string;
   subscriptionPlan: "free" | "growth" | "pro";
   description?: string;
   businessType?: "individual" | "registered";
