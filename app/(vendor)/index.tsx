@@ -670,7 +670,7 @@ export default function VendorDashboardScreen() {
             {/* ── Plan card ────────────────────────────────────────────── */}
             <View style={[styles.planCard, { backgroundColor: planCardBg }]}>
               <View style={styles.planHeaderRow}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.planTitle}>
                     {subscriptionPlan === "free"
                       ? "Free Plan"
@@ -695,15 +695,16 @@ export default function VendorDashboardScreen() {
                   ? "You have reached your order limit. View plans to keep receiving orders."
                   : planWarning
                     ? "You're running low on orders. View plans to keep your store running."
-                    : "Keep receiving new orders and unlock powerful growth tools for your store."}
+                    : "To keep receiving new orders and unlock powerful growth tools for your store."}
               </Text>
+              <View style={styles.planDivider} />
               <TouchableOpacity
                 activeOpacity={0.86}
                 onPress={() => navigate("/(vendor)/subscription-plans")}
                 style={styles.upgradeBtn}
               >
                 <Text style={styles.upgradeText}>View Plans</Text>
-                <Ionicons name={"arrow-forward" as any} size={14} color="#076B51" style={{ transform: [{ rotate: "-45deg" }] }} />
+                <Ionicons name={"arrow-forward" as any} size={15} color="#076B51" style={{ transform: [{ rotate: "-45deg" }] }} />
               </TouchableOpacity>
             </View>
           </>
@@ -1310,12 +1311,13 @@ const styles = StyleSheet.create({
   deliveryBadgeText: { color: "#076B51", fontSize: 11, fontFamily: "Manrope-Bold" },
 
   // ── Plan card ────────────────────────────────────────────────────────
-  planCard: { backgroundColor: "#076B51", borderRadius: 20, padding: 20, paddingTop: 22, paddingBottom: 20 },
-  planHeaderRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
-  planTitle: { color: "#FFFFFF", fontSize: 20, fontFamily: "Manrope-Bold", fontStyle: "italic" },
-  planIconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
-  planSub: { color: "rgba(255,255,255,0.8)", fontSize: 13, fontFamily: "Outfit-Regular", marginTop: 4 },
-  planBody: { color: "rgba(255,255,255,0.7)", fontSize: 12.5, fontFamily: "Outfit-Regular", lineHeight: 18, marginTop: 14, marginBottom: 18 },
-  upgradeBtn: { height: 48, borderRadius: 14, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
-  upgradeText: { color: "#076B51", fontSize: 14, fontFamily: "Manrope-SemiBold" },
+  planCard: { backgroundColor: "#076B51", borderRadius: 24, padding: 24 },
+  planHeaderRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
+  planTitle: { color: "#FFFFFF", fontSize: 22, fontFamily: "Manrope-Bold", fontStyle: "italic" },
+  planIconBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  planSub: { color: "rgba(255,255,255,0.85)", fontSize: 14, fontFamily: "Outfit-Regular", marginTop: 5 },
+  planBody: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontFamily: "Outfit-Regular", lineHeight: 19, marginTop: 16 },
+  planDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.15)", marginTop: 18, marginBottom: 18 },
+  upgradeBtn: { height: 50, borderRadius: 14, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 10 },
+  upgradeText: { color: "#076B51", fontSize: 15, fontFamily: "Manrope-SemiBold" },
 });
