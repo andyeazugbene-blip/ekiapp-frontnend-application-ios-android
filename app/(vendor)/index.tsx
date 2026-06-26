@@ -270,9 +270,11 @@ export default function VendorDashboardScreen() {
   const planOrdersText =
     limits?.maxOrders === null
       ? "Unlimited orders"
-      : planOrdersRemaining != null
-        ? `Orders remaining: ${planOrdersRemaining.toLocaleString("en-US")}`
-        : null;
+      : planOrdersRemaining != null && planMaxOrders != null
+        ? `${planOrdersRemaining} of ${planMaxOrders} orders remaining`
+        : planOrdersRemaining != null
+          ? `${planOrdersRemaining} orders remaining`
+          : null;
 
   const planMaxOrders = limits?.maxOrders ?? null;
   const planUsageRatio = planMaxOrders != null && planMaxOrders > 0 && planOrdersRemaining != null
@@ -703,8 +705,8 @@ export default function VendorDashboardScreen() {
                 onPress={() => navigate("/(vendor)/subscription-plans")}
                 style={styles.upgradeBtn}
               >
-                <Text style={styles.upgradeText}>View Plans</Text>
-                <Ionicons name={"arrow-forward" as any} size={15} color="#076B51" style={{ transform: [{ rotate: "-45deg" }] }} />
+                <Text style={[styles.upgradeText, { color: planCardBg }]}>View Plans</Text>
+                <Ionicons name={"arrow-forward" as any} size={15} color={planCardBg} style={{ transform: [{ rotate: "-45deg" }] }} />
               </TouchableOpacity>
             </View>
           </>

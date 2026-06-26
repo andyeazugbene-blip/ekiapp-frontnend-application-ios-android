@@ -144,8 +144,8 @@ export default function OtpScreen() {
         bounces={false}
       >
         <View style={styles.modal}>
-          <Text style={styles.modalTitle}>Confirm Your Phone Or Email</Text>
-          <Text style={styles.modalSubtitle}>We sent you a code to confirm your account</Text>
+          <Text style={styles.modalTitle}>Confirm Your Email</Text>
+          <Text style={styles.modalSubtitle}>We sent a code to your email to confirm your account</Text>
 
           <TextInput
             autoFocus
@@ -179,7 +179,7 @@ export default function OtpScreen() {
           </TouchableOpacity>
 
           <Text style={styles.editText}>
-            Wrong number or email?{" "}
+            Wrong email?{" "}
             <Text onPress={() => router.back()} style={styles.editLink}>
               Edit details
             </Text>
