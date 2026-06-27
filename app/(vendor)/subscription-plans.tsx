@@ -1,98 +1,68 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  subscriptionService,
-  type ActiveSubscription,
-  type SubscriptionLimits,
-  type SubscriptionPlan,
-} from "../../services/subscriptionService";
+import { vendorService } from "../../services/vendorService";
 import { goBackOrReplace } from "../../utils/navigation";
 
-interface StructuredFeature {
-  title: string;
-  description: string;
+const BUSINESS_PORTAL_URL = "https://culinarytales.app/business-portal";
+
+type VendorAccount = Awaited<ReturnType<typeof vendorService.getVendorAccount>>;
+
+function statusColor(status: string): string {
+  switch (status) {
+    case "active":
+    case "open":
+    case "verified":
+      return "#076B51";
+    case "pending":
+    case "pending_docs":
+    case "under_review":
+    case "setup":
+      return "#D97706";
+    case "suspended":
+    case "rejected":
+    case "closed":
+    case "inactive":
+      return "#FB6363";
+    default:
+      return "#858585";
+  }
 }
 
-const GROWTH_FEATURES: StructuredFeature[] = [
-  { title: "Unlimited Products", description: "List all your foodstuff without limits." },
-  { title: "Unlimited Orders", description: "Keep selling without restrictions." },
-  { title: "Customer Database", description: "Know exactly who bought from you and when." },
-  { title: "Repeat Buyer Marketing", description: "Bring previous customers back before they buy elsewhere." },
-  { title: "Sales Analytics", description: "Track revenue, repeat buyers and best-selling foodstuff." },
-  { title: "Flash Sales", description: "Create urgency and sell more stock quickly." },
-  { title: "Product Bundles", description: "Increase average order value with product bundles." },
-  { title: "Professional Storefront", description: "Give customers a professional place to order and buy." },
-  { title: "Order Management", description: "Manage products, orders and customers from one place." },
-  { title: "Store Link Sharing", description: "Share your store on WhatsApp, Instagram, Facebook" },
-];
-
-const FREE_FEATURES: StructuredFeature[] = [
-  { title: "Limited Products", description: "List a set number of products to get started." },
-  { title: "Limited Orders", description: "Receive a set number of orders per month." },
-  { title: "Basic Dashboard", description: "View your orders and manage your store." },
-  { title: "Store Link Sharing", description: "Share your store on WhatsApp, Instagram, Facebook" },
-];
-
-const PRO_FEATURES: StructuredFeature[] = [
-  ...GROWTH_FEATURES,
-  { title: "Priority Support", description: "Get faster help when you need it." },
-  { title: "Advanced Analytics", description: "Deeper insights into your business performance." },
-];
-
-function getFeaturesForPlan(slug: string): StructuredFeature[] {
-  if (slug === "growth") return GROWTH_FEATURES;
-  if (slug === "pro" || slug === "premium") return PRO_FEATURES;
-  return FREE_FEATURES;
+function statusLabel(status: string): string {
+  return status
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatTimeLeft(currentPeriodEnd: string): string | null {
-  if (!currentPeriodEnd) return null;
-  const end = new Date(currentPeriodEnd).getTime();
-  if (Number.isNaN(end)) return null;
-  const diffMs = end - Date.now();
-  if (diffMs <= 0) return "Expired";
-  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (days >= 1) return `${days} day${days === 1 ? "" : "s"} left`;
-  const hours = Math.floor(diffMs / (1000 * 60 * 60));
-  if (hours >= 1) return `${hours} hour${hours === 1 ? "" : "s"} left`;
-  const minutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
-  return `${minutes} min left`;
+function formatLimit(value: number | null): string {
+  if (value === null || value === -1) return "Unlimited";
+  return String(value);
 }
 
-function formatCurrencySymbol(currency: string): string {
-  if (currency === "GBP") return "£";
-  if (currency === "USD") return "$";
-  if (currency === "EUR") return "€";
-  if (currency === "NGN") return "₦";
-  return currency + " ";
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
-export default function SubscriptionPlansScreen() {
+export default function VendorAccountScreen() {
   const router = useRouter();
-  const [subscription, setSubscription] = useState<ActiveSubscription | null>(null);
-  const [limits, setLimits] = useState<SubscriptionLimits | null>(null);
-  const [currentPlanDetails, setCurrentPlanDetails] = useState<SubscriptionPlan | null>(null);
+  const [account, setAccount] = useState<VendorAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadPlanStatus = useCallback(async () => {
+  const loadAccount = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [current, currentLimits, allPlans] = await Promise.all([
-        subscriptionService.getCurrentSubscription(),
-        subscriptionService.getLimits(),
-        subscriptionService.getPlans(),
-      ]);
-      setSubscription(current);
-      setLimits(currentLimits);
-      const matched = allPlans.find((plan) => plan.slug === current?.slug) ?? null;
-      setCurrentPlanDetails(matched);
+      const data = await vendorService.getVendorAccount();
+      setAccount(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load plan status.");
+      setError(err instanceof Error ? err.message : "Could not load vendor account.");
     } finally {
       setLoading(false);
     }
@@ -100,31 +70,23 @@ export default function SubscriptionPlansScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadPlanStatus();
-    }, [loadPlanStatus])
+      loadAccount();
+    }, [loadAccount])
   );
 
-  const isActive = subscription?.status === "active";
-  const planSlug = currentPlanDetails?.slug ?? subscription?.slug ?? "free";
-  const planName = currentPlanDetails?.name ?? subscription?.planName ?? "Free";
-  const displayName = planSlug === "free" ? "Free" : planSlug === "growth" ? "Eki Growth" : planSlug === "pro" ? "Eki Pro" : planName;
-  const currency = currentPlanDetails?.currency ?? "GBP";
-  const currencySymbol = formatCurrencySymbol(currency);
-  const price = currentPlanDetails?.price ?? 0;
-  const feePercent = limits?.platformFeePercent ?? subscription?.platformFeePercent ?? "—";
-  const timeLeft = subscription ? formatTimeLeft(subscription.currentPeriodEnd) : null;
-  const structuredFeatures = getFeaturesForPlan(planSlug);
+  const openBusinessPortal = () => {
+    Linking.openURL(BUSINESS_PORTAL_URL);
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
           <Ionicons name="chevron-back" size={22} color="#282828" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Seller Plan</Text>
-          <Text style={styles.headerSubtitle}>Growth tools, success fee and plan details</Text>
+          <Text style={styles.headerTitle}>Vendor Account</Text>
+          <Text style={styles.headerSubtitle}>Account status, limits, and business details</Text>
         </View>
       </View>
 
@@ -135,110 +97,151 @@ export default function SubscriptionPlansScreen() {
           </View>
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
-        ) : (
+        ) : account ? (
           <>
-            {/* ── Pricing Card ──────────────────────────────────── */}
-            <View style={styles.pricingCard}>
-              <Text style={styles.cardLabel}>PRICING CARD</Text>
+            {/* ── Status Overview ──────────────────────────────── */}
+            <View style={styles.statusCard}>
+              <Text style={styles.cardLabel}>ACCOUNT OVERVIEW</Text>
+              <View style={styles.statusGrid}>
+                <StatusTile label="Vendor Status" value={statusLabel(account.vendorStatus)} color={statusColor(account.vendorStatus)} />
+                <StatusTile label="Store Status" value={statusLabel(account.storeStatus)} color={statusColor(account.storeStatus)} />
+                <StatusTile label="Verification" value={statusLabel(account.verificationStatus)} color={statusColor(account.verificationStatus)} />
+                <StatusTile label="Account Status" value={statusLabel(account.accountStatus)} color={statusColor(account.accountStatus)} />
+              </View>
+            </View>
 
-              <View style={styles.titleRow}>
-                <Text style={styles.planName}>{displayName}</Text>
-                <View style={[styles.statusBadge, !isActive && styles.statusBadgeInactive]}>
-                  <Text style={[styles.statusBadgeText, !isActive && styles.statusBadgeTextInactive]}>
-                    {isActive ? "Active" : "Inactive"}
+            {/* ── Vendor Services ──────────────────────────────── */}
+            <View style={styles.sectionCard}>
+              <Text style={styles.cardLabel}>VENDOR SERVICES</Text>
+              <View style={styles.serviceRow}>
+                <View style={styles.serviceIcon}>
+                  <Ionicons name="briefcase-outline" size={20} color="#076B51" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.serviceName}>{account.serviceName}</Text>
+                  <Text style={styles.serviceLevel}>Service Level: {account.serviceLevel}</Text>
+                </View>
+                <View style={[styles.activeBadge, account.accountStatus !== "active" && styles.inactiveBadge]}>
+                  <Text style={[styles.activeBadgeText, account.accountStatus !== "active" && styles.inactiveBadgeText]}>
+                    {account.accountStatus === "active" ? "Active" : "Inactive"}
                   </Text>
                 </View>
               </View>
-
-              {price > 0 ? (
-                <View style={styles.priceRow}>
-                  <Text style={styles.priceValue}>{currencySymbol}{price.toFixed(2)}</Text>
-                  <Text style={styles.priceUnit}>/month</Text>
-                </View>
-              ) : (
-                <View style={styles.priceRow}>
-                  <Text style={styles.priceValue}>Free</Text>
-                </View>
-              )}
-
-              <Text style={styles.plusLabel}>PLUS</Text>
-              <View style={styles.feeBanner}>
-                <Text style={styles.feeBannerValue}>{feePercent}</Text>
-                <Text style={styles.feeBannerLabel}>   only when you sell</Text>
+              <View style={styles.renewalRow}>
+                <Ionicons name="calendar-outline" size={14} color="#858585" />
+                <Text style={styles.renewalText}>Renewal Date: {formatDate(account.renewalDate)}</Text>
               </View>
-
-              <View style={styles.noSalesPill}>
-                <Text style={styles.noSalesLabel}>No sales?</Text>
-                <Text style={styles.noSalesValue}>  No transaction fee.</Text>
+              <View style={styles.renewalRow}>
+                <Ionicons name="sync-outline" size={14} color="#858585" />
+                <Text style={styles.renewalText}>Last Sync: {formatDate(account.lastSync)}</Text>
               </View>
+            </View>
 
-              {timeLeft ? (
-                <View style={styles.timeLeftPill}>
-                  <Ionicons name="time-outline" size={14} color="#076B51" />
-                  <Text style={styles.timeLeftText}>{timeLeft}</Text>
+            {/* ── Current Limits ───────────────────────────────── */}
+            <View style={styles.sectionCard}>
+              <Text style={styles.cardLabel}>CURRENT LIMITS</Text>
+              <LimitRow label="Products" current={account.limits.currentProducts} max={account.limits.maxProducts} />
+              <LimitRow label="Orders" current={account.limits.currentOrders} max={account.limits.maxOrders} />
+              {account.limits.ordersRemaining !== null ? (
+                <View style={styles.remainingPill}>
+                  <Ionicons name="alert-circle-outline" size={14} color={account.limits.ordersRemaining <= 5 ? "#FB6363" : "#D97706"} />
+                  <Text style={[styles.remainingText, account.limits.ordersRemaining <= 5 && { color: "#FB6363" }]}>
+                    {account.limits.ordersRemaining} orders remaining
+                  </Text>
                 </View>
               ) : null}
+              <LimitRow label="Coupons" current={account.limits.currentCoupons} max={account.limits.maxCoupons} />
             </View>
 
-            {/* ── Why this pays for itself ──────────────────────── */}
+            {/* ── Store Capabilities ──────────────────────────── */}
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Why this pays for itself</Text>
-              <Text style={styles.sectionBody}>
-                One repeat buyer can cover your monthly plan.
-              </Text>
-              <Text style={styles.payoffHighlight}>
-                Bring back old buyers before they buy elsewhere.
-              </Text>
+              <Text style={styles.cardLabel}>STORE CAPABILITIES</Text>
+              <FeatureRow label="Receive Orders" enabled={account.limits.canReceiveOrders} />
+              <FeatureRow label="Analytics" enabled={account.limits.canAccessAnalytics} />
+              <FeatureRow label="Discounts" enabled={account.limits.discounts} />
+              <FeatureRow label="Bundles" enabled={account.limits.bundles} />
+              <FeatureRow label="Flash Sales" enabled={account.limits.flashSales} />
+              <FeatureRow label="Marketing Tools" enabled={account.limits.canSendOffers} />
             </View>
 
-            {/* ── What plan includes ───────────────────────────── */}
+            {/* ── Usage Summary ────────────────────────────────── */}
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>What {planSlug === "free" ? "Free" : planSlug === "growth" ? "Growth" : "Pro"} includes</Text>
-              {structuredFeatures.map((feat, index) => (
-                <View key={index} style={styles.featureRow}>
-                  <View style={styles.featureCheck}>
-                    <Ionicons name="checkmark" size={13} color="#076B51" />
-                  </View>
-                  <View style={styles.featureTextGroup}>
-                    <Text style={styles.featureTitle}>{feat.title}</Text>
-                    <Text style={styles.featureDesc}>{feat.description}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-
-            {/* ── Why vendors upgrade ──────────────────────────── */}
-            <View style={styles.upgradeReasonCard}>
-              <Text style={styles.sectionTitle}>Why vendors upgrade</Text>
-              <UpgradeReasonRow label="More repeat customers" />
-              <UpgradeReasonRow label="Less WhatsApp chaos" />
-              <UpgradeReasonRow label="A more professional foodstuff business" />
+              <Text style={styles.cardLabel}>USAGE SUMMARY</Text>
+              <View style={styles.usageGrid}>
+                <UsageTile label="Products" value={account.usage.products} icon="cube-outline" />
+                <UsageTile label="Orders" value={account.usage.orders} icon="receipt-outline" />
+                <UsageTile label="Coupons" value={account.usage.coupons} icon="pricetag-outline" />
+              </View>
             </View>
           </>
-        )}
+        ) : null}
       </ScrollView>
 
       {/* ── Bottom CTA ──────────────────────────────────────── */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity
-          onPress={() => goBackOrReplace(router, "/(vendor)" as any)}
-          activeOpacity={0.85}
-          style={styles.ctaButton}
-        >
-          <Text style={styles.ctaButtonText}>Continue Growing My Business</Text>
+        <TouchableOpacity onPress={openBusinessPortal} activeOpacity={0.85} style={styles.ctaButton}>
+          <Ionicons name="globe-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.ctaButtonText}>Manage Vendor Account</Text>
         </TouchableOpacity>
+        <Text style={styles.ctaHint}>Opens Business Portal in your browser</Text>
       </View>
     </SafeAreaView>
   );
 }
 
-function UpgradeReasonRow({ label }: { label: string }) {
+function StatusTile({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <View style={styles.upgradeReasonRow}>
-      <View style={styles.upgradeReasonCheck}>
-        <Ionicons name="checkmark" size={13} color="#076B51" />
+    <View style={styles.statusTile}>
+      <Text style={styles.statusTileLabel}>{label}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+        <View style={[styles.statusDot, { backgroundColor: color }]} />
+        <Text style={[styles.statusTileValue, { color }]}>{value}</Text>
       </View>
-      <Text style={styles.upgradeReasonLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function LimitRow({ label, current, max }: { label: string; current: number; max: number | null }) {
+  const maxDisplay = formatLimit(max);
+  const isUnlimited = max === null || max === -1;
+  const pct = isUnlimited ? 0 : max > 0 ? Math.min(current / max, 1) : 0;
+  const barColor = pct >= 0.9 ? "#FB6363" : pct >= 0.7 ? "#D97706" : "#076B51";
+
+  return (
+    <View style={styles.limitRow}>
+      <View style={styles.limitHeader}>
+        <Text style={styles.limitLabel}>{label}</Text>
+        <Text style={styles.limitValue}>{current} / {maxDisplay}</Text>
+      </View>
+      {!isUnlimited ? (
+        <View style={styles.limitBar}>
+          <View style={[styles.limitBarFill, { width: `${Math.max(pct * 100, 2)}%`, backgroundColor: barColor }]} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function FeatureRow({ label, enabled }: { label: string; enabled: boolean }) {
+  return (
+    <View style={styles.featureRow}>
+      <View style={[styles.featureIcon, !enabled && styles.featureIconDisabled]}>
+        <Ionicons name={enabled ? "checkmark" : "close"} size={12} color={enabled ? "#076B51" : "#858585"} />
+      </View>
+      <Text style={[styles.featureLabel, !enabled && styles.featureLabelDisabled]}>{label}</Text>
+      <Text style={[styles.featureStatus, enabled ? { color: "#076B51" } : { color: "#858585" }]}>
+        {enabled ? "Included" : "Not included"}
+      </Text>
+    </View>
+  );
+}
+
+function UsageTile({ label, value, icon }: { label: string; value: number; icon: React.ComponentProps<typeof Ionicons>["name"] }) {
+  return (
+    <View style={styles.usageTile}>
+      <Ionicons name={icon} size={18} color="#076B51" />
+      <Text style={styles.usageTileValue}>{value}</Text>
+      <Text style={styles.usageTileLabel}>{label}</Text>
     </View>
   );
 }
@@ -246,60 +249,60 @@ function UpgradeReasonRow({ label }: { label: string }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F9F9F9" },
 
-  // Header
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 16, gap: 14, borderBottomWidth: 1, borderBottomColor: "#F0F0F0" },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#F0F0F0", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828" },
   headerSubtitle: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 2 },
 
-  // Scroll
-  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 110 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 140 },
   placeholder: { paddingVertical: 60, alignItems: "center" },
   errorText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#FB6363", textAlign: "center", paddingVertical: 30 },
 
-  // Pricing Card
-  pricingCard: { backgroundColor: "#FFFFFF", borderRadius: 20, padding: 22, marginBottom: 14, borderWidth: 1, borderColor: "#ECECEC" },
-  cardLabel: { fontSize: 11, fontFamily: "Outfit-Medium", color: "#858585", letterSpacing: 1, textTransform: "uppercase" },
-  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
-  planName: { fontSize: 28, fontFamily: "Manrope-Bold", color: "#1A1A1A" },
-  statusBadge: { borderRadius: 999, backgroundColor: "rgba(7,107,81,0.10)", paddingHorizontal: 14, paddingVertical: 7 },
-  statusBadgeInactive: { backgroundColor: "rgba(133,133,133,0.12)" },
-  statusBadgeText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  statusBadgeTextInactive: { color: "#858585" },
-  priceRow: { flexDirection: "row", alignItems: "flex-end", gap: 4, marginTop: 16 },
-  priceValue: { fontSize: 42, fontFamily: "Manrope-Bold", color: "#076B51" },
-  priceUnit: { fontSize: 15, fontFamily: "Outfit-Regular", color: "#858585", marginBottom: 8 },
-  plusLabel: { fontSize: 11, fontFamily: "Outfit-Medium", color: "#858585", letterSpacing: 1, textTransform: "uppercase", marginTop: 18 },
-  feeBanner: { marginTop: 10, borderRadius: 14, backgroundColor: "#EEF8F0", paddingHorizontal: 16, paddingVertical: 14, flexDirection: "row", alignItems: "baseline" },
-  feeBannerValue: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#076B51" },
-  feeBannerLabel: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
-  noSalesPill: { marginTop: 14, flexDirection: "row", alignItems: "center", alignSelf: "flex-start", backgroundColor: "#F6F8F7", borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: "#E8E8E8" },
-  noSalesLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585" },
-  noSalesValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  timeLeftPill: { marginTop: 14, flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: "#F6F8F7", borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 },
-  timeLeftText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  cardLabel: { fontSize: 11, fontFamily: "Outfit-Medium", color: "#858585", letterSpacing: 1, textTransform: "uppercase", marginBottom: 14 },
 
-  // Section Cards
+  statusCard: { backgroundColor: "#FFFFFF", borderRadius: 20, padding: 20, marginBottom: 14, borderWidth: 1, borderColor: "#ECECEC" },
+  statusGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  statusTile: { width: "48%", backgroundColor: "#F9FAFB", borderRadius: 14, padding: 14 },
+  statusTileLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585" },
+  statusTileValue: { fontSize: 14, fontFamily: "Manrope-Bold" },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+
   sectionCard: { backgroundColor: "#FFFFFF", borderRadius: 20, padding: 20, marginBottom: 14, borderWidth: 1, borderColor: "#ECECEC" },
-  sectionTitle: { fontSize: 20, fontFamily: "Manrope-Bold", color: "#1A1A1A", marginBottom: 12 },
-  sectionBody: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#858585", lineHeight: 20 },
-  payoffHighlight: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#076B51", marginTop: 6, lineHeight: 22 },
 
-  // Feature rows with title + description
-  featureRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 8 },
-  featureCheck: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#E8F4ED", alignItems: "center", justifyContent: "center", marginTop: 1 },
-  featureTextGroup: { flex: 1 },
-  featureTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#1A1A1A", lineHeight: 20 },
-  featureDesc: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", lineHeight: 18, marginTop: 2 },
+  serviceRow: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 14 },
+  serviceIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#E8F4ED", alignItems: "center", justifyContent: "center" },
+  serviceName: { fontSize: 18, fontFamily: "Manrope-Bold", color: "#1A1A1A" },
+  serviceLevel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 2 },
+  activeBadge: { borderRadius: 999, backgroundColor: "rgba(7,107,81,0.10)", paddingHorizontal: 14, paddingVertical: 7 },
+  inactiveBadge: { backgroundColor: "rgba(133,133,133,0.12)" },
+  activeBadgeText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  inactiveBadgeText: { color: "#858585" },
+  renewalRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
+  renewalText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585" },
 
-  // Upgrade reason card
-  upgradeReasonCard: { backgroundColor: "#F6FBF8", borderRadius: 20, padding: 20, marginBottom: 14, borderWidth: 1, borderColor: "#D9EDE0" },
-  upgradeReasonRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 6 },
-  upgradeReasonCheck: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#E8F4ED", alignItems: "center", justifyContent: "center" },
-  upgradeReasonLabel: { flex: 1, fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  limitRow: { marginBottom: 16 },
+  limitHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
+  limitLabel: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#1A1A1A" },
+  limitValue: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585" },
+  limitBar: { height: 6, borderRadius: 3, backgroundColor: "#F0F0F0" },
+  limitBarFill: { height: 6, borderRadius: 3 },
+  remainingPill: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: "#FFF8F0", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 12, borderWidth: 1, borderColor: "#FFE8CC" },
+  remainingText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#D97706" },
 
-  // Bottom CTA
+  featureRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
+  featureIcon: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#E8F4ED", alignItems: "center", justifyContent: "center" },
+  featureIconDisabled: { backgroundColor: "#F0F0F0" },
+  featureLabel: { flex: 1, fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#1A1A1A" },
+  featureLabelDisabled: { color: "#858585" },
+  featureStatus: { fontSize: 12, fontFamily: "Outfit-Regular" },
+
+  usageGrid: { flexDirection: "row", gap: 10 },
+  usageTile: { flex: 1, backgroundColor: "#F9FAFB", borderRadius: 14, padding: 14, alignItems: "center", gap: 4 },
+  usageTileValue: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#1A1A1A" },
+  usageTileLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585" },
+
   bottomBar: { paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 1, borderTopColor: "#F0F0F0", backgroundColor: "#FFFFFF" },
-  ctaButton: { height: 56, borderRadius: 16, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  ctaButton: { height: 56, borderRadius: 16, backgroundColor: "#076B51", flexDirection: "row", alignItems: "center", justifyContent: "center" },
   ctaButtonText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+  ctaHint: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", marginTop: 6 },
 });

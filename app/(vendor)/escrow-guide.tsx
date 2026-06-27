@@ -6,11 +6,11 @@ import { goBackOrReplace } from "../../utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
 
 const STEPS = [
-  ["Choose a seller plan", "Your current plan controls product limits, unlocked tools, platform fee, and withdrawal fee."],
+  ["Set up vendor services", "Your vendor services determine product limits, available tools, platform fee, and withdrawal fee."],
   ["Share your store", "Use your public Eki store link to sell to diaspora buyers through secure checkout."],
   ["Accept paid orders", "Review each paid order, accept it, and prepare the package for dispatch."],
   ["Ship with tracking", "Add carrier and tracking details so buyers can follow the order from their account."],
-  ["Get paid", "Eligible earnings move through payout review using the platform rules for your seller plan."],
+  ["Get paid", "Eligible earnings move through payout review using the platform rules for your vendor services."],
   ["Resolve issues in Eki", "Keep order messages and support cases inside Eki so the admin team can help quickly."],
 ] as const;
 
@@ -23,16 +23,16 @@ export default function VendorPlanGuideScreen() {
           <Ionicons name="arrow-back" size={20} color="#17211D" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>How seller plans work</Text>
-          <Text style={styles.subtitle}>Plans are managed on the website and control your selling limits and fees.</Text>
+          <Text style={styles.title}>How vendor services work</Text>
+          <Text style={styles.subtitle}>Vendor services are managed through the Business Portal.</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Ionicons name="diamond" size={28} color="#FFFFFF" />
-          <Text style={styles.heroTitle}>Your plan controls your seller tools.</Text>
-          <Text style={styles.heroText}>Seller plan payments happen on the Eki website. The app shows your current plan, commission tier, limits, and unlocked tools.</Text>
+          <Ionicons name="briefcase-outline" size={28} color="#FFFFFF" />
+          <Text style={styles.heroTitle}>Your vendor services determine your selling tools.</Text>
+          <Text style={styles.heroText}>Vendor services are managed through the Eki Business Portal. The app shows your account status, commission tier, limits, and available tools.</Text>
         </View>
 
         {STEPS.map(([title, body], index) => (

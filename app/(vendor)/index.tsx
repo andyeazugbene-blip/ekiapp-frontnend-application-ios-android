@@ -673,7 +673,7 @@ export default function VendorDashboardScreen() {
               </View>
             </View>
 
-            {/* ── Plan card ────────────────────────────────────────────── */}
+            {/* ── Vendor Services card ─────────────────────────────────── */}
             <LinearGradient
               colors={planGradient as any}
               start={{ x: 0, y: 0 }}
@@ -684,10 +684,10 @@ export default function VendorDashboardScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.planTitle}>
                     {subscriptionPlan === "free"
-                      ? "Free Plan"
+                      ? "Vendor Services"
                       : subscriptionPlan === "growth"
-                        ? "Growth Plan"
-                        : "Pro Plan"}
+                        ? "Vendor Services"
+                        : "Vendor Services"}
                   </Text>
                   {planOrdersText ? (
                     <Text style={styles.planSub}>{planOrdersText}</Text>
@@ -703,10 +703,10 @@ export default function VendorDashboardScreen() {
               </View>
               <Text style={styles.planBody}>
                 {planDegraded
-                  ? "You have reached your order limit. View plans to keep receiving orders."
+                  ? "You have reached your business limit. View your vendor account to manage limits."
                   : planWarning
-                    ? "You're running low on orders. View plans to keep your store running."
-                    : "Keep receiving new orders and unlock powerful growth tools for your store."}
+                    ? "You're approaching your order limit. Check your vendor account for details."
+                    : "Manage your vendor services, business limits, and account details."}
               </Text>
               <View style={styles.planDivider} />
               <TouchableOpacity
@@ -714,7 +714,7 @@ export default function VendorDashboardScreen() {
                 onPress={() => navigate("/(vendor)/subscription-plans")}
                 style={styles.upgradeBtn}
               >
-                <Text style={styles.upgradeText}>View Plans</Text>
+                <Text style={styles.upgradeText}>Vendor Account</Text>
                 <Ionicons name={"arrow-forward" as any} size={15} color="#076B51" style={{ transform: [{ rotate: "-45deg" }] }} />
               </TouchableOpacity>
             </LinearGradient>

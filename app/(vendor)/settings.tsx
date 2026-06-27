@@ -101,11 +101,11 @@ export default function VendorSettingsScreen() {
   const getPlanLabel = (plan: string | undefined) => {
     switch (plan?.toLowerCase()) {
       case "pro":
-        return "Pro Plan";
+        return "Pro";
       case "growth":
-        return "Growth Plan";
+        return "Growth";
       default:
-        return "Free Trial";
+        return "Starter";
     }
   };
 
@@ -284,12 +284,12 @@ export default function VendorSettingsScreen() {
           />
         </View>
 
-        <Text style={styles.sectionTitle}>Subscriptions</Text>
+        <Text style={styles.sectionTitle}>Vendor Account</Text>
         <View style={styles.card}>
           <SettingRow
-            icon="ribbon-outline"
-            label="Subscription Plan"
-            description="View your current plan and limits."
+            icon="briefcase-outline"
+            label="Vendor Account"
+            description="View account status, limits, and vendor services."
             onPress={() => router.push("/(vendor)/subscription-plans" as any)}
           />
           <SettingRow
@@ -349,7 +349,7 @@ export default function VendorSettingsScreen() {
           />
           <SettingRow
             icon="receipt-outline"
-            label="Subscription & Billing"
+            label="Billing & Services"
             onPress={() => router.push("/subscription-policy" as any)}
           />
           <SettingRow

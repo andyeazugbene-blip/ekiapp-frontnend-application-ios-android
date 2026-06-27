@@ -215,10 +215,12 @@ export const vendorService = {
 
   async getVendorById(id: string, options?: { admin?: boolean }): Promise<VendorSummary> {
     if (options?.admin) {
-      const response = await apiClient.get<VendorListResponse>("/api/admin/vendors?limit=100");
-      const vendor = (response.vendors ?? response.items ?? []).map(normalizeVendor).find((v) => v.id === id);
-      if (!vendor) throw new Error("Vendor not found");
-      return vendor;
+      try {
+        const response = await apiClient.get<{ vendor: any }>(`/api/admin/vendors/${id}`);
+        return normalizeVendor(response.vendor);
+      } catch {
+        throw new Error("Vendor not found");
+      }
     }
 
     try {
@@ -277,6 +279,70 @@ export const vendorService = {
 
   async unsuspendVendor(vendorId: string) {
     return apiClient.patch<{ vendor?: any }>(`/api/admin/vendors/${vendorId}/unsuspend`, {});
+  },
+
+  async getVendorStats() {
+    return apiClient.get<any>("/api/admin/vendors/stats");
+  },
+
+  async getVendorDetail(vendorId: string) {
+    const response = await apiClient.get<{ vendor: any }>(`/api/admin/vendors/${vendorId}`);
+    return response.vendor;
+  },
+
+  async updateVendor(vendorId: string, data: Record<string, unknown>) {
+    const response = await apiClient.patch<{ vendor: any }>(`/api/admin/vendors/${vendorId}`, data);
+    return response.vendor;
+  },
+
+  async deleteVendor(vendorId: string) {
+    return apiClient.delete<any>(`/api/admin/vendors/${vendorId}`);
+  },
+
+  async bulkApproveVendors(vendorIds: string[]) {
+    return apiClient.post<{ affected: number }>("/api/admin/vendors/bulk-approve", { vendorIds });
+  },
+
+  async bulkRejectVendors(vendorIds: string[], reason?: string) {
+    return apiClient.post<{ affected: number }>("/api/admin/vendors/bulk-reject", { vendorIds, reason });
+  },
+
+  async bulkSuspendVendors(vendorIds: string[], reason?: string) {
+    return apiClient.post<{ affected: number }>("/api/admin/vendors/bulk-suspend", { vendorIds, reason });
+  },
+
+  async assignVendorPlan(vendorId: string, planSlug: string) {
+    return apiClient.patch<any>(`/api/admin/vendors/${vendorId}/seller-plan`, { plan: planSlug });
+  },
+
+  async getVendorAccount(): Promise<{
+    vendorStatus: string;
+    storeStatus: string;
+    verificationStatus: string;
+    accountStatus: string;
+    serviceLevel: string;
+    serviceName: string;
+    renewalDate: string | null;
+    limits: {
+      maxProducts: number;
+      currentProducts: number;
+      maxOrders: number | null;
+      currentOrders: number;
+      ordersRemaining: number | null;
+      maxCoupons: number;
+      currentCoupons: number;
+      canReceiveOrders: boolean;
+      canSendOffers: boolean;
+      canAccessAnalytics: boolean;
+      bundles: boolean;
+      flashSales: boolean;
+      discounts: boolean;
+    };
+    usage: { products: number; orders: number; coupons: number };
+    lastSync: string;
+  }> {
+    const res = await apiClient.get<{ account: any }>("/api/vendor/account");
+    return res.account;
   },
 
   async getVendorDashboard(_vendorId?: string): Promise<VendorDashboardData> {

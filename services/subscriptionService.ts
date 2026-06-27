@@ -82,11 +82,11 @@ export interface WebSubscriptionCheckout {
 export type PaidSubscriptionPlan = string;
 
 const PLAN_NAMES: Record<string, string> = {
-  FREE: "Free Plan",
-  BASIC: "Basic Plan",
-  GROWTH: "Growth Plan",
-  PREMIUM: "Premium Plan",
-  PRO: "Pro Plan",
+  FREE: "Starter",
+  BASIC: "Basic",
+  GROWTH: "Growth",
+  PREMIUM: "Premium",
+  PRO: "Pro",
 };
 
 function planSlug(plan: string): SubscriptionPlan["slug"] {
@@ -139,7 +139,7 @@ function normalizePlan(raw: any): SubscriptionPlan {
     id: raw.id ?? plan,
     plan,
     legacyPlan: raw.legacyPlan ?? null,
-    name: raw.name ?? PLAN_NAMES[plan] ?? `${plan.charAt(0)}${plan.slice(1).toLowerCase()} Plan`,
+    name: raw.name ?? PLAN_NAMES[plan] ?? `${plan.charAt(0)}${plan.slice(1).toLowerCase()}`,
     slug,
     description: raw.description ?? null,
     price,
@@ -173,7 +173,7 @@ function normalizeSubscription(raw: any): ActiveSubscription {
   return {
     id: sub.id,
     planId: sub.sellerPlanId ?? sub.planId ?? plan,
-    planName: sub.planName ?? PLAN_NAMES[plan] ?? "Plan",
+    planName: sub.planName ?? PLAN_NAMES[plan] ?? "Starter",
     slug: typeof sub.slug === "string" && sub.slug.trim() ? sub.slug.trim().toLowerCase() : planSlug(plan),
     sellerPlanId: sub.sellerPlanId ?? null,
     platformFeeBps: typeof sub.platformFeeBps === "number" ? sub.platformFeeBps : undefined,

@@ -141,7 +141,7 @@ export default function AcceptOrderScreen() {
             <Text style={styles.subtitle}>
               {isEscrowOrder
                 ? "Payment is protected and only moves after delivery confirmation or the protection timeout."
-                : "Payout timing follows your seller plan and platform review rules."}
+                : "Payout timing follows your vendor services and platform review rules."}
             </Text>
 
             <View style={styles.noticeBox}>

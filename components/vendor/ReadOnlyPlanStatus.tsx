@@ -1,31 +1,28 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  subscriptionService,
-  type ActiveSubscription,
-  type SubscriptionLimits,
-} from "../../services/subscriptionService";
+import { vendorService } from "../../services/vendorService";
 
-type PlanSlug = ActiveSubscription["slug"];
+const BUSINESS_PORTAL_URL = "https://culinarytales.app/business-portal";
 
-const PLAN_LABELS: Record<PlanSlug, string> = {
-  free: "Free",
+type ServiceLevel = string;
+
+const SERVICE_LABELS: Record<string, string> = {
+  starter: "Starter",
   growth: "Growth",
   pro: "Pro",
 };
 
 function formatLimit(value: number | null) {
-  if (value === null || value >= Number.MAX_SAFE_INTEGER) return "Unlimited";
+  if (value === null || value === -1 || (value != null && value >= Number.MAX_SAFE_INTEGER)) return "Unlimited";
   return value.toLocaleString("en-US");
 }
 
-export function ReadOnlyPlanStatus({ targetSlug }: { targetSlug: PlanSlug }) {
+export function ReadOnlyPlanStatus({ targetSlug }: { targetSlug: ServiceLevel }) {
   const router = useRouter();
-  const [subscription, setSubscription] = useState<ActiveSubscription | null>(null);
-  const [limits, setLimits] = useState<SubscriptionLimits | null>(null);
+  const [account, setAccount] = useState<Awaited<ReturnType<typeof vendorService.getVendorAccount>> | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -36,14 +33,10 @@ export function ReadOnlyPlanStatus({ targetSlug }: { targetSlug: PlanSlug }) {
     setError("");
 
     try {
-      const [current, currentLimits] = await Promise.all([
-        subscriptionService.getCurrentSubscription(),
-        subscriptionService.getLimits(),
-      ]);
-      setSubscription(current);
-      setLimits(currentLimits);
+      const data = await vendorService.getVendorAccount();
+      setAccount(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load plan status.");
+      setError(err instanceof Error ? err.message : "Could not load account status.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -54,9 +47,9 @@ export function ReadOnlyPlanStatus({ targetSlug }: { targetSlug: PlanSlug }) {
     load();
   }, [load]);
 
-  const targetLabel = PLAN_LABELS[targetSlug];
-  const currentLabel = subscription ? PLAN_LABELS[subscription.slug] : "Free";
-  const targetActive = subscription?.slug === targetSlug && subscription.status === "active";
+  const targetLabel = SERVICE_LABELS[targetSlug] ?? targetSlug;
+  const currentLabel = account ? SERVICE_LABELS[account.serviceLevel] ?? account.serviceName : "Starter";
+  const targetActive = account?.serviceLevel === targetSlug && account.accountStatus === "active";
 
   if (loading) return <View style={styles.loader}><ActivityIndicator color="#076B51" /></View>;
 
@@ -66,7 +59,7 @@ export function ReadOnlyPlanStatus({ targetSlug }: { targetSlug: PlanSlug }) {
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{targetLabel} Plan</Text>
+        <Text style={styles.headerTitle}>{targetLabel} Service</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -75,7 +68,7 @@ export function ReadOnlyPlanStatus({ targetSlug }: { targetSlug: PlanSlug }) {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View>
-              <Text style={styles.label}>Selected plan</Text>
+              <Text style={styles.label}>Selected service</Text>
               <Text style={styles.planName}>{targetLabel}</Text>
             </View>
             <View style={[styles.statusBadge, !targetActive && styles.statusBadgeInactive]}>
@@ -86,22 +79,31 @@ export function ReadOnlyPlanStatus({ targetSlug }: { targetSlug: PlanSlug }) {
           </View>
 
           <View style={styles.currentRow}>
-            <Text style={styles.currentLabel}>Current plan</Text>
+            <Text style={styles.currentLabel}>Current service</Text>
             <Text style={styles.currentValue}>{currentLabel}</Text>
           </View>
 
           {!targetActive ? (
-            <Text style={styles.neutralText}>This feature is not available on your current plan.</Text>
+            <Text style={styles.neutralText}>This service is not included in your current vendor services. Visit the Business Portal to adjust your account.</Text>
           ) : null}
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Usage limits</Text>
-          <InfoRow label="Products" value={limits ? `${limits.currentProducts} / ${formatLimit(limits.maxProducts)}` : "Unavailable"} />
-          <InfoRow label="Orders" value={limits ? limits.currentOrders.toLocaleString("en-US") : "Unavailable"} />
-          <InfoRow label="Offers" value={limits?.canSendOffers ? "Available" : "Not available"} />
-          <InfoRow label="Analytics" value={limits?.canAccessAnalytics ? "Available" : "Not available"} />
+          <Text style={styles.sectionTitle}>Business limits</Text>
+          <InfoRow label="Products" value={account ? `${account.limits.currentProducts} / ${formatLimit(account.limits.maxProducts)}` : "Unavailable"} />
+          <InfoRow label="Orders" value={account ? account.limits.currentOrders.toLocaleString("en-US") : "Unavailable"} />
+          <InfoRow label="Marketing Tools" value={account?.limits.canSendOffers ? "Included" : "Not included"} />
+          <InfoRow label="Analytics" value={account?.limits.canAccessAnalytics ? "Included" : "Not included"} />
         </View>
+
+        <TouchableOpacity
+          onPress={() => Linking.openURL(BUSINESS_PORTAL_URL)}
+          activeOpacity={0.85}
+          style={styles.portalBtn}
+        >
+          <Ionicons name="globe-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.refreshText}>Open Business Portal</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => load(true)}
@@ -109,8 +111,8 @@ export function ReadOnlyPlanStatus({ targetSlug }: { targetSlug: PlanSlug }) {
           style={[styles.refreshBtn, refreshing && { opacity: 0.6 }]}
           disabled={refreshing}
         >
-          {refreshing ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
-          <Text style={styles.refreshText}>Refresh plan status</Text>
+          {refreshing ? <ActivityIndicator color="#076B51" size="small" /> : null}
+          <Text style={styles.outlineText}>Refresh account status</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -150,6 +152,8 @@ const styles = StyleSheet.create({
   infoRow: { minHeight: 44, borderTopWidth: 1, borderTopColor: "#F0F0F0", flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   infoLabel: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
   infoValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#1A1A1A" },
-  refreshBtn: { height: 56, borderRadius: 14, backgroundColor: "#076B51", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  portalBtn: { height: 56, borderRadius: 14, backgroundColor: "#076B51", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 12 },
+  refreshBtn: { height: 56, borderRadius: 14, borderWidth: 1, borderColor: "#076B51", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   refreshText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+  outlineText: { fontSize: 16, fontFamily: "Manrope-SemiBold", color: "#076B51" },
 });
