@@ -102,7 +102,7 @@ export default function ProfileScreen() {
     { icon: "shield-checkmark-outline", label: "Privacy Policy", action: "navigate", target: "/privacy" },
     { icon: "document-text-outline", label: "Terms & Conditions", action: "navigate", target: "/terms" },
     { icon: "card-outline", label: "Refund & Cancellation", action: "navigate", target: "/refund-policy" },
-    { icon: "receipt-outline", label: "Subscription & Billing", action: "navigate", target: "/subscription-policy" },
+    { icon: "receipt-outline", label: "Billing & Services", action: "navigate", target: "/subscription-policy" },
     { icon: "finger-print-outline", label: "Cookie Policy", action: "navigate", target: "/cookie-policy" },
     { icon: "checkmark-circle-outline", label: "Acceptable Use", action: "navigate", target: "/acceptable-use" },
     { icon: "chatbox-ellipses-outline", label: "Help & Support", action: "navigate", target: "/support" },

@@ -184,7 +184,7 @@ export default function LoginScreen() {
           <Text style={styles.heroBody}>
             {isAdmin
               ? "Sign in to review vendors, orders, disputes, and marketplace health."
-              : "Sign in to continue with your premium marketplace flow."}
+              : "Sign in to browse, order, and manage your marketplace account."}
           </Text>
         </View>
       </SafeAreaView>

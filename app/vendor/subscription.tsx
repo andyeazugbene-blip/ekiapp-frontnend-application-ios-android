@@ -132,15 +132,15 @@ export default function VendorWebSubscriptionPage() {
 
       <View style={[styles.hero, isCompact && styles.heroCompact]}>
         <View style={styles.heroCopy}>
-          <Text style={styles.kicker}>Seller plans</Text>
-          <Text style={styles.title}>Upgrade your seller plan on the web.</Text>
+          <Text style={styles.kicker}>Vendor Services</Text>
+          <Text style={styles.title}>Manage your vendor account on the web.</Text>
           <Text style={styles.subtitle}>
-            Enter the same email used for your Eki vendor account. After Stripe confirms payment, your seller plan,
+            Enter the same email used for your Eki vendor account. After Stripe confirms payment, your vendor services,
             commission rules, limits, and tools update automatically.
           </Text>
           <View style={styles.note}>
             <Ionicons name="shield-checkmark-outline" size={18} color={BRAND} />
-            <Text style={styles.noteText}>Seller plan billing is website-only through Stripe.</Text>
+            <Text style={styles.noteText}>Vendor account billing is managed through the Business Portal.</Text>
           </View>
         </View>
 
