@@ -269,8 +269,8 @@ export default function VendorDashboardScreen() {
     (Number.isFinite(dashboardPlanRemaining) ? Math.max(0, dashboardPlanRemaining) : null);
   const planOrdersText =
     limits?.maxOrders === null
-      ? "Unlimited orders"
-      : planOrdersRemaining != null
+      ? null
+      : planOrdersRemaining != null && planOrdersRemaining <= 5
         ? `Orders remaining: ${planOrdersRemaining}`
         : null;
 
