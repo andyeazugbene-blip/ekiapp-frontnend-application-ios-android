@@ -18,3 +18,5 @@ google-services.json
 # @end expo-cli
 credentials.json
 credentials/
+
+.vercel
