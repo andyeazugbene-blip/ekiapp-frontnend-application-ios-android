@@ -675,7 +675,7 @@ export default function VendorDashboardScreen() {
 
             {/* ── Plan card ────────────────────────────────────────────── */}
             <LinearGradient
-              colors={planGradient as unknown as string[]}
+              colors={planGradient as any}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
               style={styles.planCard}

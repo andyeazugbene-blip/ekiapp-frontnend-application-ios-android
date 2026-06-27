@@ -289,7 +289,7 @@ export default function VendorSettingsScreen() {
           <SettingRow
             icon="ribbon-outline"
             label="Subscription Plan"
-            description="View your current plan and limits. Purchases are handled outside the app."
+            description="View your current plan and limits."
             onPress={() => router.push("/(vendor)/subscription-plans" as any)}
           />
           <SettingRow

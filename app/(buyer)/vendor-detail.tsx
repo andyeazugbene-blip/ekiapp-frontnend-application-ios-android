@@ -13,6 +13,7 @@ import type { Product, Review } from "../../types/product";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { openConversationThread } from "../../utils/messaging";
 import { goBackOrReplace } from "../../utils/navigation";
+import { ReportModal } from "../../components/ui/ReportModal";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { formatDisplayMoney } from "../../utils/currency";
 
@@ -28,6 +29,7 @@ export default function VendorDetailScreen() {
   const [reviewStats, setReviewStats] = useState<{ averageRating: number; totalReviews: number }>({ averageRating: 0, totalReviews: 0 });
   const [zones, setZones] = useState<DeliveryZone[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reportTarget, setReportTarget] = useState<{ type: "review" | "store"; id: string; label: string } | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -216,8 +218,19 @@ export default function VendorDetailScreen() {
                       <Ionicons key={star} name="star" size={14} color={star <= review.rating ? "#F4B400" : "#E0E0E0"} />
                     ))}
                   </View>
-                  <Text style={styles.reviewName}>{review.userName}</Text>
-                  <Text style={styles.reviewRole}>Buyer</Text>
+                  <View style={styles.reviewFooter}>
+                    <View>
+                      <Text style={styles.reviewName}>{review.userName}</Text>
+                      <Text style={styles.reviewRole}>Buyer</Text>
+                    </View>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => setReportTarget({ type: "review", id: review.id, label: `Review by ${review.userName}` })}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="flag-outline" size={16} color="#B0B0B0" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))
             )}
@@ -235,8 +248,27 @@ export default function VendorDetailScreen() {
           >
             <Text style={styles.browseButtonText}>Browse Foodstuff</Text>
           </TouchableOpacity>
+
+          {vendor ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setReportTarget({ type: "store", id: vendor.id, label: vendor.storeName })}
+              style={styles.reportStoreBtn}
+            >
+              <Ionicons name="flag-outline" size={15} color="#B0B0B0" />
+              <Text style={styles.reportStoreText}>Report this store</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </ScrollView>
+
+      <ReportModal
+        visible={!!reportTarget}
+        onClose={() => setReportTarget(null)}
+        targetType={reportTarget?.type ?? "store"}
+        targetId={reportTarget?.id ?? ""}
+        targetLabel={reportTarget?.label}
+      />
     </View>
   );
 }
@@ -279,7 +311,7 @@ const styles = StyleSheet.create({
   reviewCard: { width: 230, borderRadius: 20, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#EEF0F1", padding: 14 },
   reviewText: { fontSize: 13, lineHeight: 20, fontFamily: "Outfit-Regular", color: "#282828", minHeight: 80 },
   reviewStars: { flexDirection: "row", gap: 3, marginTop: 12 },
-  reviewName: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 12 },
+  reviewName: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828" },
   reviewRole: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#9AA3A0", marginTop: 2 },
   heartBadge: {
     position: "absolute",
@@ -302,4 +334,7 @@ const styles = StyleSheet.create({
   messageButtonText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
   browseButton: { marginTop: 12, height: 54, borderRadius: 16, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
   browseButtonText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+  reviewFooter: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 12 },
+  reportStoreBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 20, paddingVertical: 10 },
+  reportStoreText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#B0B0B0" },
 });

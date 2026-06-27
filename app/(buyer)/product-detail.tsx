@@ -20,6 +20,7 @@ import { vendorService } from "../../services/vendorService";
 import { goBackOrReplace } from "../../utils/navigation";
 import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { formatDisplayMoney } from "../../utils/currency";
+import { ReportModal } from "../../components/ui/ReportModal";
 
 export default function ProductDetailScreen() {
   const router = useRouter();
@@ -41,6 +42,7 @@ export default function ProductDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [reportVisible, setReportVisible] = useState(false);
   const isFavorite = useFavoritesStore((s) => (product ? s.isFavorite(product.id) : false));
   const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite);
 
@@ -248,6 +250,15 @@ export default function ProductDetailScreen() {
             <Ionicons name="shield-checkmark-outline" size={20} color="#076B51" />
             <Text style={styles.paymentBannerText}>Payment is protected until delivery is confirmed</Text>
           </View>
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setReportVisible(true)}
+            style={styles.reportProductBtn}
+          >
+            <Ionicons name="flag-outline" size={15} color="#B0B0B0" />
+            <Text style={styles.reportProductText}>Report this product</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -271,6 +282,14 @@ export default function ProductDetailScreen() {
         onChange={setSelectedCurrency}
         visible={currencyOpen}
         onClose={() => setCurrencyOpen(false)}
+      />
+
+      <ReportModal
+        visible={reportVisible}
+        onClose={() => setReportVisible(false)}
+        targetType="product"
+        targetId={product?.id ?? ""}
+        targetLabel={product?.name}
       />
     </View>
   );
@@ -551,5 +570,18 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 18,
     fontFamily: "Manrope-Bold",
+  },
+  reportProductBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 16,
+    paddingVertical: 10,
+  },
+  reportProductText: {
+    fontSize: 13,
+    fontFamily: "Outfit-Regular",
+    color: "#B0B0B0",
   },
 });

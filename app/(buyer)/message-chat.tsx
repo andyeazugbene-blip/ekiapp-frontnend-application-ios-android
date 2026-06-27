@@ -8,6 +8,8 @@ import { ChatMessage, useMessageStore } from "../../stores/messageStore";
 import { uploadService } from "../../services/uploadService";
 import { goBackOrReplace } from "../../utils/navigation";
 import { RemoteImage } from "../../components/ui/RemoteImage";
+import { ReportModal } from "../../components/ui/ReportModal";
+import { reportService } from "../../services/reportService";
 
 function formatMessageTime(value: string): string {
   try {
@@ -22,6 +24,8 @@ export default function BuyerMessageChatScreen() {
   const { selectedConversation, messages, isLoading, isSending, sendMessage, stopPolling } = useMessageStore();
   const [input, setInput] = useState("");
   const [sendingImage, setSendingImage] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reportVisible, setReportVisible] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   const conversation = selectedConversation;
@@ -117,7 +121,55 @@ export default function BuyerMessageChatScreen() {
           <Text style={styles.headerName}>{conversation.participantName}</Text>
           <Text style={styles.headerSub}>{conversation.orderNumber ? `Order ${conversation.orderNumber}` : "Vendor"}</Text>
         </View>
+        <TouchableOpacity onPress={() => setMenuOpen(!menuOpen)} activeOpacity={0.7} style={styles.menuButton}>
+          <Ionicons name="ellipsis-vertical" size={20} color="#282828" />
+        </TouchableOpacity>
       </View>
+
+      {menuOpen && (
+        <View style={styles.dropdownMenu}>
+          <TouchableOpacity
+            style={styles.dropdownItem}
+            activeOpacity={0.7}
+            onPress={() => {
+              setMenuOpen(false);
+              setReportVisible(true);
+            }}
+          >
+            <Ionicons name="flag-outline" size={18} color="#D32F2F" />
+            <Text style={styles.dropdownItemTextDanger}>Report</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.dropdownItem}
+            activeOpacity={0.7}
+            onPress={() => {
+              setMenuOpen(false);
+              Alert.alert(
+                "Block User",
+                `Block ${conversation.participantName}? You won't receive messages from them.`,
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Block",
+                    style: "destructive",
+                    onPress: async () => {
+                      try {
+                        await reportService.blockUser(conversation.participantId);
+                        Alert.alert("User blocked", `${conversation.participantName} has been blocked.`);
+                      } catch {
+                        Alert.alert("Error", "Could not block user. Please try again.");
+                      }
+                    },
+                  },
+                ],
+              );
+            }}
+          >
+            <Ionicons name="ban-outline" size={18} color="#D32F2F" />
+            <Text style={styles.dropdownItemTextDanger}>Block User</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.noticeBanner}>
         <Ionicons name="lock-closed-outline" size={14} color="#076B51" />
@@ -160,6 +212,14 @@ export default function BuyerMessageChatScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <ReportModal
+        visible={reportVisible}
+        onClose={() => setReportVisible(false)}
+        targetType="message"
+        targetId={conversation.id}
+        targetLabel={`Conversation with ${conversation.participantName}`}
+      />
     </SafeAreaView>
   );
 }
@@ -227,4 +287,8 @@ const styles = StyleSheet.create({
   inputWrap: { flex: 1, flexDirection: "row", alignItems: "center", backgroundColor: "#F4F4F4", borderRadius: 22, paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
   textInput: { flex: 1, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828", maxHeight: 80 },
   sendButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  menuButton: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  dropdownMenu: { position: "absolute", top: 70, right: 16, backgroundColor: "#FFFFFF", borderRadius: 14, paddingVertical: 6, minWidth: 170, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8, zIndex: 100 },
+  dropdownItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
+  dropdownItemTextDanger: { fontSize: 15, fontFamily: "Outfit-Medium", color: "#D32F2F" },
 });
