@@ -162,7 +162,7 @@ export default function SubscriptionPlansScreen() {
               <Text style={styles.plusLabel}>PLUS</Text>
               <View style={styles.feeBanner}>
                 <Text style={styles.feeBannerValue}>{feePercent}</Text>
-                <Text style={styles.feeBannerLabel}>  only when you sell</Text>
+                <Text style={styles.feeBannerLabel}>   only when you sell</Text>
               </View>
 
               <View style={styles.noSalesPill}>
@@ -268,9 +268,9 @@ const styles = StyleSheet.create({
   priceValue: { fontSize: 42, fontFamily: "Manrope-Bold", color: "#076B51" },
   priceUnit: { fontSize: 15, fontFamily: "Outfit-Regular", color: "#858585", marginBottom: 8 },
   plusLabel: { fontSize: 11, fontFamily: "Outfit-Medium", color: "#858585", letterSpacing: 1, textTransform: "uppercase", marginTop: 18 },
-  feeBanner: { marginTop: 10, borderRadius: 14, backgroundColor: "#EEF8F0", paddingHorizontal: 16, paddingVertical: 14, flexDirection: "row", alignItems: "baseline" },
-  feeBannerValue: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#076B51" },
-  feeBannerLabel: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
+  feeBanner: { marginTop: 10, borderRadius: 14, backgroundColor: "#076B51", paddingHorizontal: 16, paddingVertical: 14, flexDirection: "row", alignItems: "baseline" },
+  feeBannerValue: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  feeBannerLabel: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#FFFFFF" },
   noSalesPill: { marginTop: 14, flexDirection: "row", alignItems: "center", alignSelf: "flex-start", backgroundColor: "#F6F8F7", borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: "#E8E8E8" },
   noSalesLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585" },
   noSalesValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
