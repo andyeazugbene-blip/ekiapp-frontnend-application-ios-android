@@ -677,7 +677,7 @@ export default function VendorDashboardScreen() {
             <LinearGradient
               colors={planGradient as unknown as string[]}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+              end={{ x: 0, y: 1 }}
               style={styles.planCard}
             >
               <View style={styles.planHeaderRow}>
@@ -1328,7 +1328,7 @@ const styles = StyleSheet.create({
   planIconBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
   planSub: { color: "rgba(255,255,255,0.85)", fontSize: 14, fontFamily: "Outfit-Regular", marginTop: 5 },
   planBody: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontFamily: "Outfit-Regular", lineHeight: 19, marginTop: 16 },
-  planDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.15)", marginTop: 18, marginBottom: 18 },
+  planDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.15)", marginTop: 22, marginBottom: 14 },
   upgradeBtn: { height: 50, borderRadius: 14, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 10 },
   upgradeText: { color: "#076B51", fontSize: 15, fontFamily: "Manrope-SemiBold" },
 });
