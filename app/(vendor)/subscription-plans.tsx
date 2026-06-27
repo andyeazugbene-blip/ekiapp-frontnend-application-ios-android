@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
   subscriptionService,
@@ -98,9 +98,11 @@ export default function SubscriptionPlansScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    loadPlanStatus();
-  }, [loadPlanStatus]);
+  useFocusEffect(
+    useCallback(() => {
+      loadPlanStatus();
+    }, [loadPlanStatus])
+  );
 
   const isActive = subscription?.status === "active";
   const planSlug = currentPlanDetails?.slug ?? subscription?.slug ?? "free";
