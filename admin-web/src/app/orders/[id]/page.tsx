@@ -3,11 +3,70 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
-import { Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
+import { ErrorPanel, LoadingPanel } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
 import { ordersAPI } from "@/lib/services/orders.api";
-import { APIError, API2FARequiredError } from "@/lib/api";
+import { APIError } from "@/lib/api";
+
+function fmt(amount: number, currency: string) {
+  return `${currency} ${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtDate(d: string | undefined, withTime = true) {
+  if (!d) return "—";
+  const date = new Date(d);
+  const opts: Intl.DateTimeFormatOptions = withTime
+    ? { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }
+    : { month: "short", day: "numeric", year: "numeric" };
+  return date.toLocaleDateString("en-GB", opts).replace(",", "");
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const s = (status ?? "").toLowerCase();
+  const map: Record<string, string> = {
+    pending: "bg-amber-50 text-amber-600", confirmed: "bg-blue-50 text-blue-600", processing: "bg-purple-50 text-purple-600",
+    shipped: "bg-sky-50 text-sky-600", delivered: "bg-emerald-50 text-emerald-600", completed: "bg-emerald-50 text-emerald-600",
+    cancelled: "bg-red-50 text-red-500", refunded: "bg-slate-100 text-slate-600", failed: "bg-red-50 text-red-500",
+    paid: "bg-emerald-50 text-emerald-600", succeeded: "bg-emerald-50 text-emerald-600", released: "bg-emerald-50 text-emerald-600",
+  };
+  return <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${map[s] ?? "bg-slate-100 text-slate-500"}`}>{s || "—"}</span>;
+}
+
+function InfoRow({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-1.5">
+      <span className="text-[12px] text-slate-400 whitespace-nowrap">{label}</span>
+      <span className={`text-[12px] font-medium text-slate-700 text-right ${mono ? "font-mono text-[11px]" : ""}`}>{value}</span>
+    </div>
+  );
+}
+
+function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-5">
+      <h3 className="text-[14px] font-bold text-[#101820] mb-3">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function ActionItem({ label, color }: { label: string; color: string }) {
+  const colorMap: Record<string, string> = {
+    green: "bg-emerald-50 text-emerald-700",
+    orange: "bg-amber-50 text-amber-700",
+    slate: "bg-slate-50 text-slate-700",
+    red: "bg-red-50 text-red-600",
+  };
+  const dotMap: Record<string, string> = {
+    green: "bg-emerald-500", orange: "bg-amber-500", slate: "bg-slate-400", red: "bg-red-500",
+  };
+  return (
+    <button className={`flex items-center gap-2.5 w-full rounded-lg px-3.5 py-2 text-[12px] font-semibold transition hover:opacity-80 ${colorMap[color] ?? colorMap.slate}`}>
+      <span className={`h-[6px] w-[6px] rounded-full ${dotMap[color] ?? dotMap.slate}`} />
+      {label}
+    </button>
+  );
+}
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -15,7 +74,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency("EUR");
+  const [notes, setNotes] = useState("");
 
   const load = useCallback(async () => {
     try { setLoading(true); setError(""); setOrder(await ordersAPI.getOrder(id)); }
@@ -31,100 +90,160 @@ export default function OrderDetailPage() {
   const items = order.items ?? [];
   const payment = order.payment ?? {};
   const dz = order.deliveryZone ?? {};
-  const checkout = order.checkout ?? {};
-  const vi = order.vendorInfo ?? {};
+  const cur = order.currency ?? "GBP";
+  const gross = order.totalAmount ?? 0;
+  const platformFee = order.platformFeeAmount ?? 0;
+  const vendorAmount = order.vendorEarnings ?? 0;
+  const deliveryFee = order.deliveryFeeAmount ?? 0;
+  const feePercent = gross > 0 ? Math.round((platformFee / gross) * 100) : 0;
+
+  const timeline: { label: string; time: string; color: string }[] = [];
+  if (order.createdAt) timeline.push({ label: "Order Placed", time: fmtDate(order.createdAt), color: "bg-emerald-500" });
+  if (payment.processedAt) timeline.push({ label: "Payment Received", time: fmtDate(payment.processedAt), color: "bg-emerald-500" });
+  if (order.status !== "pending" && order.status !== "cancelled") timeline.push({ label: "Vendor Accepted", time: fmtDate(order.confirmedAt ?? order.createdAt), color: "bg-emerald-500" });
+  if (order.status === "processing" || order.status === "shipped" || order.status === "delivered" || order.status === "completed")
+    timeline.push({ label: "Processing", time: fmtDate(order.processingAt ?? order.createdAt), color: "bg-blue-500" });
+  if (order.status === "shipped" || order.status === "delivered" || order.status === "completed")
+    timeline.push({ label: "Shipped", time: fmtDate(order.shippedAt ?? order.createdAt), color: "bg-emerald-500" });
+  if (order.status === "delivered" || order.status === "completed")
+    timeline.push({ label: "Delivered", time: fmtDate(order.deliveredAt), color: "bg-emerald-500" });
+  if (order.payoutReleasedAt) timeline.push({ label: "Payout Released", time: fmtDate(order.payoutReleasedAt), color: "bg-emerald-500" });
 
   return (
-    <ProtectedRoute><AdminLayout><div className="space-y-6">
-      <PageHeader title={`Order ${order.orderNumber}`} subtitle={`ID: ${order.id}`}
-        actions={<div className="flex gap-3">
-          <select value={selectedCurrency} onChange={e => setSelectedCurrency(e.target.value as any)} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900">
-            {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <Button variant="secondary" onClick={() => router.push("/orders")}>← Back</Button>
-        </div>}
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card><h2 className="text-lg font-bold mb-4">Order</h2>
-          <div className="space-y-2 text-sm">
-            <Row label="Status" value={<OrderBadge status={order.status} />} />
-            <Row label="Total" value={formatDisplayMoney(order.totalAmount, order.currency, selectedCurrency)} />
-            <Row label="Subtotal" value={formatDisplayMoney(order.subtotalAmount ?? 0, order.currency, selectedCurrency)} />
-            <Row label="Delivery fee" value={formatDisplayMoney(order.deliveryFeeAmount ?? 0, order.currency, selectedCurrency)} />
-            <Row label="Platform fee" value={formatDisplayMoney(order.platformFeeAmount ?? 0, order.currency, selectedCurrency)} />
-            <Row label="Vendor earns" value={formatDisplayMoney(order.vendorEarnings ?? 0, order.currency, selectedCurrency)} />
-            <Row label="Created" value={new Date(order.createdAt).toLocaleString()} />
-            {order.deliveredAt ? <Row label="Delivered" value={new Date(order.deliveredAt).toLocaleString()} /> : null}
+    <ProtectedRoute>
+      <AdminLayout>
+        <div className="space-y-5">
+          {/* Breadcrumb + Header */}
+          <div>
+            <button onClick={() => router.push("/orders")} className="text-[12px] text-slate-400 hover:text-slate-600 transition mb-1 flex items-center gap-1">
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              Orders / {order.orderNumber}
+            </button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h1 className="text-xl font-black tracking-tight text-[#101820]">Order {order.orderNumber}</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition">Release Payout</button>
+                <button className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-[12px] font-bold text-red-500 hover:bg-red-100 transition">Refund Buyer</button>
+                <button className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition">Message Vendor</button>
+                <button className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition">Message Buyer</button>
+              </div>
+            </div>
           </div>
-        </Card>
 
-        <Card><h2 className="text-lg font-bold mb-4">Payment</h2>
-          <div className="space-y-2 text-sm">
-            <Row label="Status" value={<OrderBadge status={payment.status} />} />
-            <Row label="Provider" value={payment.provider ?? "—"} />
-            <Row label="Amount" value={formatDisplayMoney(payment.amount ?? 0, payment.currency ?? order.currency, selectedCurrency)} />
-            <Row label="Intent" value={payment.stripePaymentIntentId ? <span className="font-mono text-xs">{payment.stripePaymentIntentId}</span> : "—"} />
-            <Row label="Processed" value={payment.processedAt ? new Date(payment.processedAt).toLocaleString() : "—"} />
-            {payment.platformFeeAmount != null ? <Row label="Platform fee" value={formatDisplayMoney(payment.platformFeeAmount, payment.currency ?? order.currency, selectedCurrency)} /> : null}
-            {payment.vendorEarningsAmount != null ? <Row label="Vendor earnings" value={formatDisplayMoney(payment.vendorEarningsAmount, payment.currency ?? order.currency, selectedCurrency)} /> : null}
+          {/* 3-column layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Column 1 */}
+            <div className="space-y-4">
+              <SectionCard title="Order Summary">
+                <div className="divide-y divide-slate-50">
+                  <InfoRow label="Order ID" value={order.orderNumber} />
+                  <InfoRow label="Date" value={fmtDate(order.createdAt)} />
+                  <InfoRow label="Buyer" value={order.buyerName || order.buyer?.name || "—"} />
+                  <InfoRow label="Vendor" value={order.vendorName || "—"} />
+                  <InfoRow label="Payment" value={payment.stripePaymentIntentId ? `Paid via ${payment.provider ?? "Stripe"} ****${(payment.last4 ?? "")}` : (payment.provider ?? "—")} />
+                  <InfoRow label="Escrow" value={order.escrowReleasedAt ? `Released ${fmtDate(order.escrowReleasedAt, false)}` : (order.escrowStatus ?? "—")} />
+                  <InfoRow label="Delivery" value={order.deliveredAt ? `Delivered ${fmtDate(order.deliveredAt, false)}` : (order.status ?? "—")} />
+                  <InfoRow label="Total" value={<span className="text-[#096B4A] font-bold">{fmt(gross, cur)}</span>} />
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Items Ordered">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                      <th className="pb-2">Product</th>
+                      <th className="pb-2 text-center">Qty</th>
+                      <th className="pb-2 text-right">Unit Price</th>
+                      <th className="pb-2 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item: any, i: number) => (
+                      <tr key={item.id ?? i} className="border-b border-slate-50">
+                        <td className="py-2 text-[12px] text-slate-700">{item.productTitle ?? item.product?.title ?? "—"}</td>
+                        <td className="py-2 text-[12px] text-slate-600 text-center">{item.quantity}</td>
+                        <td className="py-2 text-[12px] text-slate-600 text-right">{fmt(item.unitAmount ?? 0, cur)}</td>
+                        <td className="py-2 text-[12px] font-semibold text-slate-800 text-right">{fmt(item.totalAmount ?? 0, cur)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </SectionCard>
+            </div>
+
+            {/* Column 2 */}
+            <div className="space-y-4">
+              <SectionCard title="Payment Details">
+                <div className="divide-y divide-slate-50">
+                  <InfoRow label="Stripe Payment ID" value={payment.stripePaymentIntentId ? `${payment.stripePaymentIntentId.slice(0, 18)}...` : "—"} mono />
+                  <InfoRow label="Gross Amount" value={fmt(gross, cur)} />
+                  <InfoRow label={`Platform Fee (${feePercent}%)`} value={fmt(platformFee, cur)} />
+                  <InfoRow label="Vendor Amount" value={fmt(vendorAmount, cur)} />
+                  <InfoRow label="Delivery Fee" value={fmt(deliveryFee, cur)} />
+                  <InfoRow label="Escrow Status" value={order.escrowReleasedAt ? `Released ${fmtDate(order.escrowReleasedAt, false)}` : (order.escrowStatus ?? "—")} />
+                  <InfoRow label="Payout Status" value={order.payoutStatus ?? payment.payoutStatus ?? "—"} />
+                  <InfoRow label="Refund Status" value={order.refundStatus ?? "None"} />
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Delivery">
+                <div className="divide-y divide-slate-50">
+                  <InfoRow label="Address" value={order.deliveryAddress ?? "—"} />
+                  <InfoRow label="Courier" value={order.courierName ?? dz.courier ?? "—"} />
+                  <InfoRow label="Tracking No." value={order.trackingNumber ?? "—"} mono />
+                  <InfoRow label="Status" value={order.deliveredAt ? `Delivered ${fmtDate(order.deliveredAt)}` : (order.deliveryStatus ?? order.status ?? "—")} />
+                  <InfoRow label="Notes" value={order.deliveryNotes ?? "—"} />
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Order Timeline">
+                <div className="space-y-0">
+                  {timeline.map((event, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="flex flex-col items-center">
+                        <span className={`h-[8px] w-[8px] rounded-full mt-1.5 ${event.color}`} />
+                        {i < timeline.length - 1 && <span className="w-px flex-1 bg-slate-200 min-h-[24px]" />}
+                      </div>
+                      <div className="flex items-center justify-between w-full pb-3">
+                        <span className="text-[12px] font-medium text-slate-700">{event.label}</span>
+                        <span className="text-[11px] text-slate-400">{event.time}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {timeline.length === 0 && <p className="text-[12px] text-slate-400">No timeline events</p>}
+                </div>
+              </SectionCard>
+            </div>
+
+            {/* Column 3 */}
+            <div className="space-y-4">
+              <SectionCard title="Quick Actions">
+                <div className="space-y-1.5">
+                  <ActionItem label="Update Status" color="green" />
+                  <ActionItem label="Assign Courier" color="orange" />
+                  <ActionItem label="Message Buyer" color="slate" />
+                  <ActionItem label="Message Vendor" color="slate" />
+                  <ActionItem label="Open Dispute" color="red" />
+                  <ActionItem label="Cancel Order" color="red" />
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Order Notes">
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Admin notes..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12px] text-slate-700 outline-none focus:border-[#096B4A] focus:ring-1 focus:ring-[#096B4A] transition resize-none"
+                  rows={4}
+                />
+                <button className="mt-2 rounded-lg bg-[#096B4A] px-4 py-2 text-[11px] font-bold text-white hover:bg-[#07553b] transition">
+                  Save Note
+                </button>
+              </SectionCard>
+            </div>
           </div>
-        </Card>
-
-        <Card><h2 className="text-lg font-bold mb-4">Parties</h2>
-          <div className="space-y-2 text-sm">
-            <Row label="Buyer" value={order.buyer?.name ?? order.buyerName ?? order.buyerId} />
-            <Row label="Email" value={order.buyer?.email ?? "—"} />
-            <div className="border-t my-2" />
-            <Row label="Vendor" value={order.vendorName ?? order.vendorId ?? "—"} />
-            <Row label="Email" value={vi.contactEmail ?? "—"} />
-            <Row label="Country" value={vi.country ?? "—"} />
-            <Row label="Verification" value={vi.verificationStatus?.replace("_"," ") ?? "—"} />
-          </div>
-        </Card>
-      </div>
-
-      <Card><h2 className="text-lg font-bold mb-4">Delivery</h2>
-        <div className="space-y-2 text-sm">
-          <Row label="Zone" value={dz.name ?? "—"} />
-          <Row label="Country" value={dz.country ?? "—"} />
-          <Row label="Base fee" value={dz.baseFeeAmount != null ? formatDisplayMoney(dz.baseFeeAmount, order.currency, selectedCurrency) : "—"} />
-          <Row label="Per kg" value={dz.feePerKgAmount != null ? formatDisplayMoney(dz.feePerKgAmount, order.currency, selectedCurrency) : "—"} />
-          <Row label="Address" value={order.deliveryAddress ?? "—"} />
         </div>
-      </Card>
-
-      <Card><h2 className="text-lg font-bold mb-4">Items ({items.length})</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50"><tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-            </tr></thead>
-            <tbody className="divide-y divide-gray-200">
-              {items.map((item: any, i: number) => (
-                <tr key={item.id ?? i}>
-                  <td className="px-4 py-3 text-sm text-gray-900">{item.productTitle ?? item.product?.title ?? "—"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{item.quantity}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{formatDisplayMoney(item.unitAmount ?? item.product?.priceInCents ?? 0, order.currency, selectedCurrency)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{formatDisplayMoney(item.totalAmount ?? 0, order.currency, selectedCurrency)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </div></AdminLayout></ProtectedRoute>
+      </AdminLayout>
+    </ProtectedRoute>
   );
-}
-
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return <div className="flex justify-between"><span className="text-gray-500">{label}</span><span className="text-gray-900 font-medium">{value}</span></div>;
-}
-function OrderBadge({ status }: { status: string }) {
-  const s = (status ?? "").toLowerCase();
-  const c: Record<string,string> = { pending:"bg-yellow-100 text-yellow-800", succeeded:"bg-green-100 text-green-800", paid:"bg-green-100 text-green-800", confirmed:"bg-blue-100 text-blue-800", processing:"bg-purple-100 text-purple-800", delivered:"bg-green-100 text-green-800", completed:"bg-green-100 text-green-800", failed:"bg-red-100 text-red-800", cancelled:"bg-red-100 text-red-800", refunded:"bg-gray-100 text-gray-800" };
-  return <span className={`px-2 py-1 rounded-full text-xs font-medium ${c[s] ?? "bg-gray-100 text-gray-800"}`}>{s.replace("_"," ")}</span>;
 }
