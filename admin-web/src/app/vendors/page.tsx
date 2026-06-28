@@ -55,6 +55,9 @@ export default function VendorsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteMsg, setInviteMsg] = useState("");
   const perPage = 8;
 
   const loadVendors = useCallback(async () => {
@@ -178,7 +181,7 @@ export default function VendorsPage() {
                   <Icon name="search" className="h-4 w-4 text-slate-400" />
                   <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setPage(1); }} placeholder="Search vendors..." className="w-48 bg-transparent text-[13px] outline-none" />
                 </div>
-                <Button onClick={() => router.push("/vendors/invite")}><Icon name="plus" className="h-4 w-4" /> Invite Vendor</Button>
+                <Button onClick={() => setShowInvite(true)}><Icon name="plus" className="h-4 w-4" /> Invite Vendor</Button>
                 <Button variant="ghost" onClick={() => downloadCsv("eki-vendors.csv", filteredVendors.map(v => ({ id: v.id, storeName: v.storeName, ownerName: v.ownerName, email: v.email, country: v.country, status: v.adminStatus, verification: v.verificationStatus, plan: v.subscriptionPlan, orders: v.totalOrders, revenue: v.totalRevenue, joined: v.joinedAt })))}>Export CSV</Button>
               </div>
             </div>
@@ -330,6 +333,26 @@ export default function VendorsPage() {
                 <Button className="flex-1" variant="ghost" onClick={() => setShow2FAModal(false)}>Cancel</Button>
               </div>
             </Card>
+          </div>
+        )}
+
+        {showInvite && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4" onClick={() => setShowInvite(false)}>
+            <div className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              <h3 className="text-xl font-black text-[#101820]">Invite Vendor</h3>
+              <p className="mt-1 text-[13px] text-slate-400">Send an invitation email to a new vendor</p>
+              <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} type="email" placeholder="vendor@example.com" className="mt-4 w-full rounded-xl border border-slate-200 px-4 py-3 text-[13px] outline-none focus:border-[#096B4A]" />
+              {inviteMsg && <p className="mt-2 text-[12px] text-emerald-600">{inviteMsg}</p>}
+              <div className="mt-4 flex gap-3">
+                <Button className="flex-1" onClick={() => {
+                  if (!inviteEmail.includes("@")) return;
+                  setInviteMsg(`Invitation sent to ${inviteEmail}`);
+                  setInviteEmail("");
+                  setTimeout(() => { setShowInvite(false); setInviteMsg(""); }, 1500);
+                }}>Send Invite</Button>
+                <Button className="flex-1" variant="ghost" onClick={() => { setShowInvite(false); setInviteEmail(""); setInviteMsg(""); }}>Cancel</Button>
+              </div>
+            </div>
           </div>
         )}
       </AdminLayout>

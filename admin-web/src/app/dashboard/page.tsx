@@ -92,6 +92,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [chartRange, setChartRange] = useState<ChartRange>("30d");
+  const [dateOpen, setDateOpen] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -198,10 +199,22 @@ export default function DashboardPage() {
                 <p className="text-[13px] text-slate-400">Today · {todayStr}</p>
               </div>
               <div className="flex items-center gap-2">
-                <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-[13px] font-medium text-slate-600">
-                  {dateRange}
-                  <svg className="h-3.5 w-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                </button>
+                <div className="relative">
+                  <button onClick={() => setDateOpen(p => !p)} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-[13px] font-medium text-slate-600 hover:bg-slate-50 transition">
+                    {dateRange}
+                    <svg className={`h-3.5 w-3.5 text-slate-400 transition ${dateOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {dateOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-30 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                      {(["today", "7d", "30d", "90d"] as ChartRange[]).map(r => (
+                        <button key={r} onClick={() => { void loadChartData(r); setDateOpen(false); }}
+                          className={`block w-full px-4 py-2 text-left text-[13px] font-medium transition ${chartRange === r ? "bg-emerald-50 text-[#096B4A]" : "text-slate-600 hover:bg-slate-50"}`}>
+                          {r === "today" ? "Today" : r === "7d" ? "Last 7 days" : r === "30d" ? "Last 30 days" : "Last 90 days"}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 gap-2">
                   <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path strokeLinecap="round" strokeWidth={2} d="m20 20-3.5-3.5" /></svg>
                   <span className="text-[13px] text-slate-400">Search...</span>
