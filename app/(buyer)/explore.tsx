@@ -6,7 +6,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { vendorService } from "../../services/vendorService";
-import { useCartStore } from "../../stores/cartStore";
+import { useCartStore, CurrencyMismatchError } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { Product } from "../../types/product";
 import { VendorSummary } from "../../types/vendor";
@@ -24,6 +24,7 @@ export default function ExploreScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ search?: string; category?: string; view?: string; sort?: string }>();
   const addItem = useCartStore((s) => s.addItem);
+  const clearCart = useCartStore((s) => s.clearCart);
   const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
   const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
   const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
@@ -94,7 +95,14 @@ export default function ExploreScreen() {
       Animated.timing(addedAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
     ]).start(() => setRecentlyAddedId(null));
     addItem(product, 1).catch((err) => {
-      Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
+      if (err instanceof CurrencyMismatchError) {
+        Alert.alert("Different currency", `Your cart has ${err.existing} items. Replace with this ${err.incoming} product?`, [
+          { text: "Cancel", style: "cancel" },
+          { text: "Replace Cart", style: "destructive", onPress: () => { clearCart().then(() => addItem(product, 1)).catch(() => {}); }},
+        ]);
+      } else {
+        Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
+      }
     });
   };
 

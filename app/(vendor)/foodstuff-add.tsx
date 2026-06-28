@@ -27,8 +27,10 @@ import { vendorService } from "../../services/vendorService";
 import { goBackOrReplace } from "../../utils/navigation";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
-  GBP: "£", USD: "$", EUR: "€", NGN: "₦", CAD: "C$", AUD: "A$",
+  GBP: "£", USD: "$", EUR: "€", NGN: "₦", CAD: "C$", AUD: "A$", GHS: "₵", KES: "KSh",
 };
+
+const SUPPORTED_CURRENCIES = ["GBP", "USD", "EUR", "NGN", "GHS", "KES", "CAD"];
 
 
 const UNITS = ["kg", "g", "lb", "oz", "pack", "bunch", "piece", "litre", "ml"];
@@ -55,6 +57,7 @@ export default function FoodstuffAddScreen() {
   const [isPublished, setIsPublished] = useState(false);
   const [showUnits, setShowUnits] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
+  const [showCurrencies, setShowCurrencies] = useState(false);
 
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageRemoteUrl, setImageRemoteUrl] = useState<string | null>(null);
@@ -354,6 +357,24 @@ export default function FoodstuffAddScreen() {
             <Text style={styles.sectionTitle}>Pricing and weight</Text>
 
             <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Currency</Text>
+              <TouchableOpacity onPress={() => setShowCurrencies((v) => !v)} style={styles.selectInput}>
+                <Text style={styles.selectText}>{CURRENCY_SYMBOLS[vendorCurrency] ?? ""} {vendorCurrency}</Text>
+                <Ionicons name={showCurrencies ? "chevron-up" : "chevron-down"} size={16} color="#858585" />
+              </TouchableOpacity>
+            </View>
+
+            {showCurrencies && (
+              <View style={styles.optionsList}>
+                {SUPPORTED_CURRENCIES.map((cur) => (
+                  <TouchableOpacity key={cur} onPress={() => { setVendorCurrency(cur); setShowCurrencies(false); }} style={[styles.optionItem, cur === vendorCurrency && styles.optionItemActive]}>
+                    <Text style={[styles.optionText, cur === vendorCurrency && styles.optionTextActive]}>{CURRENCY_SYMBOLS[cur] ?? ""} {cur}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Price ({vendorCurrency})</Text>
               <View style={styles.currencyInputRow}>
                 <View style={styles.currencyBadge}>
@@ -604,6 +625,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Outfit-Regular",
     color: "#282828",
+  },
+  optionItemActive: {
+    backgroundColor: "#E8F5EE",
+    borderWidth: 1,
+    borderColor: "#076B51",
+  },
+  optionTextActive: {
+    color: "#076B51",
+    fontFamily: "Outfit-Medium",
   },
   rowFields: {
     flexDirection: "row",

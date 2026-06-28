@@ -21,7 +21,7 @@ import { rewardService, type Reward } from "../../services/rewardService";
 import { giftCardService, type GiftCard } from "../../services/giftCardService";
 import { campaignService, campaignColors, type Campaign } from "../../services/campaignService";
 import { marketingService } from "../../services/marketingService";
-import { useCartStore } from "../../stores/cartStore";
+import { useCartStore, CurrencyMismatchError } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
 import { type Product } from "../../types/product";
@@ -102,6 +102,7 @@ function rankVendors(vendors: VendorSummary[], products: Product[]): VendorSumma
 export default function BuyerHomeScreen() {
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
+  const clearCart = useCartStore((s) => s.clearCart);
   const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
   const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
   const user = useAuthStore((s) => s.user);
@@ -231,7 +232,14 @@ export default function BuyerHomeScreen() {
 
   const handleAddToCart = (item: Product) => {
     addItem(item, 1).catch((err) => {
-      Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
+      if (err instanceof CurrencyMismatchError) {
+        Alert.alert("Different currency", `Your cart has ${err.existing} items. Replace with this ${err.incoming} product?`, [
+          { text: "Cancel", style: "cancel" },
+          { text: "Replace Cart", style: "destructive", onPress: () => { clearCart().then(() => addItem(item, 1)).catch(() => {}); }},
+        ]);
+      } else {
+        Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
+      }
     });
   };
 

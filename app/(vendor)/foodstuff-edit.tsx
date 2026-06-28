@@ -26,6 +26,12 @@ import { deliveryService } from "../../services/deliveryService";
 import { goBackOrReplace } from "../../utils/navigation";
 
 
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  GBP: "£", USD: "$", EUR: "€", NGN: "₦", CAD: "C$", AUD: "A$", GHS: "₵", KES: "KSh",
+};
+
+const SUPPORTED_CURRENCIES = ["GBP", "USD", "EUR", "NGN", "GHS", "KES", "CAD"];
+
 const UNITS = ["kg", "g", "lb", "oz", "pack", "bunch", "piece", "litre", "ml"];
 
 function parseMoneyInput(value: string): number {
@@ -54,6 +60,8 @@ export default function FoodstuffEditScreen() {
   const [imageUri, setImageUri] = useState<string | null>(selectedProduct?.images?.[0] ?? null);
   const [imageRemoteUrl, setImageRemoteUrl] = useState<string | null>(selectedProduct?.images?.[0] ?? null);
 
+  const [productCurrency, setProductCurrency] = useState(selectedProduct?.currency ?? "GBP");
+  const [showCurrencies, setShowCurrencies] = useState(false);
   const [showUnits, setShowUnits] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -87,6 +95,7 @@ export default function FoodstuffEditScreen() {
         setCostPrice(String(p.costPrice ?? ""));
         setWeight(String(p.weight ?? ""));
         setUnit(p.unit ?? "kg");
+        setProductCurrency(p.currency ?? "GBP");
         setStock(String(p.stock));
         setIsPublished(p.status !== "draft");
         setIsAvailable(p.status !== "out_of_stock");
@@ -151,6 +160,7 @@ export default function FoodstuffEditScreen() {
         description: description.trim(),
         price: parseMoneyInput(price),
         costPrice: costPrice.trim() ? parseMoneyInput(costPrice) : null,
+        currency: productCurrency as Product["currency"],
         category: category || product.category,
         stock: Number(stock) || 0,
         weight: Number(weight) || 0,
@@ -390,8 +400,31 @@ export default function FoodstuffEditScreen() {
             <Text style={styles.sectionTitle}>Pricing and stock</Text>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Price</Text>
-              <TextInput value={price} onChangeText={setPrice} placeholder="£10" placeholderTextColor="#858585" keyboardType="decimal-pad" style={styles.input} />
+              <Text style={styles.fieldLabel}>Currency</Text>
+              <TouchableOpacity onPress={() => setShowCurrencies((v) => !v)} style={styles.selectInput}>
+                <Text style={styles.selectText}>{CURRENCY_SYMBOLS[productCurrency] ?? ""} {productCurrency}</Text>
+                <Ionicons name={showCurrencies ? "chevron-up" : "chevron-down"} size={16} color="#858585" />
+              </TouchableOpacity>
+            </View>
+
+            {showCurrencies && (
+              <View style={styles.optionsList}>
+                {SUPPORTED_CURRENCIES.map((cur) => (
+                  <TouchableOpacity key={cur} onPress={() => { setProductCurrency(cur); setShowCurrencies(false); }} style={[styles.optionItem, cur === productCurrency && styles.optionItemActive]}>
+                    <Text style={[styles.optionText, cur === productCurrency && styles.optionTextActive]}>{CURRENCY_SYMBOLS[cur] ?? ""} {cur}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Price ({productCurrency})</Text>
+              <View style={styles.currencyInputRow}>
+                <View style={styles.currencyBadge}>
+                  <Text style={styles.currencyBadgeText}>{CURRENCY_SYMBOLS[productCurrency] ?? productCurrency}</Text>
+                </View>
+                <TextInput value={price} onChangeText={setPrice} placeholder="0.00" placeholderTextColor="#858585" keyboardType="decimal-pad" style={[styles.input, { flex: 1 }]} />
+              </View>
             </View>
 
             <View style={styles.fieldGroup}>
@@ -545,6 +578,11 @@ const styles = StyleSheet.create({
   optionsList: { gap: 6, marginBottom: 16 },
   optionItem: { backgroundColor: "#F4F4F4", borderRadius: 10, height: 44, paddingHorizontal: 15, justifyContent: "center" },
   optionText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
+  optionItemActive: { backgroundColor: "#E8F5EE", borderWidth: 1, borderColor: "#076B51" },
+  optionTextActive: { color: "#076B51", fontFamily: "Outfit-Medium" },
+  currencyInputRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  currencyBadge: { height: 55, paddingHorizontal: 14, borderRadius: 10, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  currencyBadgeText: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   rowFields: { flexDirection: "row", gap: 10, marginBottom: 16 },
   toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   toggleLabel: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#282828" },

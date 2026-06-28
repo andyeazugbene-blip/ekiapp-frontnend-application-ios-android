@@ -3,6 +3,12 @@ import { CartItem, Product } from "../types/product";
 import { cartService, ServerCartItem, DeliveryEstimate, CheckoutIntent } from "../services/cartService";
 import { DeliveryZone, deliveryService, matchesDeliveryZoneCountry } from "../services/deliveryService";
 
+export class CurrencyMismatchError extends Error {
+  constructor(public existing: string, public incoming: string) {
+    super("currency_mismatch");
+  }
+}
+
 export interface VendorGroup {
   vendorId: string;
   vendorName: string;
@@ -165,9 +171,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
   addItem: async (product, quantity = 1) => {
     const existingCurrency = normalizeCurrency(get().items[0]?.product.currency ?? get().serverItems[0]?.currency);
     if (existingCurrency && existingCurrency !== normalizeCurrency(product.currency)) {
-      const message = "Your cart can only contain products with the same currency. Clear the cart or checkout first.";
-      set({ error: message });
-      throw new Error(message);
+      throw new CurrencyMismatchError(existingCurrency, normalizeCurrency(product.currency));
     }
 
     set({ isLoading: true, error: null });
