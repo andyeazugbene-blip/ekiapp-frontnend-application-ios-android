@@ -110,9 +110,9 @@ export default function VendorWebSubscriptionPage() {
         <View style={styles.nativeIcon}>
           <Ionicons name="globe-outline" size={28} color={BRAND} />
         </View>
-        <Text style={styles.nativeTitle}>Plan status</Text>
+        <Text style={styles.nativeTitle}>Account status</Text>
         <Text style={styles.nativeText}>
-          Your current plan and limits are shown in the app. Contact support for plan changes.
+          Your current vendor services and limits are shown in the app. Contact support for account changes.
         </Text>
       </View>
     );
@@ -145,8 +145,8 @@ export default function VendorWebSubscriptionPage() {
         </View>
 
         <View style={styles.checkoutPanel}>
-          <Text style={styles.panelTitle}>Choose your plan</Text>
-          <Text style={styles.panelSubtitle}>Billing starts on Stripe after you confirm checkout.</Text>
+          <Text style={styles.panelTitle}>Choose vendor services</Text>
+          <Text style={styles.panelSubtitle}>Billing starts on Stripe after you confirm.</Text>
 
           {params.success === "true" ? (
             <View style={styles.successBanner}>
