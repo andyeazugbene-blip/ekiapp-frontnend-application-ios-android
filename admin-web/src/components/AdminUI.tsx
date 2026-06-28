@@ -41,6 +41,18 @@ export function Icon({ name, className = "h-5 w-5" }: { name: string; className?
     clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
     user: <><path d="M20 21a8 8 0 0 0-16 0" /><circle cx="12" cy="7" r="4" /></>,
     money: <><path d="M12 2v20" /><path d="M17 6.5A4 4 0 0 0 12 5c-2.2 0-4 1-4 2.8s1.6 2.4 4 3.2 4 1.4 4 3.2S14.2 17 12 17a5 5 0 0 1-5-2" /></>,
+    trending: <><path d="M22 7l-8.5 8.5-5-5L2 17" /><path d="M16 7h6v6" /></>,
+    cash: <><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="3" /><path d="M6 12h.01" /><path d="M18 12h.01" /></>,
+    wallet: <><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12a2 2 0 0 0 2 2h14v-4" /><path d="M18 12a2 2 0 0 0 0 4h4v-4h-4Z" /></>,
+    sent: <><path d="M22 2 11 13" /><path d="M22 2 15 22l-4-9-9-4 20-7Z" /></>,
+    profit: <><path d="M12 2v20" /><path d="m17 7-5-5-5 5" /><path d="M5 19h14" /></>,
+    refresh: <><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /><path d="M3 21v-5h5" /></>,
+    warning: <><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /></>,
+    chevronUp: <path d="m18 15-6-6-6 6" />,
+    chevronDown: <path d="m6 9 6 6 6-6" />,
+    products: <><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><circle cx="7" cy="7" r="1" /></>,
+    shield: <><path d="m12 3 8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4Z" /></>,
+    mail: <><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></>,
   };
   return <svg viewBox="0 0 24 24" className={className} {...common}>{paths[name] ?? paths.overview}</svg>;
 }
