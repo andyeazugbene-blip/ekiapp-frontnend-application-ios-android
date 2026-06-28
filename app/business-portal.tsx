@@ -101,15 +101,21 @@ function DashboardView({ subscription, limits, plans, email }: {
       <Text style={s.viewSubtitle}>Overview of your business account and current service.</Text>
 
       <View style={s.cardGrid}>
-        <SectionCard title="Account Status" icon="person-circle-outline">
+        <SectionCard title="Vendor Account Status" icon="person-circle-outline">
           <InfoRow label="Account Email" value={email || "Not set"} />
           <InfoRow label="Account Status" value={isActive ? "Active" : "Inactive"} accent={isActive} />
-          <InfoRow label="Store Status" value={isActive ? "Published" : "Unpublished"} />
           <InfoRow label="Verification" value="Managed in App" />
         </SectionCard>
 
-        <SectionCard title="Current Service" icon="layers-outline">
-          <InfoRow label="Plan" value={currentPlan?.name ?? subscription?.planName ?? "Starter"} accent />
+        <SectionCard title="Store Status" icon="storefront-outline">
+          <InfoRow label="Visibility" value={isActive ? "Live on Eki" : "Hidden"} accent={isActive} />
+          <InfoRow label="Product Listings" value={`${limits?.currentProducts ?? 0} active`} />
+          <InfoRow label="Orders Processed" value={`${limits?.currentOrders ?? 0}`} />
+          <InfoRow label="Store Health" value={isActive ? "Good" : "Action Required"} accent={isActive} />
+        </SectionCard>
+
+        <SectionCard title="Current Vendor Service" icon="layers-outline">
+          <InfoRow label="Service" value={currentPlan?.name ?? subscription?.planName ?? "Starter"} accent />
           <InfoRow label="Platform Fee" value={subscription?.platformFeePercent ?? limits?.platformFeePercent ?? "—"} />
           <InfoRow label="Withdrawal Fee" value={subscription?.withdrawalFeePercent ?? limits?.withdrawalFeePercent ?? "—"} />
           <InfoRow label="Renewal Date" value={renewalDate} />
@@ -121,7 +127,20 @@ function DashboardView({ subscription, limits, plans, email }: {
           )}
         </SectionCard>
 
-        <SectionCard title="Current Limits" icon="speedometer-outline">
+        <SectionCard title="Billing Status" icon="card-outline">
+          <InfoRow label="Billing" value={subscription ? "Active" : "No active service"} accent={!!subscription} />
+          <InfoRow label="Next Renewal" value={renewalDate} />
+          <InfoRow label="Cancellation" value={subscription?.cancelAtPeriodEnd ? "Scheduled" : "None"} />
+        </SectionCard>
+
+        <SectionCard title="Payment Method" icon="wallet-outline">
+          <InfoRow label="Status" value={subscription ? "On file" : "Not configured"} accent={!!subscription} />
+          <View style={s.noteBox}>
+            <Text style={s.noteBoxText}>Payment methods are managed securely through your vendor account billing settings.</Text>
+          </View>
+        </SectionCard>
+
+        <SectionCard title="Service Limits" icon="speedometer-outline">
           <InfoRow label="Products" value={`${limits?.currentProducts ?? 0} / ${limits?.maxProducts === Number.MAX_SAFE_INTEGER ? "Unlimited" : limits?.maxProducts ?? 0}`} />
           <InfoRow label="Orders" value={limits?.maxOrders ? `${limits.currentOrders} / ${limits.maxOrders}` : `${limits?.currentOrders ?? 0} / Unlimited`} />
           <InfoRow label="Remaining Orders" value={limits?.ordersRemaining != null ? String(limits.ordersRemaining) : "Unlimited"} />
@@ -134,6 +153,28 @@ function DashboardView({ subscription, limits, plans, email }: {
           <InfoRow label="Flash Sales" value={limits?.flashSales ? "Enabled" : "Disabled"} accent={limits?.flashSales} />
           <InfoRow label="Marketing Tools" value={limits?.marketingTools ? "Enabled" : "Disabled"} accent={limits?.marketingTools} />
           <InfoRow label="Bundle Deals" value={limits?.bundles ? "Enabled" : "Disabled"} accent={limits?.bundles} />
+        </SectionCard>
+
+        <SectionCard title="Billing History" icon="time-outline">
+          <View style={s.emptyState}>
+            <Ionicons name="document-text-outline" size={32} color="#C8D5CE" />
+            <Text style={s.emptyTitle}>No billing history available</Text>
+            <Text style={s.emptyText}>Your transaction history will appear here once billing activity is recorded.</Text>
+          </View>
+        </SectionCard>
+
+        <SectionCard title="Invoices & Receipts" icon="receipt-outline">
+          <View style={s.emptyState}>
+            <Ionicons name="folder-open-outline" size={32} color="#C8D5CE" />
+            <Text style={s.emptyTitle}>No invoices yet</Text>
+            <Text style={s.emptyText}>Invoices and receipts will be listed here as they become available.</Text>
+          </View>
+        </SectionCard>
+
+        <SectionCard title="Tax Information" icon="document-outline">
+          <View style={s.noteBox}>
+            <Text style={s.noteBoxText}>Tax documentation and business details are managed through your vendor account. Contact support if you need assistance with VAT or tax-related queries.</Text>
+          </View>
         </SectionCard>
       </View>
     </View>
@@ -172,7 +213,7 @@ function ManageServiceView({ plans, email, subscription, onEmailChange }: {
       const { checkoutUrl } = await subscriptionService.createWebCheckout(cleanEmail, selectedPlan);
       await Linking.openURL(checkoutUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start checkout. Please try again.");
+      setError(err instanceof Error ? err.message : "Could not proceed. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -198,7 +239,7 @@ function ManageServiceView({ plans, email, subscription, onEmailChange }: {
       {params.cancelled === "true" && (
         <View style={s.warningBanner}>
           <Ionicons name="alert-circle-outline" size={18} color="#A15C00" />
-          <Text style={s.warningText}>Checkout was cancelled. You can try again when ready.</Text>
+          <Text style={s.warningText}>Service selection was cancelled. You can try again when ready.</Text>
         </View>
       )}
 
@@ -266,8 +307,8 @@ function ManageServiceView({ plans, email, subscription, onEmailChange }: {
 
       {selectedPlanConfig && (
         <View style={s.summary}>
-          <Text style={s.summaryLabel}>Selected service</Text>
-          <Text style={s.summaryValue}>{selectedPlanConfig.name} — {formatPrice(selectedPlanConfig)}/month</Text>
+          <Text style={s.summaryLabel}>Selected Vendor Service</Text>
+          <Text style={s.summaryValue}>{selectedPlanConfig.name}</Text>
         </View>
       )}
 
@@ -308,10 +349,9 @@ function BillingView({ subscription }: { subscription: ActiveSubscription | null
 
       <View style={s.cardGrid}>
         <SectionCard title="Payment Method" icon="card-outline">
-          <InfoRow label="Provider" value="Stripe" />
           <InfoRow label="Status" value={subscription ? "Active" : "No active service"} accent={!!subscription} />
           <View style={s.noteBox}>
-            <Text style={s.noteBoxText}>Payment methods are managed through Stripe. Changes to your card or billing details can be made during checkout.</Text>
+            <Text style={s.noteBoxText}>Payment methods are managed securely through your vendor account. Changes to your card or billing details can be made during service selection.</Text>
           </View>
         </SectionCard>
 
@@ -326,7 +366,7 @@ function BillingView({ subscription }: { subscription: ActiveSubscription | null
           <View style={s.emptyState}>
             <Ionicons name="document-text-outline" size={32} color="#C8D5CE" />
             <Text style={s.emptyTitle}>No billing history available</Text>
-            <Text style={s.emptyText}>Your transaction history will appear here once billing activity is recorded through Stripe.</Text>
+            <Text style={s.emptyText}>Your transaction history will appear here once billing activity is recorded.</Text>
           </View>
         </SectionCard>
 
@@ -334,13 +374,13 @@ function BillingView({ subscription }: { subscription: ActiveSubscription | null
           <View style={s.emptyState}>
             <Ionicons name="folder-open-outline" size={32} color="#C8D5CE" />
             <Text style={s.emptyTitle}>No invoices yet</Text>
-            <Text style={s.emptyText}>Invoices and receipts from Stripe will be listed here as they become available.</Text>
+            <Text style={s.emptyText}>Invoices and receipts will be listed here as they become available.</Text>
           </View>
         </SectionCard>
 
         <SectionCard title="Tax Information" icon="document-outline">
           <View style={s.noteBox}>
-            <Text style={s.noteBoxText}>Tax documentation and business details are managed through your Stripe billing profile. Contact support if you need assistance with VAT or tax-related queries.</Text>
+            <Text style={s.noteBoxText}>Tax documentation and business details are managed through your vendor account. Contact support if you need assistance with VAT or tax-related queries.</Text>
           </View>
         </SectionCard>
       </View>
@@ -362,9 +402,9 @@ function HelpView() {
         <SectionCard title="Frequently Asked Questions" icon="chatbubble-ellipses-outline">
           {[
             { q: "How do I change my service?", a: "Go to Manage Service from the sidebar to view available services and select a different plan." },
-            { q: "How is billing handled?", a: "All billing is processed securely through Stripe. Your payment details are never stored on our servers." },
-            { q: "Can I cancel my service?", a: "You can manage your subscription through Stripe. Your service remains active until the end of the current billing period." },
-            { q: "What happens when I reach my limits?", a: "You will be notified in the app when approaching limits. You can upgrade your service at any time to increase your capacity." },
+            { q: "How is billing handled?", a: "Billing and vendor account management are handled securely through the Eki Business Portal. Your payment details are never stored on our servers." },
+            { q: "Can I cancel my service?", a: "You can manage your service from the Manage Service page. Your service remains active until the end of the current billing period." },
+            { q: "What happens when I reach my limits?", a: "You will be notified in the app when approaching limits. You can select a higher-tier service at any time to increase your capacity." },
           ].map((item, i) => (
             <View key={i} style={s.faqItem}>
               <Text style={s.faqQ}>{item.q}</Text>
@@ -421,17 +461,7 @@ export default function BusinessPortalPage() {
       const result = await subscriptionService.getPlans();
       setAllPlans(result);
       setPlans(result.filter(p => paidPlanId(p)));
-
-      try {
-        const sub = await subscriptionService.getCurrentSubscription();
-        setSubscription(sub);
-      } catch { /* unauthenticated — expected for web portal */ }
-
-      try {
-        const lim = await subscriptionService.getLimits();
-        setLimits(lim);
-      } catch { /* unauthenticated */ }
-    } catch { /* plan loading failed silently */ }
+    } catch { /* plan loading failed */ }
     finally { setLoading(false); }
   }, []);
 
