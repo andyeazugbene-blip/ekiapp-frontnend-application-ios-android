@@ -19,12 +19,19 @@ const EMPTY_PLAN = (): AdminSubscriptionPlan => ({
   maxProducts: 10,
   maxImagesPerProduct: 3,
   maxOrders: null,
+  maxCoupons: 0,
+  maxBundles: 0,
   analytics: false,
   prioritySupport: false,
   flashSales: false,
   bundles: false,
   discounts: false,
   marketingTools: false,
+  customerDatabase: false,
+  repeatBuyerMarketing: false,
+  professionalStorefront: false,
+  orderManagement: true,
+  storeLinkSharing: false,
   canReceiveOrders: true,
   isActive: true,
   isDefault: false,
@@ -79,13 +86,18 @@ export default function SubscriptionPlansPage() {
 
   const featureRows = useMemo(
     () => [
-      { key: "analytics", label: "Analytics" },
-      { key: "marketingTools", label: "Marketing tools" },
-      { key: "discounts", label: "Coupons" },
-      { key: "bundles", label: "Bundles" },
-      { key: "flashSales", label: "Flash sales" },
-      { key: "prioritySupport", label: "Priority support" },
-      { key: "canReceiveOrders", label: "Receive orders" },
+      { key: "canReceiveOrders", label: "Order Management" },
+      { key: "customerDatabase", label: "Customer Database" },
+      { key: "repeatBuyerMarketing", label: "Repeat Buyer Marketing" },
+      { key: "analytics", label: "Sales Analytics" },
+      { key: "flashSales", label: "Flash Sales" },
+      { key: "bundles", label: "Product Bundles" },
+      { key: "professionalStorefront", label: "Professional Storefront" },
+      { key: "orderManagement", label: "Advanced Order Management" },
+      { key: "storeLinkSharing", label: "Store Link Sharing" },
+      { key: "discounts", label: "Discount Campaigns" },
+      { key: "marketingTools", label: "Marketing Tools" },
+      { key: "prioritySupport", label: "Priority Support" },
     ],
     [],
   );
@@ -193,8 +205,11 @@ export default function SubscriptionPlansPage() {
                 <Field label="Platform fee (basis points)" value={String(draft.platformFeeBps)} onChange={(value) => setDraft((current) => ({ ...current, platformFeeBps: Number(value || 0) }))} type="number" />
                 <Field label="Withdrawal fee (basis points)" value={String(draft.withdrawalFeeBps)} onChange={(value) => setDraft((current) => ({ ...current, withdrawalFeeBps: Number(value || 0) }))} type="number" />
                 <Field label="Display order" value={String(draft.displayOrder)} onChange={(value) => setDraft((current) => ({ ...current, displayOrder: Number(value || 0) }))} type="number" />
-                <Field label="Max products" value={String(draft.maxProducts)} onChange={(value) => setDraft((current) => ({ ...current, maxProducts: Number(value || 0) }))} type="number" />
+                <Field label="Max products (-1 = unlimited)" value={String(draft.maxProducts)} onChange={(value) => setDraft((current) => ({ ...current, maxProducts: Number(value || 0) }))} type="number" />
                 <Field label="Max images / product" value={String(draft.maxImagesPerProduct)} onChange={(value) => setDraft((current) => ({ ...current, maxImagesPerProduct: Number(value || 0) }))} type="number" />
+                <Field label="Max coupons (empty = unlimited)" value={draft.maxCoupons == null ? "" : String(draft.maxCoupons)} onChange={(value) => setDraft((current) => ({ ...current, maxCoupons: value === "" ? null : Number(value) }))} type="number" />
+                <Field label="Max bundles (empty = unlimited)" value={draft.maxBundles == null ? "" : String(draft.maxBundles)} onChange={(value) => setDraft((current) => ({ ...current, maxBundles: value === "" ? null : Number(value) }))} type="number" />
+                <Field label="Max orders (empty = unlimited)" value={draft.maxOrders == null ? "" : String(draft.maxOrders)} onChange={(value) => setDraft((current) => ({ ...current, maxOrders: value === "" ? null : Number(value) }))} type="number" />
               </div>
 
               <p className="mt-3 text-xs text-gray-500">

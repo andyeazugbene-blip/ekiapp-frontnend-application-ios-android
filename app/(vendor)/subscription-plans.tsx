@@ -127,6 +127,12 @@ export default function VendorAccountScreen() {
                   </Text>
                 </View>
               </View>
+              {account.platformFeePercent ? (
+                <View style={styles.renewalRow}>
+                  <Ionicons name="cash-outline" size={14} color="#858585" />
+                  <Text style={styles.renewalText}>Platform Fee: {account.platformFeePercent}</Text>
+                </View>
+              ) : null}
               <View style={styles.renewalRow}>
                 <Ionicons name="calendar-outline" size={14} color="#858585" />
                 <Text style={styles.renewalText}>Renewal Date: {formatDate(account.renewalDate)}</Text>
@@ -151,17 +157,36 @@ export default function VendorAccountScreen() {
                 </View>
               ) : null}
               <LimitRow label="Coupons" current={account.limits.currentCoupons} max={account.limits.maxCoupons} />
+              <LimitRow label="Bundles" current={0} max={account.limits.maxBundles ?? null} />
             </View>
 
             {/* ── Store Capabilities ──────────────────────────── */}
             <View style={styles.sectionCard}>
-              <Text style={styles.cardLabel}>STORE CAPABILITIES</Text>
-              <FeatureRow label="Receive Orders" enabled={account.limits.canReceiveOrders} />
-              <FeatureRow label="Analytics" enabled={account.limits.canAccessAnalytics} />
-              <FeatureRow label="Discounts" enabled={account.limits.discounts} />
-              <FeatureRow label="Bundles" enabled={account.limits.bundles} />
-              <FeatureRow label="Flash Sales" enabled={account.limits.flashSales} />
-              <FeatureRow label="Marketing Tools" enabled={account.limits.canSendOffers} />
+              <Text style={styles.cardLabel}>ENABLED SERVICES</Text>
+              {account.features ? (
+                <>
+                  <FeatureRow label="Order Management" enabled={account.features.canReceiveOrders} />
+                  <FeatureRow label="Customer Database" enabled={account.features.customerDatabase} />
+                  <FeatureRow label="Repeat Buyer Marketing" enabled={account.features.repeatBuyerMarketing} />
+                  <FeatureRow label="Sales Analytics" enabled={account.features.analytics} />
+                  <FeatureRow label="Flash Sales" enabled={account.features.flashSales} />
+                  <FeatureRow label="Product Bundles" enabled={account.features.bundles} />
+                  <FeatureRow label="Professional Storefront" enabled={account.features.professionalStorefront} />
+                  <FeatureRow label="Store Link Sharing" enabled={account.features.storeLinkSharing} />
+                  <FeatureRow label="Discount Campaigns" enabled={account.features.discounts} />
+                  <FeatureRow label="Marketing Tools" enabled={account.features.marketingTools} />
+                  <FeatureRow label="Priority Support" enabled={account.features.prioritySupport} />
+                </>
+              ) : (
+                <>
+                  <FeatureRow label="Receive Orders" enabled={account.limits.canReceiveOrders} />
+                  <FeatureRow label="Analytics" enabled={account.limits.canAccessAnalytics} />
+                  <FeatureRow label="Discounts" enabled={account.limits.discounts} />
+                  <FeatureRow label="Bundles" enabled={account.limits.bundles} />
+                  <FeatureRow label="Flash Sales" enabled={account.limits.flashSales} />
+                  <FeatureRow label="Marketing Tools" enabled={account.limits.canSendOffers} />
+                </>
+              )}
             </View>
 
             {/* ── Usage Summary ────────────────────────────────── */}

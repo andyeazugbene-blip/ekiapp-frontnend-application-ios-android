@@ -322,6 +322,9 @@ export const vendorService = {
     accountStatus: string;
     serviceLevel: string;
     serviceName: string;
+    monthlyPriceCents?: number;
+    platformFeeBps?: number;
+    platformFeePercent?: string;
     renewalDate: string | null;
     limits: {
       maxProducts: number;
@@ -331,12 +334,27 @@ export const vendorService = {
       ordersRemaining: number | null;
       maxCoupons: number;
       currentCoupons: number;
+      maxBundles: number;
       canReceiveOrders: boolean;
       canSendOffers: boolean;
       canAccessAnalytics: boolean;
       bundles: boolean;
       flashSales: boolean;
       discounts: boolean;
+    };
+    features?: {
+      analytics: boolean;
+      prioritySupport: boolean;
+      flashSales: boolean;
+      bundles: boolean;
+      discounts: boolean;
+      marketingTools: boolean;
+      customerDatabase: boolean;
+      repeatBuyerMarketing: boolean;
+      professionalStorefront: boolean;
+      orderManagement: boolean;
+      storeLinkSharing: boolean;
+      canReceiveOrders: boolean;
     };
     usage: { products: number; orders: number; coupons: number };
     lastSync: string;
