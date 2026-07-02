@@ -272,6 +272,7 @@ export default function VendorsPage() {
                         <th className="px-4 py-3.5">GMV</th>
                         <th className="px-4 py-3.5 text-right">Orders</th>
                         <th className="px-4 py-3.5">Last Active</th>
+                        <th className="px-4 py-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -296,6 +297,25 @@ export default function VendorsPage() {
                           <td className="px-4 py-3.5 text-[12px] font-semibold text-slate-800">{fmtMoney(vendor.totalRevenue ?? 0)}</td>
                           <td className="px-4 py-3.5 text-right text-[12px] font-semibold text-slate-800">{vendor.totalOrders}</td>
                           <td className="px-4 py-3.5 text-[11px] text-slate-400">{timeAgo(vendor.joinedAt)}</td>
+                          <td className="px-4 py-3.5 text-right">
+                            <button
+                              disabled={actionLoading === vendor.id}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!confirm(`Permanently delete vendor "${vendor.storeName}"? This cannot be undone.`)) return;
+                                try {
+                                  setActionLoading(vendor.id);
+                                  await vendorsAPI.deleteVendor(vendor.id);
+                                  await loadVendors();
+                                } catch (err) {
+                                  alert(err instanceof APIError ? err.message : "Delete failed");
+                                } finally { setActionLoading(null); }
+                              }}
+                              className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-red-500 hover:bg-red-50 disabled:opacity-40"
+                            >
+                              {actionLoading === vendor.id ? "..." : "Delete"}
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

@@ -107,6 +107,16 @@ export default function CommunicationsPage() {
   const [editEnabled, setEditEnabled] = useState(true);
   const [savingTemplate, setSavingTemplate] = useState(false);
 
+  // Message detail viewing (history)
+  const [viewingLog, setViewingLog] = useState<CommunicationLogEntry | null>(null);
+
+  // Scheduled editing
+  const [editingScheduled, setEditingScheduled] = useState<ScheduledCommunication | null>(null);
+  const [schedSubject, setSchedSubject] = useState("");
+  const [schedBody, setSchedBody] = useState("");
+  const [schedWhen, setSchedWhen] = useState("");
+  const [savingScheduled, setSavingScheduled] = useState(false);
+
   const loadLogs = useCallback(async () => {
     setLoading(true); setError("");
     try {
@@ -172,6 +182,31 @@ export default function CommunicationsPage() {
       setSendSubject(""); setSendBody(""); setScheduleDate("");
     } catch (err) { setSendResult(err instanceof Error ? err.message : "Send failed."); }
     finally { setSending(false); }
+  };
+
+  const openScheduledEditor = (item: ScheduledCommunication) => {
+    setEditingScheduled(item);
+    setSchedSubject(item.subject);
+    setSchedBody(item.body);
+    // datetime-local needs "YYYY-MM-DDTHH:mm" in local time
+    const d = new Date(item.scheduledFor);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    setSchedWhen(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+  };
+
+  const handleSaveScheduled = async () => {
+    if (!editingScheduled) return;
+    setSavingScheduled(true);
+    try {
+      await adminAPI.updateScheduledCommunication(editingScheduled.id, {
+        subject: schedSubject.trim(),
+        body: schedBody.trim(),
+        scheduledFor: schedWhen ? new Date(schedWhen).toISOString() : undefined,
+      });
+      setEditingScheduled(null);
+      void loadScheduled();
+    } catch (err) { alert(err instanceof Error ? err.message : "Save failed."); }
+    finally { setSavingScheduled(false); }
   };
 
   const handleCancelScheduled = async (id: string) => {
@@ -282,7 +317,7 @@ export default function CommunicationsPage() {
                     ) : logs.length === 0 ? (
                       <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">No communications found.</td></tr>
                     ) : logs.map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-50">
+                      <tr key={log.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setViewingLog(log)}>
                         <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{formatDate(log.createdAt)}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">{log.eventKey.replace(/_/g, " ")}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">
@@ -411,7 +446,7 @@ export default function CommunicationsPage() {
                     ) : scheduled.length === 0 ? (
                       <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">No scheduled communications.</td></tr>
                     ) : scheduled.map((item) => (
-                      <tr key={item.id} className="hover:bg-gray-50">
+                      <tr key={item.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openScheduledEditor(item)}>
                         <td className="whitespace-nowrap px-4 py-3 text-sm">{statusBadge(item.status)}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">{item.audience.replace(/_/g, " ")}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-sm">{channelBadge(item.channel)}</td>
@@ -420,7 +455,7 @@ export default function CommunicationsPage() {
                         <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{item.sentAt ? formatDate(item.sentAt) : "—"}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
                           {item.status === "SCHEDULED" && (
-                            <button onClick={() => void handleCancelScheduled(item.id)} className="text-red-600 hover:text-red-800 text-xs font-medium">Cancel</button>
+                            <button onClick={(e) => { e.stopPropagation(); void handleCancelScheduled(item.id); }} className="text-red-600 hover:text-red-800 text-xs font-medium">Cancel</button>
                           )}
                           {item.status === "FAILED" && item.error && (
                             <span className="text-xs text-red-500" title={item.error}>Error</span>
@@ -505,6 +540,69 @@ export default function CommunicationsPage() {
                     </div>
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Message Detail Modal (history) ───────────── */}
+          {viewingLog && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setViewingLog(null)}>
+              <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-gray-900">Message Detail</h2>
+                  <button onClick={() => setViewingLog(null)} className="rounded-lg border px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50">Close</button>
+                </div>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between"><span className="font-medium text-gray-500">Event</span><span className="text-gray-900">{viewingLog.eventKey.replace(/_/g, " ")}</span></div>
+                  <div className="flex justify-between"><span className="font-medium text-gray-500">Recipient</span><span className="text-gray-900">{viewingLog.recipientType} · {viewingLog.recipientId}</span></div>
+                  <div className="flex justify-between"><span className="font-medium text-gray-500">Channel</span>{channelBadge(viewingLog.channel)}</div>
+                  <div className="flex justify-between"><span className="font-medium text-gray-500">Status</span>{statusBadge(viewingLog.status)}</div>
+                  <div className="flex justify-between"><span className="font-medium text-gray-500">Sent</span><span className="text-gray-900">{formatDate(viewingLog.createdAt)}</span></div>
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <p className="mb-2 font-semibold text-gray-900">{viewingLog.title}</p>
+                    <p className="whitespace-pre-wrap text-gray-700">{viewingLog.body}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Scheduled Edit Modal ─────────────────────── */}
+          {editingScheduled && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setEditingScheduled(null)}>
+              <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-gray-900">{editingScheduled.status === "SCHEDULED" ? "Edit Scheduled Message" : "Scheduled Message"}</h2>
+                  <button onClick={() => setEditingScheduled(null)} className="rounded-lg border px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50">Close</button>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-sm">
+                    {statusBadge(editingScheduled.status)}
+                    <span className="text-gray-500">{editingScheduled.audience.replace(/_/g, " ")}</span>
+                    {channelBadge(editingScheduled.channel)}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Subject</label>
+                    <input value={schedSubject} onChange={(e) => setSchedSubject(e.target.value)} disabled={editingScheduled.status !== "SCHEDULED"} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Body</label>
+                    <textarea value={schedBody} onChange={(e) => setSchedBody(e.target.value)} rows={5} disabled={editingScheduled.status !== "SCHEDULED"} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Scheduled for</label>
+                    <input type="datetime-local" value={schedWhen} onChange={(e) => setSchedWhen(e.target.value)} disabled={editingScheduled.status !== "SCHEDULED"} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50" />
+                  </div>
+                  {editingScheduled.error && <p className="text-sm text-red-600">Error: {editingScheduled.error}</p>}
+                  {editingScheduled.status === "SCHEDULED" && (
+                    <div className="flex gap-3 pt-2">
+                      <button disabled={savingScheduled} onClick={() => void handleSaveScheduled()} className="rounded-lg bg-[#076B51] px-5 py-2 text-sm font-medium text-white hover:bg-[#065a44] disabled:opacity-50">
+                        {savingScheduled ? "Saving..." : "Save Changes"}
+                      </button>
+                      <button onClick={() => setEditingScheduled(null)} className="rounded-lg border px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -81,7 +81,7 @@ export default function DisputesPage() {
                 ) : (
                   <div className="mt-6 space-y-5">
                     {disputes.slice(0, 8).map((dispute) => (
-                      <div key={dispute.id} className="rounded-2xl border border-slate-200 p-5">
+                      <div key={dispute.id} className="rounded-2xl border border-slate-200 p-5 cursor-pointer transition hover:border-[#096B4A] hover:bg-emerald-50/20" onClick={() => router.push(`/disputes/${dispute.id}`)}>
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                           <Badge tone="green">Order #{dispute.order?.orderNumber || dispute.orderId.slice(0, 8)}</Badge>
                           <span className="text-sm text-slate-500">{dispute.createdAt ? new Date(dispute.createdAt).toLocaleString() : ""}</span>
@@ -89,7 +89,7 @@ export default function DisputesPage() {
                         <div className="mt-6 grid gap-4 md:grid-cols-[0.25fr_1fr_auto] md:items-center">
                           <div className="space-y-3 text-sm text-slate-500"><p>Buyer:</p><p>Issue:</p><p>Status:</p></div>
                           <div className="space-y-3 text-sm font-semibold text-[#101820]"><p>{dispute.buyerId || "Unknown buyer"}</p><p>{dispute.reason || "No reason provided"}</p><p><StatusBadge status={dispute.status} /></p></div>
-                          <div className="flex flex-wrap gap-3">
+                          <div className="flex flex-wrap gap-3" onClick={(e) => e.stopPropagation()}>
                             <Button variant="secondary" onClick={() => router.push(`/disputes/${dispute.id}`)}>View Details →</Button>
                             <Button disabled={resolvingId === dispute.id} onClick={() => void resolve(dispute, "buyer")}>Release payment</Button>
                             <Button variant="danger" disabled={resolvingId === dispute.id} onClick={() => void resolve(dispute, "vendor")}>Hold payment</Button>

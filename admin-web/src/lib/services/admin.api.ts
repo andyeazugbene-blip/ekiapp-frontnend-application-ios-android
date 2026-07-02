@@ -327,6 +327,10 @@ export const adminAPI = {
     return apiClient.patch(`/admin/communications/scheduled/${id}/cancel`, {});
   },
 
+  async updateScheduledCommunication(id: string, data: { subject?: string; body?: string; scheduledFor?: string; audience?: string; channel?: string }): Promise<ScheduledCommunication> {
+    return apiClient.patch(`/admin/communications/scheduled/${id}`, data);
+  },
+
   async runScheduledCommunications(): Promise<{ processed: number; sent: number; failed: number }> {
     return apiClient.post("/admin/communications/run-scheduled", {});
   },

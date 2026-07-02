@@ -21,6 +21,8 @@ export interface Campaign {
   newCustomerOnly: boolean;
   discountType: CampaignDiscountType | null;
   discountValue: number | null;
+  /** Whether this buyer currently meets the campaign's eligibility rules (server-computed). */
+  eligible: boolean;
 }
 
 function normalize(raw: any): Campaign {
@@ -42,6 +44,8 @@ function normalize(raw: any): Campaign {
     newCustomerOnly: raw.newCustomerOnly ?? false,
     discountType: raw.discountType === "PERCENTAGE" || raw.discountType === "FIXED_AMOUNT" ? raw.discountType : null,
     discountValue: typeof raw.discountValue === "number" ? raw.discountValue : null,
+    // Older backend responses omit the flag — those were eligible-only listings.
+    eligible: raw.eligible !== false,
   };
 }
 

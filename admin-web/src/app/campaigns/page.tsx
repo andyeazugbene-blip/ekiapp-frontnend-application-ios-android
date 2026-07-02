@@ -137,6 +137,7 @@ export default function CampaignsPage() {
     setEditingId(c.id);
     setForm(toFormFromCampaign(c));
     setShowForm(true);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const save = async () => {
@@ -275,8 +276,8 @@ export default function CampaignsPage() {
             </tr></thead>
             <tbody className="divide-y divide-gray-200">
               {campaigns.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{c.title}<div className="text-xs text-gray-400">{c.name}</div></td>
+                <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openEdit(c)}>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900 hover:text-[#096B4A]">{c.title}<div className="text-xs text-gray-400">{c.name}</div></td>
                   <td className="px-6 py-4 text-sm text-gray-700">{c.type === "HOT_DEAL" ? "Hot Deal" : "Gift Card"}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{c.priority}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">
@@ -290,7 +291,7 @@ export default function CampaignsPage() {
                       : "—"}
                   </td>
                   <td className="px-6 py-4 text-sm">{c.active ? "✅" : "❌"}</td>
-                  <td className="px-6 py-4 text-sm flex gap-2">
+                  <td className="px-6 py-4 text-sm flex gap-2" onClick={(e) => e.stopPropagation()}>
                     <Button variant="ghost" onClick={() => openEdit(c)}>Edit</Button>
                     <Button variant="ghost" onClick={() => void toggleActive(c)}>{c.active ? "Pause" : "Activate"}</Button>
                     <Button variant="danger" onClick={() => void remove(c.id)}>Delete</Button>

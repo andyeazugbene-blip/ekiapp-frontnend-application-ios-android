@@ -87,7 +87,7 @@ export default function CheckoutScreen() {
       .getMyCampaigns()
       .then((campaigns) => {
         const best = campaigns.find(
-          (c) => c.type === "HOT_DEAL" && c.discountType && c.discountValue != null && c.discountValue > 0,
+          (c) => c.type === "HOT_DEAL" && c.eligible && c.discountType && c.discountValue != null && c.discountValue > 0,
         );
         setEligibleDeal(best ?? null);
       })
