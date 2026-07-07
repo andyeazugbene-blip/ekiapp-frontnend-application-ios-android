@@ -112,8 +112,8 @@ export const vendorsAPI = {
     await apiClient.patch(`/admin/vendors/${vendorId}`, data);
   },
 
-  async deleteVendor(vendorId: string): Promise<void> {
-    await apiClient.delete(`/admin/vendors/${vendorId}`);
+  async deleteVendor(vendorId: string): Promise<{ hardDeleted: boolean; message: string }> {
+    return apiClient.delete(`/admin/vendors/${vendorId}`);
   },
 
   async bulkApprove(vendorIds: string[]): Promise<{ affected: number }> {

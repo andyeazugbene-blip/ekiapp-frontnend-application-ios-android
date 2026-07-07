@@ -305,7 +305,8 @@ export default function VendorsPage() {
                                 if (!confirm(`Permanently delete vendor "${vendor.storeName}"? This cannot be undone.`)) return;
                                 try {
                                   setActionLoading(vendor.id);
-                                  await vendorsAPI.deleteVendor(vendor.id);
+                                  const result = await vendorsAPI.deleteVendor(vendor.id);
+                                  alert(result.message);
                                   await loadVendors();
                                 } catch (err) {
                                   alert(err instanceof APIError ? err.message : "Delete failed");

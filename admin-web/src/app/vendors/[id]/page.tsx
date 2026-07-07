@@ -141,7 +141,7 @@ export default function VendorDetailPage() {
           <Button variant="secondary" onClick={() => router.push(`/orders?vendorId=${data.id}`)}>View Orders</Button>
           <Button variant="secondary" onClick={() => router.push(`/disputes?vendorId=${data.id}`)}>View Disputes</Button>
           <Button variant="secondary" onClick={() => router.push(`/verification?vendorId=${data.id}`)}>View Verification</Button>
-          <Button variant="danger" onClick={async () => { if (!confirm("Permanently delete this vendor account? This cannot be undone.")) return; try { await vendorsAPI.deleteVendor(data.id); router.push("/vendors"); } catch (err) { alert(err instanceof APIError ? err.message : "Delete failed"); } }}>Delete Vendor</Button>
+          <Button variant="danger" onClick={async () => { if (!confirm("Permanently delete this vendor account? This cannot be undone.")) return; try { const result = await vendorsAPI.deleteVendor(data.id); alert(result.message); router.push("/vendors"); } catch (err) { alert(err instanceof APIError ? err.message : "Delete failed"); } }}>Delete Vendor</Button>
         </div>
       </Card>
     </div></AdminLayout></ProtectedRoute>
