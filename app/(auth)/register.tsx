@@ -58,42 +58,25 @@ export default function RegisterScreen() {
 
   const resolvedRole = (role ?? "buyer") as UserRole;
   const isVendor = resolvedRole === "vendor";
-  // Guards the post-register redirect so it only fires once. Without this,
-  // this screen stays mounted underneath the onboarding stack (every step
-  // uses router.push, never replace) and this effect re-runs on every
-  // `user` change anywhere in the app (e.g. setUser calls from business-info,
-  // checkAuth, etc.), re-pushing the user back to /otp mid-onboarding.
-  const hasRedirectedRef = React.useRef(false);
 
+  // Mount-once guard: if the user lands on /register while already signed
+  // in under a DIFFERENT role/account, clear that stale session so they can
+  // register fresh. This must run only once on mount — NOT reactively watch
+  // `user`, because setUser() calls elsewhere in the app (e.g. business-info's
+  // Continue handler during vendor onboarding) create a new `user` object
+  // reference every time. A reactive effect here would re-fire mid-onboarding,
+  // clear tokens, and — combined with a navigation effect watching the same
+  // state — bounce the user back to an earlier screen (OTP) instead of
+  // advancing forward. Post-register navigation is handled imperatively in
+  // handleContinue/handleBuyerSignup right after the register() call resolves,
+  // not reactively, for the same reason.
   useEffect(() => {
-    if (hasRedirectedRef.current) return;
-    if (!isAuthenticated || !user) return;
-    if (user.role !== resolvedRole) return;
-
-    if (isVendor && user.role === "vendor") {
-      hasRedirectedRef.current = true;
-      router.replace("/(vendor-onboarding)/otp" as any);
-      return;
-    }
-
-    hasRedirectedRef.current = true;
-    if (user.role === "vendor") {
-      router.replace("/(vendor)" as any);
-    } else if (user.role === "admin") {
-      router.replace("/(admin)" as any);
-    } else if (redirect) {
-      router.replace(redirect as any);
-    } else {
-      router.replace("/(buyer)" as any);
-    }
-  }, [isAuthenticated, user, isVendor, router, redirect, resolvedRole]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !user) return;
-    if (user.role !== resolvedRole) {
+    const state = useAuthStore.getState();
+    if (state.isAuthenticated && state.user && state.user.role !== resolvedRole) {
       beginFreshAuthFlow().catch(() => {});
     }
-  }, [beginFreshAuthFlow, isAuthenticated, resolvedRole, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (error) {
@@ -154,6 +137,15 @@ export default function RegisterScreen() {
       role: resolvedRole,
       referralCode: referralCode.trim() || undefined,
     });
+
+    // Navigate imperatively right here, once, instead of via a reactive
+    // effect watching global auth state (see mount-effect comment above for why).
+    // This branch only ever registers with role "vendor" (see the `!isVendor`
+    // early return above), so the only valid destination is the OTP screen.
+    const state = useAuthStore.getState();
+    if (state.isAuthenticated && state.user && state.user.role === "vendor") {
+      router.replace("/(vendor-onboarding)/otp" as any);
+    }
   };
 
   const handleVerifyBuyerOtp = async () => {
@@ -207,6 +199,15 @@ export default function RegisterScreen() {
       deliveryAddress: deliveryAddress.trim(),
       referralCode: referralCode.trim() || undefined,
     });
+
+    const state = useAuthStore.getState();
+    if (state.isAuthenticated && state.user && state.user.role === "buyer") {
+      if (redirect) {
+        router.replace(redirect as any);
+      } else {
+        router.replace("/(buyer)" as any);
+      }
+    }
   };
 
   const activeSegments = isVendor ? 0 : buyerStep === "account" ? 0 : buyerStep === "otp" ? 1 : 2;
