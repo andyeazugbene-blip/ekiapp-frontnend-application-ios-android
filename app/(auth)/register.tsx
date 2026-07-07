@@ -58,16 +58,25 @@ export default function RegisterScreen() {
 
   const resolvedRole = (role ?? "buyer") as UserRole;
   const isVendor = resolvedRole === "vendor";
+  // Guards the post-register redirect so it only fires once. Without this,
+  // this screen stays mounted underneath the onboarding stack (every step
+  // uses router.push, never replace) and this effect re-runs on every
+  // `user` change anywhere in the app (e.g. setUser calls from business-info,
+  // checkAuth, etc.), re-pushing the user back to /otp mid-onboarding.
+  const hasRedirectedRef = React.useRef(false);
 
   useEffect(() => {
+    if (hasRedirectedRef.current) return;
     if (!isAuthenticated || !user) return;
     if (user.role !== resolvedRole) return;
 
     if (isVendor && user.role === "vendor") {
-      router.push("/(vendor-onboarding)/otp" as any);
+      hasRedirectedRef.current = true;
+      router.replace("/(vendor-onboarding)/otp" as any);
       return;
     }
 
+    hasRedirectedRef.current = true;
     if (user.role === "vendor") {
       router.replace("/(vendor)" as any);
     } else if (user.role === "admin") {
@@ -77,7 +86,7 @@ export default function RegisterScreen() {
     } else {
       router.replace("/(buyer)" as any);
     }
-  }, [isAuthenticated, user, isVendor, router, redirect]);
+  }, [isAuthenticated, user, isVendor, router, redirect, resolvedRole]);
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
