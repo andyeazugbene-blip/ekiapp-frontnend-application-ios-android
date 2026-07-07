@@ -79,4 +79,8 @@ export const deliveryZonesAPI = {
   async deleteZone(zoneId: string): Promise<void> {
     await apiClient.delete(`/admin/delivery-zones/${zoneId}`);
   },
+
+  async fixCurrencies(): Promise<{ checked: number; corrected: number; corrections: { id: string; country: string; from: string; to: string }[] }> {
+    return apiClient.post("/admin/delivery-zones/fix-currencies", {});
+  },
 };

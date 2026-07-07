@@ -112,6 +112,25 @@ export default function DeliveryZonesPage() {
     }
   };
 
+  const [fixingCurrencies, setFixingCurrencies] = useState(false);
+  const handleFixCurrencies = async () => {
+    try {
+      setFixingCurrencies(true);
+      const result = await deliveryZonesAPI.fixCurrencies();
+      if (result.corrected === 0) {
+        alert(`Checked ${result.checked} zones — all currencies already match their country.`);
+      } else {
+        const lines = result.corrections.map((c) => `${c.country}: ${c.from.toUpperCase()} → ${c.to}`).join("\n");
+        alert(`Checked ${result.checked} zones, fixed ${result.corrected}:\n${lines}`);
+      }
+      await loadZones();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Failed to fix currencies");
+    } finally {
+      setFixingCurrencies(false);
+    }
+  };
+
   return (
     <ProtectedRoute>
       <AdminLayout>
@@ -122,6 +141,11 @@ export default function DeliveryZonesPage() {
             <PageHeader
               title="Delivery zones"
               subtitle="Manage global delivery zones and shipping fee rules."
+              actions={
+                <Button variant="secondary" disabled={fixingCurrencies} onClick={() => void handleFixCurrencies()}>
+                  {fixingCurrencies ? "Checking..." : "Fix mismatched currencies"}
+                </Button>
+              }
             />
 
             {error ? <ErrorPanel message={error} onRetry={() => setError("")} /> : null}
@@ -141,12 +165,8 @@ export default function DeliveryZonesPage() {
                     </div>
                     <div>
                       <label className="mb-2 block text-sm font-bold text-gray-700">Currency</label>
-                      <select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]">
-                        <option value="GBP">GBP</option>
-                        <option value="EUR">EUR</option>
-                        <option value="NGN">NGN</option>
-                        <option value="USD">USD</option>
-                      </select>
+                      <input value={form.currency} disabled className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-500 outline-none" />
+                      <p className="mt-1 text-xs text-slate-400">Auto-set from country — cannot be overridden.</p>
                     </div>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
