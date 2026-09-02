@@ -13,7 +13,7 @@ const isExpoGo = Constants.appOwnership === "expo";
 
 export interface AppNotification {
   id: string;
-  type: "order" | "message" | "payout" | "stock" | "verification" | "system";
+  type: "order" | "message" | "payout" | "stock" | "verification" | "subscription" | "campaign" | "automation" | "system";
   title: string;
   body: string;
   read: boolean;
@@ -28,6 +28,9 @@ function normalizeNotificationType(type: unknown): AppNotification["type"] {
   if (value.includes("MESSAGE")) return "message";
   if (value.includes("STOCK")) return "stock";
   if (value.includes("VERIFICATION")) return "verification";
+  if (value.includes("SUBSCRIPTION")) return "subscription";
+  if (value.includes("COMMUNITY_CAMPAIGN")) return "campaign";
+  if (value.includes("AUTOMATION")) return "automation";
   return "system";
 }
 
@@ -80,22 +83,38 @@ export const pushTokenService = {
 
     if (finalStatus !== "granted") return null;
 
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId || "6fe3b15e-3066-4ba8-9c88-47f64194d828";
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: projectId ?? undefined,
-    });
-    const pushToken = tokenData.data;
+    // Must match app.json's extra.eas.projectId — a wrong/mismatched id
+    // silently mints a token for the wrong Expo project, so pushes are
+    // never delivered. Only fall back if the config truly isn't present.
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) {
+      console.warn("[PushToken] no EAS projectId in app config — skipping push token registration");
+      return null;
+    }
+
+    let pushToken: string;
+    try {
+      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+      pushToken = tokenData.data;
+    } catch (err) {
+      console.warn("[PushToken] getExpoPushTokenAsync failed", err instanceof Error ? err.message : err);
+      return null;
+    }
 
     const savedToken = authToken ?? await tokenStorage.getToken();
-    const res = await fetch(`${API_BASE_URL}/api/push-tokens`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(savedToken ? { Authorization: `Bearer ${savedToken}` } : {}),
-      },
-      body: JSON.stringify({ token: pushToken, platform: Platform.OS }),
-    });
-    if (!res.ok) console.warn("[PushToken] register failed", res.status);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/push-tokens`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(savedToken ? { Authorization: `Bearer ${savedToken}` } : {}),
+        },
+        body: JSON.stringify({ token: pushToken, platform: Platform.OS }),
+      });
+      if (!res.ok) console.warn("[PushToken] register failed", res.status);
+    } catch (err) {
+      console.warn("[PushToken] register request failed", err instanceof Error ? err.message : err);
+    }
 
     return pushToken;
   },

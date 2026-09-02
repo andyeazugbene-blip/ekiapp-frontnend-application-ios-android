@@ -13,7 +13,7 @@ interface InputProps extends TextInputProps {
   isPassword?: boolean;
 }
 
-export const Input: React.FC<InputProps> = ({
+export const Input = React.forwardRef<TextInput, InputProps>(({
   label,
   error,
   hint,
@@ -22,7 +22,7 @@ export const Input: React.FC<InputProps> = ({
   isPassword = false,
   style,
   ...rest
-}) => {
+}, ref) => {
   const [isVisible, setIsVisible] = useState(false);
 
   return (
@@ -31,6 +31,7 @@ export const Input: React.FC<InputProps> = ({
       <View style={[styles.field, error ? styles.fieldError : null]}>
         {leftIcon ? <View style={styles.side}>{leftIcon}</View> : null}
         <TextInput
+          ref={ref}
           placeholderTextColor={Colors.text.secondary}
           secureTextEntry={isPassword && !isVisible}
           style={[styles.input, style]}
@@ -47,7 +48,7 @@ export const Input: React.FC<InputProps> = ({
       {error ? <Text style={styles.error}>{error}</Text> : hint ? <Text style={styles.hint}>{hint}</Text> : null}
     </View>
   );
-};
+});
 
 interface SearchInputProps extends TextInputProps {
   onClear?: () => void;

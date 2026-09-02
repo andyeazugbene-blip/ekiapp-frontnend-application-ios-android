@@ -58,6 +58,8 @@ export default function VendorsPage() {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteMsg, setInviteMsg] = useState("");
+  const [inviteError, setInviteError] = useState("");
+  const [inviteSending, setInviteSending] = useState(false);
   const perPage = 8;
 
   const loadVendors = useCallback(async () => {
@@ -362,16 +364,26 @@ export default function VendorsPage() {
             <div className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
               <h3 className="text-xl font-black text-[#101820]">Invite Vendor</h3>
               <p className="mt-1 text-[13px] text-slate-400">Send an invitation email to a new vendor</p>
-              <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} type="email" placeholder="vendor@example.com" className="mt-4 w-full rounded-xl border border-slate-200 px-4 py-3 text-[13px] outline-none focus:border-[#096B4A]" />
+              <input value={inviteEmail} onChange={e => { setInviteEmail(e.target.value); setInviteError(""); }} type="email" placeholder="vendor@example.com" className="mt-4 w-full rounded-xl border border-slate-200 px-4 py-3 text-[13px] outline-none focus:border-[#096B4A]" />
               {inviteMsg && <p className="mt-2 text-[12px] text-emerald-600">{inviteMsg}</p>}
+              {inviteError && <p className="mt-2 text-[12px] text-red-600">{inviteError}</p>}
               <div className="mt-4 flex gap-3">
-                <Button className="flex-1" onClick={() => {
-                  if (!inviteEmail.includes("@")) return;
-                  setInviteMsg(`Invitation sent to ${inviteEmail}`);
-                  setInviteEmail("");
-                  setTimeout(() => { setShowInvite(false); setInviteMsg(""); }, 1500);
-                }}>Send Invite</Button>
-                <Button className="flex-1" variant="ghost" onClick={() => { setShowInvite(false); setInviteEmail(""); setInviteMsg(""); }}>Cancel</Button>
+                <Button className="flex-1" disabled={inviteSending} onClick={async () => {
+                  if (!inviteEmail.includes("@")) { setInviteError("Enter a valid email address"); return; }
+                  setInviteSending(true);
+                  setInviteError("");
+                  try {
+                    await vendorsAPI.inviteVendor(inviteEmail);
+                    setInviteMsg(`Invitation sent to ${inviteEmail}`);
+                    setInviteEmail("");
+                    setTimeout(() => { setShowInvite(false); setInviteMsg(""); }, 1500);
+                  } catch (err) {
+                    setInviteError(err instanceof APIError ? err.message : "Failed to send invitation");
+                  } finally {
+                    setInviteSending(false);
+                  }
+                }}>{inviteSending ? "Sending…" : "Send Invite"}</Button>
+                <Button className="flex-1" variant="ghost" onClick={() => { setShowInvite(false); setInviteEmail(""); setInviteMsg(""); setInviteError(""); }}>Cancel</Button>
               </div>
             </div>
           </div>

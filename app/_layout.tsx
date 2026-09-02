@@ -149,6 +149,43 @@ export default function RootLayout() {
           router.push(`/(vendor)/messages`);
         } else if (type === "earnings_released" || type === "payout_approved") {
           router.push(`/(vendor)/earnings`);
+        } else if (type === "subscription_update") {
+          const role = useAuthStore.getState().user?.role;
+          const event = data.event as string | undefined;
+          if (event === "vendor_renewal_paid") {
+            router.push(`/(vendor)/regular-deliveries`);
+          } else if (event === "order_created") {
+            router.push(`/(buyer)/orders`);
+          } else if (role === "vendor") {
+            router.push(`/(vendor)/regular-deliveries`);
+          } else {
+            router.push(`/(buyer)/regular-deliveries`);
+          }
+        } else if (type === "community_campaign_update") {
+          const event = data.event as string | undefined;
+          const campaignId = data.campaignId as string | undefined;
+          if (!campaignId) {
+            router.push(`/(buyer)/community-buy`);
+          } else if (event === "approved" || event === "changes_requested" || event === "rejected") {
+            router.push(`/(buyer)/community-buy-organiser-campaign?id=${campaignId}`);
+          } else {
+            router.push(`/(buyer)/community-buy-campaign?id=${campaignId}`);
+          }
+        } else if (typeof type === "string" && type.startsWith("automation_")) {
+          const role = useAuthStore.getState().user?.role;
+          if (type === "automation_cart_recovery") {
+            router.push(`/(buyer)/cart`);
+          } else if (type === "automation_review_request") {
+            router.push(`/(buyer)/orders`);
+          } else if (type === "automation_buyer_referral") {
+            router.push(`/(buyer)/invite-friend`);
+          } else if (type === "automation_renewal_reminder" || type === "automation_price_approval_reminder") {
+            router.push(`/(buyer)/regular-deliveries`);
+          } else if (type === "automation_payment_recovery") {
+            router.push(`/(buyer)/orders`);
+          } else if (role === "vendor") {
+            router.push(`/(vendor)/automation-center`);
+          }
         } else if (type === "admin_broadcast") {
           // Default: no specific deep link for broadcasts
         }

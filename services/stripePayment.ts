@@ -106,3 +106,48 @@ export async function presentPayment(params: {
 
   return { status: "succeeded" };
 }
+
+/**
+ * Present the native Stripe PaymentSheet in "setup" mode to save a card for
+ * later off-session use (Regular Deliveries). No charge happens here — the
+ * backend later confirms the SetupIntent server-side before saving anything.
+ */
+export async function presentSetupIntent(params: {
+  clientSecret: string;
+  merchantDisplayName?: string;
+}): Promise<PaymentResult> {
+  const stripe = loadStripe();
+  if (!stripe) {
+    return {
+      status: "unsupported",
+      message: "Stripe PaymentSheet is not available in Expo Go. Use a development build (eas build) to test saving a card.",
+    };
+  }
+
+  const { initPaymentSheet, presentPaymentSheet } = stripe;
+  if (typeof initPaymentSheet !== "function" || typeof presentPaymentSheet !== "function") {
+    return { status: "unsupported", message: "Stripe SDK loaded but PaymentSheet API is not exposed." };
+  }
+
+  const { error: initError } = await initPaymentSheet({
+    merchantDisplayName: params.merchantDisplayName ?? "Eki Marketplace",
+    setupIntentClientSecret: params.clientSecret,
+    allowsDelayedPaymentMethods: false,
+    returnURL: "ekiapp://stripe-redirect",
+  });
+
+  if (initError) {
+    return { status: "failed", message: initError.message ?? "Could not start card setup." };
+  }
+
+  const { error: presentError } = await presentPaymentSheet();
+
+  if (presentError) {
+    if (presentError.code === "Canceled") {
+      return { status: "cancelled", message: "Card setup cancelled." };
+    }
+    return { status: "failed", message: presentError.message ?? "Could not save card." };
+  }
+
+  return { status: "succeeded" };
+}

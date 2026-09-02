@@ -14,3 +14,10 @@ export async function presentPayment(): Promise<PaymentResult> {
     message: "Native Stripe PaymentSheet is not available on web in this mobile checkout flow.",
   };
 }
+
+export async function presentSetupIntent(): Promise<PaymentResult> {
+  return {
+    status: "unsupported",
+    message: "Native Stripe PaymentSheet is not available on web in this mobile checkout flow.",
+  };
+}

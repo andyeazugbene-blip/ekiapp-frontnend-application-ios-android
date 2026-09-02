@@ -166,6 +166,10 @@ export default function VendorLayout() {
       <Tabs.Screen name="mark-shipped" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="order-completed" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="upgrade-prompt" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="automation-center" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="regular-deliveries" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="regular-delivery-offer-edit" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="community-buy-supplier" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>
   );
 }

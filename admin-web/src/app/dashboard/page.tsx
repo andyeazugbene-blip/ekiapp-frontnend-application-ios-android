@@ -142,7 +142,6 @@ export default function DashboardPage() {
   const chartData = useMemo(
     () => revenueData.map((p) => ({
       name: p.day,
-      GMV: Number((p.amount * 1.8).toFixed(2)),
       Revenue: Number(p.amount.toFixed(2)),
     })),
     [revenueData],
@@ -167,7 +166,7 @@ export default function DashboardPage() {
   const openDisputeCount = disputes.filter(d => d.status === "OPEN" || d.status === "open").length || (overview?.openDisputes ?? 0);
   const refundCount = orders.filter(o => o.status === "refunded").length;
 
-  const urgentTotal = (stats?.pendingApprovals ?? 0) + (overview?.pendingVerifications ?? 0) + orderCounts.pending + openDisputeCount + refundCount + (stats?.suspendedVendors ?? 0);
+  const urgentTotal = (stats?.pendingApprovals ?? 0) + (overview?.pendingVerifications ?? 0) + orderCounts.pending + openDisputeCount + refundCount + (stats?.suspendedVendors ?? 0) + (stats?.pendingPayoutsCount ?? 0) + (stats?.expiringSubscriptionsCount ?? 0);
 
   const recentActivity = useMemo(() => {
     const items: { icon: string; iconColor: string; title: string; subtitle: string }[] = [];
@@ -231,12 +230,12 @@ export default function DashboardPage() {
 
             {/* ═══ KPI Row 1 — 7 cards ═══ */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-              <KpiCard label="GMV" value={fmtMoney(overview?.gmv ?? 0)} change={12.4} />
-              <KpiCard label="Revenue" value={fmtMoney(overview?.ekiRevenue ?? 0)} change={8.2} />
-              <KpiCard label="Orders" value={fmtNum(overview?.totalOrders ?? 0)} change={5.1} />
-              <KpiCard label="Avg Order" value={fmtMoney(overview?.avgOrderValue ?? 0)} change={2.3} />
-              <KpiCard label="Total Buyers" value={fmtNum(overview?.totalBuyers ?? 0)} change={9.7} />
-              <KpiCard label="Total Vendors" value={fmtNum(overview?.totalVendors ?? 0)} change={3.2} />
+              <KpiCard label="GMV" value={fmtMoney(overview?.gmv ?? 0)} />
+              <KpiCard label="Revenue" value={fmtMoney(overview?.ekiRevenue ?? 0)} />
+              <KpiCard label="Orders" value={fmtNum(overview?.totalOrders ?? 0)} />
+              <KpiCard label="Avg Order" value={fmtMoney(overview?.avgOrderValue ?? 0)} />
+              <KpiCard label="Total Buyers" value={fmtNum(overview?.totalBuyers ?? 0)} />
+              <KpiCard label="Total Vendors" value={fmtNum(overview?.totalVendors ?? 0)} />
               <KpiCard label="Active Buyers" value={fmtNum(overview?.activeBuyers30d ?? 0)} change={overview?.buyerRetentionRate} />
             </div>
 
@@ -247,7 +246,7 @@ export default function DashboardPage() {
               <KpiCard label="Pending Payouts" value={fmtMoney(overview?.pendingPayouts ?? 0)} stable />
               <KpiCard label="Open Disputes" value={fmtNum(openDisputeCount)} change={openDisputeCount > 0 ? undefined : undefined} stable={openDisputeCount === 0} />
               <KpiCard label="Pending Verif." value={fmtNum(overview?.pendingVerifications ?? 0)} stable />
-              <KpiCard label="Sub Revenue" value={fmtMoney(overview?.subscriptionRevenue ?? 0)} change={6.4} />
+              <KpiCard label="Sub Revenue" value={fmtMoney(overview?.subscriptionRevenue ?? 0)} />
               <KpiCard label="Refunds" value={fmtNum(refundCount)} stable />
             </div>
 
@@ -265,12 +264,12 @@ export default function DashboardPage() {
                   <UrgentItem label="Vendor Applications" count={stats?.pendingApprovals ?? 0} href="/vendors" color="#f59e0b" />
                   <UrgentItem label="Pending Verifications" count={overview?.pendingVerifications ?? 0} href="/verification" color="#f59e0b" />
                   <UrgentItem label="Orders Need Courier" count={orderCounts.confirmed} href="/orders" color="#f59e0b" />
-                  <UrgentItem label="Pending Payouts" count={0} href="/payout-requests" color="#f59e0b" />
+                  <UrgentItem label="Pending Payouts" count={stats?.pendingPayoutsCount ?? 0} href="/payout-requests" color="#f59e0b" />
                   <UrgentItem label="Open Disputes" count={openDisputeCount} href="/disputes" color="#ef4444" />
                   <UrgentItem label="Refund Requests" count={refundCount} href="/refunds" color="#f59e0b" />
                   <UrgentItem label="Failed Payments" count={analytics?.orders?.failed ?? 0} href="/payments" color="#ef4444" />
                   <UrgentItem label="High-risk Vendors" count={stats?.suspendedVendors ?? 0} href="/vendors" color="#ef4444" />
-                  <UrgentItem label="Expiring Subs" count={0} href="/subscription-plans" color="#f59e0b" />
+                  <UrgentItem label="Expiring Subs" count={stats?.expiringSubscriptionsCount ?? 0} href="/subscription-plans" color="#f59e0b" />
                 </div>
                 <Link href="/vendors" className="mt-3 block text-[12px] font-semibold text-[#096B4A] hover:underline">
                   View all pending actions →
@@ -308,7 +307,6 @@ export default function DashboardPage() {
                           <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
                           <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
                           <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: "#64748b" }} />
-                          <Bar dataKey="GMV" fill="#86efac" radius={[3, 3, 0, 0]} />
                           <Bar dataKey="Revenue" fill="#096B4A" radius={[3, 3, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
@@ -337,10 +335,9 @@ export default function DashboardPage() {
                 <div className="rounded-2xl border border-slate-100 bg-white px-5 py-4">
                   <h3 className="mb-3 text-sm font-black text-slate-800">Communications — Last 30 Days</h3>
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                    <span className="text-sm"><span className="font-black text-[#101820]">{fmtNum(commStats?.totalSent ?? 0)}</span> <span className="text-slate-400">Sent</span></span>
-                    <span className="text-sm"><span className="font-black text-emerald-500">{fmtNum(commStats?.total ?? 0)}</span> <span className="text-slate-400">Delivered</span></span>
-                    <span className="text-sm"><span className="font-black text-blue-500">{fmtNum(commStats?.totalQueued ?? 0)}</span> <span className="text-slate-400">Opened</span></span>
-                    <span className="text-sm"><span className="font-black text-amber-500">{fmtNum(Math.round((commStats?.total ?? 0) * 0.1))}</span> <span className="text-slate-400 text-xs">↓</span></span>
+                    <span className="text-sm"><span className="font-black text-[#101820]">{fmtNum(commStats?.total ?? 0)}</span> <span className="text-slate-400">Total</span></span>
+                    <span className="text-sm"><span className="font-black text-emerald-500">{fmtNum(commStats?.totalSent ?? 0)}</span> <span className="text-slate-400">Sent</span></span>
+                    <span className="text-sm"><span className="font-black text-blue-500">{fmtNum(commStats?.totalQueued ?? 0)}</span> <span className="text-slate-400">Queued</span></span>
                     <span className="text-sm"><span className="font-black text-red-500">{fmtNum(commStats?.totalFailed ?? 0)}</span> <span className="text-slate-400">Failed</span></span>
                   </div>
                 </div>

@@ -12,6 +12,9 @@ const ICON_FOR_TYPE: Record<AppNotification["type"], React.ComponentProps<typeof
   payout: "cash-outline",
   stock: "alert-circle-outline",
   verification: "shield-checkmark-outline",
+  subscription: "repeat-outline",
+  campaign: "people-circle-outline",
+  automation: "flash-outline",
   system: "information-circle-outline",
 };
 
@@ -144,6 +147,12 @@ export default function NotificationsScreen() {
                     router.push("/(vendor)/settings" as any);
                   } else if (notif.type === "stock") {
                     router.push("/(vendor)/foodstuff" as any);
+                  } else if (notif.type === "subscription") {
+                    router.push("/(vendor)/regular-deliveries" as any);
+                  } else if (notif.type === "campaign") {
+                    router.push("/(vendor)/community-buy-supplier" as any);
+                  } else if (notif.type === "automation") {
+                    router.push("/(vendor)/automation-center" as any);
                   }
                 }}
                 activeOpacity={0.85}

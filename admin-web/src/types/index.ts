@@ -158,6 +158,8 @@ export interface DashboardStats {
   totalOrders: number;
   totalRevenue: number;
   newVendorsThisWeek: number;
+  pendingPayoutsCount: number;
+  expiringSubscriptionsCount: number;
   totalUsers?: number;
   totalBuyers?: number;
 }

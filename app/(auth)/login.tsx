@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { findNodeHandle, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,6 +24,23 @@ export default function LoginScreen() {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const pendingRoleRef = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+
+  const scrollToInput = useCallback((inputRef: React.RefObject<TextInput | null>) => () => {
+    setTimeout(() => {
+      const scrollNode = findNodeHandle(scrollRef.current);
+      if (!inputRef.current || !scrollNode) return;
+      inputRef.current.measureLayout(
+        scrollNode,
+        (_x: number, y: number) => {
+          scrollRef.current?.scrollTo({ y: Math.max(y - 16, 0), animated: true });
+        },
+        () => {}
+      );
+    }, 80);
+  }, []);
 
   const resolvedRole = role ?? "buyer";
   const roleLabel = ROLE_LABELS[resolvedRole] ?? "Buyer";
@@ -191,6 +208,7 @@ export default function LoginScreen() {
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -210,6 +228,7 @@ export default function LoginScreen() {
             ) : null}
 
             <Input
+              ref={emailInputRef}
               label="Email address"
               placeholder="you@example.com"
               keyboardType="email-address"
@@ -222,10 +241,12 @@ export default function LoginScreen() {
                 setEmailError("");
                 if (error) clearError();
               }}
+              onFocus={scrollToInput(emailInputRef)}
               error={emailError}
             />
 
             <Input
+              ref={passwordInputRef}
               label="Password"
               placeholder="Enter your password"
               isPassword
@@ -237,6 +258,7 @@ export default function LoginScreen() {
                 setPasswordError("");
                 if (error) clearError();
               }}
+              onFocus={scrollToInput(passwordInputRef)}
               error={passwordError}
             />
 
@@ -323,29 +345,29 @@ const styles = StyleSheet.create({
   hero: {
     backgroundColor: "#076B51",
     paddingHorizontal: 24,
-    paddingTop: 10,
-    paddingBottom: 28,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingTop: 6,
+    paddingBottom: 16,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 12,
     backgroundColor: "rgba(255,255,255,0.12)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   heroPill: {
     alignSelf: "flex-start",
-    minHeight: 30,
-    borderRadius: 14,
+    minHeight: 26,
+    borderRadius: 13,
     backgroundColor: "rgba(255,255,255,0.12)",
     paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   heroPillText: {
     color: "#FFFFFF",
@@ -354,15 +376,15 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: "#FFFFFF",
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 22,
+    lineHeight: 26,
     fontWeight: "800",
   },
   heroBody: {
     color: "rgba(255,255,255,0.72)",
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 10,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 6,
   },
   content: {
     flexGrow: 1,

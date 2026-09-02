@@ -127,6 +127,10 @@ export const vendorsAPI = {
   async bulkSuspend(vendorIds: string[], twoFactorCode?: string): Promise<{ affected: number }> {
     return apiClient.post<{ affected: number }>("/admin/vendors/bulk-suspend", { vendorIds }, { twoFactorCode });
   },
+
+  async inviteVendor(email: string): Promise<{ email: string }> {
+    return apiClient.post<{ email: string }>("/admin/vendors/invite", { email });
+  },
 };
 
 export interface VendorStats {

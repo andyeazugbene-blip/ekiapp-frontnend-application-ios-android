@@ -232,8 +232,14 @@ class APIClient {
     return response;
   }
 
+  // GET /auth/me responds { user: {...} } — this used to return that
+  // envelope unwrapped as "any", so AuthContext's currentUser.role was
+  // always undefined and every page reload was silently treated as a role
+  // mismatch, clearing an otherwise perfectly valid token. Unwrap it here,
+  // at the one place that's supposed to know the real response shape.
   async getCurrentUser(options?: RequestOptions): Promise<any> {
-    return this.get("/auth/me", options);
+    const response = await this.get<{ user: any }>("/auth/me", options);
+    return response.user;
   }
 
   logout(): void {

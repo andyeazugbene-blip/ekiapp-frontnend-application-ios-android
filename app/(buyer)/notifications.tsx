@@ -12,6 +12,9 @@ const ICON_FOR_TYPE: Record<AppNotification["type"], React.ComponentProps<typeof
   payout: "cash-outline",
   stock: "alert-circle-outline",
   verification: "shield-checkmark-outline",
+  subscription: "repeat-outline",
+  campaign: "people-circle-outline",
+  automation: "flash-outline",
   system: "information-circle-outline",
 };
 
@@ -154,8 +157,18 @@ export default function BuyerNotificationsScreen() {
                   if (!notif.read) handleMarkAsRead(notif.id);
                   if (notif.type === "order" && notif.data?.orderId) {
                     router.push({ pathname: "/(buyer)/track-order", params: { id: notif.data.orderId } } as any);
+                  } else if (notif.type === "order") {
+                    router.push("/(buyer)/orders" as any);
                   } else if (notif.type === "message") {
                     router.push("/(buyer)/messages" as any);
+                  } else if (notif.type === "subscription") {
+                    router.push("/(buyer)/regular-deliveries" as any);
+                  } else if (notif.type === "campaign" && notif.data?.campaignId) {
+                    router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: notif.data.campaignId } } as any);
+                  } else if (notif.type === "campaign") {
+                    router.push("/(buyer)/community-buy" as any);
+                  } else if (notif.type === "automation") {
+                    router.push("/(buyer)/orders" as any);
                   }
                 }}
                 activeOpacity={0.85}

@@ -21,7 +21,7 @@ import { useOnboardingStore } from "../../stores/onboardingStore";
 import { productService } from "../../services/productService";
 import { deliveryService } from "../../services/deliveryService";
 import { vendorService } from "../../services/vendorService";
-import { getPublicStoreUrl } from "../../utils/shareLinks";
+import { getPublicStoreUrl, toCompactStoreSlug } from "../../utils/shareLinks";
 
 interface ChecklistItem {
   id: "foodstuff" | "delivery" | "verify" | "share";
@@ -65,6 +65,7 @@ export default function ActivationScreen() {
     storeSlug: vendor?.storeSlug,
     storeName: vendor?.storeName,
   });
+  const storeSlug = toCompactStoreSlug(vendor?.storeSlug || vendor?.storeName);
 
   const isVerified = vendor?.verificationStatus === "verified" || isVerifiedDirect;
   const verificationStatus = vendor?.verificationStatus ?? "pending_docs";
@@ -80,6 +81,7 @@ export default function ActivationScreen() {
 
   const doneCount = checklist.filter((c) => c.done).length;
   const progress = (doneCount / checklist.length) * 100;
+  const allDone = doneCount === checklist.length;
 
   const refresh = useCallback(async () => {
     const current = useAuthStore.getState().user;
@@ -207,7 +209,7 @@ export default function ActivationScreen() {
             <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.heroTitle}>Get your first order</Text>
-          <Text style={styles.heroSubtitle}>Complete the steps below to start receiving buyers</Text>
+          <Text style={styles.heroSubtitle}>Complete these steps to start receiving orders.</Text>
 
           <View style={styles.progressRow}>
             <Text style={styles.progressText}>
@@ -231,44 +233,75 @@ export default function ActivationScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Your first order</Text>
-
-          {refreshing ? (
-            <View style={styles.refreshingRow}>
-              <ActivityIndicator color="#076B51" size="small" />
+        {allDone ? (
+          <View style={styles.card}>
+            <View style={styles.readyIconWrap}>
+              <Ionicons name="checkmark-circle" size={48} color="#076B51" />
             </View>
-          ) : null}
-
-          <View style={styles.checklist}>
-            {checklist.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                onPress={() => handleStepPress(item.id)}
-                activeOpacity={0.85}
-                style={styles.checkRow}
-              >
-                <View style={[styles.checkbox, item.done && styles.checkboxDone]}>
-                  {item.done ? <Ionicons name="checkmark" size={14} color="#076B51" /> : null}
-                </View>
-                <Text style={[styles.checkLabel, !item.done && styles.checkLabelMuted]}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            <Text style={styles.readyTitle}>You're ready to receive orders!</Text>
+            <Text style={styles.readySubtitle}>
+              Every step is complete — buyers can now find your store and place orders.
+            </Text>
           </View>
-        </View>
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Your first order</Text>
+
+            {refreshing ? (
+              <View style={styles.refreshingRow}>
+                <ActivityIndicator color="#076B51" size="small" />
+              </View>
+            ) : null}
+
+            <View style={styles.checklist}>
+              {checklist.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => handleStepPress(item.id)}
+                  activeOpacity={0.85}
+                  style={styles.checkRow}
+                >
+                  <View style={[styles.checkbox, item.done && styles.checkboxDone]}>
+                    {item.done ? <Ionicons name="checkmark" size={14} color="#076B51" /> : null}
+                  </View>
+                  <Text style={[styles.checkLabel, !item.done && styles.checkLabelMuted]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Bottom CTA */}
       <SafeAreaView edges={["bottom"]} style={styles.bottomBar}>
-        <TouchableOpacity
-          onPress={handleNextStep}
-          activeOpacity={0.86}
-          style={styles.nextStepBtn}
-        >
-          <Text style={styles.nextStepBtnText}>Complete Next Step</Text>
-        </TouchableOpacity>
+        {allDone ? (
+          <>
+            <TouchableOpacity
+              onPress={() => storeSlug && router.push(`/store/${storeSlug}` as any)}
+              activeOpacity={0.86}
+              style={styles.nextStepBtn}
+            >
+              <Text style={styles.nextStepBtnText}>View your store</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowShareModal(true)}
+              activeOpacity={0.86}
+              style={styles.shareStoreBtn}
+            >
+              <Text style={styles.shareStoreBtnText}>Share your store</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity
+            onPress={handleNextStep}
+            activeOpacity={0.86}
+            style={styles.nextStepBtn}
+          >
+            <Text style={styles.nextStepBtnText}>Complete Next Step</Text>
+          </TouchableOpacity>
+        )}
       </SafeAreaView>
 
       {/* ── Share store link modal ─────────────────────────────────────── */}
@@ -586,7 +619,7 @@ const styles = StyleSheet.create({
   checkLabel: { flex: 1, fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#1A1A1A" },
   checkLabelMuted: { color: "#858585", fontFamily: "Outfit-Medium" },
 
-  bottomBar: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12 },
+  bottomBar: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12, gap: 10 },
   nextStepBtn: {
     height: 56,
     borderRadius: 16,
@@ -595,6 +628,40 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   nextStepBtnText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+  shareStoreBtn: {
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#076B51",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shareStoreBtnText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+
+  readyIconWrap: {
+    alignSelf: "center",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(7,107,81,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  readyTitle: {
+    fontSize: 19,
+    fontFamily: "Manrope-Bold",
+    color: "#1A1A1A",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  readySubtitle: {
+    fontSize: 13,
+    fontFamily: "Outfit-Regular",
+    color: "#858585",
+    textAlign: "center",
+    lineHeight: 19,
+  },
 
   // ── Modals ────────────────────────────────────────────────────────────
   modalOverlay: {

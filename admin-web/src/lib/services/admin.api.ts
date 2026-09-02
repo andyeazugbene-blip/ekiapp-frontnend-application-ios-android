@@ -20,6 +20,8 @@ export const adminAPI = {
       totalOrders: raw.totalOrders ?? 0,
       totalRevenue: centsToUnit(raw.totalRevenue),
       newVendorsThisWeek: raw.newVendorsThisWeek ?? 0,
+      pendingPayoutsCount: raw.pendingPayoutsCount ?? 0,
+      expiringSubscriptionsCount: raw.expiringSubscriptionsCount ?? 0,
       totalUsers: raw.totalBuyers ?? raw.totalUsers ?? 0,
       totalBuyers: raw.totalBuyers ?? 0,
     };

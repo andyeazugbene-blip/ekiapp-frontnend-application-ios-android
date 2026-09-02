@@ -11,6 +11,14 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
+  // Set only when a token exists but checkAuth() couldn't confirm it because
+  // of a network/server problem — not because the session is actually
+  // invalid. Distinguishing this from "logged out" is what retryAuth/
+  // ProtectedRoute use to show a retry panel instead of bouncing to /login,
+  // which previously happened on any transient failure (e.g. a dev-server
+  // reload racing the request) and silently discarded a perfectly good token.
+  authError: string | null;
+  retryAuth: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,10 +26,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const checkAuth = useCallback(async () => {
     if (!apiClient.hasToken()) {
       setUser(null);
+      setAuthError(null);
       setLoading(false);
       return;
     }
@@ -31,12 +41,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (currentUser.role !== "ADMIN") {
         apiClient.clearToken();
         setUser(null);
-        return;
+      } else {
+        setUser(currentUser);
       }
-      setUser(currentUser);
-    } catch {
-      apiClient.clearToken();
-      setUser(null);
+      setAuthError(null);
+    } catch (err) {
+      // A real 401/403 means the token is genuinely invalid/expired — clear
+      // it. Anything else (network failure, 5xx, timeout) is transient: the
+      // token may still be perfectly good, so keep it and let the caller
+      // retry instead of forcing a re-login.
+      if (err instanceof APIError && (err.status === 401 || err.status === 403)) {
+        apiClient.clearToken();
+        setUser(null);
+        setAuthError(null);
+      } else {
+        setAuthError(err instanceof APIError ? err.message : "Could not verify your session. Check your connection.");
+      }
     } finally {
       setLoading(false);
     }
@@ -66,8 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = user?.role === "ADMIN";
 
+  const retryAuth = () => {
+    setLoading(true);
+    checkAuth();
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAdmin }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isAdmin, authError, retryAuth }}>
       {children}
     </AuthContext.Provider>
   );

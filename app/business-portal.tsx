@@ -44,6 +44,8 @@ const NAV_ITEMS: NavItem[] = [
   { key: "help", label: "Help & Support", icon: "help-circle-outline" },
 ];
 
+const GROWTH_TRIAL_DAYS = 14;
+
 function formatPrice(plan: SubscriptionPlan) {
   if (!plan.price) return "Free";
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: plan.currency || "GBP", maximumFractionDigits: 0 }).format(plan.price);
@@ -283,6 +285,14 @@ function ManageServiceView({ plans, email, subscription, onEmailChange }: {
               <Text style={s.planPrice}>
                 {formatPrice(plan)} <Text style={s.planInterval}>/ month</Text>
               </Text>
+              {plan.slug === "growth" ? (
+                <View style={s.trialBadge}>
+                  <Ionicons name="gift-outline" size={13} color={BRAND} />
+                  <Text style={s.trialBadgeText}>
+                    First {GROWTH_TRIAL_DAYS} days free, then {formatPrice(plan)}/month
+                  </Text>
+                </View>
+              ) : null}
               <View style={s.featureList}>
                 {plan.commissionTiers?.filter(t => t.isActive !== false).slice(0, 3).map(tier => (
                   <View key={tier.id ?? `${tier.minSubtotalCents}-${tier.platformFeeBps}`} style={s.featureRow}>
@@ -321,7 +331,7 @@ function ManageServiceView({ plans, email, subscription, onEmailChange }: {
         disabled={submitting || plans.length === 0}
       >
         {submitting && <ActivityIndicator color="#FFFFFF" size="small" />}
-        <Text style={s.ctaButtonText}>Continue</Text>
+        <Text style={s.ctaButtonText}>{selectedPlan === "growth" ? "Start free trial" : "Continue"}</Text>
         <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
       </TouchableOpacity>
 
@@ -646,6 +656,8 @@ const s = StyleSheet.create({
   planGrid: { gap: 14 },
   planCard: { borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, padding: 18 },
   planCardActive: { borderColor: BRAND, backgroundColor: "#F1FAF5" },
+  trialBadge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#EAF6EF", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginTop: 8, marginBottom: 4 },
+  trialBadgeText: { fontSize: 12, fontWeight: "700", color: BRAND, flexShrink: 1 },
   planTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
   planName: { color: DARK, fontSize: 18, fontWeight: "700" },
   planFee: { color: MUTED, fontSize: 12, marginTop: 3 },

@@ -29,6 +29,8 @@ import {
   type ActiveSubscription,
   type SubscriptionLimits,
 } from "../../services/subscriptionService";
+import { regularDeliveriesService, type Renewal } from "../../services/regularDeliveriesService";
+import { communityBuyService, type SupplierProfile } from "../../services/communityBuyService";
 import { VendorDashboardData, VendorSummary } from "../../types/vendor";
 import { Product } from "../../types/product";
 import { Order } from "../../types/order";
@@ -73,6 +75,8 @@ interface AggregatedDashboard {
   zones: DeliveryZone[];
   unreadMessages: number;
   verificationSubmitted: boolean;
+  pendingRenewals: Renewal[];
+  supplierProfile: SupplierProfile | null;
 }
 
 /**
@@ -113,6 +117,8 @@ export default function VendorDashboardScreen() {
     zones: [],
     unreadMessages: 0,
     verificationSubmitted: false,
+    pendingRenewals: [],
+    supplierProfile: null,
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -135,7 +141,7 @@ export default function VendorDashboardScreen() {
       const profile = await vendorService.getMyProfile().catch(() => null);
 
       // 2. Everything else in parallel; each call is independent + best-effort.
-      const [data, subscription, limits, products, orders, conversations, buyers, zones, verification] = await Promise.all([
+      const [data, subscription, limits, products, orders, conversations, buyers, zones, verification, pendingRenewals, supplierProfile] = await Promise.all([
         vendorService.getVendorDashboard().catch(() => null),
         subscriptionService.getCurrentSubscription().catch(() => null),
         subscriptionService.getLimits().catch(() => null),
@@ -147,6 +153,8 @@ export default function VendorDashboardScreen() {
         buyerService.listMyBuyers().catch(() => [] as VendorBuyerSummary[]),
         deliveryService.listZones().catch(() => [] as DeliveryZone[]),
         vendorService.getVerificationStatus().catch(() => null),
+        regularDeliveriesService.listMyRenewals().catch(() => [] as Renewal[]),
+        communityBuyService.getMySupplierProfile().catch(() => null),
       ]);
 
       const unreadMessages = asArray<any>(conversations).reduce(
@@ -165,6 +173,8 @@ export default function VendorDashboardScreen() {
         zones: asArray<DeliveryZone>(zones),
         unreadMessages,
         verificationSubmitted: asArray<any>(verification?.documents).some((doc) => doc.status !== "REJECTED"),
+        pendingRenewals: asArray<Renewal>(pendingRenewals).filter((r) => r.status === "AWAITING_STOCK"),
+        supplierProfile: supplierProfile as SupplierProfile | null,
       });
     } finally {
       setLoading(false);
@@ -193,7 +203,7 @@ export default function VendorDashboardScreen() {
   const navigate = (path: string) => router.push(path as any);
 
   // ── Live-derived values (no hardcoded numbers) ─────────────────────────
-  const { profile, data, subscription, limits, products, orders, buyers, zones, unreadMessages, verificationSubmitted } = agg;
+  const { profile, data, subscription, limits, products, orders, buyers, zones, unreadMessages, verificationSubmitted, pendingRenewals, supplierProfile } = agg;
 
   const storeName =
     asText(profile?.storeName).trim() || asText(data?.storeName).trim() || asText(user?.name, "your store") || "your store";
@@ -595,6 +605,30 @@ export default function VendorDashboardScreen() {
                 badge={lowStockCount > 0 ? lowStockCount : undefined}
                 tone="light"
                 onPress={() => navigate("/(vendor)/foodstuff")}
+              />
+            </View>
+
+            {/* ── Business Tools (Automation, Regular Deliveries, Community Buy) ── */}
+            <Text style={styles.section}>Business Tools</Text>
+            <View style={styles.foodstuffList}>
+              <FoodRow
+                icon="flash-outline"
+                label="Automation Center"
+                tone="light"
+                onPress={() => navigate("/(vendor)/automation-center")}
+              />
+              <FoodRow
+                icon="repeat-outline"
+                label="Regular Deliveries"
+                badge={pendingRenewals.length > 0 ? pendingRenewals.length : undefined}
+                tone="light"
+                onPress={() => navigate("/(vendor)/regular-deliveries")}
+              />
+              <FoodRow
+                icon="people-circle-outline"
+                label={supplierProfile?.isVerified ? "Community Buy" : "Community Buy — become a supplier"}
+                tone="light"
+                onPress={() => navigate("/(vendor)/community-buy-supplier")}
               />
             </View>
 
