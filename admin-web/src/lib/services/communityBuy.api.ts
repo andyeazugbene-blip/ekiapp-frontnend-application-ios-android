@@ -89,6 +89,34 @@ export interface MarketConfig {
   regularDeliveriesEnabled: boolean;
 }
 
+export interface LedgerSummaryRow {
+  campaignId: string;
+  title: string;
+  currency: string;
+  status: CampaignStatus | null;
+  fundingOutcome: FundingOutcome | null;
+  contributionCount: number;
+  totalContributed: number;
+  totalRefunded: number;
+  totalPaidToSupplier: number;
+  netPosition: number;
+}
+
+export interface LedgerEntry {
+  id: string;
+  type: "CONTRIBUTION" | "REFUND" | "SUPPLIER_PAYMENT";
+  direction: "CREDIT" | "DEBIT";
+  amount: number;
+  occurredAt: string;
+  description: string;
+}
+
+export interface CampaignLedger {
+  campaign: { id: string; title: string; currency: string; status: CampaignStatus; fundingOutcome: FundingOutcome };
+  entries: LedgerEntry[];
+  totals: { totalContributed: number; totalRefunded: number; totalPaidToSupplier: number; netPosition: number };
+}
+
 export interface AdminCampaignRefund {
   id: string;
   amount: number;
@@ -195,5 +223,14 @@ export const communityBuyAdminAPI = {
   async holdSupplierPayment(campaignId: string, reason: string): Promise<AdminSupplierPayment> {
     const res = await apiClient.post<{ payment: AdminSupplierPayment }>(`/admin/community-campaigns/${campaignId}/supplier-payment/hold`, { reason });
     return res.payment;
+  },
+
+  // ─── Financial ledger (read-only) — doc §12 ────────────────────────────
+  async getLedgerSummary(): Promise<LedgerSummaryRow[]> {
+    const res = await apiClient.get<{ items?: LedgerSummaryRow[] }>("/admin/community-buy/ledger");
+    return res.items ?? [];
+  },
+  async getCampaignLedger(campaignId: string): Promise<CampaignLedger> {
+    return apiClient.get<CampaignLedger>(`/admin/community-campaigns/${campaignId}/ledger`);
   },
 };

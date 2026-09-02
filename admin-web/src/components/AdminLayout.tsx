@@ -64,6 +64,7 @@ const sections: NavSection[] = [
       { name: "Campaign Review", href: "/community-campaigns" },
       { name: "Verification", href: "/community-verification" },
       { name: "Refunds", href: "/community-refunds" },
+      { name: "Financial Ledger", href: "/community-ledger" },
       { name: "Market Controls", href: "/community-markets" },
       { name: "Subscription Exceptions", href: "/subscription-exceptions" },
     ],
