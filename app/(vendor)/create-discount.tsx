@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -49,6 +49,19 @@ export default function CreateDiscountScreen() {
       return;
     }
 
+    const selectedProductForReview = products.find((item) => item.id === productId);
+    const discountLabel = hasCurrencyMarker ? `${rawValue}` : `${numericValue}%`;
+    Alert.alert(
+      "Review your discount",
+      `Discount: ${discountLabel}\nApplies to: ${productId === "__all__" ? "All foodstuff" : selectedProductForReview?.name ?? "Selected product"}\nRuns from ${startDate || "today"} to ${endDate || "no end date"}`,
+      [
+        { text: "Edit", style: "cancel" },
+        { text: "Publish discount", onPress: () => void submitDiscount(numericValue, hasCurrencyMarker) },
+      ],
+    );
+  };
+
+  const submitDiscount = async (numericValue: number, hasCurrencyMarker: boolean) => {
     setSubmitting(true);
     try {
       const created = await marketingService.createDiscount({

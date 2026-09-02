@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -35,6 +35,8 @@ export default function CreateBundleScreen() {
   const currency = products[0]?.currency ?? "GBP";
   const symbol = CURRENCY_SYMBOL[currency] ?? "£";
   const parsedPrice = Number(bundlePrice) || 0;
+  const regularTotal = products.filter((p) => selectedIds.includes(p.id)).reduce((sum, p) => sum + p.price, 0);
+  const buyerSaving = Math.max(0, regularTotal - parsedPrice);
 
   const toggle = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -55,6 +57,17 @@ export default function CreateBundleScreen() {
       return;
     }
 
+    Alert.alert(
+      "Review your bundle",
+      `Regular total: ${symbol}${regularTotal.toFixed(2)}\nBundle price: ${symbol}${parsedPrice.toFixed(2)}\nBuyer saving: ${symbol}${buyerSaving.toFixed(2)}`,
+      [
+        { text: "Edit", style: "cancel" },
+        { text: "Publish bundle", onPress: () => void submitBundle() },
+      ],
+    );
+  };
+
+  const submitBundle = async () => {
     setSubmitting(true);
     try {
       const created = await marketingService.createBundle({
@@ -158,6 +171,13 @@ export default function CreateBundleScreen() {
               </View>
             </View>
 
+            {selectedIds.length > 0 ? (
+              <View style={styles.savingRow}>
+                <Text style={styles.savingLabel}>Regular total: {symbol}{regularTotal.toFixed(2)}</Text>
+                <Text style={styles.savingValue}>Buyer saves {symbol}{buyerSaving.toFixed(2)}</Text>
+              </View>
+            ) : null}
+
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             {/* Submit Button */}
@@ -221,10 +241,21 @@ const styles = StyleSheet.create({
     textAlign: "center", 
     marginBottom: 20 
   },
-  fieldGroup: { 
+  fieldGroup: {
     marginBottom: 16,
     width: "100%"
   },
+  savingRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(7,107,81,0.08)",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  savingLabel: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
+  savingValue: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#076B51" },
   fieldLabel: { 
     fontSize: 13, 
     fontFamily: "Outfit-Medium", 

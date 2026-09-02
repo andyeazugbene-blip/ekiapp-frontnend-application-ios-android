@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -51,23 +51,34 @@ export default function CreateFlashSaleScreen() {
       setError("Please enter a valid discount percentage (e.g. 5 or 5%).");
       return;
     }
-    if (!duration.trim()) {
-      setError("Please enter a duration.");
+    const durationHours = Number(duration.replace(/[^0-9.]/g, ""));
+    if (!duration.trim() || !Number.isFinite(durationHours) || durationHours <= 0) {
+      setError("Please enter a valid duration in hours (e.g. 24).");
       return;
     }
 
-    const calculatedSalePrice = selectedProduct 
-      ? selectedProduct.price * (1 - numericDiscount / 100) 
+    const calculatedSalePrice = selectedProduct
+      ? selectedProduct.price * (1 - numericDiscount / 100)
       : 0;
 
-    // Estimate start/end dates based on duration
     const now = new Date();
-    const ends = new Date(now.getTime() + 2 * 60 * 60 * 1000); // Default to 2 hours if not parsed
+    const ends = new Date(now.getTime() + durationHours * 60 * 60 * 1000);
 
+    Alert.alert(
+      "Review your flash sale",
+      `${selectedProduct?.name ?? "Product"}\nSale price: ${symbol}${calculatedSalePrice.toFixed(2)}\nEnds: ${ends.toLocaleString()}`,
+      [
+        { text: "Edit", style: "cancel" },
+        { text: "Publish flash sale", onPress: () => void submitFlashSale(productId, calculatedSalePrice, now, ends) },
+      ],
+    );
+  };
+
+  const submitFlashSale = async (confirmedProductId: string, calculatedSalePrice: number, now: Date, ends: Date) => {
     setSubmitting(true);
     try {
       const created = await marketingService.createFlashSale({
-        productId,
+        productId: confirmedProductId,
         salePrice: parseFloat(calculatedSalePrice.toFixed(2)),
         currency: selectedProduct?.currency ?? "GBP",
         startsAt: now.toISOString(),
