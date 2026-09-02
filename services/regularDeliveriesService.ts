@@ -51,11 +51,22 @@ export interface SubscriptionOffer {
   title: string;
   description?: string | null;
   isActive: boolean;
+  renewalsPaused?: boolean;
+  renewalsPausedAt?: string | null;
   frequencies: SubscriptionFrequency[];
   substitutionPolicy?: string | null;
   renewalCutoffHours: number;
   products: OfferProduct[];
   createdAt: string;
+}
+
+export interface RegularDeliveryInsights {
+  activeSubscribers: number;
+  pausedSubscribers: number;
+  cancelledLast30Days: number;
+  paidRenewalsLast30Days: number;
+  revenueLast30Days: { currency: string; amount: number }[];
+  upcomingRenewalsNext7Days: number;
 }
 
 export interface SubscriptionItem {
@@ -241,10 +252,25 @@ export const regularDeliveriesService = {
     return res.offer;
   },
 
+  async pauseOfferRenewals(id: string): Promise<SubscriptionOffer> {
+    const res = await apiClient.post<{ offer: SubscriptionOffer }>(`/api/subscription-offers/${id}/pause-renewals`, {});
+    return res.offer;
+  },
+
+  async resumeOfferRenewals(id: string): Promise<SubscriptionOffer> {
+    const res = await apiClient.post<{ offer: SubscriptionOffer }>(`/api/subscription-offers/${id}/resume-renewals`, {});
+    return res.offer;
+  },
+
   // ─── Vendor: subscribers & renewals ─────────────────────────────────────
   async listMySubscribers(): Promise<BuyerSubscription[]> {
     const res = await apiClient.get<Items<BuyerSubscription>>("/api/vendor/subscribers");
     return res.items ?? [];
+  },
+
+  async getSubscriberDetail(id: string): Promise<BuyerSubscription> {
+    const res = await apiClient.get<{ subscription: BuyerSubscription }>(`/api/vendor/subscribers/${id}`);
+    return res.subscription;
   },
 
   async listMyRenewals(): Promise<Renewal[]> {
@@ -255,5 +281,9 @@ export const regularDeliveriesService = {
   async confirmRenewalStock(renewalId: string): Promise<Renewal> {
     const res = await apiClient.post<{ renewal: Renewal }>(`/api/renewals/${renewalId}/stock-confirmation`, {});
     return res.renewal;
+  },
+
+  async getInsights(): Promise<RegularDeliveryInsights> {
+    return apiClient.get<RegularDeliveryInsights>("/api/vendor/insights");
   },
 };

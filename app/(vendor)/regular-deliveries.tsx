@@ -15,7 +15,7 @@ import {
   type SubscriptionOffer,
 } from "../../services/regularDeliveriesService";
 
-type Tab = "offers" | "subscribers" | "renewals";
+type Tab = "offers" | "subscribers" | "renewals" | "calendar";
 
 function formatDate(value?: string | null): string {
   if (!value) return "—";
@@ -71,6 +71,20 @@ export default function VendorRegularDeliveriesScreen() {
     }
   };
 
+  const toggleRenewalsPaused = async (offer: SubscriptionOffer) => {
+    setBusyId(`${offer.id}-renewals`);
+    try {
+      const updated = offer.renewalsPaused
+        ? await regularDeliveriesService.resumeOfferRenewals(offer.id)
+        : await regularDeliveriesService.pauseOfferRenewals(offer.id);
+      setOffers((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+    } catch (err) {
+      Alert.alert("Couldn't update renewals", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const confirmStock = async (renewalId: string) => {
     setBusyId(renewalId);
     try {
@@ -92,20 +106,23 @@ export default function VendorRegularDeliveriesScreen() {
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Regular Deliveries</Text>
+        <TouchableOpacity onPress={() => router.push("/(vendor)/regular-delivery-insights" as any)} activeOpacity={0.85} style={styles.iconButton}>
+          <Ionicons name="stats-chart-outline" size={18} color="#282828" />
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push("/(vendor)/regular-delivery-offer-edit" as any)} activeOpacity={0.85} style={styles.addButton}>
           <Ionicons name="add" size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.tabRow}>
-        {(["offers", "subscribers", "renewals"] as Tab[]).map((t) => (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabRow} contentContainerStyle={styles.tabRowContent}>
+        {(["offers", "subscribers", "renewals", "calendar"] as Tab[]).map((t) => (
           <TouchableOpacity key={t} onPress={() => setTab(t)} activeOpacity={0.85} style={[styles.tabBtn, tab === t && styles.tabBtnActive]}>
             <Text style={[styles.tabBtnText, tab === t && styles.tabBtnTextActive]}>
-              {t === "offers" ? "Offers" : t === "subscribers" ? "Subscribers" : `Renewals${pendingStockCount > 0 ? ` (${pendingStockCount})` : ""}`}
+              {t === "offers" ? "Offers" : t === "subscribers" ? "Subscribers" : t === "renewals" ? `Renewals${pendingStockCount > 0 ? ` (${pendingStockCount})` : ""}` : "Calendar"}
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {loading ? (
@@ -132,6 +149,12 @@ export default function VendorRegularDeliveriesScreen() {
                   </View>
                 </View>
                 <Text style={styles.cardMeta}>{offer.products.length} product{offer.products.length === 1 ? "" : "s"} · {offer.frequencies.map((f) => FREQUENCY_LABELS[f]).join(", ")}</Text>
+                {offer.renewalsPaused ? (
+                  <View style={styles.pausedBanner}>
+                    <Ionicons name="pause-circle-outline" size={14} color="#B8860B" />
+                    <Text style={styles.pausedBannerText}>Renewals paused — existing subscribers won't be charged until resumed.</Text>
+                  </View>
+                ) : null}
                 <View style={styles.cardActions}>
                   <TouchableOpacity
                     onPress={() => router.push({ pathname: "/(vendor)/regular-delivery-offer-edit", params: { id: offer.id } } as any)}
@@ -142,6 +165,13 @@ export default function VendorRegularDeliveriesScreen() {
                   <TouchableOpacity disabled={busyId === offer.id} onPress={() => void togglePublish(offer)} style={styles.smallBtn}>
                     {busyId === offer.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.smallBtnText}>{offer.isActive ? "Unpublish" : "Publish"}</Text>}
                   </TouchableOpacity>
+                  <TouchableOpacity disabled={busyId === `${offer.id}-renewals`} onPress={() => void toggleRenewalsPaused(offer)} style={styles.smallBtnOutline}>
+                    {busyId === `${offer.id}-renewals` ? (
+                      <ActivityIndicator size="small" color="#076B51" />
+                    ) : (
+                      <Text style={styles.smallBtnOutlineText}>{offer.renewalsPaused ? "Resume renewals" : "Pause renewals"}</Text>
+                    )}
+                  </TouchableOpacity>
                 </View>
               </View>
             ))
@@ -151,27 +181,58 @@ export default function VendorRegularDeliveriesScreen() {
             <EmptyTab icon="people-outline" title="No subscribers yet" text="Buyers who start a Regular Delivery from your offers will show up here." />
           ) : (
             subscribers.map((s) => (
-              <View key={s.id} style={styles.card}>
-                <Text style={styles.cardTitle}>{s.buyer?.name ?? "Buyer"}</Text>
+              <TouchableOpacity
+                key={s.id}
+                activeOpacity={0.8}
+                onPress={() => router.push({ pathname: "/(vendor)/regular-delivery-subscriber-detail", params: { id: s.id } } as any)}
+                style={styles.card}
+              >
+                <View style={styles.cardTop}>
+                  <Text style={styles.cardTitle}>{s.buyer?.name ?? "Buyer"}</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#C4C4C4" />
+                </View>
                 <Text style={styles.cardMeta}>{FREQUENCY_LABELS[s.frequency]} · {s.status.replace("_", " ")} · Next: {formatDate(s.nextRenewalAt)}</Text>
+              </TouchableOpacity>
+            ))
+          )
+        ) : tab === "renewals" ? (
+          renewals.length === 0 ? (
+            <EmptyTab icon="repeat-outline" title="No renewals yet" text="Upcoming renewal cycles for your subscribers will show up here." />
+          ) : (
+            renewals.map((r) => (
+              <View key={r.id} style={styles.card}>
+                <View style={styles.cardTop}>
+                  <Text style={styles.cardTitle}>{r.subscription?.buyer?.name ?? "Buyer"}</Text>
+                  <Text style={styles.cardMeta}>{formatDate(r.cycleDate)}</Text>
+                </View>
+                <Text style={styles.cardMeta}>{RENEWAL_STATUS_LABELS[r.status]}</Text>
+                {r.status === "AWAITING_STOCK" ? (
+                  <TouchableOpacity disabled={busyId === r.id} onPress={() => void confirmStock(r.id)} style={[styles.smallBtn, { alignSelf: "flex-start", marginTop: 8 }]}>
+                    {busyId === r.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.smallBtnText}>Confirm stock</Text>}
+                  </TouchableOpacity>
+                ) : null}
               </View>
             ))
           )
         ) : renewals.length === 0 ? (
-          <EmptyTab icon="repeat-outline" title="No renewals yet" text="Upcoming renewal cycles for your subscribers will show up here." />
+          <EmptyTab icon="calendar-outline" title="No renewals scheduled" text="Upcoming renewal cycles will appear here grouped by date." />
         ) : (
-          renewals.map((r) => (
-            <View key={r.id} style={styles.card}>
-              <View style={styles.cardTop}>
-                <Text style={styles.cardTitle}>{r.subscription?.buyer?.name ?? "Buyer"}</Text>
-                <Text style={styles.cardMeta}>{formatDate(r.cycleDate)}</Text>
-              </View>
-              <Text style={styles.cardMeta}>{RENEWAL_STATUS_LABELS[r.status]}</Text>
-              {r.status === "AWAITING_STOCK" ? (
-                <TouchableOpacity disabled={busyId === r.id} onPress={() => void confirmStock(r.id)} style={[styles.smallBtn, { alignSelf: "flex-start", marginTop: 8 }]}>
-                  {busyId === r.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.smallBtnText}>Confirm stock</Text>}
-                </TouchableOpacity>
-              ) : null}
+          Object.entries(
+            renewals.reduce<Record<string, typeof renewals>>((groups, r) => {
+              const key = formatDate(r.cycleDate);
+              (groups[key] ??= []).push(r);
+              return groups;
+            }, {}),
+          ).map(([dateLabel, group]) => (
+            <View key={dateLabel} style={styles.calendarGroup}>
+              <Text style={styles.calendarDateLabel}>{dateLabel}</Text>
+              {group.map((r) => (
+                <View key={r.id} style={styles.calendarRow}>
+                  <View style={[styles.activityDot, r.status === "ORDER_CREATED" && styles.activityDotSent, r.status === "PAYMENT_FAILED" && styles.activityDotFailed]} />
+                  <Text style={styles.calendarRowText} numberOfLines={1}>{r.subscription?.buyer?.name ?? "Buyer"}</Text>
+                  <Text style={styles.calendarRowStatus}>{RENEWAL_STATUS_LABELS[r.status]}</Text>
+                </View>
+              ))}
             </View>
           ))
         )}
@@ -196,7 +257,9 @@ const styles = StyleSheet.create({
   backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, fontSize: 20, fontFamily: "Manrope-Bold", color: "#282828" },
   addButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
-  tabRow: { flexDirection: "row", backgroundColor: "#FFFFFF", paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  iconButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center", marginRight: 8 },
+  tabRow: { backgroundColor: "#FFFFFF", paddingBottom: 12 },
+  tabRowContent: { flexDirection: "row", paddingHorizontal: 16, gap: 8 },
   tabBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: "#F4F4F4" },
   tabBtnActive: { backgroundColor: "#076B51" },
   tabBtnText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#282828" },
@@ -219,4 +282,14 @@ const styles = StyleSheet.create({
   smallBtnText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
   smallBtnOutline: { borderWidth: 1, borderColor: "#DADADA", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, alignItems: "center", justifyContent: "center" },
   smallBtnOutlineText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#282828" },
+  pausedBanner: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(184,134,11,0.08)", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
+  pausedBannerText: { flex: 1, fontSize: 11, fontFamily: "Outfit-Regular", color: "#B8860B" },
+  calendarGroup: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 14, gap: 8 },
+  calendarDateLabel: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828" },
+  calendarRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  activityDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#B0B0B0" },
+  activityDotSent: { backgroundColor: "#076B51" },
+  activityDotFailed: { backgroundColor: "#FB6363" },
+  calendarRowText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Medium", color: "#282828" },
+  calendarRowStatus: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585" },
 });
