@@ -121,6 +121,25 @@ export interface CampaignLedger {
   totals: { totalContributed: number; totalRefunded: number; totalPaidToSupplier: number; netPosition: number };
 }
 
+export type SupportCaseType = "PAYMENT_ISSUE" | "REFUND_ISSUE" | "FULFILMENT_ISSUE" | "ORGANISER_CONDUCT" | "SUPPLIER_CONDUCT" | "OTHER";
+export type SupportCaseStatus = "OPEN" | "IN_PROGRESS" | "ESCALATED" | "RESOLVED" | "CLOSED";
+
+export interface AdminSupportCase {
+  id: string;
+  campaignId: string;
+  campaign?: { id: string; title: string };
+  participant?: { name: string; email: string };
+  caseType: SupportCaseType;
+  description: string;
+  evidenceUrls: string[];
+  status: SupportCaseStatus;
+  internalNotes?: string | null;
+  customerVisibleResponse?: string | null;
+  escalated: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AdminCampaignRefund {
   id: string;
   amount: number;
@@ -262,5 +281,25 @@ export const communityBuyAdminAPI = {
   },
   async getCampaignLedger(campaignId: string): Promise<CampaignLedger> {
     return apiClient.get<CampaignLedger>(`/admin/community-campaigns/${campaignId}/ledger`);
+  },
+
+  // ─── Support cases — doc Phase 9 ───────────────────────────────────────
+  async getSupportCases(status?: SupportCaseStatus): Promise<AdminSupportCase[]> {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+    const res = await apiClient.get<{ items?: AdminSupportCase[] }>(`/admin/community-buy/support-cases${qs}`);
+    return res.items ?? [];
+  },
+  async getSupportCase(id: string): Promise<AdminSupportCase> {
+    const res = await apiClient.get<{ supportCase: AdminSupportCase }>(`/admin/community-buy/support-cases/${id}`);
+    return res.supportCase;
+  },
+  async updateSupportCase(id: string, data: Partial<{
+    status: SupportCaseStatus;
+    internalNotes: string;
+    customerVisibleResponse: string;
+    escalated: boolean;
+  }>): Promise<AdminSupportCase> {
+    const res = await apiClient.patch<{ supportCase: AdminSupportCase }>(`/admin/community-buy/support-cases/${id}`, data);
+    return res.supportCase;
   },
 };

@@ -49,7 +49,9 @@ export default function MyCommunityBuysScreen() {
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Community Buys</Text>
-        <View style={{ width: 38 }} />
+        <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy-support-cases" as any)} activeOpacity={0.85} style={styles.backButton}>
+          <Ionicons name="flag-outline" size={18} color="#282828" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

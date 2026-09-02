@@ -283,6 +283,15 @@ export default function CommunityBuyCampaignScreen() {
             ))}
           </>
         ) : null}
+
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: "/(buyer)/community-buy-support-cases", params: { campaignId: campaign.id, campaignTitle: campaign.title } } as any)}
+          activeOpacity={0.85}
+          style={styles.reportIssueRow}
+        >
+          <Ionicons name="flag-outline" size={16} color="#858585" />
+          <Text style={styles.reportIssueText}>Report an issue with this campaign</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -334,4 +343,6 @@ const styles = StyleSheet.create({
   updateTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828" },
   updateBody: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#5C5C5C", lineHeight: 17 },
   updateDate: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#B0B0B0", marginTop: 2 },
+  reportIssueRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 14 },
+  reportIssueText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
 });

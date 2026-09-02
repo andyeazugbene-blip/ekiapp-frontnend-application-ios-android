@@ -184,6 +184,40 @@ export interface SupplierPayment {
   holdReason?: string | null;
 }
 
+export type SupportCaseType = "PAYMENT_ISSUE" | "REFUND_ISSUE" | "FULFILMENT_ISSUE" | "ORGANISER_CONDUCT" | "SUPPLIER_CONDUCT" | "OTHER";
+export type SupportCaseStatus = "OPEN" | "IN_PROGRESS" | "ESCALATED" | "RESOLVED" | "CLOSED";
+
+export interface SupportCase {
+  id: string;
+  campaignId: string;
+  campaign?: { id: string; title: string };
+  caseType: SupportCaseType;
+  description: string;
+  evidenceUrls: string[];
+  status: SupportCaseStatus;
+  customerVisibleResponse?: string | null;
+  escalated: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const SUPPORT_CASE_TYPE_LABELS: Record<SupportCaseType, string> = {
+  PAYMENT_ISSUE: "Payment issue",
+  REFUND_ISSUE: "Refund issue",
+  FULFILMENT_ISSUE: "Fulfilment issue",
+  ORGANISER_CONDUCT: "Organiser conduct",
+  SUPPLIER_CONDUCT: "Supplier conduct",
+  OTHER: "Other",
+};
+
+export const SUPPORT_CASE_STATUS_LABELS: Record<SupportCaseStatus, string> = {
+  OPEN: "Open",
+  IN_PROGRESS: "In progress",
+  ESCALATED: "Escalated",
+  RESOLVED: "Resolved",
+  CLOSED: "Closed",
+};
+
 export interface OrganiserProfile {
   id: string;
   userId: string;
@@ -428,5 +462,21 @@ export const communityBuyService = {
   async organiserConfirmFulfilmentCompletion(campaignId: string): Promise<CampaignFulfilment> {
     const res = await apiClient.post<{ fulfilment: CampaignFulfilment }>(`/api/organiser/campaigns/${campaignId}/fulfilment/confirm-completion`, {});
     return res.fulfilment;
+  },
+
+  // ─── Support cases — doc Phase 9 ───────────────────────────────────────
+  async createSupportCase(campaignId: string, input: { caseType: SupportCaseType; description: string; evidenceUrls?: string[] }): Promise<SupportCase> {
+    const res = await apiClient.post<{ supportCase: SupportCase }>(`/api/community-buy/campaigns/${campaignId}/support-cases`, input);
+    return res.supportCase;
+  },
+
+  async listMySupportCases(): Promise<SupportCase[]> {
+    const res = await apiClient.get<Items<SupportCase>>("/api/community-buy/support-cases");
+    return res.items ?? [];
+  },
+
+  async getMySupportCase(id: string): Promise<SupportCase> {
+    const res = await apiClient.get<{ supportCase: SupportCase }>(`/api/community-buy/support-cases/${id}`);
+    return res.supportCase;
   },
 };
