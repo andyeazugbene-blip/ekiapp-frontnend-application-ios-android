@@ -65,6 +65,8 @@ export interface PendingOrganiser {
   userId: string;
   country: string;
   isVerified: boolean;
+  isRestricted?: boolean;
+  restrictedReason?: string | null;
   createdAt: string;
   user?: { name: string; email: string };
 }
@@ -74,6 +76,8 @@ export interface PendingSupplier {
   vendorId: string;
   country: string;
   isVerified: boolean;
+  isRestricted?: boolean;
+  restrictedReason?: string | null;
   createdAt: string;
   vendor?: { storeName: string; verificationStatus: string };
 }
@@ -223,6 +227,32 @@ export const communityBuyAdminAPI = {
   async holdSupplierPayment(campaignId: string, reason: string): Promise<AdminSupplierPayment> {
     const res = await apiClient.post<{ payment: AdminSupplierPayment }>(`/admin/community-campaigns/${campaignId}/supplier-payment/hold`, { reason });
     return res.payment;
+  },
+
+  // ─── Risk controls — restrict/unrestrict without revoking verification ──
+  async getVerifiedOrganisers(): Promise<PendingOrganiser[]> {
+    const res = await apiClient.get<{ items?: PendingOrganiser[] }>("/admin/community-buy/organisers");
+    return res.items ?? [];
+  },
+  async restrictOrganiser(id: string, reason: string): Promise<PendingOrganiser> {
+    const res = await apiClient.post<{ profile: PendingOrganiser }>(`/admin/community-buy/organisers/${id}/restrict`, { reason });
+    return res.profile;
+  },
+  async unrestrictOrganiser(id: string): Promise<PendingOrganiser> {
+    const res = await apiClient.post<{ profile: PendingOrganiser }>(`/admin/community-buy/organisers/${id}/unrestrict`, {});
+    return res.profile;
+  },
+  async getVerifiedSuppliers(): Promise<PendingSupplier[]> {
+    const res = await apiClient.get<{ items?: PendingSupplier[] }>("/admin/community-buy/suppliers");
+    return res.items ?? [];
+  },
+  async restrictSupplier(id: string, reason: string): Promise<PendingSupplier> {
+    const res = await apiClient.post<{ profile: PendingSupplier }>(`/admin/community-buy/suppliers/${id}/restrict`, { reason });
+    return res.profile;
+  },
+  async unrestrictSupplier(id: string): Promise<PendingSupplier> {
+    const res = await apiClient.post<{ profile: PendingSupplier }>(`/admin/community-buy/suppliers/${id}/unrestrict`, {});
+    return res.profile;
   },
 
   // ─── Financial ledger (read-only) — doc §12 ────────────────────────────
