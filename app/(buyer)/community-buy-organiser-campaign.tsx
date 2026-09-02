@@ -10,11 +10,22 @@ import { presentPayment } from "../../services/stripePayment";
 import {
   communityBuyService,
   type Campaign,
+  type CampaignFulfilment,
   type CampaignParticipant,
   type MarketConfig,
   type RefundProgress,
   type SupplierProfile,
 } from "../../services/communityBuyService";
+
+const FULFILMENT_STEP_LABEL: Record<CampaignFulfilment["status"], string> = {
+  AWAITING_INVENTORY_CONFIRMATION: "Waiting for the supplier to confirm inventory",
+  INVENTORY_CONFIRMED: "Supplier is preparing a fulfilment plan",
+  PACKING: "Supplier is packing your order",
+  READY_FOR_DISPATCH_OR_COLLECTION: "Ready for dispatch/collection",
+  DISPATCHED: "Dispatched by the supplier",
+  COLLECTED: "Ready for collection from the supplier",
+  COMPLETED: "Completed",
+};
 
 function formatDateTime(value?: string | null): string {
   if (!value) return "—";
@@ -57,6 +68,8 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [priceUnchangedConfirmed, setPriceUnchangedConfirmed] = useState(false);
   const [participants, setParticipants] = useState<CampaignParticipant[]>([]);
   const [refundProgress, setRefundProgress] = useState<RefundProgress | null>(null);
+  const [fulfilment, setFulfilment] = useState<CampaignFulfilment | null>(null);
+  const [confirmingCompletion, setConfirmingCompletion] = useState(false);
   const { selectedCurrency } = useCurrencyStore();
 
   const load = useCallback(async () => {
@@ -79,6 +92,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         setParticipants(await communityBuyService.listCampaignParticipants(id).catch(() => []));
         if (["FAILED", "CANCELLED", "REFUNDING"].includes(existing.status)) {
           setRefundProgress(await communityBuyService.getRefundProgress(id).catch(() => null));
+        }
+        if (["FULFILLING", "SUCCEEDED", "COMPLETED"].includes(existing.status)) {
+          setFulfilment(await communityBuyService.getOrganiserFulfilment(id).catch(() => null));
         }
       } else {
         const profile = await communityBuyService.getMyOrganiserProfile();
@@ -179,6 +195,19 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       });
     } catch {
       // User cancelled the native share sheet — nothing to do.
+    }
+  };
+
+  const handleConfirmFulfilmentCompletion = async () => {
+    if (!campaign) return;
+    setConfirmingCompletion(true);
+    try {
+      setFulfilment(await communityBuyService.organiserConfirmFulfilmentCompletion(campaign.id));
+      Alert.alert("Confirmed", "Thanks for confirming — this campaign is now complete.");
+    } catch (err) {
+      Alert.alert("Couldn't confirm this", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setConfirmingCompletion(false);
     }
   };
 
@@ -374,8 +403,18 @@ export default function CommunityBuyOrganiserCampaignScreen() {
             <View style={styles.outcomeCard}>
               <Ionicons name="checkmark-circle-outline" size={18} color="#076B51" />
               <Text style={styles.outcomeHint}>
-                {campaign.fundingOutcome === "GOAL_REACHED" ? "Your campaign goal was reached." : "The minimum requirement was reached — this campaign will proceed."} Eki is creating the supplier fulfilment record for the confirmed quantity ({campaign.confirmedShares}).
+                {campaign.fundingOutcome === "GOAL_REACHED" ? "Your campaign goal was reached." : "The minimum requirement was reached — this campaign will proceed."} Confirmed quantity: {campaign.confirmedShares}.
               </Text>
+              {fulfilment ? (
+                <>
+                  <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Fulfilment status</Text><Text style={styles.outcomeValue}>{FULFILMENT_STEP_LABEL[fulfilment.status]}</Text></View>
+                  {(fulfilment.status === "DISPATCHED" || fulfilment.status === "COLLECTED") ? (
+                    <TouchableOpacity onPress={() => void handleConfirmFulfilmentCompletion()} disabled={confirmingCompletion} activeOpacity={0.88} style={[styles.secondaryBtn, { marginTop: 8 }]}>
+                      {confirmingCompletion ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Confirm receipt — mark as completed</Text>}
+                    </TouchableOpacity>
+                  ) : null}
+                </>
+              ) : null}
             </View>
           ) : campaign?.status === "FAILED" ? (
             <View style={styles.outcomeCard}>

@@ -150,6 +150,40 @@ export interface RefundProgress {
   failed: number;
 }
 
+export type FulfilmentStatus =
+  | "AWAITING_INVENTORY_CONFIRMATION"
+  | "INVENTORY_CONFIRMED"
+  | "PACKING"
+  | "READY_FOR_DISPATCH_OR_COLLECTION"
+  | "DISPATCHED"
+  | "COLLECTED"
+  | "COMPLETED";
+
+export type FulfilmentMethod = "DELIVERY" | "COLLECTION";
+
+export interface CampaignFulfilment {
+  campaignId: string;
+  status: FulfilmentStatus;
+  method?: FulfilmentMethod | null;
+  notes?: string | null;
+  estimatedReadyAt?: string | null;
+  inventoryConfirmedAt?: string | null;
+  packingStartedAt?: string | null;
+  readyAt?: string | null;
+  dispatchedAt?: string | null;
+  collectedAt?: string | null;
+}
+
+export type SupplierPaymentStatus = "NOT_RELEASED" | "PROCESSING" | "PAID" | "ON_HOLD" | "FAILED";
+
+export interface SupplierPayment {
+  campaignId: string;
+  amount: number;
+  currency: string;
+  status: SupplierPaymentStatus;
+  holdReason?: string | null;
+}
+
 export interface OrganiserProfile {
   id: string;
   userId: string;
@@ -342,5 +376,57 @@ export const communityBuyService = {
   async confirmSupplierCommitment(campaignId: string): Promise<Campaign> {
     const res = await apiClient.post<{ campaign: Campaign }>(`/api/supplier/campaigns/${campaignId}/supplier-commitment`, {});
     return res.campaign;
+  },
+
+  // ─── Supplier fulfilment — doc Phase 8 ─────────────────────────────────
+  async getSupplierFulfilment(campaignId: string): Promise<CampaignFulfilment> {
+    const res = await apiClient.get<{ fulfilment: CampaignFulfilment }>(`/api/supplier/campaigns/${campaignId}/fulfilment`);
+    return res.fulfilment;
+  },
+
+  async confirmFulfilmentInventory(campaignId: string): Promise<CampaignFulfilment> {
+    const res = await apiClient.post<{ fulfilment: CampaignFulfilment }>(`/api/supplier/campaigns/${campaignId}/fulfilment/confirm-inventory`, {});
+    return res.fulfilment;
+  },
+
+  async setFulfilmentPlan(campaignId: string, input: { method: FulfilmentMethod; estimatedReadyAt?: string; notes?: string }): Promise<CampaignFulfilment> {
+    const res = await apiClient.post<{ fulfilment: CampaignFulfilment }>(`/api/supplier/campaigns/${campaignId}/fulfilment/plan`, input);
+    return res.fulfilment;
+  },
+
+  async startFulfilmentPacking(campaignId: string): Promise<CampaignFulfilment> {
+    const res = await apiClient.post<{ fulfilment: CampaignFulfilment }>(`/api/supplier/campaigns/${campaignId}/fulfilment/start-packing`, {});
+    return res.fulfilment;
+  },
+
+  async markFulfilmentReady(campaignId: string): Promise<CampaignFulfilment> {
+    const res = await apiClient.post<{ fulfilment: CampaignFulfilment }>(`/api/supplier/campaigns/${campaignId}/fulfilment/ready`, {});
+    return res.fulfilment;
+  },
+
+  async markFulfilmentDispatched(campaignId: string): Promise<CampaignFulfilment> {
+    const res = await apiClient.post<{ fulfilment: CampaignFulfilment }>(`/api/supplier/campaigns/${campaignId}/fulfilment/dispatch`, {});
+    return res.fulfilment;
+  },
+
+  async markFulfilmentCollected(campaignId: string): Promise<CampaignFulfilment> {
+    const res = await apiClient.post<{ fulfilment: CampaignFulfilment }>(`/api/supplier/campaigns/${campaignId}/fulfilment/collect`, {});
+    return res.fulfilment;
+  },
+
+  async getMySupplierPayment(campaignId: string): Promise<SupplierPayment> {
+    const res = await apiClient.get<{ payment: SupplierPayment }>(`/api/supplier/campaigns/${campaignId}/payment`);
+    return res.payment;
+  },
+
+  // ─── Organiser fulfilment coordination ─────────────────────────────────
+  async getOrganiserFulfilment(campaignId: string): Promise<CampaignFulfilment> {
+    const res = await apiClient.get<{ fulfilment: CampaignFulfilment }>(`/api/organiser/campaigns/${campaignId}/fulfilment`);
+    return res.fulfilment;
+  },
+
+  async organiserConfirmFulfilmentCompletion(campaignId: string): Promise<CampaignFulfilment> {
+    const res = await apiClient.post<{ fulfilment: CampaignFulfilment }>(`/api/organiser/campaigns/${campaignId}/fulfilment/confirm-completion`, {});
+    return res.fulfilment;
   },
 };

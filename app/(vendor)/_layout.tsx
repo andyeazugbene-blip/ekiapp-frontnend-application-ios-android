@@ -172,6 +172,7 @@ export default function VendorLayout() {
       <Tabs.Screen name="regular-delivery-subscriber-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="regular-delivery-insights" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="community-buy-supplier" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="community-buy-supplier-fulfilment" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>
   );
 }

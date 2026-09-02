@@ -180,6 +180,15 @@ export default function VendorCommunityBuySupplierScreen() {
                       <Text style={styles.committedText}>You've accepted this campaign</Text>
                     </View>
                   ) : null}
+                  {["FULFILLING", "SUCCEEDED", "COMPLETED"].includes(c.status) ? (
+                    <TouchableOpacity
+                      onPress={() => router.push({ pathname: "/(vendor)/community-buy-supplier-fulfilment", params: { id: c.id } } as any)}
+                      activeOpacity={0.88}
+                      style={styles.acceptBtn}
+                    >
+                      <Text style={styles.acceptBtnText}>Manage fulfilment</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               ))
             )}
