@@ -2,7 +2,10 @@ import { apiClient } from "../api";
 
 export type CampaignStatus =
   | "DRAFT" | "UNDER_REVIEW" | "CHANGES_REQUIRED" | "APPROVED" | "REJECTED"
-  | "LIVE" | "PAUSED" | "SUCCEEDED" | "FAILED" | "FULFILLING" | "CANCELLED";
+  | "LIVE" | "PAUSED" | "RESCUE_WINDOW" | "SUCCEEDED" | "FAILED" | "REFUNDING"
+  | "FULFILLING" | "COMPLETED" | "FINANCIALLY_CLOSED" | "CANCELLED";
+
+export type FundingOutcome = "PENDING" | "GOAL_REACHED" | "MINIMUM_REACHED" | "BELOW_MINIMUM";
 
 export interface AdminCampaign {
   id: string;
@@ -11,6 +14,15 @@ export interface AdminCampaign {
   country: string;
   currency: string;
   targetAmount: number;
+  minimumShares: number;
+  goalShares: number;
+  maximumShares: number;
+  pricePerShareMinor: number;
+  confirmedShares: number;
+  fundingOutcome: FundingOutcome;
+  supplierCommitted: boolean;
+  rescueEndsAt?: string | null;
+  extensionCount: number;
   paidTotal?: number | null;
   deadline: string;
   status: CampaignStatus;
@@ -18,6 +30,34 @@ export interface AdminCampaign {
   createdAt: string;
   organiser?: { user?: { name: string; email: string } };
   supplier?: { vendor?: { storeName: string } };
+}
+
+export type ExtensionRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface AdminExtensionRequest {
+  id: string;
+  campaignId: string;
+  requestedDeadline: string;
+  reason: string;
+  supplierReconfirmed: boolean;
+  priceUnchangedConfirmed: boolean;
+  participantTermsUnchanged: boolean;
+  status: ExtensionRequestStatus;
+  createdAt: string;
+  campaign?: { id: string; title: string; confirmedShares: number; minimumShares: number };
+}
+
+export type SupplierPaymentStatus = "NOT_RELEASED" | "PROCESSING" | "PAID" | "ON_HOLD" | "FAILED";
+
+export interface AdminSupplierPayment {
+  id: string;
+  campaignId: string;
+  amount: number;
+  currency: string;
+  status: SupplierPaymentStatus;
+  holdReason?: string | null;
+  createdAt: string;
+  campaign?: { id: string; title: string; confirmedShares: number };
 }
 
 export interface PendingOrganiser {
@@ -127,5 +167,33 @@ export const communityBuyAdminAPI = {
   async getRefunds(): Promise<AdminCampaignRefund[]> {
     const res = await apiClient.get<{ items?: AdminCampaignRefund[] }>("/admin/community-buy/refunds");
     return res.items ?? [];
+  },
+
+  // ─── Rescue-window extension requests — doc §8/§Screen 127 ─────────────
+  async getExtensionRequests(): Promise<AdminExtensionRequest[]> {
+    const res = await apiClient.get<{ items?: AdminExtensionRequest[] }>("/admin/community-buy/extension-requests");
+    return res.items ?? [];
+  },
+  async approveExtension(id: string): Promise<AdminExtensionRequest> {
+    const res = await apiClient.post<{ extensionRequest: AdminExtensionRequest }>(`/admin/community-buy/extension-requests/${id}/approve`, {});
+    return res.extensionRequest;
+  },
+  async rejectExtension(id: string, notes?: string): Promise<AdminExtensionRequest> {
+    const res = await apiClient.post<{ extensionRequest: AdminExtensionRequest }>(`/admin/community-buy/extension-requests/${id}/reject`, { notes });
+    return res.extensionRequest;
+  },
+
+  // ─── Supplier payments — doc §Screen 131 ────────────────────────────────
+  async getSupplierPayments(): Promise<AdminSupplierPayment[]> {
+    const res = await apiClient.get<{ items?: AdminSupplierPayment[] }>("/admin/community-buy/supplier-payments");
+    return res.items ?? [];
+  },
+  async releaseSupplierPayment(campaignId: string): Promise<AdminSupplierPayment> {
+    const res = await apiClient.post<{ payment: AdminSupplierPayment }>(`/admin/community-campaigns/${campaignId}/supplier-payment/release`, {});
+    return res.payment;
+  },
+  async holdSupplierPayment(campaignId: string, reason: string): Promise<AdminSupplierPayment> {
+    const res = await apiClient.post<{ payment: AdminSupplierPayment }>(`/admin/community-campaigns/${campaignId}/supplier-payment/hold`, { reason });
+    return res.payment;
   },
 };

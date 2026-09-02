@@ -21,10 +21,14 @@ const STATUS_LABEL: Record<Campaign["status"], string> = {
   REJECTED: "Rejected",
   LIVE: "Live",
   PAUSED: "Paused",
+  RESCUE_WINDOW: "Needs more participants",
   SUCCEEDED: "Succeeded",
-  FAILED: "Target not reached",
-  FULFILLING: "Proceeding (target not reached)",
-  CANCELLED: "Cancelled",
+  FAILED: "Did not reach minimum",
+  REFUNDING: "Refunding",
+  FULFILLING: "Proceeding",
+  COMPLETED: "Completed",
+  FINANCIALLY_CLOSED: "Closed",
+  CANCELLED: "Ended",
 };
 
 export default function CommunityBuyOrganiserScreen() {

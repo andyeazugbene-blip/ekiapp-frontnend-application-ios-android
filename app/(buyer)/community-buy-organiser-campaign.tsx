@@ -6,12 +6,20 @@ import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
+import { presentPayment } from "../../services/stripePayment";
 import {
   communityBuyService,
   type Campaign,
   type MarketConfig,
   type SupplierProfile,
 } from "../../services/communityBuyService";
+
+function formatDateTime(value?: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
 
 export default function CommunityBuyOrganiserCampaignScreen() {
   const router = useRouter();
@@ -29,13 +37,22 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [targetAmount, setTargetAmount] = useState("");
+  const [minimumShares, setMinimumShares] = useState("");
+  const [goalShares, setGoalShares] = useState("");
+  const [maximumShares, setMaximumShares] = useState("");
+  const [pricePerShare, setPricePerShare] = useState("");
   const [deadline, setDeadline] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [decisionBusy, setDecisionBusy] = useState<"fulfil" | "cancel" | null>(null);
+  const [decisionBusy, setDecisionBusy] = useState<"top-up" | "extension" | "end" | null>(null);
+  const [topUpQuantity, setTopUpQuantity] = useState("1");
+  const [showExtensionForm, setShowExtensionForm] = useState(false);
+  const [extensionDeadline, setExtensionDeadline] = useState("");
+  const [extensionReason, setExtensionReason] = useState("");
+  const [supplierReconfirmed, setSupplierReconfirmed] = useState(false);
+  const [priceUnchangedConfirmed, setPriceUnchangedConfirmed] = useState(false);
   const { selectedCurrency } = useCurrencyStore();
 
   const load = useCallback(async () => {
@@ -50,7 +67,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         setSupplierId(existing.supplierId);
         setTitle(existing.title);
         setDescription(existing.description ?? "");
-        setTargetAmount(String(existing.targetAmount / 100));
+        setMinimumShares(String(existing.minimumShares ?? ""));
+        setGoalShares(String(existing.goalShares ?? ""));
+        setMaximumShares(String(existing.maximumShares ?? ""));
+        setPricePerShare(existing.pricePerShareMinor ? String(existing.pricePerShareMinor / 100) : "");
         setDeadline(existing.deadline.slice(0, 10));
       } else {
         const profile = await communityBuyService.getMyOrganiserProfile();
@@ -73,8 +93,14 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
   const handleSave = async () => {
     if (!title.trim()) return Alert.alert("Title required", "Give this campaign a name.");
-    const amountValue = Number(targetAmount);
-    if (!Number.isFinite(amountValue) || amountValue <= 0) return Alert.alert("Target required", "Enter a valid target amount.");
+    const minVal = Math.round(Number(minimumShares));
+    const goalVal = Math.round(Number(goalShares));
+    const maxVal = Math.round(Number(maximumShares));
+    const priceVal = Number(pricePerShare);
+    if (!Number.isFinite(minVal) || minVal < 1) return Alert.alert("Minimum required", "Enter the minimum shares required to proceed.");
+    if (!Number.isFinite(goalVal) || goalVal < minVal) return Alert.alert("Goal required", "The campaign goal must be at least the minimum shares.");
+    if (!Number.isFinite(maxVal) || maxVal < goalVal) return Alert.alert("Maximum required", "Maximum capacity must be at least the campaign goal.");
+    if (!Number.isFinite(priceVal) || priceVal <= 0) return Alert.alert("Price required", "Enter a valid price per share.");
     const deadlineDate = new Date(deadline);
     if (Number.isNaN(deadlineDate.getTime()) || deadlineDate <= new Date()) return Alert.alert("Deadline required", "Enter a valid future date (YYYY-MM-DD).");
 
@@ -84,7 +110,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         const updated = await communityBuyService.updateCampaign(campaign.id, {
           title: title.trim(),
           description: description.trim() || undefined,
-          targetAmount: Math.round(amountValue * 100),
+          minimumShares: minVal,
+          goalShares: goalVal,
+          maximumShares: maxVal,
+          pricePerShareMinor: Math.round(priceVal * 100),
           deadline: deadlineDate.toISOString(),
         });
         setCampaign(updated);
@@ -97,7 +126,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
           description: description.trim() || undefined,
           country,
           currency,
-          targetAmount: Math.round(amountValue * 100),
+          minimumShares: minVal,
+          goalShares: goalVal,
+          maximumShares: maxVal,
+          pricePerShareMinor: Math.round(priceVal * 100),
           deadline: deadlineDate.toISOString(),
         });
         router.replace({ pathname: "/(buyer)/community-buy-organiser-campaign", params: { id: created.id } } as any);
@@ -135,46 +167,70 @@ export default function CommunityBuyOrganiserCampaignScreen() {
     }
   };
 
-  const handleFulfilAnyway = () => {
+  // Rescue-window actions — doc §8. There is no "fulfil anyway below
+  // minimum" action; only these four ways out of RESCUE_WINDOW.
+
+  const handleTopUp = async () => {
     if (!campaign) return;
-    Alert.alert(
-      "Proceed without reaching target?",
-      "This records your decision to proceed. No payment action will be taken yet — you'll be notified separately once that's confirmed.",
-      [
-        { text: "Not yet", style: "cancel" },
-        {
-          text: "Proceed",
-          onPress: async () => {
-            setDecisionBusy("fulfil");
-            try {
-              setCampaign(await communityBuyService.fulfilCampaignAnyway(campaign.id));
-            } catch (err) {
-              Alert.alert("Couldn't record your decision", err instanceof Error ? err.message : "Please try again.");
-            } finally {
-              setDecisionBusy(null);
-            }
-          },
-        },
-      ],
-    );
+    const qty = Math.round(Number(topUpQuantity));
+    if (!Number.isFinite(qty) || qty <= 0) return Alert.alert("Quantity required", "Enter how many shares you want to purchase.");
+    setDecisionBusy("top-up");
+    try {
+      const { contributionId, clientSecret } = await communityBuyService.createOrganiserTopUp(campaign.id, qty);
+      const result = await presentPayment({ clientSecret, merchantDisplayName: "Eki Community Buy" });
+      if (result.status === "succeeded") {
+        await communityBuyService.confirmContributionPayment(contributionId);
+        setCampaign(await communityBuyService.getCampaign(campaign.id));
+        Alert.alert("Payment confirmed", "Your top-up will count once the payment provider confirms it.");
+      } else if (result.status !== "cancelled") {
+        Alert.alert("Payment failed", result.message ?? "Please try again.");
+      }
+    } catch (err) {
+      Alert.alert("Couldn't complete the top-up", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setDecisionBusy(null);
+    }
   };
 
-  const handleCancelAfterFailure = () => {
+  const handleSubmitExtension = async () => {
+    if (!campaign) return;
+    const deadlineDate = new Date(extensionDeadline);
+    if (Number.isNaN(deadlineDate.getTime()) || deadlineDate <= new Date()) return Alert.alert("Deadline required", "Enter a valid future date (YYYY-MM-DD).");
+    if (!extensionReason.trim()) return Alert.alert("Reason required", "Explain why this campaign should remain open.");
+    setDecisionBusy("extension");
+    try {
+      await communityBuyService.requestExtension(campaign.id, {
+        requestedDeadline: deadlineDate.toISOString(),
+        reason: extensionReason.trim(),
+        supplierReconfirmed,
+        priceUnchangedConfirmed,
+        participantTermsUnchanged: true,
+      });
+      setShowExtensionForm(false);
+      Alert.alert("Extension requested", "Eki must approve this before your deadline changes. We'll notify you and your participants.");
+    } catch (err) {
+      Alert.alert("Couldn't submit your request", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setDecisionBusy(null);
+    }
+  };
+
+  const handleEndRescue = () => {
     if (!campaign) return;
     Alert.alert(
-      "Cancel this campaign?",
+      "End campaign and begin refunds?",
       "Participants who contributed will be refunded. This can't be undone.",
       [
         { text: "Keep deciding", style: "cancel" },
         {
-          text: "Cancel campaign",
+          text: "End campaign",
           style: "destructive",
           onPress: async () => {
-            setDecisionBusy("cancel");
+            setDecisionBusy("end");
             try {
-              setCampaign(await communityBuyService.cancelFailedCampaign(campaign.id));
+              setCampaign(await communityBuyService.endCampaignRescue(campaign.id));
             } catch (err) {
-              Alert.alert("Couldn't cancel", err instanceof Error ? err.message : "Please try again.");
+              Alert.alert("Couldn't end this campaign", err instanceof Error ? err.message : "Please try again.");
             } finally {
               setDecisionBusy(null);
             }
@@ -213,31 +269,68 @@ export default function CommunityBuyOrganiserCampaignScreen() {
           ) : null}
           {campaign ? <Text style={styles.statusBadge}>{campaign.status.replace("_", " ")}</Text> : null}
 
-          {campaign?.status === "FAILED" ? (
+          {campaign?.status === "RESCUE_WINDOW" ? (
             <View style={styles.outcomeCard}>
-              <Text style={styles.outcomeTitle}>Target not reached</Text>
-              <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Target</Text><Text style={styles.outcomeValue}>{formatDisplayMoney(campaign.targetAmount / 100, campaign.currency, selectedCurrency)}</Text></View>
-              <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Raised</Text><Text style={styles.outcomeValue}>{formatDisplayMoney((campaign.paidTotal ?? 0) / 100, campaign.currency, selectedCurrency)}</Text></View>
-              <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Joined</Text><Text style={styles.outcomeValue}>{campaign.participantCount ?? 0} participant{(campaign.participantCount ?? 0) === 1 ? "" : "s"}</Text></View>
-              <Text style={styles.outcomeHint}>Choose what happens next. Proceeding takes no payment action yet — you'll be notified once that's confirmed. Cancelling refunds anyone who contributed.</Text>
-              <View style={styles.decisionRow}>
-                <TouchableOpacity onPress={handleFulfilAnyway} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.fulfilBtn}>
-                  {decisionBusy === "fulfil" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fulfilBtnText}>Proceed Anyway</Text>}
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleCancelAfterFailure} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.cancelBtn}>
-                  {decisionBusy === "cancel" ? <ActivityIndicator size="small" color="#FB6363" /> : <Text style={styles.cancelBtnText}>Cancel Campaign</Text>}
+              <Text style={styles.outcomeTitle}>This campaign needs {Math.max(0, campaign.minimumShares - campaign.confirmedShares)} more participant{Math.max(0, campaign.minimumShares - campaign.confirmedShares) === 1 ? "" : "s"}</Text>
+              <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Received</Text><Text style={styles.outcomeValue}>{campaign.confirmedShares} of {campaign.minimumShares} required</Text></View>
+              <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Status</Text><Text style={styles.outcomeValue}>No supplier order has been created</Text></View>
+              <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Time remaining</Text><Text style={styles.outcomeValue}>{formatDateTime(campaign.rescueEndsAt)}</Text></View>
+              <Text style={styles.outcomeHint}>You have until then to complete one of these actions. Do not collect payment from participants outside Eki.</Text>
+
+              <Text style={styles.rescueSectionLabel}>Purchase the remaining share(s)</Text>
+              <View style={styles.quantityRow}>
+                <TextInput style={styles.quantityInput} keyboardType="number-pad" value={topUpQuantity} onChangeText={setTopUpQuantity} placeholder="1" placeholderTextColor="#9AA3A0" />
+                <TouchableOpacity onPress={handleTopUp} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.fulfilBtn}>
+                  {decisionBusy === "top-up" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fulfilBtnText}>Pay {formatDisplayMoney((Math.round(Number(topUpQuantity)) || 0) * campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text>}
                 </TouchableOpacity>
               </View>
+
+              <View style={styles.decisionRow}>
+                <TouchableOpacity onPress={() => setShowExtensionForm((v) => !v)} disabled={decisionBusy !== null || campaign.extensionCount >= 1} activeOpacity={0.88} style={[styles.secondaryBtn, { flex: 1, marginTop: 0 }]}>
+                  <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request extension"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleEndRescue} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.cancelBtn}>
+                  {decisionBusy === "end" ? <ActivityIndicator size="small" color="#FB6363" /> : <Text style={styles.cancelBtnText}>End Campaign</Text>}
+                </TouchableOpacity>
+              </View>
+
+              {showExtensionForm ? (
+                <View style={styles.extensionForm}>
+                  <Text style={styles.label}>Requested new deadline (YYYY-MM-DD)</Text>
+                  <TextInput style={styles.input} placeholder="2026-12-31" placeholderTextColor="#9AA3A0" value={extensionDeadline} onChangeText={setExtensionDeadline} />
+                  <Text style={styles.label}>Reason for extension</Text>
+                  <TextInput style={[styles.input, styles.inputMultiline]} placeholder="Explain why this campaign should remain open" placeholderTextColor="#9AA3A0" value={extensionReason} onChangeText={setExtensionReason} multiline />
+                  <TouchableOpacity onPress={() => setSupplierReconfirmed((v) => !v)} activeOpacity={0.85} style={styles.checkboxRow}>
+                    <Ionicons name={supplierReconfirmed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
+                    <Text style={styles.checkboxText}>The supplier confirms the product, price and inventory remain available.</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setPriceUnchangedConfirmed((v) => !v)} activeOpacity={0.85} style={styles.checkboxRow}>
+                    <Ionicons name={priceUnchangedConfirmed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
+                    <Text style={styles.checkboxText}>The participant price is unchanged.</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.outcomeHint}>An extension is not automatic. Eki must approve it and notify every participant.</Text>
+                  <TouchableOpacity onPress={handleSubmitExtension} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.primaryBtn}>
+                    {decisionBusy === "extension" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Submit extension request</Text>}
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </View>
-          ) : campaign?.status === "FULFILLING" ? (
+          ) : campaign?.status === "FULFILLING" || campaign?.status === "SUCCEEDED" || campaign?.status === "COMPLETED" ? (
             <View style={styles.outcomeCard}>
-              <Ionicons name="information-circle-outline" size={18} color="#076B51" />
-              <Text style={styles.outcomeHint}>You chose to proceed with this campaign despite not reaching its target. No payment action has been taken — you'll be notified once that's confirmed.</Text>
+              <Ionicons name="checkmark-circle-outline" size={18} color="#076B51" />
+              <Text style={styles.outcomeHint}>
+                {campaign.fundingOutcome === "GOAL_REACHED" ? "Your campaign goal was reached." : "The minimum requirement was reached — this campaign will proceed."} Eki is creating the supplier fulfilment record for the confirmed quantity ({campaign.confirmedShares}).
+              </Text>
+            </View>
+          ) : campaign?.status === "FAILED" ? (
+            <View style={styles.outcomeCard}>
+              <Ionicons name="time-outline" size={18} color="#B48A00" />
+              <Text style={styles.outcomeHint}>This campaign did not reach its minimum requirement. No supplier order will be created. Eki is creating an individual refund record for every eligible confirmed contribution.</Text>
             </View>
           ) : campaign?.status === "CANCELLED" ? (
             <View style={styles.outcomeCard}>
               <Ionicons name="return-down-back-outline" size={18} color="#858585" />
-              <Text style={styles.outcomeHint}>This campaign was cancelled. Contributions are being refunded.</Text>
+              <Text style={styles.outcomeHint}>This campaign was ended. Contributions are being refunded.</Text>
             </View>
           ) : null}
 
@@ -247,8 +340,21 @@ export default function CommunityBuyOrganiserCampaignScreen() {
           <Text style={styles.label}>Description (optional)</Text>
           <TextInput style={[styles.input, styles.inputMultiline]} editable={!isLocked} placeholder="What is this campaign for?" placeholderTextColor="#9AA3A0" value={description} onChangeText={setDescription} multiline />
 
-          <Text style={styles.label}>Target amount ({currency})</Text>
-          <TextInput style={styles.input} editable={!isLocked} placeholder="0.00" placeholderTextColor="#9AA3A0" keyboardType="decimal-pad" value={targetAmount} onChangeText={setTargetAmount} />
+          <Text style={styles.label}>Minimum shares required</Text>
+          <TextInput style={styles.input} editable={!isLocked} placeholder="3" placeholderTextColor="#9AA3A0" keyboardType="number-pad" value={minimumShares} onChangeText={setMinimumShares} />
+          <Text style={styles.fieldHint}>The campaign can proceed when this minimum is reached.</Text>
+
+          <Text style={styles.label}>Campaign goal</Text>
+          <TextInput style={styles.input} editable={!isLocked} placeholder="6" placeholderTextColor="#9AA3A0" keyboardType="number-pad" value={goalShares} onChangeText={setGoalShares} />
+          <Text style={styles.fieldHint}>This is the number of shares you would ideally like to fill.</Text>
+
+          <Text style={styles.label}>Maximum capacity</Text>
+          <TextInput style={styles.input} editable={!isLocked} placeholder="6" placeholderTextColor="#9AA3A0" keyboardType="number-pad" value={maximumShares} onChangeText={setMaximumShares} />
+          <Text style={styles.fieldHint}>Contributions will close when this number is reached.</Text>
+
+          <Text style={styles.label}>Price per share ({currency})</Text>
+          <TextInput style={styles.input} editable={!isLocked} placeholder="0.00" placeholderTextColor="#9AA3A0" keyboardType="decimal-pad" value={pricePerShare} onChangeText={setPricePerShare} />
+          <Text style={styles.fieldHint}>The price per share cannot change after the first confirmed contribution.</Text>
 
           <Text style={styles.label}>Deadline (YYYY-MM-DD)</Text>
           <TextInput style={styles.input} editable={!isLocked} placeholder="2026-12-31" placeholderTextColor="#9AA3A0" value={deadline} onChangeText={setDeadline} />
@@ -276,9 +382,16 @@ export default function CommunityBuyOrganiserCampaignScreen() {
           ) : null}
 
           {campaign && ["DRAFT", "CHANGES_REQUIRED"].includes(campaign.status) ? (
-            <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.85} style={styles.secondaryBtn}>
-              {submitting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Submit for review</Text>}
-            </TouchableOpacity>
+            campaign.supplierCommitted ? (
+              <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.85} style={styles.secondaryBtn}>
+                {submitting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Submit for review</Text>}
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.noticeCard}>
+                <Ionicons name="hourglass-outline" size={18} color="#B48A00" />
+                <Text style={styles.noticeText}>Waiting for the supplier to accept this campaign before it can be submitted for review.</Text>
+              </View>
+            )
           ) : null}
 
           {campaign?.status === "APPROVED" ? (
@@ -316,6 +429,13 @@ const styles = StyleSheet.create({
   cancelBtn: { flex: 1, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: "#FB6363", alignItems: "center", justifyContent: "center" },
   cancelBtnText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#FB6363" },
   label: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#282828", marginTop: 8 },
+  fieldHint: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 2 },
+  rescueSectionLabel: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 12 },
+  quantityRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  quantityInput: { width: 70, backgroundColor: "#FFFFFF", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828", textAlign: "center" },
+  extensionForm: { marginTop: 10, gap: 6, borderTopWidth: 1, borderTopColor: "#F0F0F0", paddingTop: 10 },
+  checkboxRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 6 },
+  checkboxText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#282828", lineHeight: 17 },
   input: { backgroundColor: "#FFFFFF", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
   inputMultiline: { minHeight: 70, textAlignVertical: "top" },
   optionRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#FFFFFF", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "transparent" },

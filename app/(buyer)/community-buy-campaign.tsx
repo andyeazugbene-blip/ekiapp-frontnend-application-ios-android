@@ -26,7 +26,7 @@ export default function CommunityBuyCampaignScreen() {
   const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
 
-  const [amount, setAmount] = useState("");
+  const [quantity, setQuantity] = useState("1");
   const [contributing, setContributing] = useState(false);
   const [contribution, setContribution] = useState<Contribution | null>(null);
   const [contributeError, setContributeError] = useState("");
@@ -59,16 +59,15 @@ export default function CommunityBuyCampaignScreen() {
   };
 
   const handleContribute = async () => {
-    const value = Number(amount);
+    const value = Math.round(Number(quantity));
     if (!Number.isFinite(value) || value <= 0) {
-      setContributeError("Enter a valid amount.");
+      setContributeError("Enter a valid number of shares.");
       return;
     }
     setContributing(true);
     setContributeError("");
     try {
-      const amountInCents = Math.round(value * 100);
-      const { contributionId, clientSecret } = await communityBuyService.createContribution(id, amountInCents);
+      const { contributionId, clientSecret } = await communityBuyService.createContribution(id, value);
       const result = await presentPayment({ clientSecret, merchantDisplayName: "Eki Community Buy" });
       if (result.status === "succeeded") {
         const confirmed = await communityBuyService.confirmContributionPayment(contributionId);
@@ -117,6 +116,10 @@ export default function CommunityBuyCampaignScreen() {
   const pct = campaign.progressPct ?? 0;
   const isLive = campaign.status === "LIVE";
   const contributionCount = campaign.contributions?.length ?? 0;
+  const remaining = Math.max(0, campaign.minimumShares - campaign.confirmedShares);
+  const minimumReached = campaign.confirmedShares >= campaign.minimumShares;
+  const remainingCapacity = Math.max(0, campaign.maximumShares - campaign.confirmedShares);
+  const subtotal = (Math.round(Number(quantity)) || 0) * campaign.pricePerShareMinor;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -141,35 +144,46 @@ export default function CommunityBuyCampaignScreen() {
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${Math.min(100, pct)}%` }]} />
           </View>
+          <Text style={styles.progressMetaText}>{campaign.confirmedShares} of {campaign.maximumShares} slots filled</Text>
+          {!minimumReached ? (
+            <Text style={styles.progressMetaSub}>Only {remaining} more needed for this campaign to proceed.</Text>
+          ) : (
+            <Text style={[styles.progressMetaSub, { color: "#076B51" }]}>This campaign will now proceed. {remainingCapacity} additional slot{remainingCapacity === 1 ? "" : "s"} remain available.</Text>
+          )}
           <View style={styles.progressMetaRow}>
-            <Text style={styles.progressMetaText}>{pct}% funded</Text>
-            <Text style={styles.progressMetaText}>{formatDisplayMoney(campaign.targetAmount / 100, campaign.currency, selectedCurrency)} target</Text>
-          </View>
-          <View style={styles.progressMetaRow}>
-            <Text style={styles.progressMetaSub}>{contributionCount} contribution{contributionCount === 1 ? "" : "s"}</Text>
+            <Text style={styles.progressMetaSub}>Minimum {campaign.minimumShares} · Goal {campaign.goalShares}</Text>
             <Text style={styles.progressMetaSub}>Closes {formatDeadline(campaign.deadline)}</Text>
           </View>
         </View>
 
-        {campaign.status === "SUCCEEDED" ? (
+        {campaign.status === "FULFILLING" || campaign.status === "SUCCEEDED" || campaign.status === "COMPLETED" ? (
           <View style={styles.outcomeCard}>
             <Ionicons name="checkmark-circle-outline" size={20} color="#076B51" />
-            <Text style={styles.outcomeText}>This campaign reached its target. Fulfilment updates will be shared with participants.</Text>
+            <Text style={styles.outcomeText}>
+              {campaign.fundingOutcome === "GOAL_REACHED"
+                ? "This campaign reached its goal. Fulfilment updates will be shared with participants."
+                : "This campaign will proceed — the supplier-approved minimum was reached. Fulfilment updates will be shared with participants."}
+            </Text>
+          </View>
+        ) : campaign.status === "RESCUE_WINDOW" ? (
+          <View style={[styles.outcomeCard, { backgroundColor: "rgba(255,197,0,0.12)" }]}>
+            <Ionicons name="time-outline" size={20} color="#B48A00" />
+            <Text style={styles.outcomeText}>This campaign has not reached its minimum yet. The organiser has until the rescue deadline to complete the remaining requirement. No supplier order has been created and no additional payment is required from you.</Text>
           </View>
         ) : campaign.status === "FAILED" ? (
           <View style={[styles.outcomeCard, { backgroundColor: "rgba(255,197,0,0.12)" }]}>
             <Ionicons name="time-outline" size={20} color="#B48A00" />
-            <Text style={styles.outcomeText}>This campaign didn't reach its target. The organiser is deciding what happens next — you'll be notified.</Text>
+            <Text style={styles.outcomeText}>This campaign did not reach its minimum. No supplier order will be created — an individual refund is being created for every eligible confirmed contribution.</Text>
           </View>
-        ) : campaign.status === "FULFILLING" ? (
-          <View style={styles.outcomeCard}>
-            <Ionicons name="information-circle-outline" size={20} color="#076B51" />
-            <Text style={styles.outcomeText}>This campaign didn't reach its target, but the organiser has chosen to proceed. No payment action has been taken yet — further details will follow.</Text>
+        ) : campaign.status === "REFUNDING" ? (
+          <View style={[styles.outcomeCard, { backgroundColor: "rgba(255,197,0,0.12)" }]}>
+            <Ionicons name="return-down-back-outline" size={20} color="#B48A00" />
+            <Text style={styles.outcomeText}>Your refund is being processed.</Text>
           </View>
         ) : campaign.status === "CANCELLED" ? (
           <View style={[styles.outcomeCard, { backgroundColor: "rgba(214,85,47,0.08)" }]}>
             <Ionicons name="return-down-back-outline" size={20} color="#D6552F" />
-            <Text style={styles.outcomeText}>This campaign was cancelled. Any contribution you made is being refunded.</Text>
+            <Text style={styles.outcomeText}>This campaign was ended. Any contribution you made is being refunded.</Text>
           </View>
         ) : null}
 
@@ -181,25 +195,39 @@ export default function CommunityBuyCampaignScreen() {
               </TouchableOpacity>
             ) : null}
 
-            <Text style={styles.section}>Contribute</Text>
+            <Text style={styles.section}>Choose your quantity</Text>
             {contribution?.status === "PAID" ? (
               <View style={styles.outcomeCard}>
                 <Ionicons name="checkmark-circle-outline" size={20} color="#076B51" />
-                <Text style={styles.outcomeText}>Your contribution of {formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)} is confirmed.</Text>
+                <Text style={styles.outcomeText}>Your contribution of {formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)} for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} is confirmed.</Text>
               </View>
             ) : (
               <>
-                <TextInput
-                  style={styles.amountInput}
-                  placeholder={`Amount (${campaign.currency})`}
-                  placeholderTextColor="#9AA3A0"
-                  keyboardType="decimal-pad"
-                  value={amount}
-                  onChangeText={setAmount}
-                />
+                <Text style={styles.fieldLabel}>Price per share: {formatDisplayMoney(campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text>
+                <View style={styles.quantityRow}>
+                  <TouchableOpacity onPress={() => setQuantity(String(Math.max(1, (Number(quantity) || 1) - 1)))} activeOpacity={0.85} style={styles.stepperBtn}>
+                    <Ionicons name="remove" size={18} color="#076B51" />
+                  </TouchableOpacity>
+                  <TextInput
+                    style={styles.quantityInput}
+                    placeholder="1"
+                    placeholderTextColor="#9AA3A0"
+                    keyboardType="number-pad"
+                    value={quantity}
+                    onChangeText={setQuantity}
+                  />
+                  <TouchableOpacity onPress={() => setQuantity(String(Math.min(remainingCapacity || 1, (Number(quantity) || 0) + 1)))} activeOpacity={0.85} style={styles.stepperBtn}>
+                    <Ionicons name="add" size={18} color="#076B51" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.progressMetaSub}>{remainingCapacity} share{remainingCapacity === 1 ? "" : "s"} remain available.</Text>
+                <View style={styles.progressMetaRow}>
+                  <Text style={styles.fieldLabel}>Subtotal</Text>
+                  <Text style={styles.progressMetaText}>{formatDisplayMoney(subtotal / 100, campaign.currency, selectedCurrency)}</Text>
+                </View>
                 {contributeError ? <Text style={styles.errorText}>{contributeError}</Text> : null}
                 <TouchableOpacity onPress={handleContribute} disabled={contributing} activeOpacity={0.88} style={[styles.primaryBtn, contributing && { opacity: 0.7 }]}>
-                  {contributing ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Contribute</Text>}
+                  {contributing ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Continue</Text>}
                 </TouchableOpacity>
               </>
             )}
@@ -237,6 +265,10 @@ const styles = StyleSheet.create({
   outcomeCard: { flexDirection: "row", gap: 10, alignItems: "center", backgroundColor: "rgba(7,107,81,0.08)", borderRadius: 14, padding: 12 },
   outcomeText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#282828", lineHeight: 17 },
   section: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 6 },
+  fieldLabel: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
+  quantityRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  stepperBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: "rgba(7,107,81,0.08)", alignItems: "center", justifyContent: "center" },
+  quantityInput: { flex: 1, backgroundColor: "#FFFFFF", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", textAlign: "center" },
   amountInput: { backgroundColor: "#FFFFFF", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
   errorText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#FB6363" },
   primaryBtn: { minHeight: 52, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },

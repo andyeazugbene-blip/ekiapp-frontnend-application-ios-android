@@ -8,6 +8,10 @@
  */
 import { apiClient } from "./api";
 
+// Flexible-fulfilment model — Eki Diaspora App doc §6. Operational status and
+// funding outcome are separate on purpose: a campaign can be FULFILLING with
+// fundingOutcome MINIMUM_REACHED (proceeded on 3 of a 6 goal) — never infer
+// one from the other.
 export type CampaignStatus =
   | "DRAFT"
   | "UNDER_REVIEW"
@@ -16,14 +20,16 @@ export type CampaignStatus =
   | "REJECTED"
   | "LIVE"
   | "PAUSED"
+  | "RESCUE_WINDOW"
   | "SUCCEEDED"
   | "FAILED"
-  // Reached after FAILED, once the organiser has made a decision — see
-  // fulfilAnyway()/cancelAfterFailure() below. No financial action is taken
-  // by FULFILLING itself; the client hasn't confirmed what charging looks
-  // like for a campaign that proceeds without hitting its target.
+  | "REFUNDING"
   | "FULFILLING"
+  | "COMPLETED"
+  | "FINANCIALLY_CLOSED"
   | "CANCELLED";
+
+export type FundingOutcome = "PENDING" | "GOAL_REACHED" | "MINIMUM_REACHED" | "BELOW_MINIMUM";
 
 export type ContributionStatus =
   | "INITIATED"
@@ -33,6 +39,21 @@ export type ContributionStatus =
   | "REFUND_PENDING"
   | "REFUND_PROCESSING"
   | "REFUNDED";
+
+export type ExtensionRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface ExtensionRequest {
+  id: string;
+  campaignId: string;
+  requestedDeadline: string;
+  reason: string;
+  supplierReconfirmed: boolean;
+  priceUnchangedConfirmed: boolean;
+  participantTermsUnchanged: boolean;
+  status: ExtensionRequestStatus;
+  reviewNotes?: string | null;
+  createdAt: string;
+}
 
 export interface MarketConfig {
   countryCode: string;
@@ -55,10 +76,19 @@ export interface Campaign {
   country: string;
   currency: string;
   targetAmount: number;
+  minimumShares: number;
+  goalShares: number;
+  maximumShares: number;
+  pricePerShareMinor: number;
+  confirmedShares: number;
+  fundingOutcome: FundingOutcome;
+  supplierCommitted: boolean;
+  rescueEndsAt?: string | null;
+  extensionCount: number;
   paidTotal?: number;
   progressPct?: number;
   participantCount?: number;
-  contributions?: { amount: number }[];
+  contributions?: { amount: number; quantity: number }[];
   deadline: string;
   status: CampaignStatus;
   reviewNotes?: string | null;
@@ -71,6 +101,8 @@ export interface Contribution {
   participantId: string;
   amount: number;
   currency: string;
+  quantity: number;
+  isOrganiserTopUp: boolean;
   status: ContributionStatus;
   stripePaymentIntentId?: string | null;
   refund?: { status: string; amount: number } | null;
@@ -130,8 +162,8 @@ export const communityBuyService = {
     await apiClient.post(`/api/community-buy/campaigns/${campaignId}/join`, {});
   },
 
-  async createContribution(campaignId: string, amount: number): Promise<{ contributionId: string; clientSecret: string }> {
-    return apiClient.post(`/api/community-buy/campaigns/${campaignId}/contributions`, { amount });
+  async createContribution(campaignId: string, quantity: number): Promise<{ contributionId: string; clientSecret: string; quantity: number; amount: number; currency: string }> {
+    return apiClient.post(`/api/community-buy/campaigns/${campaignId}/contributions`, { quantity });
   },
 
   async getContribution(id: string): Promise<Contribution> {
@@ -173,8 +205,12 @@ export const communityBuyService = {
     description?: string;
     country: string;
     currency: string;
-    targetAmount: number;
+    minimumShares: number;
+    goalShares: number;
+    maximumShares: number;
+    pricePerShareMinor: number;
     deadline: string;
+    rescueDurationMinutes?: number;
   }): Promise<Campaign> {
     const res = await apiClient.post<{ campaign: Campaign }>("/api/organiser/campaigns", input);
     return res.campaign;
@@ -183,7 +219,10 @@ export const communityBuyService = {
   async updateCampaign(id: string, input: Partial<{
     title: string;
     description?: string;
-    targetAmount: number;
+    minimumShares: number;
+    goalShares: number;
+    maximumShares: number;
+    pricePerShareMinor: number;
     deadline: string;
   }>): Promise<Campaign> {
     const res = await apiClient.patch<{ campaign: Campaign }>(`/api/organiser/campaigns/${id}`, input);
@@ -200,15 +239,26 @@ export const communityBuyService = {
     return res.campaign;
   },
 
-  // Only valid on a FAILED campaign. Records the organiser's decision —
-  // takes no financial action either way (see the CampaignStatus comment).
-  async fulfilCampaignAnyway(id: string): Promise<Campaign> {
-    const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${id}/fulfil-anyway`, {});
-    return res.campaign;
+  // ─── Rescue-window actions — doc §8. There is no "fulfil anyway below
+  // minimum" action; the only ways out of RESCUE_WINDOW are these four. ──
+
+  async createOrganiserTopUp(campaignId: string, quantity: number): Promise<{ contributionId: string; clientSecret: string; quantity: number; amount: number; currency: string }> {
+    return apiClient.post(`/api/organiser/campaigns/${campaignId}/rescue/top-up`, { quantity });
   },
 
-  async cancelFailedCampaign(id: string): Promise<Campaign> {
-    const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${id}/cancel`, {});
+  async requestExtension(campaignId: string, input: {
+    requestedDeadline: string;
+    reason: string;
+    supplierReconfirmed: boolean;
+    priceUnchangedConfirmed: boolean;
+    participantTermsUnchanged: boolean;
+  }): Promise<ExtensionRequest> {
+    const res = await apiClient.post<{ extensionRequest: ExtensionRequest }>(`/api/organiser/campaigns/${campaignId}/rescue/extension-request`, input);
+    return res.extensionRequest;
+  },
+
+  async endCampaignRescue(campaignId: string): Promise<Campaign> {
+    const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${campaignId}/rescue/end`, {});
     return res.campaign;
   },
 
@@ -226,5 +276,11 @@ export const communityBuyService = {
   async listMySupplierCampaigns(): Promise<Campaign[]> {
     const res = await apiClient.get<Items<Campaign>>("/api/supplier/campaigns");
     return res.items ?? [];
+  },
+
+  /** Doc screens 115-117 — required before the organiser can submit the campaign for admin review. */
+  async confirmSupplierCommitment(campaignId: string): Promise<Campaign> {
+    const res = await apiClient.post<{ campaign: Campaign }>(`/api/supplier/campaigns/${campaignId}/supplier-commitment`, {});
+    return res.campaign;
   },
 };

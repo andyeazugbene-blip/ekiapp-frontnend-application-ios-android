@@ -21,10 +21,14 @@ const STATUS_LABEL: Record<Campaign["status"], string> = {
   REJECTED: "Rejected",
   LIVE: "Live",
   PAUSED: "Paused",
+  RESCUE_WINDOW: "Needs more participants",
   SUCCEEDED: "Succeeded",
-  FAILED: "Target not reached",
-  FULFILLING: "Proceeding (target not reached)",
-  CANCELLED: "Cancelled",
+  FAILED: "Did not reach minimum",
+  REFUNDING: "Refunding",
+  FULFILLING: "Proceeding",
+  COMPLETED: "Completed",
+  FINANCIALLY_CLOSED: "Closed",
+  CANCELLED: "Ended",
 };
 
 export default function VendorCommunityBuySupplierScreen() {
@@ -38,6 +42,7 @@ export default function VendorCommunityBuySupplierScreen() {
   const [error, setError] = useState("");
   const [applying, setApplying] = useState<string | null>(null);
   const [applyError, setApplyError] = useState("");
+  const [committing, setCommitting] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,6 +75,19 @@ export default function VendorCommunityBuySupplierScreen() {
       setApplyError(err instanceof Error ? err.message : "Could not submit your application.");
     } finally {
       setApplying(null);
+    }
+  };
+
+  /** Doc screens 115-117 — confirms the supplier can fulfil every confirmed quantity between the minimum and maximum before the organiser can submit for admin review. */
+  const handleAcceptCampaign = async (campaignId: string) => {
+    setCommitting(campaignId);
+    try {
+      await communityBuyService.confirmSupplierCommitment(campaignId);
+      await load();
+    } catch (err) {
+      setApplyError(err instanceof Error ? err.message : "Could not accept this campaign.");
+    } finally {
+      setCommitting(null);
     }
   };
 
@@ -142,8 +160,26 @@ export default function VendorCommunityBuySupplierScreen() {
                     <Text style={styles.cardStatus}>{STATUS_LABEL[c.status]}</Text>
                   </View>
                   <Text style={styles.cardMeta}>
-                    {(c.progressPct ?? 0)}% of {formatDisplayMoney(c.targetAmount / 100, c.currency, selectedCurrency)} target
+                    {c.confirmedShares} of {c.maximumShares} shares · minimum {c.minimumShares} to proceed
                   </Text>
+                  <Text style={styles.cardMeta}>
+                    {formatDisplayMoney(c.pricePerShareMinor / 100, c.currency, selectedCurrency)} per share
+                  </Text>
+                  {["DRAFT", "CHANGES_REQUIRED"].includes(c.status) && !c.supplierCommitted ? (
+                    <TouchableOpacity
+                      onPress={() => void handleAcceptCampaign(c.id)}
+                      disabled={committing === c.id}
+                      activeOpacity={0.88}
+                      style={styles.acceptBtn}
+                    >
+                      {committing === c.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.acceptBtnText}>Confirm supply commitment</Text>}
+                    </TouchableOpacity>
+                  ) : c.supplierCommitted ? (
+                    <View style={styles.committedRow}>
+                      <Ionicons name="checkmark-circle" size={14} color="#076B51" />
+                      <Text style={styles.committedText}>You've accepted this campaign</Text>
+                    </View>
+                  ) : null}
                 </View>
               ))
             )}
@@ -177,4 +213,8 @@ const styles = StyleSheet.create({
   cardTitle: { flex: 1, fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
   cardStatus: { fontSize: 11, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   cardMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
+  acceptBtn: { minHeight: 42, borderRadius: 12, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", marginTop: 6 },
+  acceptBtnText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  committedRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+  committedText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#076B51" },
 });
