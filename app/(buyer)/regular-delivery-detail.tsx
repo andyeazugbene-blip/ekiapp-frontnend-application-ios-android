@@ -199,17 +199,26 @@ export default function RegularDeliveryDetailScreen() {
         {(sub.renewals ?? []).length === 0 ? (
           <Text style={styles.emptyRenewals}>No renewals yet.</Text>
         ) : (
-          (sub.renewals ?? []).map((r) => (
-            <View key={r.id} style={styles.renewalRow}>
-              <View>
-                <Text style={styles.renewalDate}>{formatDate(r.cycleDate)}</Text>
-                <Text style={styles.renewalStatus}>{RENEWAL_STATUS_LABELS[r.status]}</Text>
-              </View>
-              {r.subtotalAmount ? (
-                <Text style={styles.renewalAmount}>{formatDisplayMoney(r.subtotalAmount / 100, r.currency, selectedCurrency)}</Text>
-              ) : null}
-            </View>
-          ))
+          (sub.renewals ?? []).map((r) => {
+            const RowWrapper = r.orderId ? TouchableOpacity : View;
+            return (
+              <RowWrapper
+                key={r.id}
+                style={styles.renewalRow}
+                {...(r.orderId
+                  ? { activeOpacity: 0.8, onPress: () => router.push({ pathname: "/(buyer)/track-order", params: { id: r.orderId! } } as any) }
+                  : {})}
+              >
+                <View>
+                  <Text style={styles.renewalDate}>{formatDate(r.cycleDate)}</Text>
+                  <Text style={styles.renewalStatus}>{RENEWAL_STATUS_LABELS[r.status]}{r.orderId ? " · Track order" : ""}</Text>
+                </View>
+                {r.subtotalAmount ? (
+                  <Text style={styles.renewalAmount}>{formatDisplayMoney(r.subtotalAmount / 100, r.currency, selectedCurrency)}</Text>
+                ) : null}
+              </RowWrapper>
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>

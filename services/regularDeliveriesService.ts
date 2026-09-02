@@ -60,6 +60,12 @@ export interface SubscriptionOffer {
   createdAt: string;
 }
 
+export interface ReorderSuggestion {
+  product: { id: string; title: string; priceInCents: number; currency: string; images: string[] };
+  offer: { id: string; title: string; frequencies: SubscriptionFrequency[]; vendorStoreName: string };
+  orderCount: number;
+}
+
 export interface RegularDeliveryInsights {
   activeSubscribers: number;
   pausedSubscribers: number;
@@ -199,6 +205,11 @@ export const regularDeliveriesService = {
   async skipNextRenewal(id: string): Promise<BuyerSubscription> {
     const res = await apiClient.post<{ subscription: BuyerSubscription }>(`/api/buyer/subscriptions/${id}/skip-next`, {});
     return res.subscription;
+  },
+
+  async getReorderSuggestions(): Promise<ReorderSuggestion[]> {
+    const res = await apiClient.get<Items<ReorderSuggestion>>("/api/buyer/subscriptions/reorder-suggestions");
+    return res.items ?? [];
   },
 
   // ─── Buyer: renewal actions ─────────────────────────────────────────────

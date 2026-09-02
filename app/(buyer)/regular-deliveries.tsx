@@ -4,11 +4,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
+import { formatDisplayMoney } from "../../utils/currency";
+import { useCurrencyStore } from "../../stores/currencyStore";
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
   type BuyerSubscription,
   type BuyerSubscriptionStatus,
+  type ReorderSuggestion,
 } from "../../services/regularDeliveriesService";
 
 const STATUS_STYLE: Record<BuyerSubscriptionStatus, { label: string; color: string; bg: string }> = {
@@ -27,7 +30,9 @@ function formatDate(value?: string | null): string {
 
 export default function RegularDeliveriesScreen() {
   const router = useRouter();
+  const { selectedCurrency } = useCurrencyStore();
   const [items, setItems] = useState<BuyerSubscription[]>([]);
+  const [suggestions, setSuggestions] = useState<ReorderSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -35,7 +40,12 @@ export default function RegularDeliveriesScreen() {
     setLoading(true);
     setError("");
     try {
-      setItems(await regularDeliveriesService.listMySubscriptions());
+      const [subs, reorderSuggestions] = await Promise.all([
+        regularDeliveriesService.listMySubscriptions(),
+        regularDeliveriesService.getReorderSuggestions().catch(() => []),
+      ]);
+      setItems(subs);
+      setSuggestions(reorderSuggestions);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load your Regular Deliveries.");
     } finally {
@@ -67,44 +77,69 @@ export default function RegularDeliveriesScreen() {
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
-        ) : items.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="repeat-outline" size={32} color="#076B51" />
-            <Text style={styles.emptyTitle}>No Regular Deliveries yet</Text>
-            <Text style={styles.emptyText}>
-              Open a vendor's store to see if they offer Regular Deliveries, then set up a recurring order from there.
-            </Text>
-          </View>
         ) : (
-          items.map((sub) => {
-            const status = STATUS_STYLE[sub.status];
-            return (
-              <TouchableOpacity
-                key={sub.id}
-                activeOpacity={0.85}
-                style={styles.card}
-                onPress={() => router.push({ pathname: "/(buyer)/regular-delivery-detail", params: { id: sub.id } } as any)}
-              >
-                <View style={styles.cardTop}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>{sub.offer?.title ?? "Regular Delivery"}</Text>
-                  <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
-                    <Text style={[styles.statusPillText, { color: status.color }]}>{status.label}</Text>
-                  </View>
-                </View>
-                <Text style={styles.cardVendor}>{sub.offer?.vendor?.storeName ?? "Vendor"}</Text>
-                <View style={styles.cardMetaRow}>
-                  <Ionicons name="repeat-outline" size={14} color="#858585" />
-                  <Text style={styles.cardMetaText}>{FREQUENCY_LABELS[sub.frequency]}</Text>
-                  {sub.nextRenewalAt ? (
-                    <>
-                      <Text style={styles.cardMetaDot}>•</Text>
-                      <Text style={styles.cardMetaText}>Next: {formatDate(sub.nextRenewalAt)}</Text>
-                    </>
-                  ) : null}
-                </View>
-              </TouchableOpacity>
-            );
-          })
+          <>
+            {suggestions.length > 0 ? (
+              <>
+                <Text style={styles.sectionLabel}>Reorder as a Regular Delivery</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionsRow}>
+                  {suggestions.map((s) => (
+                    <TouchableOpacity
+                      key={s.product.id}
+                      activeOpacity={0.85}
+                      style={styles.suggestionCard}
+                      onPress={() => router.push({ pathname: "/(buyer)/regular-delivery-offer", params: { id: s.offer.id } } as any)}
+                    >
+                      <Text style={styles.suggestionTitle} numberOfLines={2}>{s.product.title}</Text>
+                      <Text style={styles.suggestionMeta}>Bought {s.orderCount}x recently</Text>
+                      <Text style={styles.suggestionVendor} numberOfLines={1}>{s.offer.vendorStoreName}</Text>
+                      <Text style={styles.suggestionPrice}>{formatDisplayMoney(s.product.priceInCents / 100, s.product.currency, selectedCurrency)}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            ) : null}
+
+            {items.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="repeat-outline" size={32} color="#076B51" />
+                <Text style={styles.emptyTitle}>No Regular Deliveries yet</Text>
+                <Text style={styles.emptyText}>
+                  Open a vendor's store to see if they offer Regular Deliveries, then set up a recurring order from there.
+                </Text>
+              </View>
+            ) : (
+              items.map((sub) => {
+                const status = STATUS_STYLE[sub.status];
+                return (
+                  <TouchableOpacity
+                    key={sub.id}
+                    activeOpacity={0.85}
+                    style={styles.card}
+                    onPress={() => router.push({ pathname: "/(buyer)/regular-delivery-detail", params: { id: sub.id } } as any)}
+                  >
+                    <View style={styles.cardTop}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>{sub.offer?.title ?? "Regular Delivery"}</Text>
+                      <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
+                        <Text style={[styles.statusPillText, { color: status.color }]}>{status.label}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.cardVendor}>{sub.offer?.vendor?.storeName ?? "Vendor"}</Text>
+                    <View style={styles.cardMetaRow}>
+                      <Ionicons name="repeat-outline" size={14} color="#858585" />
+                      <Text style={styles.cardMetaText}>{FREQUENCY_LABELS[sub.frequency]}</Text>
+                      {sub.nextRenewalAt ? (
+                        <>
+                          <Text style={styles.cardMetaDot}>•</Text>
+                          <Text style={styles.cardMetaText}>Next: {formatDate(sub.nextRenewalAt)}</Text>
+                        </>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -132,4 +167,11 @@ const styles = StyleSheet.create({
   cardMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
   cardMetaText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
   cardMetaDot: { color: "#DADADA" },
+  sectionLabel: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828", marginBottom: 8 },
+  suggestionsRow: { gap: 10, paddingBottom: 4 },
+  suggestionCard: { width: 150, backgroundColor: "#FFFFFF", borderRadius: 16, padding: 12, gap: 4 },
+  suggestionTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828", minHeight: 34 },
+  suggestionMeta: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#076B51" },
+  suggestionVendor: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585" },
+  suggestionPrice: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 4 },
 });
