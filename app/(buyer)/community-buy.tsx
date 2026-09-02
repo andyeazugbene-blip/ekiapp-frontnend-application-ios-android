@@ -1,11 +1,19 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
+import {
+  EmptyState,
+  ErrorState,
+  FloatingCard,
+  LoadingBlock,
+  PremiumHeader,
+  RangeProgressBar,
+  premiumStyles,
+} from "../../components/shared/PremiumBlocks";
 import { communityBuyService, type Campaign, type MarketConfig } from "../../services/communityBuyService";
 
 function daysLeft(deadline: string): string {
@@ -44,108 +52,92 @@ export default function CommunityBuyDiscoveryScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/profile" as any)} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Community Buy</Text>
-        <TouchableOpacity onPress={() => router.push("/(buyer)/my-community-buys" as any)} activeOpacity={0.85} style={styles.organiserButton}>
-          <Ionicons name="receipt-outline" size={18} color="#076B51" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy-organiser" as any)} activeOpacity={0.85} style={[styles.organiserButton, { marginLeft: 8 }]}>
-          <Ionicons name="megaphone-outline" size={18} color="#076B51" />
-        </TouchableOpacity>
-      </View>
-
-      {markets.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          <TouchableOpacity onPress={() => setCountryFilter(null)} activeOpacity={0.85} style={[styles.chip, !countryFilter && styles.chipActive]}>
-            <Text style={[styles.chipText, !countryFilter && styles.chipTextActive]}>All markets</Text>
-          </TouchableOpacity>
-          {markets.map((m) => (
-            <TouchableOpacity key={m.countryCode} onPress={() => setCountryFilter(m.countryCode)} activeOpacity={0.85} style={[styles.chip, countryFilter === m.countryCode && styles.chipActive]}>
-              <Text style={[styles.chipText, countryFilter === m.countryCode && styles.chipTextActive]}>{m.countryCode}</Text>
+    <View style={premiumStyles.page}>
+      <PremiumHeader
+        title="Community Buy"
+        subtitle="Bulk-buy together, unlock better prices"
+        onBack={() => goBackOrReplace(router, "/(buyer)/profile" as any)}
+        right={
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TouchableOpacity onPress={() => router.push("/(buyer)/my-community-buys" as any)} activeOpacity={0.85} style={styles.headerIconBtn}>
+              <Ionicons name="receipt-outline" size={18} color="#FFFFFF" />
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-      ) : null}
-
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {loading ? (
-          <View style={styles.placeholder}><ActivityIndicator color="#076B51" /></View>
-        ) : error ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="alert-circle-outline" size={28} color="#D6552F" />
-            <Text style={styles.emptyTitle}>Couldn't load campaigns</Text>
-            <Text style={styles.emptyText}>{error}</Text>
-            <TouchableOpacity onPress={() => void load()} activeOpacity={0.86} style={styles.retryButton}>
-              <Text style={styles.retryButtonText}>Retry</Text>
+            <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy-organiser" as any)} activeOpacity={0.85} style={styles.headerIconBtn}>
+              <Ionicons name="megaphone-outline" size={18} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
+        }
+      >
+        {markets.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            <TouchableOpacity onPress={() => setCountryFilter(null)} activeOpacity={0.85} style={[styles.chip, !countryFilter && styles.chipActive]}>
+              <Text style={[styles.chipText, !countryFilter && styles.chipTextActive]}>All markets</Text>
+            </TouchableOpacity>
+            {markets.map((m) => (
+              <TouchableOpacity key={m.countryCode} onPress={() => setCountryFilter(m.countryCode)} activeOpacity={0.85} style={[styles.chip, countryFilter === m.countryCode && styles.chipActive]}>
+                <Text style={[styles.chipText, countryFilter === m.countryCode && styles.chipTextActive]}>{m.countryCode}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        ) : null}
+      </PremiumHeader>
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <LoadingBlock />
+        ) : error ? (
+          <View style={premiumStyles.block}><ErrorState message={error} onRetry={() => void load()} /></View>
         ) : campaigns.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="people-circle-outline" size={32} color="#076B51" />
-            <Text style={styles.emptyTitle}>No live campaigns right now</Text>
-            <Text style={styles.emptyText}>Check back soon, or start your own as an organiser.</Text>
+          <View style={premiumStyles.block}>
+            <FloatingCard>
+              <EmptyState
+                icon="people-circle-outline"
+                title="No live campaigns right now"
+                body="Check back soon, or start your own as an organiser."
+              />
+            </FloatingCard>
           </View>
         ) : (
-          campaigns.map((c) => {
-            const pct = c.progressPct ?? 0;
-            return (
+          <View style={[premiumStyles.block, { gap: 10 }]}>
+            {campaigns.map((c) => (
               <TouchableOpacity
                 key={c.id}
                 activeOpacity={0.85}
-                style={styles.card}
                 onPress={() => router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: c.id } } as any)}
               >
-                <View style={styles.cardTop}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
-                  <View style={styles.countryPill}><Text style={styles.countryPillText}>{c.country}</Text></View>
-                </View>
-                <Text style={styles.cardVendor}>{c.supplier?.vendor?.storeName ?? "Community Buy"}</Text>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: `${Math.min(100, pct)}%` }]} />
-                </View>
-                <View style={styles.cardMetaRow}>
-                  <Text style={styles.cardMetaText}>{pct}% of {formatDisplayMoney(c.targetAmount / 100, c.currency, selectedCurrency)}</Text>
-                  <Text style={styles.cardMetaText}>{daysLeft(c.deadline)}</Text>
-                </View>
+                <FloatingCard style={{ gap: 10 }}>
+                  <View style={styles.cardTop}>
+                    <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
+                    <View style={styles.countryPill}><Text style={styles.countryPillText}>{c.country}</Text></View>
+                  </View>
+                  <Text style={styles.cardVendor}>{c.supplier?.vendor?.storeName ?? "Community Buy"}</Text>
+                  <RangeProgressBar value={c.confirmedShares} min={c.minimumShares} goal={c.goalShares} max={c.maximumShares} />
+                  <View style={styles.cardMetaRow}>
+                    <Text style={styles.cardMetaText}>Target {formatDisplayMoney(c.targetAmount / 100, c.currency, selectedCurrency)}</Text>
+                    <Text style={styles.cardMetaText}>{daysLeft(c.deadline)}</Text>
+                  </View>
+                </FloatingCard>
               </TouchableOpacity>
-            );
-          })
+            ))}
+          </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9F9F9" },
-  header: { backgroundColor: "#FFFFFF", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontSize: 20, fontFamily: "Manrope-Bold", color: "#282828" },
-  organiserButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(7,107,81,0.1)", alignItems: "center", justifyContent: "center" },
-  filterRow: { paddingHorizontal: 16, paddingBottom: 12, gap: 8, backgroundColor: "#FFFFFF" },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: "#F4F4F4" },
-  chipActive: { backgroundColor: "#076B51" },
-  chipText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#282828" },
-  chipTextActive: { color: "#FFFFFF" },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 100, gap: 10 },
-  placeholder: { paddingVertical: 60, alignItems: "center" },
-  emptyState: { alignItems: "center", paddingVertical: 60, paddingHorizontal: 24, gap: 8 },
-  emptyTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
-  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", lineHeight: 19 },
-  retryButton: { marginTop: 6, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  retryButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 14, gap: 8 },
+  headerIconBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
+  filterRow: { gap: 8, paddingTop: 16 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.14)" },
+  chipActive: { backgroundColor: "#FFFFFF" },
+  chipText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+  chipTextActive: { color: "#076B51" },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  cardTitle: { flex: 1, fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
-  countryPill: { backgroundColor: "#F4F4F4", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  countryPillText: { fontSize: 10, fontFamily: "Manrope-Bold", color: "#858585" },
-  cardVendor: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
-  progressTrack: { height: 6, borderRadius: 3, backgroundColor: "#F4F4F4", overflow: "hidden" },
-  progressFill: { height: 6, borderRadius: 3, backgroundColor: "#076B51" },
+  cardTitle: { flex: 1, fontSize: 15, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  countryPill: { backgroundColor: "#F4F6F5", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  countryPillText: { fontSize: 10, fontFamily: "Manrope-Bold", color: "#6A7B72" },
+  cardVendor: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: -4 },
   cardMetaRow: { flexDirection: "row", justifyContent: "space-between" },
-  cardMetaText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#282828" },
+  cardMetaText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#151E1B" },
 });

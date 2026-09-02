@@ -1,11 +1,18 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
+import {
+  EmptyState,
+  ErrorState,
+  FloatingCard,
+  LoadingBlock,
+  PremiumHeader,
+  StatusPill,
+  premiumStyles,
+} from "../../components/shared/PremiumBlocks";
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
@@ -44,105 +51,82 @@ export default function VendorSubscriberDetailScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/regular-deliveries" as any)} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Subscriber</Text>
-        <View style={{ width: 38 }} />
-      </View>
+    <View style={premiumStyles.page}>
+      <PremiumHeader
+        title={subscription?.buyer?.name ?? "Subscriber"}
+        subtitle={subscription ? FREQUENCY_LABELS[subscription.frequency] : undefined}
+        onBack={() => goBackOrReplace(router, "/(vendor)/regular-deliveries" as any)}
+      />
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <View style={styles.placeholder}><ActivityIndicator color="#076B51" /></View>
+          <LoadingBlock />
         ) : error ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="alert-circle-outline" size={28} color="#D6552F" />
-            <Text style={styles.emptyTitle}>Couldn't load this subscriber</Text>
-            <Text style={styles.emptyText}>{error}</Text>
-            <TouchableOpacity onPress={() => void load()} activeOpacity={0.86} style={styles.retryButton}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
+          <View style={premiumStyles.block}><ErrorState message={error} onRetry={() => void load()} /></View>
         ) : !subscription ? null : (
-          <>
-            <View style={styles.card}>
+          <View style={[premiumStyles.block, { gap: 10 }]}>
+            <FloatingCard>
               <Text style={styles.buyerName}>{subscription.buyer?.name ?? "Buyer"}</Text>
               {subscription.buyer?.email ? <Text style={styles.buyerEmail}>{subscription.buyer.email}</Text> : null}
               <View style={styles.metaRow}>
-                <View style={[styles.statusPill, { backgroundColor: subscription.status === "ACTIVE" ? "rgba(7,107,81,0.1)" : "#F4F4F4" }]}>
-                  <Text style={[styles.statusPillText, { color: subscription.status === "ACTIVE" ? "#076B51" : "#858585" }]}>
-                    {subscription.status.replace("_", " ")}
+                <StatusPill label={subscription.status.replace("_", " ")} tone={subscription.status === "ACTIVE" ? "success" : "neutral"} />
+                <Text style={styles.metaText}>Next renewal {formatDate(subscription.nextRenewalAt)}</Text>
+              </View>
+            </FloatingCard>
+
+            <Text style={styles.sectionTitle}>Items on this subscription</Text>
+            <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
+              {subscription.items.map((item, index) => (
+                <View key={item.id} style={[styles.itemRow, index > 0 && styles.itemRowBorder]}>
+                  <Text style={styles.itemName} numberOfLines={1}>{item.product.title}</Text>
+                  <Text style={styles.itemMeta}>
+                    x{item.quantity} · {formatDisplayMoney(item.product.priceInCents / 100, item.product.currency, selectedCurrency)}
                   </Text>
                 </View>
-                <Text style={styles.metaText}>{FREQUENCY_LABELS[subscription.frequency]}</Text>
-              </View>
-              <Text style={styles.metaText}>Next renewal: {formatDate(subscription.nextRenewalAt)}</Text>
-            </View>
+              ))}
+            </FloatingCard>
 
-            <Text style={styles.section}>Items on this subscription</Text>
-            {subscription.items.map((item) => (
-              <View key={item.id} style={styles.itemRow}>
-                <Text style={styles.itemName} numberOfLines={1}>{item.product.title}</Text>
-                <Text style={styles.itemMeta}>
-                  x{item.quantity} · {formatDisplayMoney(item.product.priceInCents / 100, item.product.currency, selectedCurrency)}
-                </Text>
-              </View>
-            ))}
-
-            <Text style={styles.section}>Renewal history</Text>
+            <Text style={styles.sectionTitle}>Renewal history</Text>
             {!subscription.renewals || subscription.renewals.length === 0 ? (
-              <Text style={styles.emptyActivityText}>No renewal cycles yet.</Text>
+              <FloatingCard><EmptyState icon="time-outline" title="No renewal cycles yet" /></FloatingCard>
             ) : (
-              subscription.renewals.map((r) => (
-                <View key={r.id} style={styles.renewalRow}>
-                  <View style={styles.renewalTop}>
-                    <Text style={styles.renewalDate}>{formatDate(r.cycleDate)}</Text>
-                    {r.subtotalAmount ? (
-                      <Text style={styles.renewalAmount}>{formatDisplayMoney(r.subtotalAmount / 100, r.currency, selectedCurrency)}</Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.renewalStatus}>{RENEWAL_STATUS_LABELS[r.status]}</Text>
-                  {r.failureReason ? <Text style={styles.renewalFailure}>{r.failureReason}</Text> : null}
-                </View>
-              ))
+              <View style={{ gap: 8 }}>
+                {subscription.renewals.map((r) => (
+                  <FloatingCard key={r.id}>
+                    <View style={styles.renewalTop}>
+                      <Text style={styles.renewalDate}>{formatDate(r.cycleDate)}</Text>
+                      {r.subtotalAmount ? (
+                        <Text style={styles.renewalAmount}>{formatDisplayMoney(r.subtotalAmount / 100, r.currency, selectedCurrency)}</Text>
+                      ) : null}
+                    </View>
+                    <StatusPill
+                      label={RENEWAL_STATUS_LABELS[r.status]}
+                      tone={r.status === "ORDER_CREATED" ? "success" : r.status === "PAYMENT_FAILED" ? "error" : "neutral"}
+                    />
+                    {r.failureReason ? <Text style={styles.renewalFailure}>{r.failureReason}</Text> : null}
+                  </FloatingCard>
+                ))}
+              </View>
             )}
-          </>
+          </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9F9F9" },
-  header: { backgroundColor: "#FFFFFF", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontSize: 20, fontFamily: "Manrope-Bold", color: "#282828" },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100, gap: 10 },
-  placeholder: { paddingVertical: 60, alignItems: "center" },
-  emptyState: { alignItems: "center", paddingVertical: 50, paddingHorizontal: 24, gap: 8 },
-  emptyTitle: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
-  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", lineHeight: 18 },
-  retryButton: { marginTop: 6, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  retryButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16, gap: 6 },
-  buyerName: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828" },
-  buyerEmail: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
-  metaRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },
-  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  statusPillText: { fontSize: 11, fontFamily: "Manrope-Bold" },
-  metaText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
-  section: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 12, marginBottom: 2 },
-  itemRow: { backgroundColor: "#FFFFFF", borderRadius: 14, padding: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
-  itemName: { flex: 1, fontSize: 13, fontFamily: "Outfit-Medium", color: "#282828" },
-  itemMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
-  emptyActivityText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", paddingVertical: 12, textAlign: "center" },
-  renewalRow: { backgroundColor: "#FFFFFF", borderRadius: 14, padding: 12, gap: 4 },
-  renewalTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  renewalDate: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#282828" },
-  renewalAmount: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#076B51" },
-  renewalStatus: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
-  renewalFailure: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#FB6363", marginTop: 2 },
+  buyerName: { fontSize: 17, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  buyerEmail: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: 2 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10 },
+  metaText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  sectionTitle: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginTop: 4 },
+  itemRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8, padding: 14 },
+  itemRowBorder: { borderTopWidth: 1, borderTopColor: "#F0F0F0" },
+  itemName: { flex: 1, fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  itemMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  renewalTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  renewalDate: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  renewalAmount: { fontSize: 14, fontFamily: "Manrope-ExtraBold", color: "#076B51" },
+  renewalFailure: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#D6552F", marginTop: 6 },
 });

@@ -1,11 +1,18 @@
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
+import {
+  ErrorState,
+  FloatingCard,
+  LoadingBlock,
+  PremiumHeader,
+  StatusPill,
+  premiumStyles,
+} from "../../components/shared/PremiumBlocks";
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
@@ -76,152 +83,150 @@ export default function RegularDeliveryDetailScreen() {
     ]);
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.placeholder}><ActivityIndicator color="#076B51" /></View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error || !sub) {
-    return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)} activeOpacity={0.85} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={20} color="#282828" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Regular Delivery</Text>
-          <View style={{ width: 38 }} />
-        </View>
-        <View style={styles.emptyState}>
-          <Ionicons name="alert-circle-outline" size={28} color="#D6552F" />
-          <Text style={styles.emptyTitle}>Couldn't load this delivery</Text>
-          <Text style={styles.emptyText}>{error}</Text>
-          <TouchableOpacity onPress={() => void load()} activeOpacity={0.86} style={styles.retryButton}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const isActive = sub.status === "ACTIVE";
-  const isPaused = sub.status === "PAUSED";
-  const latestRenewal = sub.renewals?.[0];
+  const isActive = sub?.status === "ACTIVE";
+  const isPaused = sub?.status === "PAUSED";
+  const latestRenewal = sub?.renewals?.[0];
   const needsPriceApproval = latestRenewal?.status === "AWAITING_PRICE_APPROVAL";
   const needsPaymentRetry = latestRenewal?.status === "PAYMENT_FAILED";
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{sub.offer?.title ?? "Regular Delivery"}</Text>
-        <View style={{ width: 38 }} />
-      </View>
+    <View style={premiumStyles.page}>
+      <PremiumHeader title={sub?.offer?.title ?? "Regular Delivery"} subtitle={sub?.offer?.vendor?.storeName} onBack={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)} />
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {needsPriceApproval && latestRenewal ? (
-          <View style={styles.alertCard}>
-            <Ionicons name="pricetag-outline" size={18} color="#B48A00" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.alertTitle}>Price change needs your approval</Text>
-              <Text style={styles.alertBody}>{sub.offer?.vendor?.storeName ?? "Your vendor"} updated a price on your next delivery.</Text>
-              <View style={styles.alertActions}>
-                <TouchableOpacity
-                  disabled={actionBusy === "price-accept"}
-                  onPress={() => void runRenewalAction("price-accept", () => regularDeliveriesService.decideRenewalPriceChange(latestRenewal.id, "accepted"))}
-                  style={styles.alertBtnPrimary}
-                >
-                  <Text style={styles.alertBtnPrimaryText}>Approve</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  disabled={actionBusy === "price-decline"}
-                  onPress={() => void runRenewalAction("price-decline", () => regularDeliveriesService.decideRenewalPriceChange(latestRenewal.id, "declined"))}
-                  style={styles.alertBtnGhost}
-                >
-                  <Text style={styles.alertBtnGhostText}>Skip this delivery</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {needsPaymentRetry && latestRenewal ? (
-          <View style={[styles.alertCard, { backgroundColor: "rgba(214,85,47,0.08)" }]}>
-            <Ionicons name="card-outline" size={18} color="#D6552F" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.alertTitle}>Payment failed</Text>
-              <Text style={styles.alertBody}>{latestRenewal.failureReason ?? "We couldn't collect payment for your last delivery."}</Text>
-              <TouchableOpacity
-                disabled={actionBusy === "retry-payment"}
-                onPress={() => void runRenewalAction("retry-payment", () => regularDeliveriesService.retryRenewalPayment(latestRenewal.id))}
-                style={[styles.alertBtnPrimary, { alignSelf: "flex-start", marginTop: 8 }]}
-              >
-                <Text style={styles.alertBtnPrimaryText}>Retry payment</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : null}
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.vendorName}>{sub.offer?.vendor?.storeName ?? "Vendor"}</Text>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Frequency</Text><Text style={styles.summaryValue}>{FREQUENCY_LABELS[sub.frequency]}</Text></View>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Next renewal</Text><Text style={styles.summaryValue}>{isPaused ? "Paused" : formatDate(sub.nextRenewalAt)}</Text></View>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Status</Text><Text style={styles.summaryValue}>{sub.status.replace("_", " ")}</Text></View>
+      {loading ? (
+        <LoadingBlock />
+      ) : error || !sub ? (
+        <View style={premiumStyles.block}>
+          <ErrorState message={error || "This Regular Delivery is not available."} onRetry={() => void load()} />
         </View>
-
-        <Text style={styles.section}>Products</Text>
-        {sub.items.map((item) => (
-          <View key={item.id} style={styles.itemRow}>
-            <Text style={styles.itemTitle}>{item.product.title}</Text>
-            <Text style={styles.itemMeta}>x{item.quantity} · {formatDisplayMoney(item.product.priceInCents / 100, item.product.currency, selectedCurrency)}</Text>
-          </View>
-        ))}
-
-        <View style={styles.actionsGrid}>
-          {isActive ? (
-            <>
-              <ActionButton icon="pause-outline" label="Pause" busy={actionBusy === "pause"} onPress={() => void runAction("pause", () => regularDeliveriesService.pauseSubscription(sub.id))} />
-              <ActionButton icon="play-skip-forward-outline" label="Skip next" busy={actionBusy === "skip"} onPress={() => void runAction("skip", () => regularDeliveriesService.skipNextRenewal(sub.id))} />
-            </>
-          ) : isPaused ? (
-            <ActionButton icon="play-outline" label="Resume" busy={actionBusy === "resume"} onPress={() => void runAction("resume", () => regularDeliveriesService.resumeSubscription(sub.id))} />
-          ) : null}
-          {isActive || isPaused ? (
-            <ActionButton icon="close-circle-outline" label="Cancel" tone="danger" busy={actionBusy === "cancel"} onPress={confirmCancel} />
-          ) : null}
-        </View>
-
-        <Text style={styles.section}>Renewal history</Text>
-        {(sub.renewals ?? []).length === 0 ? (
-          <Text style={styles.emptyRenewals}>No renewals yet.</Text>
-        ) : (
-          (sub.renewals ?? []).map((r) => {
-            const RowWrapper = r.orderId ? TouchableOpacity : View;
-            return (
-              <RowWrapper
-                key={r.id}
-                style={styles.renewalRow}
-                {...(r.orderId
-                  ? { activeOpacity: 0.8, onPress: () => router.push({ pathname: "/(buyer)/track-order", params: { id: r.orderId! } } as any) }
-                  : {})}
-              >
-                <View>
-                  <Text style={styles.renewalDate}>{formatDate(r.cycleDate)}</Text>
-                  <Text style={styles.renewalStatus}>{RENEWAL_STATUS_LABELS[r.status]}{r.orderId ? " · Track order" : ""}</Text>
+      ) : (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
+          <View style={[premiumStyles.block, { gap: 16 }]}>
+            {needsPriceApproval && latestRenewal ? (
+              <FloatingCard style={styles.alertCardWarning}>
+                <View style={styles.alertRow}>
+                  <Ionicons name="pricetag-outline" size={18} color="#B48A00" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.alertTitle}>Price change needs your approval</Text>
+                    <Text style={styles.alertBody}>{sub.offer?.vendor?.storeName ?? "Your vendor"} updated a price on your next delivery.</Text>
+                  </View>
                 </View>
-                {r.subtotalAmount ? (
-                  <Text style={styles.renewalAmount}>{formatDisplayMoney(r.subtotalAmount / 100, r.currency, selectedCurrency)}</Text>
-                ) : null}
-              </RowWrapper>
-            );
-          })
-        )}
-      </ScrollView>
-    </SafeAreaView>
+                <View style={styles.alertActions}>
+                  <TouchableOpacity
+                    disabled={actionBusy === "price-accept"}
+                    onPress={() => void runRenewalAction("price-accept", () => regularDeliveriesService.decideRenewalPriceChange(latestRenewal.id, "accepted"))}
+                    style={styles.alertBtnPrimary}
+                  >
+                    {actionBusy === "price-accept" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.alertBtnPrimaryText}>Approve</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={actionBusy === "price-decline"}
+                    onPress={() => void runRenewalAction("price-decline", () => regularDeliveriesService.decideRenewalPriceChange(latestRenewal.id, "declined"))}
+                    style={styles.alertBtnGhost}
+                  >
+                    {actionBusy === "price-decline" ? <ActivityIndicator size="small" color="#516A60" /> : <Text style={styles.alertBtnGhostText}>Skip this delivery</Text>}
+                  </TouchableOpacity>
+                </View>
+              </FloatingCard>
+            ) : null}
+
+            {needsPaymentRetry && latestRenewal ? (
+              <FloatingCard style={styles.alertCardError}>
+                <View style={styles.alertRow}>
+                  <Ionicons name="card-outline" size={18} color="#D6552F" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.alertTitle}>Payment failed</Text>
+                    <Text style={styles.alertBody}>{latestRenewal.failureReason ?? "We couldn't collect payment for your last delivery."}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  disabled={actionBusy === "retry-payment"}
+                  onPress={() => void runRenewalAction("retry-payment", () => regularDeliveriesService.retryRenewalPayment(latestRenewal.id))}
+                  style={[styles.alertBtnPrimary, { backgroundColor: "#D6552F", alignSelf: "flex-start", marginTop: 10 }]}
+                >
+                  {actionBusy === "retry-payment" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.alertBtnPrimaryText}>Retry payment</Text>}
+                </TouchableOpacity>
+              </FloatingCard>
+            ) : null}
+
+            <FloatingCard>
+              <View style={styles.summaryTopRow}>
+                <StatusPill
+                  label={sub.status.replace("_", " ")}
+                  tone={isActive ? "success" : isPaused ? "warning" : sub.status === "PAYMENT_ATTENTION" ? "error" : "neutral"}
+                />
+                <Text style={styles.summaryFrequency}>{FREQUENCY_LABELS[sub.frequency]}</Text>
+              </View>
+              <Text style={styles.nextRenewalLabel}>Next renewal</Text>
+              <Text style={styles.nextRenewalValue}>{isPaused ? "Paused" : formatDate(sub.nextRenewalAt)}</Text>
+            </FloatingCard>
+
+            <View>
+              <Text style={styles.sectionTitle}>Products</Text>
+              <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
+                {sub.items.map((item, index) => (
+                  <View key={item.id} style={[styles.itemRow, index > 0 && styles.itemRowBorder]}>
+                    <Text style={styles.itemTitle} numberOfLines={1}>{item.product.title}</Text>
+                    <Text style={styles.itemMeta}>x{item.quantity} · {formatDisplayMoney(item.product.priceInCents / 100, item.product.currency, selectedCurrency)}</Text>
+                  </View>
+                ))}
+              </FloatingCard>
+            </View>
+
+            <View style={styles.actionsGrid}>
+              {isActive ? (
+                <>
+                  <ActionButton icon="pause-outline" label="Pause" busy={actionBusy === "pause"} onPress={() => void runAction("pause", () => regularDeliveriesService.pauseSubscription(sub.id))} />
+                  <ActionButton icon="play-skip-forward-outline" label="Skip next" busy={actionBusy === "skip"} onPress={() => void runAction("skip", () => regularDeliveriesService.skipNextRenewal(sub.id))} />
+                </>
+              ) : isPaused ? (
+                <ActionButton icon="play-outline" label="Resume" busy={actionBusy === "resume"} onPress={() => void runAction("resume", () => regularDeliveriesService.resumeSubscription(sub.id))} />
+              ) : null}
+              {isActive || isPaused ? (
+                <ActionButton icon="close-circle-outline" label="Cancel" tone="danger" busy={actionBusy === "cancel"} onPress={confirmCancel} />
+              ) : null}
+            </View>
+
+            <View>
+              <Text style={styles.sectionTitle}>Renewal history</Text>
+              {(sub.renewals ?? []).length === 0 ? (
+                <FloatingCard><Text style={styles.emptyRenewals}>No renewals yet.</Text></FloatingCard>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {(sub.renewals ?? []).map((r) => {
+                    const trackable = Boolean(r.orderId);
+                    const card = (
+                      <FloatingCard style={styles.renewalRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.renewalDate}>{formatDate(r.cycleDate)}</Text>
+                          <View style={{ marginTop: 6 }}>
+                            <StatusPill
+                              label={RENEWAL_STATUS_LABELS[r.status]}
+                              tone={r.status === "ORDER_CREATED" ? "success" : r.status === "PAYMENT_FAILED" ? "error" : "neutral"}
+                            />
+                          </View>
+                        </View>
+                        {r.subtotalAmount ? (
+                          <Text style={styles.renewalAmount}>{formatDisplayMoney(r.subtotalAmount / 100, r.currency, selectedCurrency)}</Text>
+                        ) : null}
+                        {trackable ? <Ionicons name="chevron-forward" size={16} color="#C7D2CB" /> : null}
+                      </FloatingCard>
+                    );
+                    return trackable ? (
+                      <TouchableOpacity key={r.id} activeOpacity={0.85} onPress={() => router.push({ pathname: "/(buyer)/track-order", params: { id: r.orderId! } } as any)}>
+                        {card}
+                      </TouchableOpacity>
+                    ) : (
+                      <View key={r.id}>{card}</View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          </View>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -239,52 +244,44 @@ function ActionButton({
   tone?: "default" | "danger";
 }) {
   return (
-    <TouchableOpacity disabled={busy} onPress={onPress} activeOpacity={0.85} style={styles.actionButton}>
-      {busy ? (
-        <ActivityIndicator size="small" color={tone === "danger" ? "#FB6363" : "#076B51"} />
-      ) : (
-        <Ionicons name={icon} size={18} color={tone === "danger" ? "#FB6363" : "#076B51"} />
-      )}
-      <Text style={[styles.actionButtonText, tone === "danger" && { color: "#FB6363" }]}>{label}</Text>
+    <TouchableOpacity disabled={busy} onPress={onPress} activeOpacity={0.85} style={{ flex: 1 }}>
+      <FloatingCard style={styles.actionButton}>
+        {busy ? (
+          <ActivityIndicator size="small" color={tone === "danger" ? "#D6552F" : "#076B51"} />
+        ) : (
+          <Ionicons name={icon} size={18} color={tone === "danger" ? "#D6552F" : "#076B51"} />
+        )}
+        <Text style={[styles.actionButtonText, tone === "danger" && { color: "#D6552F" }]}>{label}</Text>
+      </FloatingCard>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9F9F9" },
-  header: { backgroundColor: "#FFFFFF", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontSize: 18, fontFamily: "Manrope-Bold", color: "#282828" },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100, gap: 10 },
-  placeholder: { flex: 1, alignItems: "center", justifyContent: "center" },
-  emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 8 },
-  emptyTitle: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
-  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center" },
-  retryButton: { marginTop: 10, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  retryButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  alertCard: { flexDirection: "row", gap: 10, backgroundColor: "rgba(255,197,0,0.12)", borderRadius: 14, padding: 12 },
-  alertTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828" },
-  alertBody: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#5C5C5C", marginTop: 2, lineHeight: 17 },
-  alertActions: { flexDirection: "row", gap: 8, marginTop: 8 },
-  alertBtnPrimary: { backgroundColor: "#076B51", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
-  alertBtnPrimaryText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
-  alertBtnGhost: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#DADADA" },
-  alertBtnGhostText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#282828" },
-  summaryCard: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 14, gap: 6 },
-  vendorName: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#858585", marginBottom: 4 },
-  summaryRow: { flexDirection: "row", justifyContent: "space-between" },
-  summaryLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585" },
-  summaryValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#282828", textTransform: "capitalize" },
-  section: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 10, marginBottom: 2 },
-  itemRow: { flexDirection: "row", justifyContent: "space-between", backgroundColor: "#FFFFFF", borderRadius: 12, padding: 12 },
-  itemTitle: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#282828" },
-  itemMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
-  actionsGrid: { flexDirection: "row", gap: 8, marginTop: 4 },
-  actionButton: { flex: 1, alignItems: "center", gap: 4, backgroundColor: "#FFFFFF", borderRadius: 14, paddingVertical: 12 },
-  actionButtonText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  emptyRenewals: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", paddingVertical: 12, textAlign: "center" },
-  renewalRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 12, padding: 12 },
-  renewalDate: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#282828" },
-  renewalStatus: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 2 },
-  renewalAmount: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828" },
+  alertCardWarning: { backgroundColor: "#FFFBEF" },
+  alertCardError: { backgroundColor: "#FFF6F3" },
+  alertRow: { flexDirection: "row", gap: 10 },
+  alertTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  alertBody: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: 2, lineHeight: 17 },
+  alertActions: { flexDirection: "row", gap: 8, marginTop: 10 },
+  alertBtnPrimary: { backgroundColor: "#076B51", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9, alignItems: "center", justifyContent: "center" },
+  alertBtnPrimaryText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  alertBtnGhost: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9, borderWidth: 1, borderColor: "#DCE3DF", alignItems: "center", justifyContent: "center" },
+  alertBtnGhostText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#516A60" },
+  summaryTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  summaryFrequency: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#6A7B72" },
+  nextRenewalLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 14 },
+  nextRenewalValue: { fontSize: 20, fontFamily: "Manrope-ExtraBold", color: "#151E1B", marginTop: 2, textTransform: "capitalize" },
+  sectionTitle: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 10 },
+  itemRow: { flexDirection: "row", justifyContent: "space-between", padding: 14 },
+  itemRowBorder: { borderTopWidth: 1, borderTopColor: "#F0F0F0" },
+  itemTitle: { flex: 1, fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  itemMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  actionsGrid: { flexDirection: "row", gap: 10 },
+  actionButton: { alignItems: "center", gap: 6, paddingVertical: 6 },
+  actionButtonText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#076B51" },
+  emptyRenewals: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", paddingVertical: 12, textAlign: "center" },
+  renewalRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  renewalDate: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  renewalAmount: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
 });

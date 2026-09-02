@@ -1,9 +1,18 @@
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
+import {
+  EmptyState,
+  ErrorState,
+  FloatingCard,
+  IconAvatar,
+  LoadingBlock,
+  PremiumHeader,
+  StatusPill,
+  premiumStyles,
+} from "../../components/shared/PremiumBlocks";
 import {
   automationService,
   AUTOMATION_LABELS,
@@ -123,132 +132,127 @@ export default function AutomationCenterScreen() {
   };
 
   const enabledCount = automations.filter((a) => a.enabled).length;
+  const recentFailures = activity.filter((r) => r.status === "FAILED").length;
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)" as any)} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Automation Center</Text>
-        <View style={{ width: 38 }} />
-      </View>
+    <View style={premiumStyles.page}>
+      <PremiumHeader
+        title="Automation Center"
+        subtitle={loading ? undefined : `${enabledCount} of ${automations.length} automations active`}
+        onBack={() => goBackOrReplace(router, "/(vendor)" as any)}
+      />
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <View style={styles.placeholder}>
-            <ActivityIndicator color="#076B51" />
-          </View>
+          <LoadingBlock />
         ) : error ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="alert-circle-outline" size={28} color="#D6552F" />
-            <Text style={styles.emptyTitle}>Couldn't load automations</Text>
-            <Text style={styles.emptyText}>{error}</Text>
-            <TouchableOpacity onPress={() => void load()} activeOpacity={0.86} style={styles.retryButton}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
+          <View style={premiumStyles.block}>
+            <ErrorState message={error} onRetry={() => void load()} />
           </View>
         ) : (
           <>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>{enabledCount}/{automations.length}</Text>
-              <Text style={styles.summaryLabel}>automations active</Text>
+            <View style={[premiumStyles.block, { gap: 10 }]}>
+              {automations.map((a) => {
+                const preset = CONFIG_PRESETS[a.type];
+                const isConfigurable = CONFIGURABLE_AUTOMATION_TYPES.includes(a.type) && preset;
+                const isExpanded = expandedType === a.type;
+                return (
+                  <FloatingCard key={a.type} style={{ padding: 0, overflow: "hidden" }}>
+                    <TouchableOpacity
+                      activeOpacity={isConfigurable ? 0.8 : 1}
+                      disabled={!isConfigurable}
+                      onPress={() => setExpandedType(isExpanded ? null : a.type)}
+                      style={styles.automationRow}
+                    >
+                      <IconAvatar icon={ICON_FOR_TYPE[a.type] ?? "flash-outline"} tone={a.enabled ? "success" : "neutral"} />
+                      <View style={styles.automationCopy}>
+                        <Text style={styles.automationTitle}>{AUTOMATION_LABELS[a.type] ?? a.type}</Text>
+                        <Text style={styles.automationBody} numberOfLines={2}>{a.description}</Text>
+                      </View>
+                      {isConfigurable ? (
+                        <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color="#8AA194" style={{ marginRight: 2 }} />
+                      ) : null}
+                      {togglingType === a.type ? (
+                        <ActivityIndicator size="small" color="#076B51" />
+                      ) : (
+                        <Switch
+                          value={a.enabled}
+                          onValueChange={(value) => void handleToggle(a.type, value)}
+                          trackColor={{ true: "#85C5AE" }}
+                          thumbColor={a.enabled ? "#076B51" : "#F4F4F4"}
+                        />
+                      )}
+                    </TouchableOpacity>
+
+                    {isConfigurable && isExpanded ? (
+                      <View style={styles.configPanel}>
+                        <Text style={styles.configLabel}>{preset!.label}</Text>
+                        <View style={styles.configOptions}>
+                          {preset!.options.map((value) => {
+                            const current = a.config?.[preset!.key] ?? value;
+                            const selected = current === value;
+                            return (
+                              <TouchableOpacity
+                                key={value}
+                                onPress={() => void handleConfigOption(a.type, preset!.key, value)}
+                                disabled={savingConfigType === a.type}
+                                activeOpacity={0.8}
+                                style={[styles.configChip, selected && styles.configChipActive]}
+                              >
+                                <Text style={[styles.configChipText, selected && styles.configChipTextActive]}>
+                                  {value}{preset!.unit}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                          {savingConfigType === a.type ? <ActivityIndicator size="small" color="#076B51" /> : null}
+                        </View>
+                      </View>
+                    ) : null}
+                  </FloatingCard>
+                );
+              })}
             </View>
 
-            <Text style={styles.section}>Automations</Text>
-            {automations.map((a) => {
-              const preset = CONFIG_PRESETS[a.type];
-              const isConfigurable = CONFIGURABLE_AUTOMATION_TYPES.includes(a.type) && preset;
-              const isExpanded = expandedType === a.type;
-              return (
-                <View key={a.type} style={styles.automationCardWrap}>
-                  <TouchableOpacity
-                    activeOpacity={isConfigurable ? 0.8 : 1}
-                    disabled={!isConfigurable}
-                    onPress={() => setExpandedType(isExpanded ? null : a.type)}
-                    style={styles.automationCard}
-                  >
-                    <View style={styles.automationIcon}>
-                      <Ionicons name={ICON_FOR_TYPE[a.type] ?? "flash-outline"} size={18} color="#076B51" />
-                    </View>
-                    <View style={styles.automationCopy}>
-                      <Text style={styles.automationTitle}>{AUTOMATION_LABELS[a.type] ?? a.type}</Text>
-                      <Text style={styles.automationBody} numberOfLines={2}>{a.description}</Text>
-                    </View>
-                    {isConfigurable ? (
-                      <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color="#858585" style={{ marginRight: 4 }} />
-                    ) : null}
-                    {togglingType === a.type ? (
-                      <ActivityIndicator size="small" color="#076B51" />
-                    ) : (
-                      <Switch
-                        value={a.enabled}
-                        onValueChange={(value) => void handleToggle(a.type, value)}
-                        trackColor={{ true: "#85C5AE" }}
-                        thumbColor={a.enabled ? "#076B51" : "#F4F4F4"}
-                      />
-                    )}
-                  </TouchableOpacity>
+            <View style={premiumStyles.block}>
+              <View style={styles.sectionRow}>
+                <Text style={styles.sectionTitle}>Recent activity</Text>
+                {recentFailures > 0 ? <StatusPill label={`${recentFailures} failed`} tone="error" /> : null}
+              </View>
 
-                  {isConfigurable && isExpanded ? (
-                    <View style={styles.configPanel}>
-                      <Text style={styles.configLabel}>{preset!.label}</Text>
-                      <View style={styles.configOptions}>
-                        {preset!.options.map((value) => {
-                          const current = a.config?.[preset!.key] ?? value;
-                          const selected = current === value;
-                          return (
-                            <TouchableOpacity
-                              key={value}
-                              onPress={() => void handleConfigOption(a.type, preset!.key, value)}
-                              disabled={savingConfigType === a.type}
-                              activeOpacity={0.8}
-                              style={[styles.configChip, selected && styles.configChipActive]}
-                            >
-                              <Text style={[styles.configChipText, selected && styles.configChipTextActive]}>
-                                {value}{preset!.unit}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                        {savingConfigType === a.type ? <ActivityIndicator size="small" color="#076B51" /> : null}
-                      </View>
-                    </View>
-                  ) : null}
-                </View>
-              );
-            })}
-
-            <Text style={styles.section}>Recent activity</Text>
-            {activity.length === 0 ? (
-              <Text style={styles.emptyActivityText}>No automation runs yet. Activity will appear here once your automations start sending.</Text>
-            ) : (
-              activity.map((run) => (
-                <TouchableOpacity
-                  key={run.id}
-                  activeOpacity={0.75}
-                  onPress={() => setSelectedRun(run)}
-                  style={styles.activityRow}
-                >
-                  <View
-                    style={[
-                      styles.activityDot,
-                      run.status === "SENT" && styles.activityDotSent,
-                      run.status === "FAILED" && styles.activityDotFailed,
-                    ]}
+              {activity.length === 0 ? (
+                <FloatingCard>
+                  <EmptyState
+                    icon="pulse-outline"
+                    title="No automation runs yet"
+                    body="Activity will appear here once your automations start sending."
                   />
-                  <View style={styles.activityCopy}>
-                    <Text style={styles.activityTitle}>{AUTOMATION_LABELS[run.type] ?? run.type}</Text>
-                    <Text style={styles.activityMeta}>
-                      {run.status === "SENT" ? "Sent" : run.status === "FAILED" ? (run.failureReason ?? "Failed") : "Checking eligibility"}
-                      {" · "}
-                      {formatRelative(run.sentAt ?? run.createdAt)}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color="#C4C4C4" />
-                </TouchableOpacity>
-              ))
-            )}
+                </FloatingCard>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {activity.map((run) => (
+                    <TouchableOpacity key={run.id} activeOpacity={0.85} onPress={() => setSelectedRun(run)}>
+                      <FloatingCard style={styles.activityCard}>
+                        <IconAvatar
+                          icon={run.status === "FAILED" ? "close" : run.status === "SENT" ? "checkmark" : "time-outline"}
+                          tone={run.status === "SENT" ? "success" : run.status === "FAILED" ? "error" : "neutral"}
+                          size={38}
+                        />
+                        <View style={styles.activityCopy}>
+                          <Text style={styles.activityTitle}>{AUTOMATION_LABELS[run.type] ?? run.type}</Text>
+                          <Text style={styles.activityMeta} numberOfLines={1}>
+                            {run.status === "SENT" ? "Sent" : run.status === "FAILED" ? (run.failureReason ?? "Failed") : "Checking eligibility"}
+                            {" · "}
+                            {formatRelative(run.sentAt ?? run.createdAt)}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
+                      </FloatingCard>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -264,20 +268,10 @@ export default function AutomationCenterScreen() {
                     <Ionicons name="close" size={18} color="#282828" />
                   </TouchableOpacity>
                 </View>
-                <View style={styles.modalStatusRow}>
-                  <View
-                    style={[
-                      styles.activityDot,
-                      selectedRun.status === "SENT" && styles.activityDotSent,
-                      selectedRun.status === "FAILED" && styles.activityDotFailed,
-                    ]}
-                  />
-                  <Text style={styles.modalStatusText}>
-                    {selectedRun.status === "SENT" ? "Sent" : selectedRun.status === "FAILED" ? "Failed" : "Checking eligibility"}
-                    {" · "}
-                    {formatRelative(selectedRun.sentAt ?? selectedRun.createdAt)}
-                  </Text>
-                </View>
+                <StatusPill
+                  label={`${selectedRun.status === "SENT" ? "Sent" : selectedRun.status === "FAILED" ? "Failed" : "Checking eligibility"} · ${formatRelative(selectedRun.sentAt ?? selectedRun.createdAt)}`}
+                  tone={selectedRun.status === "SENT" ? "success" : selectedRun.status === "FAILED" ? "error" : "neutral"}
+                />
                 <Text style={styles.modalDetailLabel}>Order / sales detail</Text>
                 <Text style={styles.modalDetailText}>{describeRun(selectedRun)}</Text>
                 {selectedRun.status === "FAILED" && selectedRun.failureReason ? (
@@ -294,55 +288,34 @@ export default function AutomationCenterScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9F9F9" },
-  header: { backgroundColor: "#FFFFFF", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828" },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100, gap: 10 },
-  placeholder: { paddingVertical: 60, alignItems: "center" },
-  emptyState: { alignItems: "center", paddingVertical: 40, gap: 8 },
-  emptyTitle: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
-  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center" },
-  retryButton: { marginTop: 10, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  retryButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  summaryCard: { backgroundColor: "#076B51", borderRadius: 18, padding: 18, alignItems: "center", marginBottom: 4 },
-  summaryValue: { fontSize: 28, fontFamily: "Manrope-ExtraBold", color: "#FFFFFF" },
-  summaryLabel: { fontSize: 12, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.85)", marginTop: 2 },
-  section: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 12, marginBottom: 2 },
-  automationCardWrap: { backgroundColor: "#FFFFFF", borderRadius: 16, overflow: "hidden" },
-  automationCard: { flexDirection: "row", alignItems: "center", padding: 14, gap: 12 },
-  automationIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: "rgba(7,107,81,0.08)", alignItems: "center", justifyContent: "center" },
+  sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  sectionTitle: { fontSize: 18, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
+  automationRow: { flexDirection: "row", alignItems: "center", padding: 14, gap: 12 },
   automationCopy: { flex: 1 },
-  automationTitle: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
-  automationBody: { fontSize: 12, lineHeight: 17, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 2 },
-  configPanel: { paddingHorizontal: 14, paddingBottom: 14, paddingTop: 2, borderTopWidth: 1, borderTopColor: "#F0F0F0" },
-  configLabel: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#858585", marginBottom: 8 },
+  automationTitle: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  automationBody: { fontSize: 12, lineHeight: 17, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: 2 },
+  configPanel: { paddingHorizontal: 14, paddingBottom: 14, paddingTop: 4, borderTopWidth: 1, borderTopColor: "#F0F0F0" },
+  configLabel: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#6A7B72", marginBottom: 8 },
   configOptions: { flexDirection: "row", gap: 8, alignItems: "center" },
-  configChip: { paddingHorizontal: 14, height: 32, borderRadius: 16, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
+  configChip: { paddingHorizontal: 14, height: 34, borderRadius: 17, backgroundColor: "#F0F3F1", alignItems: "center", justifyContent: "center" },
   configChipActive: { backgroundColor: "#076B51" },
-  configChipText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#858585" },
+  configChipText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#6A7B72" },
   configChipTextActive: { color: "#FFFFFF" },
-  emptyActivityText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", paddingVertical: 20, textAlign: "center" },
-  activityRow: { flexDirection: "row", alignItems: "flex-start", backgroundColor: "#FFFFFF", borderRadius: 14, padding: 12, gap: 10 },
-  activityDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#B0B0B0", marginTop: 5 },
-  activityDotSent: { backgroundColor: "#076B51" },
-  activityDotFailed: { backgroundColor: "#FB6363" },
+  activityCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
   activityCopy: { flex: 1 },
-  activityTitle: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#282828" },
-  activityMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 2 },
-  modalScrim: { flex: 1, backgroundColor: "rgba(11,78,60,0.5)", justifyContent: "center", padding: 24 },
-  modalCard: { backgroundColor: "#FFFFFF", borderRadius: 20, padding: 20 },
+  activityTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  activityMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: 2 },
+  modalScrim: { flex: 1, backgroundColor: "rgba(11,33,25,0.55)", justifyContent: "center", padding: 24 },
+  modalCard: { backgroundColor: "#FFFFFF", borderRadius: 26, padding: 22, gap: 4 },
   modalHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  modalTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", flex: 1 },
+  modalTitle: { fontSize: 17, fontFamily: "Manrope-Bold", color: "#151E1B", flex: 1 },
   modalClose: { width: 30, height: 30, borderRadius: 15, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  modalStatusRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 },
-  modalStatusText: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#282828" },
-  modalDetailLabel: { fontSize: 11, fontFamily: "Outfit-Medium", color: "#858585", marginTop: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.4 },
+  modalDetailLabel: { fontSize: 11, fontFamily: "Manrope-SemiBold", color: "#8AA194", marginTop: 14, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.4 },
   modalDetailText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#282828", lineHeight: 18 },
   modalHint: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#B0B0B0", marginTop: 16, lineHeight: 15 },
 });

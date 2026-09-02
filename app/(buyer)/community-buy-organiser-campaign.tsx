@@ -1,12 +1,21 @@
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { presentPayment } from "../../services/stripePayment";
+import {
+  ErrorState,
+  FloatingCard,
+  LoadingBlock,
+  PremiumHeader,
+  PrimaryButton,
+  RangeProgressBar,
+  StatusPill,
+  premiumStyles,
+} from "../../components/shared/PremiumBlocks";
 import {
   communityBuyService,
   type Campaign,
@@ -321,246 +330,258 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const isLocked = !contentEditable;
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/community-buy-organiser" as any)} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{isEdit ? "Campaign" : "New campaign"}</Text>
-        {isEdit && campaign?.status === "LIVE" ? (
-          <TouchableOpacity onPress={() => void handleShare()} activeOpacity={0.85} style={styles.backButton}>
-            <Ionicons name="share-social-outline" size={18} color="#282828" />
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 38 }} />
-        )}
-      </View>
+    <View style={premiumStyles.page}>
+      <PremiumHeader
+        title={isEdit ? "Campaign" : "New campaign"}
+        onBack={() => goBackOrReplace(router, "/(buyer)/community-buy-organiser" as any)}
+        right={
+          isEdit && campaign?.status === "LIVE" ? (
+            <TouchableOpacity onPress={() => void handleShare()} activeOpacity={0.85} style={styles.headerIconBtn}>
+              <Ionicons name="share-social-outline" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : undefined
+        }
+      />
 
       {loading ? (
-        <View style={styles.placeholder}><ActivityIndicator color="#076B51" /></View>
+        <LoadingBlock />
       ) : error ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="alert-circle-outline" size={28} color="#D6552F" />
-          <Text style={styles.emptyText}>{error}</Text>
-        </View>
+        <View style={premiumStyles.block}><ErrorState message={error} onRetry={() => void load()} /></View>
       ) : (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {campaign?.status === "CHANGES_REQUIRED" && campaign.reviewNotes ? (
-            <View style={styles.noticeCard}>
-              <Ionicons name="alert-circle-outline" size={18} color="#B48A00" />
-              <Text style={styles.noticeText}>{campaign.reviewNotes}</Text>
-            </View>
-          ) : null}
-          {campaign ? <Text style={styles.statusBadge}>{campaign.status.replace("_", " ")}</Text> : null}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
+          <View style={[premiumStyles.block, { gap: 14 }]}>
+            {campaign?.status === "CHANGES_REQUIRED" && campaign.reviewNotes ? (
+              <FloatingCard style={styles.noticeCard}>
+                <Ionicons name="alert-circle-outline" size={18} color="#B48A00" />
+                <Text style={styles.noticeText}>{campaign.reviewNotes}</Text>
+              </FloatingCard>
+            ) : null}
+            {campaign ? <StatusPill label={campaign.status.replace("_", " ")} tone={campaign.status === "LIVE" || campaign.status === "SUCCEEDED" || campaign.status === "COMPLETED" || campaign.status === "FULFILLING" ? "success" : campaign.status === "RESCUE_WINDOW" || campaign.status === "FAILED" || campaign.status === "REFUNDING" ? "warning" : campaign.status === "REJECTED" || campaign.status === "CANCELLED" ? "error" : "neutral"} /> : null}
 
-          {campaign?.status === "RESCUE_WINDOW" ? (
-            <View style={styles.outcomeCard}>
-              <Text style={styles.outcomeTitle}>This campaign needs {Math.max(0, campaign.minimumShares - campaign.confirmedShares)} more participant{Math.max(0, campaign.minimumShares - campaign.confirmedShares) === 1 ? "" : "s"}</Text>
-              <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Received</Text><Text style={styles.outcomeValue}>{campaign.confirmedShares} of {campaign.minimumShares} required</Text></View>
-              <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Status</Text><Text style={styles.outcomeValue}>No supplier order has been created</Text></View>
-              <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Time remaining</Text><Text style={styles.outcomeValue}>{formatDateTime(campaign.rescueEndsAt)}</Text></View>
-              <Text style={styles.outcomeHint}>You have until then to complete one of these actions. Do not collect payment from participants outside Eki.</Text>
+            {campaign?.status === "RESCUE_WINDOW" ? (
+              <FloatingCard style={{ gap: 10 }}>
+                <Text style={styles.outcomeTitle}>This campaign needs {Math.max(0, campaign.minimumShares - campaign.confirmedShares)} more participant{Math.max(0, campaign.minimumShares - campaign.confirmedShares) === 1 ? "" : "s"}</Text>
+                <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares} goal={campaign.goalShares} max={campaign.maximumShares} />
+                <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Status</Text><Text style={styles.outcomeValue}>No supplier order has been created</Text></View>
+                <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Time remaining</Text><Text style={styles.outcomeValue}>{formatDateTime(campaign.rescueEndsAt)}</Text></View>
+                <Text style={styles.outcomeHint}>You have until then to complete one of these actions. Do not collect payment from participants outside Eki.</Text>
 
-              <Text style={styles.rescueSectionLabel}>Purchase the remaining share(s)</Text>
-              <View style={styles.quantityRow}>
-                <TextInput style={styles.quantityInput} keyboardType="number-pad" value={topUpQuantity} onChangeText={setTopUpQuantity} placeholder="1" placeholderTextColor="#9AA3A0" />
-                <TouchableOpacity onPress={handleTopUp} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.fulfilBtn}>
-                  {decisionBusy === "top-up" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fulfilBtnText}>Pay {formatDisplayMoney((Math.round(Number(topUpQuantity)) || 0) * campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text>}
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.decisionRow}>
-                <TouchableOpacity onPress={() => setShowExtensionForm((v) => !v)} disabled={decisionBusy !== null || campaign.extensionCount >= 1} activeOpacity={0.88} style={[styles.secondaryBtn, { flex: 1, marginTop: 0 }]}>
-                  <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request extension"}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleEndRescue} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.cancelBtn}>
-                  {decisionBusy === "end" ? <ActivityIndicator size="small" color="#FB6363" /> : <Text style={styles.cancelBtnText}>End Campaign</Text>}
-                </TouchableOpacity>
-              </View>
-
-              {showExtensionForm ? (
-                <View style={styles.extensionForm}>
-                  <Text style={styles.label}>Requested new deadline (YYYY-MM-DD)</Text>
-                  <TextInput style={styles.input} placeholder="2026-12-31" placeholderTextColor="#9AA3A0" value={extensionDeadline} onChangeText={setExtensionDeadline} />
-                  <Text style={styles.label}>Reason for extension</Text>
-                  <TextInput style={[styles.input, styles.inputMultiline]} placeholder="Explain why this campaign should remain open" placeholderTextColor="#9AA3A0" value={extensionReason} onChangeText={setExtensionReason} multiline />
-                  <TouchableOpacity onPress={() => setSupplierReconfirmed((v) => !v)} activeOpacity={0.85} style={styles.checkboxRow}>
-                    <Ionicons name={supplierReconfirmed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
-                    <Text style={styles.checkboxText}>The supplier confirms the product, price and inventory remain available.</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setPriceUnchangedConfirmed((v) => !v)} activeOpacity={0.85} style={styles.checkboxRow}>
-                    <Ionicons name={priceUnchangedConfirmed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
-                    <Text style={styles.checkboxText}>The participant price is unchanged.</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.outcomeHint}>An extension is not automatic. Eki must approve it and notify every participant.</Text>
-                  <TouchableOpacity onPress={handleSubmitExtension} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.primaryBtn}>
-                    {decisionBusy === "extension" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Submit extension request</Text>}
+                <Text style={styles.rescueSectionLabel}>Purchase the remaining share(s)</Text>
+                <View style={styles.quantityRow}>
+                  <TextInput style={styles.quantityInput} keyboardType="number-pad" value={topUpQuantity} onChangeText={setTopUpQuantity} placeholder="1" placeholderTextColor="#8AA194" />
+                  <TouchableOpacity onPress={handleTopUp} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.fulfilBtn}>
+                    {decisionBusy === "top-up" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fulfilBtnText}>Pay {formatDisplayMoney((Math.round(Number(topUpQuantity)) || 0) * campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text>}
                   </TouchableOpacity>
                 </View>
-              ) : null}
-            </View>
-          ) : campaign?.status === "FULFILLING" || campaign?.status === "SUCCEEDED" || campaign?.status === "COMPLETED" ? (
-            <View style={styles.outcomeCard}>
-              <Ionicons name="checkmark-circle-outline" size={18} color="#076B51" />
-              <Text style={styles.outcomeHint}>
-                {campaign.fundingOutcome === "GOAL_REACHED" ? "Your campaign goal was reached." : "The minimum requirement was reached — this campaign will proceed."} Confirmed quantity: {campaign.confirmedShares}.
-              </Text>
-              {fulfilment ? (
-                <>
-                  <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Fulfilment status</Text><Text style={styles.outcomeValue}>{FULFILMENT_STEP_LABEL[fulfilment.status]}</Text></View>
-                  {(fulfilment.status === "DISPATCHED" || fulfilment.status === "COLLECTED") ? (
-                    <TouchableOpacity onPress={() => void handleConfirmFulfilmentCompletion()} disabled={confirmingCompletion} activeOpacity={0.88} style={[styles.secondaryBtn, { marginTop: 8 }]}>
-                      {confirmingCompletion ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Confirm receipt — mark as completed</Text>}
+
+                <View style={styles.decisionRow}>
+                  <TouchableOpacity onPress={() => setShowExtensionForm((v) => !v)} disabled={decisionBusy !== null || campaign.extensionCount >= 1} activeOpacity={0.88} style={[styles.secondaryBtn, { flex: 1, marginTop: 0 }]}>
+                    <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request extension"}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleEndRescue} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.cancelBtn}>
+                    {decisionBusy === "end" ? <ActivityIndicator size="small" color="#D6552F" /> : <Text style={styles.cancelBtnText}>End Campaign</Text>}
+                  </TouchableOpacity>
+                </View>
+
+                {showExtensionForm ? (
+                  <View style={styles.extensionForm}>
+                    <Text style={styles.label}>Requested new deadline (YYYY-MM-DD)</Text>
+                    <TextInput style={styles.input} placeholder="2026-12-31" placeholderTextColor="#8AA194" value={extensionDeadline} onChangeText={setExtensionDeadline} />
+                    <Text style={styles.label}>Reason for extension</Text>
+                    <TextInput style={[styles.input, styles.inputMultiline]} placeholder="Explain why this campaign should remain open" placeholderTextColor="#8AA194" value={extensionReason} onChangeText={setExtensionReason} multiline />
+                    <TouchableOpacity onPress={() => setSupplierReconfirmed((v) => !v)} activeOpacity={0.85} style={styles.checkboxRow}>
+                      <Ionicons name={supplierReconfirmed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
+                      <Text style={styles.checkboxText}>The supplier confirms the product, price and inventory remain available.</Text>
                     </TouchableOpacity>
-                  ) : null}
-                </>
-              ) : null}
-            </View>
-          ) : campaign?.status === "FAILED" ? (
-            <View style={styles.outcomeCard}>
-              <Ionicons name="time-outline" size={18} color="#B48A00" />
-              <Text style={styles.outcomeHint}>This campaign did not reach its minimum requirement. No supplier order will be created. Eki is creating an individual refund record for every eligible confirmed contribution.</Text>
-            </View>
-          ) : campaign?.status === "CANCELLED" ? (
-            <View style={styles.outcomeCard}>
-              <Ionicons name="return-down-back-outline" size={18} color="#858585" />
-              <Text style={styles.outcomeHint}>This campaign was ended. Contributions are being refunded.</Text>
-            </View>
-          ) : null}
-
-          {refundProgress && refundProgress.total > 0 ? (
-            <View style={styles.outcomeCard}>
-              <Text style={styles.outcomeTitle}>Refund progress</Text>
-              <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Completed</Text><Text style={styles.outcomeValue}>{refundProgress.completed} of {refundProgress.total}</Text></View>
-              {refundProgress.pending > 0 ? <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>In progress</Text><Text style={styles.outcomeValue}>{refundProgress.pending}</Text></View> : null}
-              {refundProgress.failed > 0 ? <View style={styles.outcomeRow}><Text style={[styles.outcomeLabel, { color: "#D6552F" }]}>Needs attention</Text><Text style={[styles.outcomeValue, { color: "#D6552F" }]}>{refundProgress.failed}</Text></View> : null}
-            </View>
-          ) : null}
-
-          <Text style={styles.label}>Title</Text>
-          <TextInput style={styles.input} editable={!isLocked} placeholder="Campaign title" placeholderTextColor="#9AA3A0" value={title} onChangeText={setTitle} />
-
-          <Text style={styles.label}>Description (optional)</Text>
-          <TextInput style={[styles.input, styles.inputMultiline]} editable={!isLocked} placeholder="What is this campaign for?" placeholderTextColor="#9AA3A0" value={description} onChangeText={setDescription} multiline />
-
-          <Text style={styles.label}>Minimum shares required</Text>
-          <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="3" placeholderTextColor="#9AA3A0" keyboardType="number-pad" value={minimumShares} onChangeText={setMinimumShares} />
-          <Text style={styles.fieldHint}>The campaign can proceed when this minimum is reached.</Text>
-
-          <Text style={styles.label}>Campaign goal</Text>
-          <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#9AA3A0" keyboardType="number-pad" value={goalShares} onChangeText={setGoalShares} />
-          <Text style={styles.fieldHint}>This is the number of shares you would ideally like to fill.</Text>
-
-          <Text style={styles.label}>Maximum capacity</Text>
-          <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#9AA3A0" keyboardType="number-pad" value={maximumShares} onChangeText={setMaximumShares} />
-          <Text style={styles.fieldHint}>Contributions will close when this number is reached.</Text>
-
-          <Text style={styles.label}>Price per share ({currency})</Text>
-          <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="0.00" placeholderTextColor="#9AA3A0" keyboardType="decimal-pad" value={pricePerShare} onChangeText={setPricePerShare} />
-          <Text style={styles.fieldHint}>The price per share cannot change after the first confirmed contribution.</Text>
-
-          <Text style={styles.label}>Deadline (YYYY-MM-DD)</Text>
-          <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="2026-12-31" placeholderTextColor="#9AA3A0" value={deadline} onChangeText={setDeadline} />
-          {isLiveLike ? <Text style={styles.fieldHint}>Financial terms are locked once a campaign is live. Only the title and description can be changed.</Text> : null}
-
-          {!isEdit ? (
-            <>
-              <Text style={styles.label}>Supplier</Text>
-              {suppliers.length === 0 ? (
-                <Text style={styles.emptyText}>No verified suppliers in {country} yet.</Text>
-              ) : (
-                suppliers.map((s) => (
-                  <TouchableOpacity key={s.id} onPress={() => setSupplierId(s.id)} activeOpacity={0.85} style={[styles.optionRow, supplierId === s.id && styles.optionRowActive]}>
-                    <Ionicons name={supplierId === s.id ? "radio-button-on" : "radio-button-off"} size={18} color={supplierId === s.id ? "#076B51" : "#9AA3A0"} />
-                    <Text style={styles.optionText}>{s.vendor?.storeName ?? "Supplier"}</Text>
-                  </TouchableOpacity>
-                ))
-              )}
-            </>
-          ) : null}
-
-          {isEdit && participants.length > 0 ? (
-            <>
-              <Text style={styles.label}>Participants ({participants.length})</Text>
-              {participants.map((p) => (
-                <View key={p.userId} style={styles.optionRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.optionText}>{p.name}{p.isOrganiser ? " (you)" : ""}</Text>
-                    <Text style={styles.fieldHint}>{p.totalQuantity} share{p.totalQuantity === 1 ? "" : "s"} · {formatDisplayMoney(p.totalPaid / 100, currency, selectedCurrency)}</Text>
+                    <TouchableOpacity onPress={() => setPriceUnchangedConfirmed((v) => !v)} activeOpacity={0.85} style={styles.checkboxRow}>
+                      <Ionicons name={priceUnchangedConfirmed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
+                      <Text style={styles.checkboxText}>The participant price is unchanged.</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.outcomeHint}>An extension is not automatic. Eki must approve it and notify every participant.</Text>
+                    <TouchableOpacity onPress={handleSubmitExtension} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.primaryBtnInline}>
+                      {decisionBusy === "extension" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Submit extension request</Text>}
+                    </TouchableOpacity>
                   </View>
+                ) : null}
+              </FloatingCard>
+            ) : campaign?.status === "FULFILLING" || campaign?.status === "SUCCEEDED" || campaign?.status === "COMPLETED" ? (
+              <FloatingCard style={{ gap: 8 }}>
+                <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+                  <Ionicons name="checkmark-circle-outline" size={18} color="#076B51" />
+                  <Text style={styles.outcomeHint}>
+                    {campaign.fundingOutcome === "GOAL_REACHED" ? "Your campaign goal was reached." : "The minimum requirement was reached — this campaign will proceed."} Confirmed quantity: {campaign.confirmedShares}.
+                  </Text>
                 </View>
-              ))}
-            </>
-          ) : null}
+                {fulfilment ? (
+                  <>
+                    <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Fulfilment status</Text><Text style={styles.outcomeValue}>{FULFILMENT_STEP_LABEL[fulfilment.status]}</Text></View>
+                    {(fulfilment.status === "DISPATCHED" || fulfilment.status === "COLLECTED") ? (
+                      <TouchableOpacity onPress={() => void handleConfirmFulfilmentCompletion()} disabled={confirmingCompletion} activeOpacity={0.88} style={[styles.secondaryBtn, { marginTop: 4 }]}>
+                        {confirmingCompletion ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Confirm receipt — mark as completed</Text>}
+                      </TouchableOpacity>
+                    ) : null}
+                  </>
+                ) : null}
+              </FloatingCard>
+            ) : campaign?.status === "FAILED" ? (
+              <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+                <Ionicons name="time-outline" size={18} color="#B48A00" />
+                <Text style={styles.outcomeHint}>This campaign did not reach its minimum requirement. No supplier order will be created. Eki is creating an individual refund record for every eligible confirmed contribution.</Text>
+              </FloatingCard>
+            ) : campaign?.status === "CANCELLED" ? (
+              <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+                <Ionicons name="return-down-back-outline" size={18} color="#6A7B72" />
+                <Text style={styles.outcomeHint}>This campaign was ended. Contributions are being refunded.</Text>
+              </FloatingCard>
+            ) : null}
 
-          {!isLocked ? (
-            <TouchableOpacity onPress={handleSave} disabled={saving} activeOpacity={0.88} style={[styles.primaryBtn, saving && { opacity: 0.7 }]}>
-              {saving ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>{isEdit ? "Save changes" : "Create campaign"}</Text>}
-            </TouchableOpacity>
-          ) : null}
+            {refundProgress && refundProgress.total > 0 ? (
+              <FloatingCard style={{ gap: 6 }}>
+                <Text style={styles.outcomeTitle}>Refund progress</Text>
+                <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Completed</Text><Text style={styles.outcomeValue}>{refundProgress.completed} of {refundProgress.total}</Text></View>
+                {refundProgress.pending > 0 ? <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>In progress</Text><Text style={styles.outcomeValue}>{refundProgress.pending}</Text></View> : null}
+                {refundProgress.failed > 0 ? <View style={styles.outcomeRow}><Text style={[styles.outcomeLabel, { color: "#D6552F" }]}>Needs attention</Text><Text style={[styles.outcomeValue, { color: "#D6552F" }]}>{refundProgress.failed}</Text></View> : null}
+              </FloatingCard>
+            ) : null}
 
-          {campaign && ["DRAFT", "CHANGES_REQUIRED"].includes(campaign.status) ? (
-            campaign.supplierCommitted ? (
-              <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.85} style={styles.secondaryBtn}>
-                {submitting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Submit for review</Text>}
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.noticeCard}>
-                <Ionicons name="hourglass-outline" size={18} color="#B48A00" />
-                <Text style={styles.noticeText}>Waiting for the supplier to accept this campaign before it can be submitted for review.</Text>
+            <FloatingCard style={{ gap: 12 }}>
+              <View>
+                <Text style={styles.label}>Title</Text>
+                <TextInput style={styles.input} editable={!isLocked} placeholder="Campaign title" placeholderTextColor="#8AA194" value={title} onChangeText={setTitle} />
               </View>
-            )
-          ) : null}
 
-          {campaign?.status === "APPROVED" ? (
-            <TouchableOpacity onPress={handlePublish} disabled={publishing} activeOpacity={0.85} style={styles.secondaryBtn}>
-              {publishing ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Publish campaign</Text>}
-            </TouchableOpacity>
-          ) : null}
+              <View>
+                <Text style={styles.label}>Description (optional)</Text>
+                <TextInput style={[styles.input, styles.inputMultiline]} editable={!isLocked} placeholder="What is this campaign for?" placeholderTextColor="#8AA194" value={description} onChangeText={setDescription} multiline />
+              </View>
+
+              <View>
+                <Text style={styles.label}>Minimum shares required</Text>
+                <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="3" placeholderTextColor="#8AA194" keyboardType="number-pad" value={minimumShares} onChangeText={setMinimumShares} />
+                <Text style={styles.fieldHint}>The campaign can proceed when this minimum is reached.</Text>
+              </View>
+
+              <View>
+                <Text style={styles.label}>Campaign goal</Text>
+                <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#8AA194" keyboardType="number-pad" value={goalShares} onChangeText={setGoalShares} />
+                <Text style={styles.fieldHint}>This is the number of shares you would ideally like to fill.</Text>
+              </View>
+
+              <View>
+                <Text style={styles.label}>Maximum capacity</Text>
+                <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#8AA194" keyboardType="number-pad" value={maximumShares} onChangeText={setMaximumShares} />
+                <Text style={styles.fieldHint}>Contributions will close when this number is reached.</Text>
+              </View>
+
+              <View>
+                <Text style={styles.label}>Price per share ({currency})</Text>
+                <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="0.00" placeholderTextColor="#8AA194" keyboardType="decimal-pad" value={pricePerShare} onChangeText={setPricePerShare} />
+                <Text style={styles.fieldHint}>The price per share cannot change after the first confirmed contribution.</Text>
+              </View>
+
+              <View>
+                <Text style={styles.label}>Deadline (YYYY-MM-DD)</Text>
+                <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="2026-12-31" placeholderTextColor="#8AA194" value={deadline} onChangeText={setDeadline} />
+                {isLiveLike ? <Text style={styles.fieldHint}>Financial terms are locked once a campaign is live. Only the title and description can be changed.</Text> : null}
+              </View>
+            </FloatingCard>
+
+            {!isEdit ? (
+              <View>
+                <Text style={styles.sectionOutside}>Supplier</Text>
+                {suppliers.length === 0 ? (
+                  <Text style={styles.emptyText}>No verified suppliers in {country} yet.</Text>
+                ) : (
+                  <View style={{ gap: 8 }}>
+                    {suppliers.map((s) => (
+                      <TouchableOpacity key={s.id} onPress={() => setSupplierId(s.id)} activeOpacity={0.85}>
+                        <FloatingCard style={[styles.optionRow, supplierId === s.id && styles.optionRowActive]}>
+                          <Ionicons name={supplierId === s.id ? "radio-button-on" : "radio-button-off"} size={18} color={supplierId === s.id ? "#076B51" : "#8AA194"} />
+                          <Text style={styles.optionText}>{s.vendor?.storeName ?? "Supplier"}</Text>
+                        </FloatingCard>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : null}
+
+            {isEdit && participants.length > 0 ? (
+              <View>
+                <Text style={styles.sectionOutside}>Participants ({participants.length})</Text>
+                <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
+                  {participants.map((p, index) => (
+                    <View key={p.userId} style={[styles.participantRow, index > 0 && styles.participantRowBorder]}>
+                      <Text style={styles.optionText}>{p.name}{p.isOrganiser ? " (you)" : ""}</Text>
+                      <Text style={styles.fieldHint}>{p.totalQuantity} share{p.totalQuantity === 1 ? "" : "s"} · {formatDisplayMoney(p.totalPaid / 100, currency, selectedCurrency)}</Text>
+                    </View>
+                  ))}
+                </FloatingCard>
+              </View>
+            ) : null}
+
+            {!isLocked ? (
+              <PrimaryButton label={isEdit ? "Save changes" : "Create campaign"} onPress={() => void handleSave()} loading={saving} />
+            ) : null}
+
+            {campaign && ["DRAFT", "CHANGES_REQUIRED"].includes(campaign.status) ? (
+              campaign.supplierCommitted ? (
+                <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.85} style={styles.secondaryBtn}>
+                  {submitting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Submit for review</Text>}
+                </TouchableOpacity>
+              ) : (
+                <FloatingCard style={styles.noticeCard}>
+                  <Ionicons name="hourglass-outline" size={18} color="#B48A00" />
+                  <Text style={styles.noticeText}>Waiting for the supplier to accept this campaign before it can be submitted for review.</Text>
+                </FloatingCard>
+              )
+            ) : null}
+
+            {campaign?.status === "APPROVED" ? (
+              <TouchableOpacity onPress={handlePublish} disabled={publishing} activeOpacity={0.85} style={styles.secondaryBtn}>
+                {publishing ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Publish campaign</Text>}
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9F9F9" },
-  header: { backgroundColor: "#FFFFFF", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontSize: 18, fontFamily: "Manrope-Bold", color: "#282828" },
-  placeholder: { flex: 1, alignItems: "center", justifyContent: "center" },
-  emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 8 },
-  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center" },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100, gap: 8 },
-  noticeCard: { flexDirection: "row", gap: 8, backgroundColor: "rgba(255,197,0,0.12)", borderRadius: 12, padding: 12 },
-  noticeText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#282828", lineHeight: 17 },
-  statusBadge: { alignSelf: "flex-start", fontSize: 11, fontFamily: "Manrope-Bold", color: "#076B51", backgroundColor: "rgba(7,107,81,0.1)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, textTransform: "capitalize" },
-  outcomeCard: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16, gap: 8 },
-  outcomeTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
+  headerIconBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
+  noticeCard: { flexDirection: "row", gap: 8, backgroundColor: "rgba(255,197,0,0.14)" },
+  noticeText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#151E1B", lineHeight: 17 },
+  outcomeTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#151E1B" },
   outcomeRow: { flexDirection: "row", justifyContent: "space-between" },
-  outcomeLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585" },
-  outcomeValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#282828" },
-  outcomeHint: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585", lineHeight: 17, marginTop: 4 },
-  decisionRow: { flexDirection: "row", gap: 8, marginTop: 8 },
+  outcomeLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  outcomeValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  outcomeHint: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", lineHeight: 17 },
+  decisionRow: { flexDirection: "row", gap: 8 },
   fulfilBtn: { flex: 1, minHeight: 46, borderRadius: 12, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
   fulfilBtnText: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
-  cancelBtn: { flex: 1, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: "#FB6363", alignItems: "center", justifyContent: "center" },
-  cancelBtnText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#FB6363" },
-  label: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#282828", marginTop: 8 },
-  fieldHint: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 2 },
-  rescueSectionLabel: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 12 },
+  cancelBtn: { flex: 1, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: "#D6552F", alignItems: "center", justifyContent: "center" },
+  cancelBtnText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#D6552F" },
+  label: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#516A60", marginBottom: 8 },
+  fieldHint: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 4 },
+  rescueSectionLabel: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
   quantityRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  quantityInput: { width: 70, backgroundColor: "#FFFFFF", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828", textAlign: "center" },
-  extensionForm: { marginTop: 10, gap: 6, borderTopWidth: 1, borderTopColor: "#F0F0F0", paddingTop: 10 },
+  quantityInput: { width: 70, backgroundColor: "#F4F6F5", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, fontSize: 15, fontFamily: "Manrope-Bold", color: "#151E1B", textAlign: "center" },
+  extensionForm: { gap: 6, borderTopWidth: 1, borderTopColor: "#F0F0F0", paddingTop: 10 },
   checkboxRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 6 },
-  checkboxText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#282828", lineHeight: 17 },
-  input: { backgroundColor: "#FFFFFF", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
+  checkboxText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#151E1B", lineHeight: 17 },
+  input: { backgroundColor: "#F4F6F5", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: "Outfit-Regular", color: "#151E1B" },
   inputMultiline: { minHeight: 70, textAlignVertical: "top" },
-  optionRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#FFFFFF", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "transparent" },
+  sectionOutside: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 10 },
+  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  optionRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: "transparent" },
   optionRowActive: { borderColor: "#076B51" },
-  optionText: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#282828" },
-  primaryBtn: { minHeight: 52, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", marginTop: 14 },
+  optionText: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#151E1B" },
+  participantRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14, gap: 8 },
+  participantRowBorder: { borderTopWidth: 1, borderTopColor: "#F0F0F0" },
+  primaryBtnInline: { minHeight: 48, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", marginTop: 4 },
   primaryBtnText: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
-  secondaryBtn: { minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: "#076B51", alignItems: "center", justifyContent: "center", marginTop: 10 },
+  secondaryBtn: { minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: "#076B51", backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   secondaryBtnText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
 });

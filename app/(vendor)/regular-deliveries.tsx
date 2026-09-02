@@ -1,11 +1,17 @@
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
-import { formatDisplayMoney } from "../../utils/currency";
-import { useCurrencyStore } from "../../stores/currencyStore";
+import {
+  EmptyState,
+  ErrorState,
+  FloatingCard,
+  LoadingBlock,
+  PremiumHeader,
+  StatusPill,
+  premiumStyles,
+} from "../../components/shared/PremiumBlocks";
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
@@ -26,7 +32,6 @@ function formatDate(value?: string | null): string {
 
 export default function VendorRegularDeliveriesScreen() {
   const router = useRouter();
-  const { selectedCurrency } = useCurrencyStore();
   const [tab, setTab] = useState<Tab>("offers");
 
   const [offers, setOffers] = useState<SubscriptionOffer[]>([]);
@@ -100,196 +105,173 @@ export default function VendorRegularDeliveriesScreen() {
   const pendingStockCount = renewals.filter((r) => r.status === "AWAITING_STOCK").length;
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)" as any)} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Regular Deliveries</Text>
-        <TouchableOpacity onPress={() => router.push("/(vendor)/regular-delivery-insights" as any)} activeOpacity={0.85} style={styles.iconButton}>
-          <Ionicons name="stats-chart-outline" size={18} color="#282828" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/(vendor)/regular-delivery-offer-edit" as any)} activeOpacity={0.85} style={styles.addButton}>
-          <Ionicons name="add" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabRow} contentContainerStyle={styles.tabRowContent}>
-        {(["offers", "subscribers", "renewals", "calendar"] as Tab[]).map((t) => (
-          <TouchableOpacity key={t} onPress={() => setTab(t)} activeOpacity={0.85} style={[styles.tabBtn, tab === t && styles.tabBtnActive]}>
-            <Text style={[styles.tabBtnText, tab === t && styles.tabBtnTextActive]}>
-              {t === "offers" ? "Offers" : t === "subscribers" ? "Subscribers" : t === "renewals" ? `Renewals${pendingStockCount > 0 ? ` (${pendingStockCount})` : ""}` : "Calendar"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {loading ? (
-          <View style={styles.placeholder}><ActivityIndicator color="#076B51" /></View>
-        ) : error ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="alert-circle-outline" size={28} color="#D6552F" />
-            <Text style={styles.emptyTitle}>Couldn't load this</Text>
-            <Text style={styles.emptyText}>{error}</Text>
-            <TouchableOpacity onPress={() => void load()} activeOpacity={0.86} style={styles.retryButton}>
-              <Text style={styles.retryButtonText}>Retry</Text>
+    <View style={premiumStyles.page}>
+      <PremiumHeader
+        title="Regular Deliveries"
+        subtitle={loading ? undefined : `${offers.length} offer${offers.length === 1 ? "" : "s"} · ${subscribers.length} subscriber${subscribers.length === 1 ? "" : "s"}`}
+        onBack={() => goBackOrReplace(router, "/(vendor)" as any)}
+        right={
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TouchableOpacity onPress={() => router.push("/(vendor)/regular-delivery-insights" as any)} activeOpacity={0.85} style={styles.headerIconBtn}>
+              <Ionicons name="stats-chart-outline" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/(vendor)/regular-delivery-offer-edit" as any)} activeOpacity={0.85} style={[styles.headerIconBtn, { backgroundColor: "#FFFFFF" }]}>
+              <Ionicons name="add" size={20} color="#076B51" />
             </TouchableOpacity>
           </View>
-        ) : tab === "offers" ? (
-          offers.length === 0 ? (
-            <EmptyTab icon="pricetags-outline" title="No offers yet" text="Create a Regular Delivery offer to let buyers subscribe to recurring orders." />
-          ) : (
-            offers.map((offer) => (
-              <View key={offer.id} style={styles.card}>
-                <View style={styles.cardTop}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>{offer.title}</Text>
-                  <View style={[styles.statusPill, { backgroundColor: offer.isActive ? "rgba(7,107,81,0.1)" : "#F4F4F4" }]}>
-                    <Text style={[styles.statusPillText, { color: offer.isActive ? "#076B51" : "#858585" }]}>{offer.isActive ? "Published" : "Draft"}</Text>
-                  </View>
-                </View>
-                <Text style={styles.cardMeta}>{offer.products.length} product{offer.products.length === 1 ? "" : "s"} · {offer.frequencies.map((f) => FREQUENCY_LABELS[f]).join(", ")}</Text>
-                {offer.renewalsPaused ? (
-                  <View style={styles.pausedBanner}>
-                    <Ionicons name="pause-circle-outline" size={14} color="#B8860B" />
-                    <Text style={styles.pausedBannerText}>Renewals paused — existing subscribers won't be charged until resumed.</Text>
-                  </View>
-                ) : null}
-                <View style={styles.cardActions}>
-                  <TouchableOpacity
-                    onPress={() => router.push({ pathname: "/(vendor)/regular-delivery-offer-edit", params: { id: offer.id } } as any)}
-                    style={styles.smallBtnOutline}
-                  >
-                    <Text style={styles.smallBtnOutlineText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity disabled={busyId === offer.id} onPress={() => void togglePublish(offer)} style={styles.smallBtn}>
-                    {busyId === offer.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.smallBtnText}>{offer.isActive ? "Unpublish" : "Publish"}</Text>}
-                  </TouchableOpacity>
-                  <TouchableOpacity disabled={busyId === `${offer.id}-renewals`} onPress={() => void toggleRenewalsPaused(offer)} style={styles.smallBtnOutline}>
-                    {busyId === `${offer.id}-renewals` ? (
-                      <ActivityIndicator size="small" color="#076B51" />
-                    ) : (
-                      <Text style={styles.smallBtnOutlineText}>{offer.renewalsPaused ? "Resume renewals" : "Pause renewals"}</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
-          )
-        ) : tab === "subscribers" ? (
-          subscribers.length === 0 ? (
-            <EmptyTab icon="people-outline" title="No subscribers yet" text="Buyers who start a Regular Delivery from your offers will show up here." />
-          ) : (
-            subscribers.map((s) => (
-              <TouchableOpacity
-                key={s.id}
-                activeOpacity={0.8}
-                onPress={() => router.push({ pathname: "/(vendor)/regular-delivery-subscriber-detail", params: { id: s.id } } as any)}
-                style={styles.card}
-              >
-                <View style={styles.cardTop}>
-                  <Text style={styles.cardTitle}>{s.buyer?.name ?? "Buyer"}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#C4C4C4" />
-                </View>
-                <Text style={styles.cardMeta}>{FREQUENCY_LABELS[s.frequency]} · {s.status.replace("_", " ")} · Next: {formatDate(s.nextRenewalAt)}</Text>
-              </TouchableOpacity>
-            ))
-          )
-        ) : tab === "renewals" ? (
-          renewals.length === 0 ? (
-            <EmptyTab icon="repeat-outline" title="No renewals yet" text="Upcoming renewal cycles for your subscribers will show up here." />
-          ) : (
-            renewals.map((r) => (
-              <View key={r.id} style={styles.card}>
-                <View style={styles.cardTop}>
-                  <Text style={styles.cardTitle}>{r.subscription?.buyer?.name ?? "Buyer"}</Text>
-                  <Text style={styles.cardMeta}>{formatDate(r.cycleDate)}</Text>
-                </View>
-                <Text style={styles.cardMeta}>{RENEWAL_STATUS_LABELS[r.status]}</Text>
-                {r.status === "AWAITING_STOCK" ? (
-                  <TouchableOpacity disabled={busyId === r.id} onPress={() => void confirmStock(r.id)} style={[styles.smallBtn, { alignSelf: "flex-start", marginTop: 8 }]}>
-                    {busyId === r.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.smallBtnText}>Confirm stock</Text>}
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            ))
-          )
-        ) : renewals.length === 0 ? (
-          <EmptyTab icon="calendar-outline" title="No renewals scheduled" text="Upcoming renewal cycles will appear here grouped by date." />
+        }
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRowContent}>
+          {(["offers", "subscribers", "renewals", "calendar"] as Tab[]).map((t) => (
+            <TouchableOpacity key={t} onPress={() => setTab(t)} activeOpacity={0.85} style={[styles.tabBtn, tab === t && styles.tabBtnActive]}>
+              <Text style={[styles.tabBtnText, tab === t && styles.tabBtnTextActive]}>
+                {t === "offers" ? "Offers" : t === "subscribers" ? "Subscribers" : t === "renewals" ? `Renewals${pendingStockCount > 0 ? ` · ${pendingStockCount}` : ""}` : "Calendar"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </PremiumHeader>
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <LoadingBlock />
+        ) : error ? (
+          <View style={premiumStyles.block}><ErrorState message={error} onRetry={() => void load()} /></View>
         ) : (
-          Object.entries(
-            renewals.reduce<Record<string, typeof renewals>>((groups, r) => {
-              const key = formatDate(r.cycleDate);
-              (groups[key] ??= []).push(r);
-              return groups;
-            }, {}),
-          ).map(([dateLabel, group]) => (
-            <View key={dateLabel} style={styles.calendarGroup}>
-              <Text style={styles.calendarDateLabel}>{dateLabel}</Text>
-              {group.map((r) => (
-                <View key={r.id} style={styles.calendarRow}>
-                  <View style={[styles.activityDot, r.status === "ORDER_CREATED" && styles.activityDotSent, r.status === "PAYMENT_FAILED" && styles.activityDotFailed]} />
-                  <Text style={styles.calendarRowText} numberOfLines={1}>{r.subscription?.buyer?.name ?? "Buyer"}</Text>
-                  <Text style={styles.calendarRowStatus}>{RENEWAL_STATUS_LABELS[r.status]}</Text>
-                </View>
-              ))}
-            </View>
-          ))
+          <View style={[premiumStyles.block, { gap: 10 }]}>
+            {tab === "offers" ? (
+              offers.length === 0 ? (
+                <FloatingCard><EmptyState icon="pricetags-outline" title="No offers yet" body="Create a Regular Delivery offer to let buyers subscribe to recurring orders." /></FloatingCard>
+              ) : (
+                offers.map((offer) => (
+                  <FloatingCard key={offer.id}>
+                    <View style={styles.cardTop}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>{offer.title}</Text>
+                      <StatusPill label={offer.isActive ? "Published" : "Draft"} tone={offer.isActive ? "success" : "neutral"} />
+                    </View>
+                    <Text style={styles.cardMeta}>{offer.products.length} product{offer.products.length === 1 ? "" : "s"} · {offer.frequencies.map((f) => FREQUENCY_LABELS[f]).join(", ")}</Text>
+                    {offer.renewalsPaused ? (
+                      <View style={styles.pausedBanner}>
+                        <Ionicons name="pause-circle-outline" size={14} color="#B48A00" />
+                        <Text style={styles.pausedBannerText}>Renewals paused — existing subscribers won't be charged until resumed.</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.cardActions}>
+                      <TouchableOpacity
+                        onPress={() => router.push({ pathname: "/(vendor)/regular-delivery-offer-edit", params: { id: offer.id } } as any)}
+                        style={styles.smallBtnOutline}
+                      >
+                        <Text style={styles.smallBtnOutlineText}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity disabled={busyId === offer.id} onPress={() => void togglePublish(offer)} style={styles.smallBtn}>
+                        {busyId === offer.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.smallBtnText}>{offer.isActive ? "Unpublish" : "Publish"}</Text>}
+                      </TouchableOpacity>
+                      <TouchableOpacity disabled={busyId === `${offer.id}-renewals`} onPress={() => void toggleRenewalsPaused(offer)} style={styles.smallBtnOutline}>
+                        {busyId === `${offer.id}-renewals` ? (
+                          <ActivityIndicator size="small" color="#076B51" />
+                        ) : (
+                          <Text style={styles.smallBtnOutlineText}>{offer.renewalsPaused ? "Resume" : "Pause"}</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </FloatingCard>
+                ))
+              )
+            ) : tab === "subscribers" ? (
+              subscribers.length === 0 ? (
+                <FloatingCard><EmptyState icon="people-outline" title="No subscribers yet" body="Buyers who start a Regular Delivery from your offers will show up here." /></FloatingCard>
+              ) : (
+                subscribers.map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    activeOpacity={0.85}
+                    onPress={() => router.push({ pathname: "/(vendor)/regular-delivery-subscriber-detail", params: { id: s.id } } as any)}
+                  >
+                    <FloatingCard>
+                      <View style={styles.cardTop}>
+                        <Text style={styles.cardTitle}>{s.buyer?.name ?? "Buyer"}</Text>
+                        <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
+                      </View>
+                      <Text style={styles.cardMeta}>{FREQUENCY_LABELS[s.frequency]} · {s.status.replace("_", " ")} · Next {formatDate(s.nextRenewalAt)}</Text>
+                    </FloatingCard>
+                  </TouchableOpacity>
+                ))
+              )
+            ) : tab === "renewals" ? (
+              renewals.length === 0 ? (
+                <FloatingCard><EmptyState icon="repeat-outline" title="No renewals yet" body="Upcoming renewal cycles for your subscribers will show up here." /></FloatingCard>
+              ) : (
+                renewals.map((r) => (
+                  <FloatingCard key={r.id}>
+                    <View style={styles.cardTop}>
+                      <Text style={styles.cardTitle}>{r.subscription?.buyer?.name ?? "Buyer"}</Text>
+                      <Text style={styles.cardMeta}>{formatDate(r.cycleDate)}</Text>
+                    </View>
+                    <StatusPill
+                      label={RENEWAL_STATUS_LABELS[r.status]}
+                      tone={r.status === "ORDER_CREATED" ? "success" : r.status === "PAYMENT_FAILED" ? "error" : "neutral"}
+                    />
+                    {r.status === "AWAITING_STOCK" ? (
+                      <TouchableOpacity disabled={busyId === r.id} onPress={() => void confirmStock(r.id)} style={[styles.smallBtn, { alignSelf: "flex-start", marginTop: 10 }]}>
+                        {busyId === r.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.smallBtnText}>Confirm stock</Text>}
+                      </TouchableOpacity>
+                    ) : null}
+                  </FloatingCard>
+                ))
+              )
+            ) : renewals.length === 0 ? (
+              <FloatingCard><EmptyState icon="calendar-outline" title="No renewals scheduled" body="Upcoming renewal cycles will appear here grouped by date." /></FloatingCard>
+            ) : (
+              Object.entries(
+                renewals.reduce<Record<string, typeof renewals>>((groups, r) => {
+                  const key = formatDate(r.cycleDate);
+                  (groups[key] ??= []).push(r);
+                  return groups;
+                }, {}),
+              ).map(([dateLabel, group]) => (
+                <FloatingCard key={dateLabel}>
+                  <Text style={styles.calendarDateLabel}>{dateLabel}</Text>
+                  <View style={{ marginTop: 8, gap: 10 }}>
+                    {group.map((r) => (
+                      <View key={r.id} style={styles.calendarRow}>
+                        <View style={[styles.activityDot, r.status === "ORDER_CREATED" && styles.activityDotSent, r.status === "PAYMENT_FAILED" && styles.activityDotFailed]} />
+                        <Text style={styles.calendarRowText} numberOfLines={1}>{r.subscription?.buyer?.name ?? "Buyer"}</Text>
+                        <Text style={styles.calendarRowStatus}>{RENEWAL_STATUS_LABELS[r.status]}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </FloatingCard>
+              ))
+            )}
+          </View>
         )}
       </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-function EmptyTab({ icon, title, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; text: string }) {
-  return (
-    <View style={styles.emptyState}>
-      <Ionicons name={icon} size={30} color="#076B51" />
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptyText}>{text}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9F9F9" },
-  header: { backgroundColor: "#FFFFFF", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontSize: 20, fontFamily: "Manrope-Bold", color: "#282828" },
-  addButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
-  iconButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center", marginRight: 8 },
-  tabRow: { backgroundColor: "#FFFFFF", paddingBottom: 12 },
-  tabRowContent: { flexDirection: "row", paddingHorizontal: 16, gap: 8 },
-  tabBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: "#F4F4F4" },
-  tabBtnActive: { backgroundColor: "#076B51" },
-  tabBtnText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#282828" },
-  tabBtnTextActive: { color: "#FFFFFF" },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 100, gap: 10 },
-  placeholder: { paddingVertical: 60, alignItems: "center" },
-  emptyState: { alignItems: "center", paddingVertical: 50, paddingHorizontal: 24, gap: 8 },
-  emptyTitle: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
-  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", lineHeight: 18 },
-  retryButton: { marginTop: 6, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  retryButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 14, gap: 6 },
-  cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  cardTitle: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
-  cardMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
-  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  statusPillText: { fontSize: 11, fontFamily: "Manrope-Bold" },
-  cardActions: { flexDirection: "row", gap: 8, marginTop: 4 },
-  smallBtn: { backgroundColor: "#076B51", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, alignItems: "center", justifyContent: "center" },
-  smallBtnText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
-  smallBtnOutline: { borderWidth: 1, borderColor: "#DADADA", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, alignItems: "center", justifyContent: "center" },
-  smallBtnOutlineText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#282828" },
-  pausedBanner: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(184,134,11,0.08)", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
-  pausedBannerText: { flex: 1, fontSize: 11, fontFamily: "Outfit-Regular", color: "#B8860B" },
-  calendarGroup: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 14, gap: 8 },
-  calendarDateLabel: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828" },
+  headerIconBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
+  tabRowContent: { flexDirection: "row", gap: 8, marginTop: 16 },
+  tabBtn: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.12)" },
+  tabBtnActive: { backgroundColor: "#FFFFFF" },
+  tabBtnText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "rgba(255,255,255,0.85)" },
+  tabBtnTextActive: { color: "#076B51" },
+  cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 },
+  cardTitle: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#151E1B", flexShrink: 1 },
+  cardMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  cardActions: { flexDirection: "row", gap: 8, marginTop: 12 },
+  smallBtn: { backgroundColor: "#076B51", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9, alignItems: "center", justifyContent: "center" },
+  smallBtnText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  smallBtnOutline: { borderWidth: 1, borderColor: "#DCE3DF", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9, alignItems: "center", justifyContent: "center" },
+  smallBtnOutlineText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#282828" },
+  pausedBanner: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,197,0,0.14)", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, marginTop: 8 },
+  pausedBannerText: { flex: 1, fontSize: 11, fontFamily: "Outfit-Regular", color: "#8A6A00" },
+  calendarDateLabel: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
   calendarRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  activityDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#B0B0B0" },
+  activityDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#C7D2CB" },
   activityDotSent: { backgroundColor: "#076B51" },
-  activityDotFailed: { backgroundColor: "#FB6363" },
-  calendarRowText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Medium", color: "#282828" },
-  calendarRowStatus: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585" },
+  activityDotFailed: { backgroundColor: "#D6552F" },
+  calendarRowText: { flex: 1, fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#282828" },
+  calendarRowStatus: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72" },
 });

@@ -107,14 +107,25 @@ export default function CreateDiscountScreen() {
   return (
     <View style={styles.scrim}>
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent} 
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Card Modal matching Image 3 */}
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Create Discount</Text>
+            <View style={styles.modalHeaderRow}>
+              <View style={styles.modalIconWrap}>
+                <Ionicons name="pricetag-outline" size={20} color="#076B51" />
+              </View>
+              <Text style={styles.modalTitle}>Create Discount</Text>
+              <TouchableOpacity
+                onPress={() => goBackOrReplace(router, "/(vendor)/grow-sales" as any)}
+                activeOpacity={0.85}
+                style={styles.closeIconButton}
+              >
+                <Ionicons name="close" size={18} color="#858585" />
+              </TouchableOpacity>
+            </View>
 
             {/* Discount name */}
             <View style={styles.fieldGroup}>
@@ -220,15 +231,6 @@ export default function CreateDiscountScreen() {
               )}
             </TouchableOpacity>
           </View>
-
-          {/* Centered Close Button below card matching mockup */}
-          <TouchableOpacity 
-            onPress={() => goBackOrReplace(router, "/(vendor)/grow-sales" as any)}
-            activeOpacity={0.85} 
-            style={styles.closeButton}
-          >
-            <Ionicons name="close" size={24} color="#282828" />
-          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
 
@@ -340,43 +342,64 @@ const styles = StyleSheet.create({
     alignItems: "center", 
     padding: 20 
   },
-  modalCard: { 
-    backgroundColor: "#FFFFFF", 
-    borderRadius: 24, 
-    padding: 24, 
-    width: "100%", 
-    maxWidth: 350,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 8
+  modalCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
+    padding: 22,
+    width: "100%",
+    maxWidth: 380,
+    shadowColor: "#0B2A21",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    elevation: 10,
   },
-  modalTitle: { 
-    fontSize: 18, 
-    fontFamily: "Manrope-Bold", 
-    color: "#282828", 
-    textAlign: "center", 
-    marginBottom: 20 
+  modalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 22,
   },
-  fieldGroup: { 
+  modalIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    backgroundColor: "rgba(7,107,81,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeIconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F4F4F4",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontFamily: "Manrope-Bold",
+    color: "#151E1B",
+  },
+  fieldGroup: {
     marginBottom: 16,
     width: "100%"
   },
-  fieldLabel: { 
-    fontSize: 13, 
-    fontFamily: "Outfit-Medium", 
-    color: "#858585", 
-    marginBottom: 8 
+  fieldLabel: {
+    fontSize: 12,
+    fontFamily: "Manrope-SemiBold",
+    color: "#516A60",
+    marginBottom: 8
   },
-  inputWrap: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    backgroundColor: "#F4F4F4", 
-    borderRadius: 12, 
-    height: 50, 
+  inputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F4F6F5",
+    borderRadius: 16,
+    height: 52,
     paddingHorizontal: 16,
-    position: "relative"
+    position: "relative",
   },
   input: { 
     flex: 1, 
@@ -400,42 +423,51 @@ const styles = StyleSheet.create({
     paddingRight: 24
   },
   dropdownChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: "#EAEAEA"
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: "#EEF3F0"
   },
   dropdownChipActive: {
     backgroundColor: "#076B51"
   },
   dropdownChipText: {
     fontSize: 12,
-    fontFamily: "Outfit-Medium",
-    color: "#858585"
+    fontFamily: "Manrope-SemiBold",
+    color: "#516A60"
   },
   dropdownChipTextActive: {
     color: "#FFFFFF"
   },
-  submitButton: { 
-    height: 52, 
-    borderRadius: 14, 
-    backgroundColor: "#076B51", 
-    alignItems: "center", 
-    justifyContent: "center", 
-    marginTop: 10,
-    width: "100%" 
+  submitButton: {
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: "#076B51",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+    width: "100%",
+    shadowColor: "#076B51",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  submitButtonText: { 
-    fontSize: 15, 
-    fontFamily: "Manrope-SemiBold", 
-    color: "#FFFFFF" 
+  submitButtonText: {
+    fontSize: 15,
+    fontFamily: "Manrope-Bold",
+    color: "#FFFFFF"
   },
-  errorText: { 
-    fontSize: 12, 
-    fontFamily: "Outfit-Regular", 
-    color: "#FB6363", 
-    textAlign: "center", 
-    marginBottom: 12 
+  errorText: {
+    fontSize: 12,
+    fontFamily: "Outfit-Regular",
+    color: "#D6552F",
+    backgroundColor: "rgba(214,85,47,0.1)",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    textAlign: "center",
+    marginBottom: 12
   },
   dateScrim: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", paddingHorizontal: 22 },
   dateCard: { backgroundColor: "#FFFFFF", borderRadius: 24, padding: 18 },
@@ -451,18 +483,4 @@ const styles = StyleSheet.create({
   dayText: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#076B51" },
   dateCancel: { height: 48, borderRadius: 14, borderWidth: 1, borderColor: "#E4E7E5", alignItems: "center", justifyContent: "center", marginTop: 12 },
   dateCancelText: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#858585" },
-  closeButton: { 
-    width: 48, 
-    height: 48, 
-    borderRadius: 24, 
-    backgroundColor: "#FFFFFF", 
-    alignItems: "center", 
-    justifyContent: "center", 
-    marginTop: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3
-  }
 });

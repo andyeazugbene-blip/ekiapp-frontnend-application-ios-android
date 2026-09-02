@@ -1,11 +1,20 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
+import {
+  EmptyState,
+  ErrorState,
+  FloatingCard,
+  LoadingBlock,
+  PremiumHeader,
+  StatusPill,
+  premiumStyles,
+  type Tone,
+} from "../../components/shared/PremiumBlocks";
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
@@ -14,11 +23,18 @@ import {
   type ReorderSuggestion,
 } from "../../services/regularDeliveriesService";
 
-const STATUS_STYLE: Record<BuyerSubscriptionStatus, { label: string; color: string; bg: string }> = {
-  ACTIVE: { label: "Active", color: "#076B51", bg: "rgba(7,107,81,0.1)" },
-  PAUSED: { label: "Paused", color: "#B48A00", bg: "rgba(255,197,0,0.15)" },
-  PAYMENT_ATTENTION: { label: "Needs attention", color: "#D6552F", bg: "rgba(214,85,47,0.12)" },
-  CANCELLED: { label: "Cancelled", color: "#858585", bg: "#F4F4F4" },
+const STATUS_TONE: Record<BuyerSubscriptionStatus, Tone> = {
+  ACTIVE: "success",
+  PAUSED: "warning",
+  PAYMENT_ATTENTION: "error",
+  CANCELLED: "neutral",
+};
+
+const STATUS_LABEL: Record<BuyerSubscriptionStatus, string> = {
+  ACTIVE: "Active",
+  PAUSED: "Paused",
+  PAYMENT_ATTENTION: "Needs attention",
+  CANCELLED: "Cancelled",
 };
 
 function formatDate(value?: string | null): string {
@@ -56,122 +72,98 @@ export default function RegularDeliveriesScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/profile" as any)} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Regular Deliveries</Text>
-        <View style={{ width: 38 }} />
-      </View>
+    <View style={premiumStyles.page}>
+      <PremiumHeader
+        title="Regular Deliveries"
+        subtitle={loading ? undefined : `${items.length} subscription${items.length === 1 ? "" : "s"}`}
+        onBack={() => goBackOrReplace(router, "/(buyer)/profile" as any)}
+      />
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <View style={styles.placeholder}><ActivityIndicator color="#076B51" /></View>
+          <LoadingBlock />
         ) : error ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="alert-circle-outline" size={28} color="#D6552F" />
-            <Text style={styles.emptyTitle}>Couldn't load your deliveries</Text>
-            <Text style={styles.emptyText}>{error}</Text>
-            <TouchableOpacity onPress={() => void load()} activeOpacity={0.86} style={styles.retryButton}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
+          <View style={premiumStyles.block}><ErrorState message={error} onRetry={() => void load()} /></View>
         ) : (
-          <>
+          <View style={{ gap: 20 }}>
             {suggestions.length > 0 ? (
-              <>
+              <View>
                 <Text style={styles.sectionLabel}>Reorder as a Regular Delivery</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionsRow}>
                   {suggestions.map((s) => (
                     <TouchableOpacity
                       key={s.product.id}
                       activeOpacity={0.85}
-                      style={styles.suggestionCard}
                       onPress={() => router.push({ pathname: "/(buyer)/regular-delivery-offer", params: { id: s.offer.id } } as any)}
                     >
-                      <Text style={styles.suggestionTitle} numberOfLines={2}>{s.product.title}</Text>
-                      <Text style={styles.suggestionMeta}>Bought {s.orderCount}x recently</Text>
-                      <Text style={styles.suggestionVendor} numberOfLines={1}>{s.offer.vendorStoreName}</Text>
-                      <Text style={styles.suggestionPrice}>{formatDisplayMoney(s.product.priceInCents / 100, s.product.currency, selectedCurrency)}</Text>
+                      <FloatingCard style={styles.suggestionCard}>
+                        <Text style={styles.suggestionTitle} numberOfLines={2}>{s.product.title}</Text>
+                        <Text style={styles.suggestionMeta}>Bought {s.orderCount}x recently</Text>
+                        <Text style={styles.suggestionVendor} numberOfLines={1}>{s.offer.vendorStoreName}</Text>
+                        <Text style={styles.suggestionPrice}>{formatDisplayMoney(s.product.priceInCents / 100, s.product.currency, selectedCurrency)}</Text>
+                      </FloatingCard>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
-              </>
+              </View>
             ) : null}
 
-            {items.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="repeat-outline" size={32} color="#076B51" />
-                <Text style={styles.emptyTitle}>No Regular Deliveries yet</Text>
-                <Text style={styles.emptyText}>
-                  Open a vendor's store to see if they offer Regular Deliveries, then set up a recurring order from there.
-                </Text>
-              </View>
-            ) : (
-              items.map((sub) => {
-                const status = STATUS_STYLE[sub.status];
-                return (
+            <View style={{ gap: 10 }}>
+              {items.length === 0 ? (
+                <FloatingCard>
+                  <EmptyState
+                    icon="repeat-outline"
+                    title="No Regular Deliveries yet"
+                    body="Open a vendor's store to see if they offer Regular Deliveries, then set up a recurring order from there."
+                  />
+                </FloatingCard>
+              ) : (
+                items.map((sub) => (
                   <TouchableOpacity
                     key={sub.id}
                     activeOpacity={0.85}
-                    style={styles.card}
                     onPress={() => router.push({ pathname: "/(buyer)/regular-delivery-detail", params: { id: sub.id } } as any)}
                   >
-                    <View style={styles.cardTop}>
-                      <Text style={styles.cardTitle} numberOfLines={1}>{sub.offer?.title ?? "Regular Delivery"}</Text>
-                      <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
-                        <Text style={[styles.statusPillText, { color: status.color }]}>{status.label}</Text>
+                    <FloatingCard>
+                      <View style={styles.cardTop}>
+                        <Text style={styles.cardTitle} numberOfLines={1}>{sub.offer?.title ?? "Regular Delivery"}</Text>
+                        <StatusPill label={STATUS_LABEL[sub.status]} tone={STATUS_TONE[sub.status]} />
                       </View>
-                    </View>
-                    <Text style={styles.cardVendor}>{sub.offer?.vendor?.storeName ?? "Vendor"}</Text>
-                    <View style={styles.cardMetaRow}>
-                      <Ionicons name="repeat-outline" size={14} color="#858585" />
-                      <Text style={styles.cardMetaText}>{FREQUENCY_LABELS[sub.frequency]}</Text>
-                      {sub.nextRenewalAt ? (
-                        <>
-                          <Text style={styles.cardMetaDot}>•</Text>
-                          <Text style={styles.cardMetaText}>Next: {formatDate(sub.nextRenewalAt)}</Text>
-                        </>
-                      ) : null}
-                    </View>
+                      <Text style={styles.cardVendor}>{sub.offer?.vendor?.storeName ?? "Vendor"}</Text>
+                      <View style={styles.cardMetaRow}>
+                        <Ionicons name="repeat-outline" size={13} color="#6A7B72" />
+                        <Text style={styles.cardMetaText}>{FREQUENCY_LABELS[sub.frequency]}</Text>
+                        {sub.nextRenewalAt ? (
+                          <>
+                            <Text style={styles.cardMetaDot}>•</Text>
+                            <Text style={styles.cardMetaText}>Next {formatDate(sub.nextRenewalAt)}</Text>
+                          </>
+                        ) : null}
+                      </View>
+                    </FloatingCard>
                   </TouchableOpacity>
-                );
-              })
-            )}
-          </>
+                ))
+              )}
+            </View>
+          </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9F9F9" },
-  header: { backgroundColor: "#FFFFFF", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontSize: 20, fontFamily: "Manrope-Bold", color: "#282828" },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100, gap: 10 },
-  placeholder: { paddingVertical: 60, alignItems: "center" },
-  emptyState: { alignItems: "center", paddingVertical: 60, paddingHorizontal: 24, gap: 8 },
-  emptyTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
-  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", lineHeight: 19 },
-  retryButton: { marginTop: 6, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  retryButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 14, gap: 6 },
-  cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  cardTitle: { flex: 1, fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
-  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  statusPillText: { fontSize: 11, fontFamily: "Manrope-Bold" },
-  cardVendor: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
-  cardMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
-  cardMetaText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
-  cardMetaDot: { color: "#DADADA" },
-  sectionLabel: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828", marginBottom: 8 },
+  cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 },
+  cardTitle: { flex: 1, fontSize: 15, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  cardVendor: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  cardMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
+  cardMetaText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  cardMetaDot: { color: "#C7D2CB" },
+  sectionLabel: { fontSize: 18, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 10 },
   suggestionsRow: { gap: 10, paddingBottom: 4 },
-  suggestionCard: { width: 150, backgroundColor: "#FFFFFF", borderRadius: 16, padding: 12, gap: 4 },
-  suggestionTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828", minHeight: 34 },
-  suggestionMeta: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#076B51" },
-  suggestionVendor: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585" },
-  suggestionPrice: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 4 },
+  suggestionCard: { width: 152, gap: 4 },
+  suggestionTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B", minHeight: 34 },
+  suggestionMeta: { fontSize: 11, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  suggestionVendor: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  suggestionPrice: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B", marginTop: 4 },
 });

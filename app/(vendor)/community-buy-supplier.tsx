@@ -1,11 +1,18 @@
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
+import {
+  ErrorState,
+  FloatingCard,
+  IconAvatar,
+  LoadingBlock,
+  PremiumHeader,
+  premiumStyles,
+} from "../../components/shared/PremiumBlocks";
 import {
   communityBuyService,
   type Campaign,
@@ -92,136 +99,116 @@ export default function VendorCommunityBuySupplierScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)" as any)} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Community Buy</Text>
-        <View style={{ width: 38 }} />
-      </View>
+    <View style={premiumStyles.page}>
+      <PremiumHeader title="Community Buy" subtitle="Supplier dashboard" onBack={() => goBackOrReplace(router, "/(vendor)" as any)} />
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <View style={styles.placeholder}><ActivityIndicator color="#076B51" /></View>
+          <LoadingBlock />
         ) : error ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="alert-circle-outline" size={28} color="#D6552F" />
-            <Text style={styles.emptyText}>{error}</Text>
-            <TouchableOpacity onPress={() => void load()} activeOpacity={0.86} style={styles.retryButton}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
+          <View style={premiumStyles.block}><ErrorState message={error} onRetry={() => void load()} /></View>
         ) : !profile ? (
-          <>
-            <View style={styles.introCard}>
-              <Ionicons name="people-circle-outline" size={26} color="#076B51" />
+          <View style={[premiumStyles.block, { gap: 12 }]}>
+            <FloatingCard style={styles.introCard}>
+              <IconAvatar icon="people-circle-outline" tone="success" size={52} />
               <Text style={styles.introTitle}>Become a Community Buy supplier</Text>
               <Text style={styles.introBody}>
                 Suppliers fulfil bulk orders raised by organisers in your market. Your store must already be verified. An admin reviews every application.
               </Text>
-            </View>
+            </FloatingCard>
             {markets.length === 0 ? (
               <Text style={styles.emptyText}>Supplier applications aren't open in any market yet.</Text>
             ) : (
-              markets.map((m) => (
-                <TouchableOpacity
-                  key={m.countryCode}
-                  disabled={applying === m.countryCode}
-                  onPress={() => void handleApply(m.countryCode)}
-                  activeOpacity={0.85}
-                  style={styles.applyRow}
-                >
-                  <Text style={styles.applyRowText}>Apply for {m.countryCode}</Text>
-                  {applying === m.countryCode ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="chevron-forward" size={16} color="#9AA3A0" />}
-                </TouchableOpacity>
-              ))
+              <View style={{ gap: 8 }}>
+                {markets.map((m) => (
+                  <TouchableOpacity key={m.countryCode} disabled={applying === m.countryCode} onPress={() => void handleApply(m.countryCode)} activeOpacity={0.85}>
+                    <FloatingCard style={styles.applyRow}>
+                      <Text style={styles.applyRowText}>Apply for {m.countryCode}</Text>
+                      {applying === m.countryCode ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="chevron-forward" size={16} color="#8AA194" />}
+                    </FloatingCard>
+                  </TouchableOpacity>
+                ))}
+              </View>
             )}
             {applyError ? <Text style={styles.errorText}>{applyError}</Text> : null}
-          </>
+          </View>
         ) : !profile.isVerified ? (
-          <View style={styles.introCard}>
-            <Ionicons name="time-outline" size={26} color="#B48A00" />
-            <Text style={styles.introTitle}>Application under review</Text>
-            <Text style={styles.introBody}>
-              Your supplier application for {profile.country} is being verified. You'll be notified once organisers can select you for a campaign.
-            </Text>
+          <View style={premiumStyles.block}>
+            <FloatingCard style={styles.introCard}>
+              <IconAvatar icon="time-outline" tone="warning" size={52} />
+              <Text style={styles.introTitle}>Application under review</Text>
+              <Text style={styles.introBody}>
+                Your supplier application for {profile.country} is being verified. You'll be notified once organisers can select you for a campaign.
+              </Text>
+            </FloatingCard>
           </View>
         ) : (
-          <>
+          <View style={[premiumStyles.block, { gap: 14 }]}>
             <Text style={styles.section}>Assigned campaigns</Text>
             {campaigns.length === 0 ? (
               <Text style={styles.emptyText}>No campaigns have selected you as supplier yet.</Text>
             ) : (
-              campaigns.map((c) => (
-                <View key={c.id} style={styles.card}>
-                  <View style={styles.cardTop}>
-                    <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
-                    <Text style={styles.cardStatus}>{STATUS_LABEL[c.status]}</Text>
-                  </View>
-                  <Text style={styles.cardMeta}>
-                    {c.confirmedShares} of {c.maximumShares} shares · minimum {c.minimumShares} to proceed
-                  </Text>
-                  <Text style={styles.cardMeta}>
-                    {formatDisplayMoney(c.pricePerShareMinor / 100, c.currency, selectedCurrency)} per share
-                  </Text>
-                  {["DRAFT", "CHANGES_REQUIRED"].includes(c.status) && !c.supplierCommitted ? (
-                    <TouchableOpacity
-                      onPress={() => void handleAcceptCampaign(c.id)}
-                      disabled={committing === c.id}
-                      activeOpacity={0.88}
-                      style={styles.acceptBtn}
-                    >
-                      {committing === c.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.acceptBtnText}>Confirm supply commitment</Text>}
-                    </TouchableOpacity>
-                  ) : c.supplierCommitted ? (
-                    <View style={styles.committedRow}>
-                      <Ionicons name="checkmark-circle" size={14} color="#076B51" />
-                      <Text style={styles.committedText}>You've accepted this campaign</Text>
+              <View style={{ gap: 10 }}>
+                {campaigns.map((c) => (
+                  <FloatingCard key={c.id} style={{ gap: 4 }}>
+                    <View style={styles.cardTop}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
+                      <Text style={styles.cardStatus}>{STATUS_LABEL[c.status]}</Text>
                     </View>
-                  ) : null}
-                  {["FULFILLING", "SUCCEEDED", "COMPLETED"].includes(c.status) ? (
-                    <TouchableOpacity
-                      onPress={() => router.push({ pathname: "/(vendor)/community-buy-supplier-fulfilment", params: { id: c.id } } as any)}
-                      activeOpacity={0.88}
-                      style={styles.acceptBtn}
-                    >
-                      <Text style={styles.acceptBtnText}>Manage fulfilment</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              ))
+                    <Text style={styles.cardMeta}>
+                      {c.confirmedShares} of {c.maximumShares} shares · minimum {c.minimumShares} to proceed
+                    </Text>
+                    <Text style={styles.cardMeta}>
+                      {formatDisplayMoney(c.pricePerShareMinor / 100, c.currency, selectedCurrency)} per share
+                    </Text>
+                    {["DRAFT", "CHANGES_REQUIRED"].includes(c.status) && !c.supplierCommitted ? (
+                      <TouchableOpacity
+                        onPress={() => void handleAcceptCampaign(c.id)}
+                        disabled={committing === c.id}
+                        activeOpacity={0.88}
+                        style={styles.acceptBtn}
+                      >
+                        {committing === c.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.acceptBtnText}>Confirm supply commitment</Text>}
+                      </TouchableOpacity>
+                    ) : c.supplierCommitted ? (
+                      <View style={styles.committedRow}>
+                        <Ionicons name="checkmark-circle" size={14} color="#076B51" />
+                        <Text style={styles.committedText}>You've accepted this campaign</Text>
+                      </View>
+                    ) : null}
+                    {["FULFILLING", "SUCCEEDED", "COMPLETED"].includes(c.status) ? (
+                      <TouchableOpacity
+                        onPress={() => router.push({ pathname: "/(vendor)/community-buy-supplier-fulfilment", params: { id: c.id } } as any)}
+                        activeOpacity={0.88}
+                        style={styles.acceptBtn}
+                      >
+                        <Text style={styles.acceptBtnText}>Manage fulfilment</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </FloatingCard>
+                ))}
+              </View>
             )}
-          </>
+          </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9F9F9" },
-  header: { backgroundColor: "#FFFFFF", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontSize: 20, fontFamily: "Manrope-Bold", color: "#282828" },
-  placeholder: { paddingVertical: 60, alignItems: "center" },
-  emptyState: { alignItems: "center", paddingVertical: 40, gap: 8 },
-  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", paddingVertical: 8 },
-  retryButton: { marginTop: 6, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  retryButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100, gap: 10 },
-  introCard: { backgroundColor: "#FFFFFF", borderRadius: 18, padding: 18, alignItems: "center", gap: 8 },
-  introTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828" },
-  introBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", lineHeight: 19 },
-  applyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#FFFFFF", borderRadius: 14, padding: 14 },
-  applyRowText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#282828" },
-  errorText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#FB6363", textAlign: "center" },
-  section: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 14, padding: 14, gap: 4 },
+  introCard: { alignItems: "center", gap: 8 },
+  introTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  introBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", textAlign: "center", lineHeight: 19 },
+  applyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  applyRowText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  errorText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#D6552F", textAlign: "center" },
+  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", textAlign: "center", paddingVertical: 8 },
+  section: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
   cardTop: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-  cardTitle: { flex: 1, fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
+  cardTitle: { flex: 1, fontSize: 14, fontFamily: "Manrope-Bold", color: "#151E1B" },
   cardStatus: { fontSize: 11, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  cardMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
+  cardMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
   acceptBtn: { minHeight: 42, borderRadius: 12, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", marginTop: 6 },
   acceptBtnText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   committedRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },

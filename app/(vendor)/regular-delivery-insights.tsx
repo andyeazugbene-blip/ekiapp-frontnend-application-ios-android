@@ -1,10 +1,17 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatMoney } from "../../utils/currency";
+import {
+  ErrorState,
+  FloatingCard,
+  IconAvatar,
+  LoadingBlock,
+  PremiumHeader,
+  premiumStyles,
+} from "../../components/shared/PremiumBlocks";
 import {
   regularDeliveriesService,
   type RegularDeliveryInsights,
@@ -31,89 +38,71 @@ export default function RegularDeliveryInsightsScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/regular-deliveries" as any)} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Regular Delivery Insights</Text>
-        <View style={{ width: 38 }} />
-      </View>
+    <View style={premiumStyles.page}>
+      <PremiumHeader title="Regular Delivery Insights" onBack={() => goBackOrReplace(router, "/(vendor)/regular-deliveries" as any)} />
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <View style={styles.placeholder}><ActivityIndicator color="#076B51" /></View>
+          <LoadingBlock />
         ) : error ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="alert-circle-outline" size={28} color="#D6552F" />
-            <Text style={styles.emptyTitle}>Couldn't load insights</Text>
-            <Text style={styles.emptyText}>{error}</Text>
-            <TouchableOpacity onPress={() => void load()} activeOpacity={0.86} style={styles.retryButton}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
+          <View style={premiumStyles.block}><ErrorState message={error} onRetry={() => void load()} /></View>
         ) : !insights ? null : (
-          <>
-            <View style={styles.grid}>
-              <View style={styles.metricCard}>
-                <Ionicons name="people-outline" size={20} color="#076B51" />
-                <Text style={styles.metricValue}>{insights.activeSubscribers}</Text>
-                <Text style={styles.metricLabel}>Active subscribers</Text>
-              </View>
-              <View style={styles.metricCard}>
-                <Ionicons name="pause-outline" size={20} color="#076B51" />
-                <Text style={styles.metricValue}>{insights.pausedSubscribers}</Text>
-                <Text style={styles.metricLabel}>Paused subscribers</Text>
-              </View>
-              <View style={styles.metricCard}>
-                <Ionicons name="close-circle-outline" size={20} color="#076B51" />
-                <Text style={styles.metricValue}>{insights.cancelledLast30Days}</Text>
-                <Text style={styles.metricLabel}>Cancelled (30 days)</Text>
-              </View>
-              <View style={styles.metricCard}>
-                <Ionicons name="repeat-outline" size={20} color="#076B51" />
-                <Text style={styles.metricValue}>{insights.upcomingRenewalsNext7Days}</Text>
-                <Text style={styles.metricLabel}>Renewals due (7 days)</Text>
-              </View>
+          <View style={{ gap: 20 }}>
+            <View style={premiumStyles.block}>
+              <LinearGradient colors={["#084E39", "#076B51", "#085F48"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.revenueHero}>
+                <Text style={styles.revenueLabel}>Renewal revenue · last 30 days</Text>
+                {insights.paidRenewalsLast30Days === 0 || insights.revenueLast30Days.length === 0 ? (
+                  <Text style={styles.revenueEmpty}>No paid renewals yet</Text>
+                ) : (
+                  insights.revenueLast30Days.map((row) => (
+                    <Text key={row.currency} style={styles.revenueValue}>{formatMoney(row.amount / 100, row.currency)}</Text>
+                  ))
+                )}
+                <Text style={styles.revenueSub}>
+                  {insights.paidRenewalsLast30Days} paid renewal{insights.paidRenewalsLast30Days === 1 ? "" : "s"} in the last 30 days
+                </Text>
+              </LinearGradient>
             </View>
 
-            <Text style={styles.section}>Renewal revenue — last 30 days</Text>
-            {insights.paidRenewalsLast30Days === 0 ? (
-              <Text style={styles.emptyActivityText}>No paid renewals in the last 30 days yet.</Text>
-            ) : (
-              <View style={styles.card}>
-                <Text style={styles.revenueSub}>{insights.paidRenewalsLast30Days} paid renewal{insights.paidRenewalsLast30Days === 1 ? "" : "s"}</Text>
-                {insights.revenueLast30Days.map((row) => (
-                  <Text key={row.currency} style={styles.revenueValue}>{formatMoney(row.amount / 100, row.currency)}</Text>
-                ))}
+            <View style={premiumStyles.block}>
+              <View style={styles.grid}>
+                <FloatingCard style={styles.metricCard}>
+                  <IconAvatar icon="people-outline" tone="success" />
+                  <Text style={styles.metricValue}>{insights.activeSubscribers}</Text>
+                  <Text style={styles.metricLabel}>Active subscribers</Text>
+                </FloatingCard>
+                <FloatingCard style={styles.metricCard}>
+                  <IconAvatar icon="pause-outline" tone="neutral" />
+                  <Text style={styles.metricValue}>{insights.pausedSubscribers}</Text>
+                  <Text style={styles.metricLabel}>Paused subscribers</Text>
+                </FloatingCard>
+                <FloatingCard style={styles.metricCard}>
+                  <IconAvatar icon="close-circle-outline" tone="error" />
+                  <Text style={styles.metricValue}>{insights.cancelledLast30Days}</Text>
+                  <Text style={styles.metricLabel}>Cancelled (30 days)</Text>
+                </FloatingCard>
+                <FloatingCard style={styles.metricCard}>
+                  <IconAvatar icon="repeat-outline" tone="info" />
+                  <Text style={styles.metricValue}>{insights.upcomingRenewalsNext7Days}</Text>
+                  <Text style={styles.metricLabel}>Renewals due (7 days)</Text>
+                </FloatingCard>
               </View>
-            )}
-          </>
+            </View>
+          </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9F9F9" },
-  header: { backgroundColor: "#FFFFFF", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontSize: 18, fontFamily: "Manrope-Bold", color: "#282828" },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100, gap: 10 },
-  placeholder: { paddingVertical: 60, alignItems: "center" },
-  emptyState: { alignItems: "center", paddingVertical: 50, paddingHorizontal: 24, gap: 8 },
-  emptyTitle: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
-  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", lineHeight: 18 },
-  retryButton: { marginTop: 6, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  retryButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  revenueHero: { borderRadius: 28, padding: 20 },
+  revenueLabel: { color: "rgba(255,255,255,0.8)", fontSize: 13, fontFamily: "Outfit-Regular" },
+  revenueValue: { color: "#FFFFFF", fontSize: 34, lineHeight: 40, fontFamily: "Manrope-ExtraBold", marginTop: 8 },
+  revenueEmpty: { color: "rgba(255,255,255,0.85)", fontSize: 18, fontFamily: "Manrope-Bold", marginTop: 10 },
+  revenueSub: { color: "rgba(255,255,255,0.72)", fontSize: 12, fontFamily: "Outfit-Regular", marginTop: 12 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  metricCard: { width: "47%", backgroundColor: "#FFFFFF", borderRadius: 16, padding: 14, gap: 6 },
-  metricValue: { fontSize: 22, fontFamily: "Manrope-ExtraBold", color: "#282828" },
-  metricLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585" },
-  section: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 12, marginBottom: 2 },
-  emptyActivityText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", paddingVertical: 12, textAlign: "center" },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16, gap: 4 },
-  revenueSub: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
-  revenueValue: { fontSize: 20, fontFamily: "Manrope-ExtraBold", color: "#076B51" },
+  metricCard: { width: "47%", gap: 10 },
+  metricValue: { fontSize: 24, fontFamily: "Manrope-ExtraBold", color: "#151E1B" },
+  metricLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: -6 },
 });

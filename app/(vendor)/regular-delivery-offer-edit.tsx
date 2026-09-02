@@ -1,11 +1,19 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { productService } from "../../services/productService";
 import { Product } from "../../types/product";
+import {
+  ErrorState,
+  FloatingCard,
+  LoadingBlock,
+  OutlineButton,
+  PremiumHeader,
+  PrimaryButton,
+  premiumStyles,
+} from "../../components/shared/PremiumBlocks";
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
@@ -130,102 +138,95 @@ export default function VendorRegularDeliveryOfferEditScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/regular-deliveries" as any)} activeOpacity={0.85} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="#282828" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{isEdit ? "Edit offer" : "New offer"}</Text>
-        <View style={{ width: 38 }} />
-      </View>
+    <View style={premiumStyles.page}>
+      <PremiumHeader title={isEdit ? "Edit offer" : "New offer"} onBack={() => goBackOrReplace(router, "/(vendor)/regular-deliveries" as any)} />
 
       {loading ? (
-        <View style={styles.placeholder}><ActivityIndicator color="#076B51" /></View>
+        <LoadingBlock />
       ) : error ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="alert-circle-outline" size={28} color="#D6552F" />
-          <Text style={styles.emptyText}>{error}</Text>
-          <TouchableOpacity onPress={() => void load()} activeOpacity={0.86} style={styles.retryButton}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={premiumStyles.block}><ErrorState message={error} onRetry={() => void load()} /></View>
       ) : (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.label}>Title</Text>
-          <TextInput style={styles.input} placeholder="e.g. Monthly Staples Box" placeholderTextColor="#9AA3A0" value={title} onChangeText={setTitle} />
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
+          <View style={[premiumStyles.block, { gap: 14 }]}>
+            <FloatingCard style={{ gap: 14 }}>
+              <View>
+                <Text style={styles.label}>Title</Text>
+                <TextInput style={styles.input} placeholder="e.g. Monthly Staples Box" placeholderTextColor="#8AA194" value={title} onChangeText={setTitle} />
+              </View>
+              <View>
+                <Text style={styles.label}>Description (optional)</Text>
+                <TextInput style={[styles.input, styles.inputMultiline]} placeholder="Tell buyers what's included" placeholderTextColor="#8AA194" value={description} onChangeText={setDescription} multiline />
+              </View>
+              <View>
+                <Text style={styles.label}>Frequencies offered</Text>
+                <View style={styles.chipRow}>
+                  {ALL_FREQUENCIES.map((f) => (
+                    <TouchableOpacity key={f} onPress={() => toggleFrequency(f)} activeOpacity={0.85} style={[styles.chip, frequencies.has(f) && styles.chipActive]}>
+                      <Text style={[styles.chipText, frequencies.has(f) && styles.chipTextActive]}>{FREQUENCY_LABELS[f]}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+              <View>
+                <Text style={styles.label}>Substitution policy (optional)</Text>
+                <TextInput style={[styles.input, styles.inputMultiline]} placeholder="What happens if an item is out of stock?" placeholderTextColor="#8AA194" value={substitutionPolicy} onChangeText={setSubstitutionPolicy} multiline />
+              </View>
+            </FloatingCard>
 
-          <Text style={styles.label}>Description (optional)</Text>
-          <TextInput style={[styles.input, styles.inputMultiline]} placeholder="Tell buyers what's included" placeholderTextColor="#9AA3A0" value={description} onChangeText={setDescription} multiline />
-
-          <Text style={styles.label}>Eligible foodstuff</Text>
-          {products.length === 0 ? (
-            <Text style={styles.emptyProductsText}>Add products to your store first, then come back to build this offer.</Text>
-          ) : (
-            products.map((p) => {
-              const selected = selectedProductIds.has(p.id);
-              return (
-                <TouchableOpacity key={p.id} onPress={() => toggleProduct(p.id)} activeOpacity={0.85} style={[styles.productRow, selected && styles.productRowActive]}>
-                  <Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? "#076B51" : "#9AA3A0"} />
-                  <Text style={styles.productLabel} numberOfLines={1}>{p.name}</Text>
-                </TouchableOpacity>
-              );
-            })
-          )}
-
-          <Text style={styles.label}>Frequencies offered</Text>
-          <View style={styles.chipRow}>
-            {ALL_FREQUENCIES.map((f) => (
-              <TouchableOpacity key={f} onPress={() => toggleFrequency(f)} activeOpacity={0.85} style={[styles.chip, frequencies.has(f) && styles.chipActive]}>
-                <Text style={[styles.chipText, frequencies.has(f) && styles.chipTextActive]}>{FREQUENCY_LABELS[f]}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.label}>Substitution policy (optional)</Text>
-          <TextInput style={[styles.input, styles.inputMultiline]} placeholder="What happens if an item is out of stock?" placeholderTextColor="#9AA3A0" value={substitutionPolicy} onChangeText={setSubstitutionPolicy} multiline />
-
-          <TouchableOpacity onPress={handleSave} disabled={saving} activeOpacity={0.88} style={[styles.primaryBtn, saving && { opacity: 0.7 }]}>
-            {saving ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>{isEdit ? "Save changes" : "Create offer"}</Text>}
-          </TouchableOpacity>
-
-          {offerId ? (
-            <TouchableOpacity onPress={handleTogglePublish} disabled={publishing} activeOpacity={0.85} style={styles.secondaryBtn}>
-              {publishing ? <ActivityIndicator size="small" color="#076B51" /> : (
-                <Text style={styles.secondaryBtnText}>{isActive ? "Unpublish" : "Publish this offer"}</Text>
+            <View>
+              <Text style={styles.sectionTitle}>Eligible foodstuff</Text>
+              {products.length === 0 ? (
+                <FloatingCard>
+                  <Text style={styles.emptyProductsText}>Add products to your store first, then come back to build this offer.</Text>
+                </FloatingCard>
+              ) : (
+                <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
+                  {products.map((p, index) => {
+                    const selected = selectedProductIds.has(p.id);
+                    return (
+                      <TouchableOpacity
+                        key={p.id}
+                        onPress={() => toggleProduct(p.id)}
+                        activeOpacity={0.85}
+                        style={[styles.productRow, index > 0 && styles.productRowBorder]}
+                      >
+                        <Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? "#076B51" : "#C7D2CB"} />
+                        <Text style={styles.productLabel} numberOfLines={1}>{p.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </FloatingCard>
               )}
-            </TouchableOpacity>
-          ) : null}
+            </View>
+
+            <PrimaryButton label={isEdit ? "Save changes" : "Create offer"} onPress={() => void handleSave()} loading={saving} />
+
+            {offerId ? (
+              <OutlineButton
+                label={isActive ? "Unpublish" : "Publish this offer"}
+                onPress={() => void handleTogglePublish()}
+                loading={publishing}
+              />
+            ) : null}
+          </View>
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9F9F9" },
-  header: { backgroundColor: "#FFFFFF", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontSize: 20, fontFamily: "Manrope-Bold", color: "#282828" },
-  placeholder: { flex: 1, alignItems: "center", justifyContent: "center" },
-  emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 8 },
-  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center" },
-  emptyProductsText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", paddingVertical: 8 },
-  retryButton: { marginTop: 10, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  retryButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100, gap: 8 },
-  label: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#282828", marginTop: 10 },
-  input: { backgroundColor: "#FFFFFF", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
+  label: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#516A60", marginBottom: 8 },
+  input: { backgroundColor: "#F4F6F5", borderRadius: 16, paddingHorizontal: 14, paddingVertical: 13, fontSize: 14, fontFamily: "Outfit-Regular", color: "#151E1B" },
   inputMultiline: { minHeight: 70, textAlignVertical: "top" },
-  productRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#FFFFFF", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: "transparent" },
-  productRowActive: { borderColor: "#076B51" },
-  productLabel: { flex: 1, fontSize: 13, fontFamily: "Outfit-Medium", color: "#282828" },
+  sectionTitle: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 10 },
+  emptyProductsText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", lineHeight: 19 },
+  productRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 13 },
+  productRowBorder: { borderTopWidth: 1, borderTopColor: "#F0F0F0" },
+  productLabel: { flex: 1, fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#DADADA" },
-  chipActive: { backgroundColor: "#076B51", borderColor: "#076B51" },
-  chipText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#282828" },
+  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14, backgroundColor: "#F4F6F5" },
+  chipActive: { backgroundColor: "#076B51" },
+  chipText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#516A60" },
   chipTextActive: { color: "#FFFFFF" },
-  primaryBtn: { minHeight: 52, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", marginTop: 16 },
-  primaryBtnText: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
-  secondaryBtn: { minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: "#076B51", alignItems: "center", justifyContent: "center", marginTop: 10 },
-  secondaryBtnText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
 });
