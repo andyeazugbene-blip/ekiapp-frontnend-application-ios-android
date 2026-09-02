@@ -21,7 +21,12 @@ export interface VendorAutomation {
   type: AutomationType;
   enabled: boolean;
   description: string;
+  config: Record<string, number> | null;
 }
+
+// Types the vendor can tune beyond a plain on/off toggle, and the shape of
+// their config. Kept in sync with automation.service.ts's CONFIGURABLE_TYPES.
+export const CONFIGURABLE_AUTOMATION_TYPES: AutomationType[] = ["CART_RECOVERY", "BUYER_WIN_BACK"];
 
 export interface AutomationRun {
   id: string;
@@ -87,8 +92,8 @@ export const automationService = {
     return res.items ?? [];
   },
 
-  async setVendorAutomation(type: AutomationType, enabled: boolean): Promise<void> {
-    await apiClient.patch(`/api/vendor/automations/${type}`, { enabled });
+  async setVendorAutomation(type: AutomationType, enabled: boolean, config?: Record<string, number>): Promise<void> {
+    await apiClient.patch(`/api/vendor/automations/${type}`, config ? { enabled, config } : { enabled });
   },
 
   async listVendorActivity(limit = 50): Promise<AutomationRun[]> {
