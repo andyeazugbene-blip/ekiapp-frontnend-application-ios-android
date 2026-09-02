@@ -133,6 +133,23 @@ export interface CampaignUpdate {
   readAt?: string | null;
 }
 
+export interface CampaignParticipant {
+  userId: string;
+  name: string;
+  email: string;
+  joinedAt: string;
+  totalQuantity: number;
+  totalPaid: number;
+  isOrganiser: boolean;
+}
+
+export interface RefundProgress {
+  total: number;
+  completed: number;
+  pending: number;
+  failed: number;
+}
+
 export interface OrganiserProfile {
   id: string;
   userId: string;
@@ -271,6 +288,15 @@ export const communityBuyService = {
   async publishCampaign(id: string): Promise<Campaign> {
     const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${id}/publish`, {});
     return res.campaign;
+  },
+
+  async listCampaignParticipants(campaignId: string): Promise<CampaignParticipant[]> {
+    const res = await apiClient.get<Items<CampaignParticipant>>(`/api/organiser/campaigns/${campaignId}/participants`);
+    return res.items ?? [];
+  },
+
+  async getRefundProgress(campaignId: string): Promise<RefundProgress> {
+    return apiClient.get<RefundProgress>(`/api/organiser/campaigns/${campaignId}/refund-progress`);
   },
 
   // ─── Rescue-window actions — doc §8. There is no "fulfil anyway below

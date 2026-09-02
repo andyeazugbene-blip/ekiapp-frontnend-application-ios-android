@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,7 +10,9 @@ import { presentPayment } from "../../services/stripePayment";
 import {
   communityBuyService,
   type Campaign,
+  type CampaignParticipant,
   type MarketConfig,
+  type RefundProgress,
   type SupplierProfile,
 } from "../../services/communityBuyService";
 
@@ -53,6 +55,8 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [extensionReason, setExtensionReason] = useState("");
   const [supplierReconfirmed, setSupplierReconfirmed] = useState(false);
   const [priceUnchangedConfirmed, setPriceUnchangedConfirmed] = useState(false);
+  const [participants, setParticipants] = useState<CampaignParticipant[]>([]);
+  const [refundProgress, setRefundProgress] = useState<RefundProgress | null>(null);
   const { selectedCurrency } = useCurrencyStore();
 
   const load = useCallback(async () => {
@@ -72,6 +76,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         setMaximumShares(String(existing.maximumShares ?? ""));
         setPricePerShare(existing.pricePerShareMinor ? String(existing.pricePerShareMinor / 100) : "");
         setDeadline(existing.deadline.slice(0, 10));
+        setParticipants(await communityBuyService.listCampaignParticipants(id).catch(() => []));
+        if (["FAILED", "CANCELLED", "REFUNDING"].includes(existing.status)) {
+          setRefundProgress(await communityBuyService.getRefundProgress(id).catch(() => null));
+        }
       } else {
         const profile = await communityBuyService.getMyOrganiserProfile();
         if (!profile?.isVerified) throw new Error("A verified organiser profile is required to create a campaign.");
@@ -93,6 +101,28 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
   const handleSave = async () => {
     if (!title.trim()) return Alert.alert("Title required", "Give this campaign a name.");
+
+    const isLiveLike = campaign ? ["LIVE", "PAUSED", "RESCUE_WINDOW"].includes(campaign.status) : false;
+
+    // While live, only title/description are editable — financial terms
+    // are locked once contributions begin, so those fields aren't
+    // validated or sent at all in that case.
+    if (isLiveLike) {
+      setSaving(true);
+      try {
+        setCampaign(await communityBuyService.updateCampaign(campaign!.id, {
+          title: title.trim(),
+          description: description.trim() || undefined,
+        }));
+        Alert.alert("Saved", "Campaign updated.");
+      } catch (err) {
+        Alert.alert("Couldn't save", err instanceof Error ? err.message : "Please try again.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     const minVal = Math.round(Number(minimumShares));
     const goalVal = Math.round(Number(goalShares));
     const maxVal = Math.round(Number(maximumShares));
@@ -138,6 +168,17 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       Alert.alert("Couldn't save", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!campaign) return;
+    try {
+      await Share.share({
+        message: `Help "${campaign.title}" reach its goal on Eki Community Buy — ${campaign.confirmedShares} of ${campaign.maximumShares} slots filled so far. Open the Eki app to take part.`,
+      });
+    } catch {
+      // User cancelled the native share sheet — nothing to do.
     }
   };
 
@@ -240,7 +281,15 @@ export default function CommunityBuyOrganiserCampaignScreen() {
     );
   };
 
-  const isLocked = campaign ? !["DRAFT", "CHANGES_REQUIRED"].includes(campaign.status) : false;
+  const isDraftLike = campaign ? ["DRAFT", "CHANGES_REQUIRED"].includes(campaign.status) : true;
+  const isLiveLike = campaign ? ["LIVE", "PAUSED", "RESCUE_WINDOW"].includes(campaign.status) : false;
+  // Financial terms (min/goal/max/price/deadline) can only change in draft.
+  // Title/description stay editable while live too — "Edit Live Campaign"
+  // is about correcting copy, never about changing terms participants
+  // already paid under.
+  const financialFieldsLocked = !isDraftLike;
+  const contentEditable = isDraftLike || isLiveLike;
+  const isLocked = !contentEditable;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -249,7 +298,13 @@ export default function CommunityBuyOrganiserCampaignScreen() {
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{isEdit ? "Campaign" : "New campaign"}</Text>
-        <View style={{ width: 38 }} />
+        {isEdit && campaign?.status === "LIVE" ? (
+          <TouchableOpacity onPress={() => void handleShare()} activeOpacity={0.85} style={styles.backButton}>
+            <Ionicons name="share-social-outline" size={18} color="#282828" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 38 }} />
+        )}
       </View>
 
       {loading ? (
@@ -334,6 +389,15 @@ export default function CommunityBuyOrganiserCampaignScreen() {
             </View>
           ) : null}
 
+          {refundProgress && refundProgress.total > 0 ? (
+            <View style={styles.outcomeCard}>
+              <Text style={styles.outcomeTitle}>Refund progress</Text>
+              <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Completed</Text><Text style={styles.outcomeValue}>{refundProgress.completed} of {refundProgress.total}</Text></View>
+              {refundProgress.pending > 0 ? <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>In progress</Text><Text style={styles.outcomeValue}>{refundProgress.pending}</Text></View> : null}
+              {refundProgress.failed > 0 ? <View style={styles.outcomeRow}><Text style={[styles.outcomeLabel, { color: "#D6552F" }]}>Needs attention</Text><Text style={[styles.outcomeValue, { color: "#D6552F" }]}>{refundProgress.failed}</Text></View> : null}
+            </View>
+          ) : null}
+
           <Text style={styles.label}>Title</Text>
           <TextInput style={styles.input} editable={!isLocked} placeholder="Campaign title" placeholderTextColor="#9AA3A0" value={title} onChangeText={setTitle} />
 
@@ -341,23 +405,24 @@ export default function CommunityBuyOrganiserCampaignScreen() {
           <TextInput style={[styles.input, styles.inputMultiline]} editable={!isLocked} placeholder="What is this campaign for?" placeholderTextColor="#9AA3A0" value={description} onChangeText={setDescription} multiline />
 
           <Text style={styles.label}>Minimum shares required</Text>
-          <TextInput style={styles.input} editable={!isLocked} placeholder="3" placeholderTextColor="#9AA3A0" keyboardType="number-pad" value={minimumShares} onChangeText={setMinimumShares} />
+          <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="3" placeholderTextColor="#9AA3A0" keyboardType="number-pad" value={minimumShares} onChangeText={setMinimumShares} />
           <Text style={styles.fieldHint}>The campaign can proceed when this minimum is reached.</Text>
 
           <Text style={styles.label}>Campaign goal</Text>
-          <TextInput style={styles.input} editable={!isLocked} placeholder="6" placeholderTextColor="#9AA3A0" keyboardType="number-pad" value={goalShares} onChangeText={setGoalShares} />
+          <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#9AA3A0" keyboardType="number-pad" value={goalShares} onChangeText={setGoalShares} />
           <Text style={styles.fieldHint}>This is the number of shares you would ideally like to fill.</Text>
 
           <Text style={styles.label}>Maximum capacity</Text>
-          <TextInput style={styles.input} editable={!isLocked} placeholder="6" placeholderTextColor="#9AA3A0" keyboardType="number-pad" value={maximumShares} onChangeText={setMaximumShares} />
+          <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#9AA3A0" keyboardType="number-pad" value={maximumShares} onChangeText={setMaximumShares} />
           <Text style={styles.fieldHint}>Contributions will close when this number is reached.</Text>
 
           <Text style={styles.label}>Price per share ({currency})</Text>
-          <TextInput style={styles.input} editable={!isLocked} placeholder="0.00" placeholderTextColor="#9AA3A0" keyboardType="decimal-pad" value={pricePerShare} onChangeText={setPricePerShare} />
+          <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="0.00" placeholderTextColor="#9AA3A0" keyboardType="decimal-pad" value={pricePerShare} onChangeText={setPricePerShare} />
           <Text style={styles.fieldHint}>The price per share cannot change after the first confirmed contribution.</Text>
 
           <Text style={styles.label}>Deadline (YYYY-MM-DD)</Text>
-          <TextInput style={styles.input} editable={!isLocked} placeholder="2026-12-31" placeholderTextColor="#9AA3A0" value={deadline} onChangeText={setDeadline} />
+          <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="2026-12-31" placeholderTextColor="#9AA3A0" value={deadline} onChangeText={setDeadline} />
+          {isLiveLike ? <Text style={styles.fieldHint}>Financial terms are locked once a campaign is live. Only the title and description can be changed.</Text> : null}
 
           {!isEdit ? (
             <>
@@ -372,6 +437,20 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                   </TouchableOpacity>
                 ))
               )}
+            </>
+          ) : null}
+
+          {isEdit && participants.length > 0 ? (
+            <>
+              <Text style={styles.label}>Participants ({participants.length})</Text>
+              {participants.map((p) => (
+                <View key={p.userId} style={styles.optionRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.optionText}>{p.name}{p.isOrganiser ? " (you)" : ""}</Text>
+                    <Text style={styles.fieldHint}>{p.totalQuantity} share{p.totalQuantity === 1 ? "" : "s"} · {formatDisplayMoney(p.totalPaid / 100, currency, selectedCurrency)}</Text>
+                  </View>
+                </View>
+              ))}
             </>
           ) : null}
 
