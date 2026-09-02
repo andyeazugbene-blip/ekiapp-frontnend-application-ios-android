@@ -109,6 +109,30 @@ export interface Contribution {
   createdAt: string;
 }
 
+export interface MyCommunityBuy {
+  campaign: {
+    id: string;
+    title: string;
+    status: CampaignStatus;
+    fundingOutcome: FundingOutcome;
+    currency: string;
+    deadline: string;
+    supplier?: { vendor?: { storeName: string } };
+  };
+  totalQuantity: number;
+  totalPaid: number;
+  latestContribution: Contribution;
+  refundStatus: "REFUND_PENDING" | "REFUND_PROCESSING" | "REFUNDED" | "REFUND_FAILED" | null;
+}
+
+export interface CampaignUpdate {
+  id: string;
+  title: string;
+  body?: string | null;
+  createdAt: string;
+  readAt?: string | null;
+}
+
 export interface OrganiserProfile {
   id: string;
   userId: string;
@@ -174,6 +198,16 @@ export const communityBuyService = {
   async confirmContributionPayment(id: string): Promise<Contribution> {
     const res = await apiClient.post<{ contribution: Contribution }>(`/api/community-buy/contributions/${id}/payment`, {});
     return res.contribution;
+  },
+
+  async listMyContributions(): Promise<MyCommunityBuy[]> {
+    const res = await apiClient.get<Items<MyCommunityBuy>>("/api/community-buy/my-contributions");
+    return res.items ?? [];
+  },
+
+  async getCampaignUpdates(campaignId: string): Promise<CampaignUpdate[]> {
+    const res = await apiClient.get<Items<CampaignUpdate>>(`/api/community-buy/campaigns/${campaignId}/updates`);
+    return res.items ?? [];
   },
 
   // ─── Organiser ────────────────────────────────────────────────────────────

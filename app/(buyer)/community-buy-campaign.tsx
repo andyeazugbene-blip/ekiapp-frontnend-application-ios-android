@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,7 +7,13 @@ import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { presentPayment } from "../../services/stripePayment";
-import { communityBuyService, type Campaign, type Contribution } from "../../services/communityBuyService";
+import { communityBuyService, type Campaign, type CampaignUpdate, type Contribution } from "../../services/communityBuyService";
+
+function formatDateTime(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
 
 function formatDeadline(value: string): string {
   const d = new Date(value);
@@ -30,6 +36,8 @@ export default function CommunityBuyCampaignScreen() {
   const [contributing, setContributing] = useState(false);
   const [contribution, setContribution] = useState<Contribution | null>(null);
   const [contributeError, setContributeError] = useState("");
+  const [updates, setUpdates] = useState<CampaignUpdate[]>([]);
+  const [showReceipt, setShowReceipt] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -37,6 +45,7 @@ export default function CommunityBuyCampaignScreen() {
     setError("");
     try {
       setCampaign(await communityBuyService.getCampaign(id));
+      setUpdates(await communityBuyService.getCampaignUpdates(id).catch(() => []));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load this campaign.");
     } finally {
@@ -45,6 +54,17 @@ export default function CommunityBuyCampaignScreen() {
   }, [id]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const handleShare = async () => {
+    if (!campaign) return;
+    try {
+      await Share.share({
+        message: `Join "${campaign.title}" on Eki Community Buy — ${campaign.confirmedShares} of ${campaign.maximumShares} slots filled. Open the Eki app to take part.`,
+      });
+    } catch {
+      // User cancelled the native share sheet — nothing to do.
+    }
+  };
 
   const handleJoin = async () => {
     setJoining(true);
@@ -128,7 +148,9 @@ export default function CommunityBuyCampaignScreen() {
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>{campaign.title}</Text>
-        <View style={{ width: 38 }} />
+        <TouchableOpacity onPress={() => void handleShare()} activeOpacity={0.85} style={styles.backButton}>
+          <Ionicons name="share-social-outline" size={18} color="#282828" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -199,7 +221,22 @@ export default function CommunityBuyCampaignScreen() {
             {contribution?.status === "PAID" ? (
               <View style={styles.outcomeCard}>
                 <Ionicons name="checkmark-circle-outline" size={20} color="#076B51" />
-                <Text style={styles.outcomeText}>Your contribution of {formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)} for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} is confirmed.</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.outcomeText}>Your contribution of {formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)} for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} is confirmed.</Text>
+                  <TouchableOpacity onPress={() => setShowReceipt((v) => !v)} activeOpacity={0.85}>
+                    <Text style={styles.receiptToggle}>{showReceipt ? "Hide receipt" : "View receipt"}</Text>
+                  </TouchableOpacity>
+                  {showReceipt ? (
+                    <View style={styles.receiptCard}>
+                      <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Campaign</Text><Text style={styles.receiptValue} numberOfLines={1}>{campaign.title}</Text></View>
+                      <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Shares</Text><Text style={styles.receiptValue}>{contribution.quantity}</Text></View>
+                      <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Price per share</Text><Text style={styles.receiptValue}>{formatDisplayMoney(campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text></View>
+                      <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Total paid</Text><Text style={styles.receiptValue}>{formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}</Text></View>
+                      <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Date</Text><Text style={styles.receiptValue}>{formatDateTime(contribution.createdAt)}</Text></View>
+                      <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Reference</Text><Text style={styles.receiptValue} numberOfLines={1}>{contribution.id}</Text></View>
+                    </View>
+                  ) : null}
+                </View>
               </View>
             ) : (
               <>
@@ -231,6 +268,19 @@ export default function CommunityBuyCampaignScreen() {
                 </TouchableOpacity>
               </>
             )}
+          </>
+        ) : null}
+
+        {updates.length > 0 ? (
+          <>
+            <Text style={styles.section}>Campaign updates</Text>
+            {updates.map((u) => (
+              <View key={u.id} style={styles.updateRow}>
+                <Text style={styles.updateTitle}>{u.title}</Text>
+                {u.body ? <Text style={styles.updateBody}>{u.body}</Text> : null}
+                <Text style={styles.updateDate}>{formatDateTime(u.createdAt)}</Text>
+              </View>
+            ))}
           </>
         ) : null}
       </ScrollView>
@@ -275,4 +325,13 @@ const styles = StyleSheet.create({
   primaryBtnText: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   secondaryBtn: { minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: "#076B51", alignItems: "center", justifyContent: "center" },
   secondaryBtnText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  receiptToggle: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51", marginTop: 6 },
+  receiptCard: { marginTop: 8, backgroundColor: "#FFFFFF", borderRadius: 12, padding: 12, gap: 6 },
+  receiptRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+  receiptLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585" },
+  receiptValue: { flex: 1, fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#282828", textAlign: "right" },
+  updateRow: { backgroundColor: "#FFFFFF", borderRadius: 14, padding: 12, gap: 3 },
+  updateTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#282828" },
+  updateBody: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#5C5C5C", lineHeight: 17 },
+  updateDate: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#B0B0B0", marginTop: 2 },
 });

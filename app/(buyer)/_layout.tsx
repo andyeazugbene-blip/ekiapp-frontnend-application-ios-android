@@ -132,6 +132,7 @@ export default function BuyerLayout() {
       <Tabs.Screen name="community-buy-campaign" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="community-buy-organiser" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="community-buy-organiser-campaign" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="my-community-buys" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>
   );
 }

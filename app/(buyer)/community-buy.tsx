@@ -50,7 +50,10 @@ export default function CommunityBuyDiscoveryScreen() {
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Community Buy</Text>
-        <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy-organiser" as any)} activeOpacity={0.85} style={styles.organiserButton}>
+        <TouchableOpacity onPress={() => router.push("/(buyer)/my-community-buys" as any)} activeOpacity={0.85} style={styles.organiserButton}>
+          <Ionicons name="receipt-outline" size={18} color="#076B51" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy-organiser" as any)} activeOpacity={0.85} style={[styles.organiserButton, { marginLeft: 8 }]}>
           <Ionicons name="megaphone-outline" size={18} color="#076B51" />
         </TouchableOpacity>
       </View>
