@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Card, ErrorPanel, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
+import { Badge, Button, Card, ErrorPanel, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { communityBuyAdminAPI, type AdminCampaignRefund } from "@/lib/services/communityBuy.api";
@@ -21,6 +21,7 @@ export default function CommunityRefundsPage() {
   const [items, setItems] = useState<AdminCampaignRefund[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -35,6 +36,30 @@ export default function CommunityRefundsPage() {
   };
 
   useEffect(() => { void load(); }, []);
+
+  const recheck = async (id: string) => {
+    setBusyId(id);
+    try {
+      const updated = await communityBuyAdminAPI.requeryRefund(id);
+      setItems((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Failed to recheck refund");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const escalate = async (id: string) => {
+    setBusyId(id);
+    try {
+      await communityBuyAdminAPI.escalateRefund(id);
+      alert("Escalated — a support case has been opened for this refund.");
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Failed to escalate refund");
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const pending = items.filter((i) => i.status === "REFUND_PENDING" || i.status === "REFUND_PROCESSING").length;
   const failed = items.filter((i) => i.status === "REFUND_FAILED").length;
@@ -68,6 +93,7 @@ export default function CommunityRefundsPage() {
                         <th className="pb-3">Amount</th>
                         <th className="pb-3">Status</th>
                         <th className="pb-3">Created</th>
+                        <th className="pb-3" />
                       </tr>
                     </thead>
                     <tbody>
@@ -78,6 +104,14 @@ export default function CommunityRefundsPage() {
                           <td className="py-3 font-semibold">{centsToUnit(r.amount).toFixed(2)} {r.currency}</td>
                           <td className="py-3"><Badge tone={tone(r.status)}>{r.status.replace(/_/g, " ")}</Badge>{r.failureReason ? <p className="mt-1 text-xs text-red-500">{r.failureReason}</p> : null}</td>
                           <td className="py-3 text-slate-500">{new Date(r.createdAt).toLocaleString()}</td>
+                          <td className="py-3">
+                            {r.status !== "REFUNDED" ? (
+                              <div className="flex gap-2">
+                                <Button variant="ghost" disabled={busyId === r.id} onClick={() => void recheck(r.id)}>Recheck</Button>
+                                <Button variant="ghost" disabled={busyId === r.id} onClick={() => void escalate(r.id)}>Escalate</Button>
+                              </div>
+                            ) : null}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

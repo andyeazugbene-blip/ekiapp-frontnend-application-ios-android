@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -22,6 +22,7 @@ export default function CreateBundleScreen() {
   const [bundlePrice, setBundlePrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [step, setStep] = useState<"form" | "review">("form");
 
   useEffect(() => {
     if (!vendor) { setLoadingProducts(false); return; }
@@ -57,14 +58,7 @@ export default function CreateBundleScreen() {
       return;
     }
 
-    Alert.alert(
-      "Review your bundle",
-      `Regular total: ${symbol}${regularTotal.toFixed(2)}\nBundle price: ${symbol}${parsedPrice.toFixed(2)}\nBuyer saving: ${symbol}${buyerSaving.toFixed(2)}`,
-      [
-        { text: "Edit", style: "cancel" },
-        { text: "Publish bundle", onPress: () => void submitBundle() },
-      ],
-    );
+    setStep("review");
   };
 
   const submitBundle = async () => {
@@ -99,6 +93,56 @@ export default function CreateBundleScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {step === "review" ? (
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeaderRow}>
+                <View style={styles.modalIconWrap}>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#076B51" />
+                </View>
+                <Text style={styles.modalTitle}>Review your bundle</Text>
+                <TouchableOpacity
+                  onPress={() => goBackOrReplace(router, "/(vendor)/grow-sales" as any)}
+                  activeOpacity={0.85}
+                  style={styles.closeIconButton}
+                >
+                  <Ionicons name="close" size={18} color="#858585" />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.reviewCaption}>Check the details before making this bundle available.</Text>
+
+              <View style={styles.reviewCard}>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Bundle</Text>
+                  <Text style={styles.reviewValue}>{name.trim()}</Text>
+                </View>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Regular total</Text>
+                  <Text style={styles.reviewValue}>{symbol}{regularTotal.toFixed(2)}</Text>
+                </View>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Bundle price</Text>
+                  <Text style={styles.reviewValue}>{symbol}{parsedPrice.toFixed(2)}</Text>
+                </View>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Buyer saving</Text>
+                  <Text style={styles.reviewValue}>{symbol}{buyerSaving.toFixed(2)}</Text>
+                </View>
+              </View>
+
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+              <TouchableOpacity
+                onPress={() => void submitBundle()}
+                style={[styles.submitButton, submitting && { opacity: 0.6 }]}
+                disabled={submitting}
+              >
+                {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>Publish bundle</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setStep("form")} disabled={submitting} style={styles.editButton}>
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
           <View style={styles.modalCard}>
             <View style={styles.modalHeaderRow}>
               <View style={styles.modalIconWrap}>
@@ -200,10 +244,11 @@ export default function CreateBundleScreen() {
               {submitting ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitButtonText}>Create Bundle</Text>
+                <Text style={styles.submitButtonText}>Review bundle</Text>
               )}
             </TouchableOpacity>
           </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -360,4 +405,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 12
   },
+  reviewCaption: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: -14, marginBottom: 16, lineHeight: 19 },
+  reviewCard: { backgroundColor: "#F4F6F5", borderRadius: 18, padding: 16, gap: 12, marginBottom: 16 },
+  reviewRow: { gap: 2 },
+  reviewLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194" },
+  reviewValue: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  editButton: { height: 46, alignItems: "center", justifyContent: "center", marginTop: 8 },
+  editButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#516A60" },
 });

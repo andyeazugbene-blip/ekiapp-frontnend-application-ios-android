@@ -219,6 +219,14 @@ export const communityBuyAdminAPI = {
     const res = await apiClient.get<{ items?: AdminCampaignRefund[] }>("/admin/community-buy/refunds");
     return res.items ?? [];
   },
+  async requeryRefund(id: string): Promise<AdminCampaignRefund> {
+    const res = await apiClient.post<{ refund: AdminCampaignRefund }>(`/admin/community-buy/refunds/${id}/requery`, {});
+    return res.refund;
+  },
+  async escalateRefund(id: string, note?: string): Promise<{ id: string; escalated: boolean }> {
+    const res = await apiClient.post<{ supportCase: { id: string; escalated: boolean } }>(`/admin/community-buy/refunds/${id}/escalate`, { note });
+    return res.supportCase;
+  },
 
   // ─── Rescue-window extension requests — doc §8/§Screen 127 ─────────────
   async getExtensionRequests(): Promise<AdminExtensionRequest[]> {

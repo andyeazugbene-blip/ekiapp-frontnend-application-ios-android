@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -24,6 +24,9 @@ export default function CreateDiscountScreen() {
   const [pickerMonth, setPickerMonth] = useState(() => new Date());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [step, setStep] = useState<"form" | "review">("form");
+  const [reviewValue, setReviewValue] = useState(0);
+  const [reviewHasCurrencyMarker, setReviewHasCurrencyMarker] = useState(false);
 
   useEffect(() => {
     if (!vendor) { setLoadingProducts(false); return; }
@@ -49,26 +52,19 @@ export default function CreateDiscountScreen() {
       return;
     }
 
-    const selectedProductForReview = products.find((item) => item.id === productId);
-    const discountLabel = hasCurrencyMarker ? `${rawValue}` : `${numericValue}%`;
-    Alert.alert(
-      "Review your discount",
-      `Discount: ${discountLabel}\nApplies to: ${productId === "__all__" ? "All foodstuff" : selectedProductForReview?.name ?? "Selected product"}\nRuns from ${startDate || "today"} to ${endDate || "no end date"}`,
-      [
-        { text: "Edit", style: "cancel" },
-        { text: "Publish discount", onPress: () => void submitDiscount(numericValue, hasCurrencyMarker) },
-      ],
-    );
+    setReviewValue(numericValue);
+    setReviewHasCurrencyMarker(hasCurrencyMarker);
+    setStep("review");
   };
 
-  const submitDiscount = async (numericValue: number, hasCurrencyMarker: boolean) => {
+  const submitDiscount = async () => {
     setSubmitting(true);
     try {
       const created = await marketingService.createDiscount({
         productIds: productId === "__all__" ? [] : [productId],
         audience: "all",
-        kind: hasCurrencyMarker ? "fixed_amount" : "percentage",
-        value: numericValue,
+        kind: reviewHasCurrencyMarker ? "fixed_amount" : "percentage",
+        value: reviewValue,
         startsAt: startDate || undefined,
         endsAt: endDate || undefined,
       });
@@ -104,6 +100,9 @@ export default function CreateDiscountScreen() {
     setDateTarget(null);
   };
 
+  const selectedProductForReview = products.find((item) => item.id === productId);
+  const reviewDiscountLabel = reviewHasCurrencyMarker ? value.trim() : `${reviewValue}%`;
+
   return (
     <View style={styles.scrim}>
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -112,6 +111,52 @@ export default function CreateDiscountScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {step === "review" ? (
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeaderRow}>
+                <View style={styles.modalIconWrap}>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#076B51" />
+                </View>
+                <Text style={styles.modalTitle}>Review your discount</Text>
+                <TouchableOpacity
+                  onPress={() => goBackOrReplace(router, "/(vendor)/grow-sales" as any)}
+                  activeOpacity={0.85}
+                  style={styles.closeIconButton}
+                >
+                  <Ionicons name="close" size={18} color="#858585" />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.reviewCaption}>Check the details before making this discount available.</Text>
+
+              <View style={styles.reviewCard}>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Discount</Text>
+                  <Text style={styles.reviewValue}>{reviewDiscountLabel}</Text>
+                </View>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Applies to</Text>
+                  <Text style={styles.reviewValue}>{productId === "__all__" ? "All foodstuff" : selectedProductForReview?.name ?? "Selected product"}</Text>
+                </View>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Runs from</Text>
+                  <Text style={styles.reviewValue}>{startDate || "today"} to {endDate || "no end date"}</Text>
+                </View>
+              </View>
+
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+              <TouchableOpacity
+                onPress={() => void submitDiscount()}
+                style={[styles.submitButton, submitting && { opacity: 0.6 }]}
+                disabled={submitting}
+              >
+                {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>Publish discount</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setStep("form")} disabled={submitting} style={styles.editButton}>
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
           <View style={styles.modalCard}>
             <View style={styles.modalHeaderRow}>
               <View style={styles.modalIconWrap}>
@@ -227,10 +272,11 @@ export default function CreateDiscountScreen() {
               {submitting ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitButtonText}>Create Discount</Text>
+                <Text style={styles.submitButtonText}>Review discount</Text>
               )}
             </TouchableOpacity>
           </View>
+          )}
         </ScrollView>
       </SafeAreaView>
 
@@ -458,6 +504,13 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope-Bold",
     color: "#FFFFFF"
   },
+  reviewCaption: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: -14, marginBottom: 16, lineHeight: 19 },
+  reviewCard: { backgroundColor: "#F4F6F5", borderRadius: 18, padding: 16, gap: 12, marginBottom: 16 },
+  reviewRow: { gap: 2 },
+  reviewLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194" },
+  reviewValue: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  editButton: { height: 46, alignItems: "center", justifyContent: "center", marginTop: 8 },
+  editButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#516A60" },
   errorText: {
     fontSize: 12,
     fontFamily: "Outfit-Regular",

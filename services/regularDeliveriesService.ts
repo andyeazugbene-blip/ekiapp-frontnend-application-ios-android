@@ -42,7 +42,23 @@ export const RENEWAL_STATUS_LABELS: Record<RenewalStatus, string> = {
 export interface OfferProduct {
   productId: string;
   product: { id: string; title: string; priceInCents: number; currency: string; imageUrl?: string | null };
+  pausedAt?: string | null;
+  pauseReason?: string | null;
 }
+
+export type OfferFulfilmentMethod = "DELIVERY" | "COLLECTION";
+export type OfferSubstitutionMode = "NO_SUBSTITUTION" | "ASK_BUYER" | "ALLOW_SIMILAR";
+
+export const FULFILMENT_METHOD_LABELS: Record<OfferFulfilmentMethod, string> = {
+  DELIVERY: "Delivery",
+  COLLECTION: "Collection",
+};
+
+export const SUBSTITUTION_MODE_LABELS: Record<OfferSubstitutionMode, string> = {
+  NO_SUBSTITUTION: "Do not substitute",
+  ASK_BUYER: "Ask buyer before substituting",
+  ALLOW_SIMILAR: "Allow similar substitutions within buyer's limit",
+};
 
 export interface SubscriptionOffer {
   id: string;
@@ -55,7 +71,12 @@ export interface SubscriptionOffer {
   renewalsPausedAt?: string | null;
   frequencies: SubscriptionFrequency[];
   substitutionPolicy?: string | null;
+  substitutionMode: OfferSubstitutionMode;
   renewalCutoffHours: number;
+  fulfilmentMethod: OfferFulfilmentMethod;
+  preparationHours?: number | null;
+  discountPercent?: number | null;
+  maxPriceIncreaseApprovalBps?: number | null;
   products: OfferProduct[];
   createdAt: string;
 }
@@ -230,7 +251,12 @@ export const regularDeliveriesService = {
     productIds: string[];
     frequencies: SubscriptionFrequency[];
     substitutionPolicy?: string;
+    substitutionMode?: OfferSubstitutionMode;
     renewalCutoffHours?: number;
+    fulfilmentMethod?: OfferFulfilmentMethod;
+    preparationHours?: number | null;
+    discountPercent?: number | null;
+    maxPriceIncreaseApprovalBps?: number | null;
   }): Promise<SubscriptionOffer> {
     const res = await apiClient.post<{ offer: SubscriptionOffer }>("/api/vendor/subscription-offers", input);
     return res.offer;
@@ -247,7 +273,12 @@ export const regularDeliveriesService = {
     productIds: string[];
     frequencies: SubscriptionFrequency[];
     substitutionPolicy?: string;
+    substitutionMode?: OfferSubstitutionMode;
     renewalCutoffHours?: number;
+    fulfilmentMethod?: OfferFulfilmentMethod;
+    preparationHours?: number | null;
+    discountPercent?: number | null;
+    maxPriceIncreaseApprovalBps?: number | null;
   }>): Promise<SubscriptionOffer> {
     const res = await apiClient.patch<{ offer: SubscriptionOffer }>(`/api/subscription-offers/${id}`, input);
     return res.offer;
@@ -271,6 +302,16 @@ export const regularDeliveriesService = {
   async resumeOfferRenewals(id: string): Promise<SubscriptionOffer> {
     const res = await apiClient.post<{ offer: SubscriptionOffer }>(`/api/subscription-offers/${id}/resume-renewals`, {});
     return res.offer;
+  },
+
+  async pauseOfferProduct(offerId: string, productId: string, reason?: string): Promise<OfferProduct> {
+    const res = await apiClient.post<{ product: OfferProduct }>(`/api/subscription-offers/${offerId}/products/${productId}/pause`, { reason });
+    return res.product;
+  },
+
+  async resumeOfferProduct(offerId: string, productId: string): Promise<OfferProduct> {
+    const res = await apiClient.post<{ product: OfferProduct }>(`/api/subscription-offers/${offerId}/products/${productId}/resume`, {});
+    return res.product;
   },
 
   // ─── Vendor: subscribers & renewals ─────────────────────────────────────

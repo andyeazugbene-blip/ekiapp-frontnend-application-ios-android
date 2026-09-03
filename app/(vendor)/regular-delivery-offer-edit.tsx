@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
@@ -12,15 +12,22 @@ import {
   OutlineButton,
   PremiumHeader,
   PrimaryButton,
+  StatusPill,
   premiumStyles,
 } from "../../components/shared/PremiumBlocks";
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
+  FULFILMENT_METHOD_LABELS,
+  SUBSTITUTION_MODE_LABELS,
+  type OfferFulfilmentMethod,
+  type OfferSubstitutionMode,
   type SubscriptionFrequency,
 } from "../../services/regularDeliveriesService";
 
 const ALL_FREQUENCIES: SubscriptionFrequency[] = ["WEEKLY", "BIWEEKLY", "MONTHLY"];
+const ALL_FULFILMENT_METHODS: OfferFulfilmentMethod[] = ["DELIVERY", "COLLECTION"];
+const ALL_SUBSTITUTION_MODES: OfferSubstitutionMode[] = ["NO_SUBSTITUTION", "ASK_BUYER", "ALLOW_SIMILAR"];
 
 export default function VendorRegularDeliveryOfferEditScreen() {
   const router = useRouter();
@@ -36,6 +43,15 @@ export default function VendorRegularDeliveryOfferEditScreen() {
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [frequencies, setFrequencies] = useState<Set<SubscriptionFrequency>>(new Set(["MONTHLY"]));
   const [substitutionPolicy, setSubstitutionPolicy] = useState("");
+  const [substitutionMode, setSubstitutionMode] = useState<OfferSubstitutionMode>("ASK_BUYER");
+  const [renewalCutoffHours, setRenewalCutoffHours] = useState("");
+  const [fulfilmentMethod, setFulfilmentMethod] = useState<OfferFulfilmentMethod>("DELIVERY");
+  const [preparationHours, setPreparationHours] = useState("");
+  const [useDiscount, setUseDiscount] = useState(false);
+  const [discountPercent, setDiscountPercent] = useState("");
+  const [maxPriceIncreasePercent, setMaxPriceIncreasePercent] = useState("");
+  const [pausedProductIds, setPausedProductIds] = useState<Set<string>>(new Set());
+  const [pausingProductId, setPausingProductId] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -56,8 +72,16 @@ export default function VendorRegularDeliveryOfferEditScreen() {
         setTitle(existing.title);
         setDescription(existing.description ?? "");
         setSelectedProductIds(new Set(existing.products.map((p) => p.productId)));
+        setPausedProductIds(new Set(existing.products.filter((p) => p.pausedAt).map((p) => p.productId)));
         setFrequencies(new Set(existing.frequencies));
         setSubstitutionPolicy(existing.substitutionPolicy ?? "");
+        setSubstitutionMode(existing.substitutionMode ?? "ASK_BUYER");
+        setRenewalCutoffHours(existing.renewalCutoffHours != null ? String(existing.renewalCutoffHours) : "");
+        setFulfilmentMethod(existing.fulfilmentMethod ?? "DELIVERY");
+        setPreparationHours(existing.preparationHours != null ? String(existing.preparationHours) : "");
+        setUseDiscount(existing.discountPercent != null);
+        setDiscountPercent(existing.discountPercent != null ? String(existing.discountPercent) : "");
+        setMaxPriceIncreasePercent(existing.maxPriceIncreaseApprovalBps != null ? String(existing.maxPriceIncreaseApprovalBps / 100) : "");
         setIsActive(existing.isActive);
         setOfferId(existing.id);
       }
@@ -99,6 +123,37 @@ export default function VendorRegularDeliveryOfferEditScreen() {
       Alert.alert("Select a frequency", "Choose at least one delivery frequency.");
       return;
     }
+    const trimmedCutoff = renewalCutoffHours.trim();
+    const parsedCutoff = trimmedCutoff ? Number(trimmedCutoff) : undefined;
+    if (trimmedCutoff && (!Number.isFinite(parsedCutoff) || (parsedCutoff as number) <= 0)) {
+      Alert.alert("Invalid cutoff", "Enter a valid number of hours, or leave it blank.");
+      return;
+    }
+    const trimmedPrep = preparationHours.trim();
+    const parsedPrep = trimmedPrep ? Number(trimmedPrep) : undefined;
+    if (trimmedPrep && (!Number.isFinite(parsedPrep) || (parsedPrep as number) < 0)) {
+      Alert.alert("Invalid preparation time", "Enter a valid number of hours, or leave it blank.");
+      return;
+    }
+    let parsedDiscount: number | undefined;
+    if (useDiscount) {
+      const trimmedDiscount = discountPercent.trim();
+      parsedDiscount = trimmedDiscount ? Number(trimmedDiscount) : undefined;
+      if (!trimmedDiscount || !Number.isFinite(parsedDiscount) || (parsedDiscount as number) <= 0 || (parsedDiscount as number) > 90) {
+        Alert.alert("Invalid discount", "Enter a discount percentage between 1 and 90.");
+        return;
+      }
+    }
+    const trimmedMaxIncrease = maxPriceIncreasePercent.trim();
+    let parsedMaxIncreaseBps: number | undefined;
+    if (trimmedMaxIncrease) {
+      const pct = Number(trimmedMaxIncrease);
+      if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+        Alert.alert("Invalid limit", "Enter a maximum price increase between 0 and 100%, or leave it blank.");
+        return;
+      }
+      parsedMaxIncreaseBps = Math.round(pct * 100);
+    }
     setSaving(true);
     try {
       const input = {
@@ -107,6 +162,12 @@ export default function VendorRegularDeliveryOfferEditScreen() {
         productIds: Array.from(selectedProductIds),
         frequencies: Array.from(frequencies),
         substitutionPolicy: substitutionPolicy.trim() || undefined,
+        substitutionMode,
+        renewalCutoffHours: parsedCutoff,
+        fulfilmentMethod,
+        preparationHours: parsedPrep ?? (isEdit ? null : undefined),
+        discountPercent: useDiscount ? parsedDiscount : (isEdit ? null : undefined),
+        maxPriceIncreaseApprovalBps: parsedMaxIncreaseBps ?? (isEdit ? null : undefined),
       };
       const offer = offerId
         ? await regularDeliveriesService.updateOffer(offerId, input)
@@ -119,6 +180,39 @@ export default function VendorRegularDeliveryOfferEditScreen() {
       Alert.alert("Couldn't save offer", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTogglePauseProduct = (productId: string, productName: string) => {
+    if (!offerId) return;
+    const isPaused = pausedProductIds.has(productId);
+    if (isPaused) {
+      void runProductPauseToggle(productId, () => regularDeliveriesService.resumeOfferProduct(offerId, productId));
+      return;
+    }
+    Alert.alert(
+      "Pause this product?",
+      `${productName} won't be included in any subscriber's next renewal until you resume it. Affected buyers will be notified.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Pause product", style: "destructive", onPress: () => void runProductPauseToggle(productId, () => regularDeliveriesService.pauseOfferProduct(offerId, productId)) },
+      ],
+    );
+  };
+
+  const runProductPauseToggle = async (productId: string, action: () => Promise<unknown>) => {
+    setPausingProductId(productId);
+    try {
+      await action();
+      setPausedProductIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(productId)) next.delete(productId); else next.add(productId);
+        return next;
+      });
+    } catch (err) {
+      Alert.alert("Couldn't update this product", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setPausingProductId(null);
     }
   };
 
@@ -167,11 +261,72 @@ export default function VendorRegularDeliveryOfferEditScreen() {
                   ))}
                 </View>
               </View>
-              <View>
-                <Text style={styles.label}>Substitution policy (optional)</Text>
-                <TextInput style={[styles.input, styles.inputMultiline]} placeholder="What happens if an item is out of stock?" placeholderTextColor="#8AA194" value={substitutionPolicy} onChangeText={setSubstitutionPolicy} multiline />
-              </View>
             </FloatingCard>
+
+            <View>
+              <Text style={styles.sectionTitle}>Pricing rules</Text>
+              <FloatingCard style={{ gap: 14 }}>
+                <TouchableOpacity onPress={() => setUseDiscount((v) => !v)} activeOpacity={0.85} style={styles.checkRow}>
+                  <Ionicons name={useDiscount ? "checkbox" : "square-outline"} size={20} color={useDiscount ? "#076B51" : "#C7D2CB"} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.checkRowLabel}>Offer a Regular Delivery discount</Text>
+                    <Text style={styles.fieldHint}>Off uses the current product price at each renewal.</Text>
+                  </View>
+                </TouchableOpacity>
+                {useDiscount ? (
+                  <View>
+                    <Text style={styles.label}>Discount percentage</Text>
+                    <TextInput style={styles.input} placeholder="e.g. 10" placeholderTextColor="#8AA194" value={discountPercent} onChangeText={setDiscountPercent} keyboardType="number-pad" />
+                  </View>
+                ) : null}
+                <View>
+                  <Text style={styles.label}>Maximum price increase without buyer approval (optional)</Text>
+                  <TextInput style={styles.input} placeholder="e.g. 5" placeholderTextColor="#8AA194" value={maxPriceIncreasePercent} onChangeText={setMaxPriceIncreasePercent} keyboardType="number-pad" />
+                  <Text style={styles.fieldHint}>Buyers must approve changes above this limit before payment. Leave blank to use Eki's default.</Text>
+                </View>
+              </FloatingCard>
+            </View>
+
+            <View>
+              <Text style={styles.sectionTitle}>Fulfilment rules</Text>
+              <FloatingCard style={{ gap: 14 }}>
+                <View>
+                  <Text style={styles.label}>Fulfilment method</Text>
+                  <View style={styles.chipRow}>
+                    {ALL_FULFILMENT_METHODS.map((m) => (
+                      <TouchableOpacity key={m} onPress={() => setFulfilmentMethod(m)} activeOpacity={0.85} style={[styles.chip, fulfilmentMethod === m && styles.chipActive]}>
+                        <Text style={[styles.chipText, fulfilmentMethod === m && styles.chipTextActive]}>{FULFILMENT_METHOD_LABELS[m]}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View>
+                  <Text style={styles.label}>Order preparation time, in hours (optional)</Text>
+                  <TextInput style={styles.input} placeholder="e.g. 24" placeholderTextColor="#8AA194" value={preparationHours} onChangeText={setPreparationHours} keyboardType="number-pad" />
+                </View>
+                <View>
+                  <Text style={styles.label}>Renewal cutoff, in hours (optional)</Text>
+                  <TextInput style={styles.input} placeholder="e.g. 48" placeholderTextColor="#8AA194" value={renewalCutoffHours} onChangeText={setRenewalCutoffHours} keyboardType="number-pad" />
+                  <Text style={styles.fieldHint}>How many hours before a renewal buyers can still pause, skip, or edit it.</Text>
+                </View>
+                <View>
+                  <Text style={styles.label}>Substitution policy</Text>
+                  <View style={styles.chipRowWrap}>
+                    {ALL_SUBSTITUTION_MODES.map((mode) => (
+                      <TouchableOpacity key={mode} onPress={() => setSubstitutionMode(mode)} activeOpacity={0.85} style={[styles.chip, substitutionMode === mode && styles.chipActive]}>
+                        <Text style={[styles.chipText, substitutionMode === mode && styles.chipTextActive]}>{SUBSTITUTION_MODE_LABELS[mode]}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                {substitutionMode === "ALLOW_SIMILAR" ? (
+                  <View>
+                    <Text style={styles.label}>Substitution details (optional)</Text>
+                    <TextInput style={[styles.input, styles.inputMultiline]} placeholder="What happens if an item is out of stock?" placeholderTextColor="#8AA194" value={substitutionPolicy} onChangeText={setSubstitutionPolicy} multiline />
+                  </View>
+                ) : null}
+              </FloatingCard>
+            </View>
 
             <View>
               <Text style={styles.sectionTitle}>Eligible foodstuff</Text>
@@ -183,16 +338,29 @@ export default function VendorRegularDeliveryOfferEditScreen() {
                 <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
                   {products.map((p, index) => {
                     const selected = selectedProductIds.has(p.id);
+                    const isPaused = pausedProductIds.has(p.id);
                     return (
-                      <TouchableOpacity
-                        key={p.id}
-                        onPress={() => toggleProduct(p.id)}
-                        activeOpacity={0.85}
-                        style={[styles.productRow, index > 0 && styles.productRowBorder]}
-                      >
-                        <Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? "#076B51" : "#C7D2CB"} />
-                        <Text style={styles.productLabel} numberOfLines={1}>{p.name}</Text>
-                      </TouchableOpacity>
+                      <View key={p.id} style={[styles.productRow, index > 0 && styles.productRowBorder]}>
+                        <TouchableOpacity onPress={() => toggleProduct(p.id)} activeOpacity={0.85} style={styles.productRowTouchable}>
+                          <Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? "#076B51" : "#C7D2CB"} />
+                          <Text style={styles.productLabel} numberOfLines={1}>{p.name}</Text>
+                          {isPaused ? <StatusPill label="Paused" tone="warning" /> : null}
+                        </TouchableOpacity>
+                        {offerId && selected ? (
+                          <TouchableOpacity
+                            onPress={() => handleTogglePauseProduct(p.id, p.name)}
+                            disabled={pausingProductId === p.id}
+                            activeOpacity={0.85}
+                            style={styles.pauseProductBtn}
+                          >
+                            {pausingProductId === p.id ? (
+                              <ActivityIndicator size="small" color="#076B51" />
+                            ) : (
+                              <Ionicons name={isPaused ? "play-outline" : "pause-outline"} size={16} color="#076B51" />
+                            )}
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
                     );
                   })}
                 </FloatingCard>
@@ -217,14 +385,20 @@ export default function VendorRegularDeliveryOfferEditScreen() {
 
 const styles = StyleSheet.create({
   label: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#516A60", marginBottom: 8 },
+  fieldHint: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 6 },
   input: { backgroundColor: "#F4F6F5", borderRadius: 16, paddingHorizontal: 14, paddingVertical: 13, fontSize: 14, fontFamily: "Outfit-Regular", color: "#151E1B" },
   inputMultiline: { minHeight: 70, textAlignVertical: "top" },
   sectionTitle: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 10 },
   emptyProductsText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", lineHeight: 19 },
-  productRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 13 },
+  productRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, paddingHorizontal: 16, paddingVertical: 13 },
+  productRowTouchable: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   productRowBorder: { borderTopWidth: 1, borderTopColor: "#F0F0F0" },
   productLabel: { flex: 1, fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  pauseProductBtn: { width: 34, height: 34, borderRadius: 12, backgroundColor: "#F4F6F5", alignItems: "center", justifyContent: "center" },
+  checkRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  checkRowLabel: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chipRowWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14, backgroundColor: "#F4F6F5" },
   chipActive: { backgroundColor: "#076B51" },
   chipText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#516A60" },

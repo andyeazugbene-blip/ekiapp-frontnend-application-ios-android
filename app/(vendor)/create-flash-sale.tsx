@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -22,6 +22,9 @@ export default function CreateFlashSaleScreen() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [step, setStep] = useState<"form" | "review">("form");
+  const [reviewSalePrice, setReviewSalePrice] = useState(0);
+  const [reviewEnds, setReviewEnds] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!vendor) { setLoadingProducts(false); return; }
@@ -64,25 +67,22 @@ export default function CreateFlashSaleScreen() {
     const now = new Date();
     const ends = new Date(now.getTime() + durationHours * 60 * 60 * 1000);
 
-    Alert.alert(
-      "Review your flash sale",
-      `${selectedProduct?.name ?? "Product"}\nSale price: ${symbol}${calculatedSalePrice.toFixed(2)}\nEnds: ${ends.toLocaleString()}`,
-      [
-        { text: "Edit", style: "cancel" },
-        { text: "Publish flash sale", onPress: () => void submitFlashSale(productId, calculatedSalePrice, now, ends) },
-      ],
-    );
+    setReviewSalePrice(calculatedSalePrice);
+    setReviewEnds(ends);
+    setStep("review");
   };
 
-  const submitFlashSale = async (confirmedProductId: string, calculatedSalePrice: number, now: Date, ends: Date) => {
+  const submitFlashSale = async () => {
+    if (!productId || !reviewEnds) return;
     setSubmitting(true);
     try {
+      const now = new Date();
       const created = await marketingService.createFlashSale({
-        productId: confirmedProductId,
-        salePrice: parseFloat(calculatedSalePrice.toFixed(2)),
+        productId,
+        salePrice: parseFloat(reviewSalePrice.toFixed(2)),
         currency: selectedProduct?.currency ?? "GBP",
         startsAt: now.toISOString(),
-        endsAt: ends.toISOString(),
+        endsAt: reviewEnds.toISOString(),
       });
       router.push({
         pathname: "/(vendor)/promo-link",
@@ -108,6 +108,52 @@ export default function CreateFlashSaleScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {step === "review" && reviewEnds ? (
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeaderRow}>
+                <View style={styles.modalIconWrap}>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#076B51" />
+                </View>
+                <Text style={styles.modalTitle}>Review your flash sale</Text>
+                <TouchableOpacity
+                  onPress={() => goBackOrReplace(router, "/(vendor)/grow-sales" as any)}
+                  activeOpacity={0.85}
+                  style={styles.closeIconButton}
+                >
+                  <Ionicons name="close" size={18} color="#858585" />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.reviewCaption}>Buyers will see how long the offer remains available.</Text>
+
+              <View style={styles.reviewCard}>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Product</Text>
+                  <Text style={styles.reviewValue}>{selectedProduct?.name ?? "Product"}</Text>
+                </View>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Sale price</Text>
+                  <Text style={styles.reviewValue}>{symbol}{reviewSalePrice.toFixed(2)}</Text>
+                </View>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Ends</Text>
+                  <Text style={styles.reviewValue}>{reviewEnds.toLocaleString()}</Text>
+                </View>
+              </View>
+
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+              <TouchableOpacity
+                onPress={() => void submitFlashSale()}
+                style={[styles.submitButton, submitting && { opacity: 0.6 }]}
+                disabled={submitting}
+              >
+                {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>Publish flash sale</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setStep("form")} disabled={submitting} style={styles.editButton}>
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
           <View style={styles.modalCard}>
             <View style={styles.modalHeaderRow}>
               <View style={styles.modalIconWrap}>
@@ -202,10 +248,11 @@ export default function CreateFlashSaleScreen() {
               {submitting ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitButtonText}>Launch Flash Sale</Text>
+                <Text style={styles.submitButtonText}>Review flash sale</Text>
               )}
             </TouchableOpacity>
           </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -350,4 +397,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 12
   },
+  reviewCaption: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: -14, marginBottom: 16, lineHeight: 19 },
+  reviewCard: { backgroundColor: "#F4F6F5", borderRadius: 18, padding: 16, gap: 12, marginBottom: 16 },
+  reviewRow: { gap: 2 },
+  reviewLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194" },
+  reviewValue: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  editButton: { height: 46, alignItems: "center", justifyContent: "center", marginTop: 8 },
+  editButtonText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#516A60" },
 });

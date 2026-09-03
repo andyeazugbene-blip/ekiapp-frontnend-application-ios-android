@@ -66,7 +66,7 @@ export default function GrowSalesScreen() {
 
           <TouchableOpacity onPress={() => router.push("/(vendor)/send-offer" as any)} activeOpacity={0.88} style={styles.sendOfferButton}>
             <Text style={styles.sendOfferText}>Send offer to buyers</Text>
-            <Ionicons name={"arrow-up-forward" as any} size={18} color="#FFFFFF" />
+            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
           </TouchableOpacity>
 
           <LinearGradient colors={["#2C2C2C", "#000000"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.tipCard}>

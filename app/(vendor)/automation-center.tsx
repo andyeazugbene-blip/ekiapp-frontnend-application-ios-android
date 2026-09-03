@@ -16,19 +16,11 @@ import {
 import {
   automationService,
   AUTOMATION_LABELS,
-  CONFIGURABLE_AUTOMATION_TYPES,
   type AutomationRun,
   type AutomationType,
   type VendorAutomation,
 } from "../../services/automationService";
-
-// Preset choices per the doc's config screens (Cart Recovery reminder delay,
-// Buyer Win-Back inactivity window). Only types in CONFIGURABLE_AUTOMATION_TYPES
-// get a configurator at all.
-const CONFIG_PRESETS: Partial<Record<AutomationType, { key: string; label: string; options: number[]; unit: string }>> = {
-  CART_RECOVERY: { key: "reminderHours", label: "Remind buyers after", options: [1, 4, 24], unit: "h" },
-  BUYER_WIN_BACK: { key: "inactivityDays", label: "Inactivity window", options: [30, 60, 90], unit: "d" },
-};
+import { pushTokenService, type PushPermissionStatus } from "../../services/notificationService";
 
 function describeRun(run: AutomationRun): string {
   const data = run.data ?? {};
@@ -76,20 +68,21 @@ export default function AutomationCenterScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [togglingType, setTogglingType] = useState<AutomationType | null>(null);
-  const [expandedType, setExpandedType] = useState<AutomationType | null>(null);
-  const [savingConfigType, setSavingConfigType] = useState<AutomationType | null>(null);
   const [selectedRun, setSelectedRun] = useState<AutomationRun | null>(null);
+  const [notifStatus, setNotifStatus] = useState<PushPermissionStatus | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [list, runs] = await Promise.all([
+      const [list, runs, notif] = await Promise.all([
         automationService.listVendorAutomations(),
         automationService.listVendorActivity(30),
+        pushTokenService.getPermissionStatus(),
       ]);
       setAutomations(list);
       setActivity(runs);
+      setNotifStatus(notif.status);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load automations.");
     } finally {
@@ -116,21 +109,6 @@ export default function AutomationCenterScreen() {
     }
   };
 
-  const handleConfigOption = async (type: AutomationType, key: string, value: number) => {
-    const prev = automations.find((a) => a.type === type)?.config ?? {};
-    const nextConfig = { ...prev, [key]: value };
-    setAutomations((list) => list.map((a) => (a.type === type ? { ...a, config: nextConfig } : a)));
-    setSavingConfigType(type);
-    try {
-      const setting = automations.find((a) => a.type === type);
-      await automationService.setVendorAutomation(type, setting?.enabled ?? true, nextConfig);
-    } catch {
-      setAutomations((list) => list.map((a) => (a.type === type ? { ...a, config: prev } : a)));
-    } finally {
-      setSavingConfigType(null);
-    }
-  };
-
   const enabledCount = automations.filter((a) => a.enabled).length;
   const recentFailures = activity.filter((r) => r.status === "FAILED").length;
 
@@ -151,65 +129,49 @@ export default function AutomationCenterScreen() {
           </View>
         ) : (
           <>
+            {notifStatus && notifStatus !== "granted" && notifStatus !== "unsupported" ? (
+              <View style={premiumStyles.block}>
+                <TouchableOpacity onPress={() => router.push("/(vendor)/notification-permission" as any)} activeOpacity={0.85}>
+                  <FloatingCard style={styles.notifBanner}>
+                    <IconAvatar icon="notifications-outline" tone="warning" size={40} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.notifBannerTitle}>Turn on notifications</Text>
+                      <Text style={styles.notifBannerBody}>Get alerted the moment an automation sends, so you never miss an order or a low-stock warning.</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
+                  </FloatingCard>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
             <View style={[premiumStyles.block, { gap: 10 }]}>
               {automations.map((a) => {
-                const preset = CONFIG_PRESETS[a.type];
-                const isConfigurable = CONFIGURABLE_AUTOMATION_TYPES.includes(a.type) && preset;
-                const isExpanded = expandedType === a.type;
                 return (
-                  <FloatingCard key={a.type} style={{ padding: 0, overflow: "hidden" }}>
-                    <TouchableOpacity
-                      activeOpacity={isConfigurable ? 0.8 : 1}
-                      disabled={!isConfigurable}
-                      onPress={() => setExpandedType(isExpanded ? null : a.type)}
-                      style={styles.automationRow}
-                    >
-                      <IconAvatar icon={ICON_FOR_TYPE[a.type] ?? "flash-outline"} tone={a.enabled ? "success" : "neutral"} />
-                      <View style={styles.automationCopy}>
-                        <Text style={styles.automationTitle}>{AUTOMATION_LABELS[a.type] ?? a.type}</Text>
-                        <Text style={styles.automationBody} numberOfLines={2}>{a.description}</Text>
-                      </View>
-                      {isConfigurable ? (
-                        <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color="#8AA194" style={{ marginRight: 2 }} />
-                      ) : null}
-                      {togglingType === a.type ? (
-                        <ActivityIndicator size="small" color="#076B51" />
-                      ) : (
-                        <Switch
-                          value={a.enabled}
-                          onValueChange={(value) => void handleToggle(a.type, value)}
-                          trackColor={{ true: "#85C5AE" }}
-                          thumbColor={a.enabled ? "#076B51" : "#F4F4F4"}
-                        />
-                      )}
-                    </TouchableOpacity>
-
-                    {isConfigurable && isExpanded ? (
-                      <View style={styles.configPanel}>
-                        <Text style={styles.configLabel}>{preset!.label}</Text>
-                        <View style={styles.configOptions}>
-                          {preset!.options.map((value) => {
-                            const current = a.config?.[preset!.key] ?? value;
-                            const selected = current === value;
-                            return (
-                              <TouchableOpacity
-                                key={value}
-                                onPress={() => void handleConfigOption(a.type, preset!.key, value)}
-                                disabled={savingConfigType === a.type}
-                                activeOpacity={0.8}
-                                style={[styles.configChip, selected && styles.configChipActive]}
-                              >
-                                <Text style={[styles.configChipText, selected && styles.configChipTextActive]}>
-                                  {value}{preset!.unit}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                          {savingConfigType === a.type ? <ActivityIndicator size="small" color="#076B51" /> : null}
+                  <TouchableOpacity
+                    key={a.type}
+                    activeOpacity={0.85}
+                    onPress={() => router.push({ pathname: "/(vendor)/automation-detail", params: { type: a.type } } as any)}
+                  >
+                    <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
+                      <View style={styles.automationRow}>
+                        <IconAvatar icon={ICON_FOR_TYPE[a.type] ?? "flash-outline"} tone={a.enabled ? "success" : "neutral"} />
+                        <View style={styles.automationCopy}>
+                          <Text style={styles.automationTitle}>{AUTOMATION_LABELS[a.type] ?? a.type}</Text>
+                          <Text style={styles.automationBody} numberOfLines={2}>{a.description}</Text>
                         </View>
+                        {togglingType === a.type ? (
+                          <ActivityIndicator size="small" color="#076B51" />
+                        ) : (
+                          <Switch
+                            value={a.enabled}
+                            onValueChange={(value) => void handleToggle(a.type, value)}
+                            trackColor={{ true: "#85C5AE" }}
+                            thumbColor={a.enabled ? "#076B51" : "#F4F4F4"}
+                          />
+                        )}
                       </View>
-                    ) : null}
-                  </FloatingCard>
+                    </FloatingCard>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -219,6 +181,12 @@ export default function AutomationCenterScreen() {
                 <Text style={styles.sectionTitle}>Recent activity</Text>
                 {recentFailures > 0 ? <StatusPill label={`${recentFailures} failed`} tone="error" /> : null}
               </View>
+
+              {activity.length > 0 ? (
+                <TouchableOpacity onPress={() => router.push("/(vendor)/automation-activity" as any)} activeOpacity={0.85} style={{ marginBottom: 10 }}>
+                  <Text style={styles.viewAllLink}>View all automation activity</Text>
+                </TouchableOpacity>
+              ) : null}
 
               {activity.length === 0 ? (
                 <FloatingCard>
@@ -230,7 +198,7 @@ export default function AutomationCenterScreen() {
                 </FloatingCard>
               ) : (
                 <View style={{ gap: 8 }}>
-                  {activity.map((run) => (
+                  {activity.slice(0, 5).map((run) => (
                     <TouchableOpacity key={run.id} activeOpacity={0.85} onPress={() => setSelectedRun(run)}>
                       <FloatingCard style={styles.activityCard}>
                         <IconAvatar
@@ -299,13 +267,10 @@ const styles = StyleSheet.create({
   automationCopy: { flex: 1 },
   automationTitle: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#151E1B" },
   automationBody: { fontSize: 12, lineHeight: 17, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: 2 },
-  configPanel: { paddingHorizontal: 14, paddingBottom: 14, paddingTop: 4, borderTopWidth: 1, borderTopColor: "#F0F0F0" },
-  configLabel: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#6A7B72", marginBottom: 8 },
-  configOptions: { flexDirection: "row", gap: 8, alignItems: "center" },
-  configChip: { paddingHorizontal: 14, height: 34, borderRadius: 17, backgroundColor: "#F0F3F1", alignItems: "center", justifyContent: "center" },
-  configChipActive: { backgroundColor: "#076B51" },
-  configChipText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#6A7B72" },
-  configChipTextActive: { color: "#FFFFFF" },
+  viewAllLink: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#076B51" },
+  notifBanner: { flexDirection: "row", alignItems: "center", gap: 12 },
+  notifBannerTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  notifBannerBody: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: 2, lineHeight: 15 },
   activityCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
   activityCopy: { flex: 1 },
   activityTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },

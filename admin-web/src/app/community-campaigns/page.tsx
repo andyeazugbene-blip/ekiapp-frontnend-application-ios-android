@@ -163,10 +163,10 @@ export default function CommunityCampaignsPage() {
             </Card>
 
             <Card>
-              <h2 className="text-2xl font-black">Recently closed</h2>
-              <p className="mt-1 text-sm text-slate-500">Campaigns that reached their deadline, plus the organiser&apos;s decision for any that missed target.</p>
+              <h2 className="text-2xl font-black">Live &amp; recently closed</h2>
+              <p className="mt-1 text-sm text-slate-500">Campaigns currently live or paused, plus closed campaigns and the organiser&apos;s decision for any that missed target.</p>
               {closed.length === 0 ? (
-                <p className="mt-8 text-slate-500">No campaigns have closed yet.</p>
+                <p className="mt-8 text-slate-500">No campaigns to show yet.</p>
               ) : (
                 <div className="mt-6 space-y-4">
                   {closed.map((c) => (
@@ -181,6 +181,27 @@ export default function CommunityCampaignsPage() {
                         <p>Confirmed shares: <span className="font-semibold text-[#101820]">{c.confirmedShares} of {c.maximumShares} (minimum {c.minimumShares})</span></p>
                         <p>Funding outcome: <span className="font-semibold text-[#101820]">{c.fundingOutcome}</span></p>
                       </div>
+                      {c.status === "LIVE" || c.status === "PAUSED" ? (
+                        <div className="mt-4 border-t border-slate-100 pt-4">
+                          {c.status === "LIVE" ? (
+                            <Button
+                              variant="danger"
+                              disabled={busyId === c.id}
+                              onClick={() => void runAction(c.id, () => communityBuyAdminAPI.pauseCampaign(c.id))}
+                            >
+                              Pause new contributions
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              disabled={busyId === c.id}
+                              onClick={() => void runAction(c.id, () => communityBuyAdminAPI.resumeCampaign(c.id))}
+                            >
+                              Resume contributions
+                            </Button>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
