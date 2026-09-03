@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   pendingLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.75)" },
   pendingValue: { fontSize: 30, fontFamily: "Manrope-Bold", color: "#FFFFFF", marginTop: 6 },
   progressBarWrapper: { height: 6, backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 3, marginTop: 18, marginBottom: 12, position: "relative" },
-  progressBarTrack: { ...StyleSheet.absoluteFillObject },
+  progressBarTrack: { ...StyleSheet.absoluteFill },
   progressBarFill: { height: "100%", backgroundColor: "#FFFFFF", borderRadius: 3 },
   progressDot: { width: 10, height: 10, borderRadius: 5, position: "absolute", top: -2 },
   dotActive: { backgroundColor: "#FFFFFF", borderWidth: 1.5, borderColor: "#076B51" },

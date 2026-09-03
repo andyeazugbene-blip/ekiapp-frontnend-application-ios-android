@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4F4F4",
   },
   dimLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.42)",
   },
   modalScroll: {

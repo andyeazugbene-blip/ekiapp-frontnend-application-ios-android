@@ -343,12 +343,12 @@ const styles = StyleSheet.create({
   },
   uploadText: { color: "#1A1A1A", fontFamily: "Outfit-Regular", fontSize: 14 },
   uploadedImage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: "100%",
     height: "100%",
   },
   uploadOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.42)",
     justifyContent: "center",

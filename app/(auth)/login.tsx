@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { findNodeHandle, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,7 +30,10 @@ export default function LoginScreen() {
 
   const scrollToInput = useCallback((inputRef: React.RefObject<TextInput | null>) => () => {
     setTimeout(() => {
-      const scrollNode = findNodeHandle(scrollRef.current);
+      // Fabric requires a host-component ref here, not a legacy node handle —
+      // findNodeHandle() is rejected at runtime ("must be called with a ref
+      // to a native component").
+      const scrollNode = scrollRef.current?.getNativeScrollRef();
       if (!inputRef.current || !scrollNode) return;
       inputRef.current.measureLayout(
         scrollNode,
@@ -102,6 +105,10 @@ export default function LoginScreen() {
       password,
       expectedRole: resolvedRole as any,
     });
+    // A failed login leaves isAuthenticated false — stay on this screen so
+    // the error banner set by the store is visible, instead of falling
+    // through to the unconditional navigation below.
+    if (!useAuthStore.getState().isAuthenticated) return;
     // ⚡ After login, read the LATEST zustand state and handle vendor role
     // directly — no timing issues, no race conditions.
     let currentUser = useAuthStore.getState().user;

@@ -53,7 +53,7 @@ function getRouteKey(segments: string[], role?: string | string[]) {
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     backgroundColor: "#F4F4F4",
     elevation: 999,

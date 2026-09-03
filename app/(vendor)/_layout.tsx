@@ -2,7 +2,7 @@ import React from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Redirect, Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Platform, StyleSheet, View as RNView } from "react-native";
+import { ColorValue, Platform, StyleSheet, View as RNView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TAB_BAR_HEIGHT, TAB_BAR_GAP } from "../../components/layout/tabBarConstants";
 import { useAuthStore } from "../../stores/authStore";
@@ -184,7 +184,7 @@ function TabIcon({
   outline,
 }: {
   focused: boolean;
-  color: string;
+  color: ColorValue;
   name: keyof typeof Ionicons.glyphMap;
   outline: keyof typeof Ionicons.glyphMap;
 }) {

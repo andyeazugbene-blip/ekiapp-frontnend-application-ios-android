@@ -299,7 +299,7 @@ function UploadZone({ state, label, icon, onPick }: UploadZoneProps) {
     >
       {state.localUri && state.isImage !== false ? (
         <>
-          <Image source={{ uri: state.localUri }} style={StyleSheet.absoluteFillObject as any} resizeMode="cover" />
+          <Image source={{ uri: state.localUri }} style={StyleSheet.absoluteFill as any} resizeMode="cover" />
           {state.uploading ? (
             <View style={styles.uploadOverlay}><ActivityIndicator color="#FFFFFF" /></View>
           ) : (
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   uploadLabel: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#076B51" },
-  uploadOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.4)", alignItems: "center", justifyContent: "center" },
+  uploadOverlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.4)", alignItems: "center", justifyContent: "center" },
   uploadedBadge: {
     position: "absolute",
     top: 8,

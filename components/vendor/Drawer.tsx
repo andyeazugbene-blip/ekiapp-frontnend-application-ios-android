@@ -116,7 +116,7 @@ export function VendorDrawer({ visible, onClose }: DrawerProps) {
   return (
     <Animated.View
       pointerEvents="box-none"
-      style={[StyleSheet.absoluteFillObject, { opacity, zIndex: 50, elevation: 50 }]}
+      style={[StyleSheet.absoluteFill, { opacity, zIndex: 50, elevation: 50 }]}
     >
       {/* Solid green wash behind the panel only (drawer width). */}
       <Animated.View
@@ -130,7 +130,7 @@ export function VendorDrawer({ visible, onClose }: DrawerProps) {
           colors={["#087356", "#079064", "#087554"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0.35 }}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
         />
 
         <SafeAreaView edges={["top", "bottom"]} style={styles.panel}>

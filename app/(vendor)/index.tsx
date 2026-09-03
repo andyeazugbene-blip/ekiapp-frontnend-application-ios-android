@@ -534,7 +534,7 @@ export default function VendorDashboardScreen() {
               style={styles.sendOfferBtn}
             >
               <Text style={styles.sendOfferText}>Send offer to buyers</Text>
-              <Ionicons name={"arrow-up-forward" as any} size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
             </TouchableOpacity>
 
             {/* ── Get Your First Order (live progress) ────────────────── */}
@@ -578,7 +578,7 @@ export default function VendorDashboardScreen() {
                   style={styles.shareStoreBtn}
                 >
                   <Text style={styles.shareStoreText}>Share your store link</Text>
-                  <Ionicons name={"arrow-up-forward" as any} size={14} color="#076B51" />
+                  <Ionicons name="arrow-forward" size={14} color="#076B51" />
                 </TouchableOpacity>
               </View>
             ) : null}

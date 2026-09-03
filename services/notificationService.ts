@@ -69,16 +69,28 @@ export const notificationService = {
   },
 };
 
+export type PushPermissionStatus = "granted" | "denied" | "undetermined" | "unsupported";
+
 export const pushTokenService = {
+  /** Read-only status check — never triggers the native OS prompt. Used by the branded lead-in screen (spec §16) to decide what to show before asking. */
+  async getPermissionStatus(): Promise<{ status: PushPermissionStatus; canAskAgain: boolean }> {
+    if (!Device.isDevice || isExpoGo) return { status: "unsupported", canAskAgain: false };
+    const current = (await Notifications.getPermissionsAsync()) as unknown as { status: PushPermissionStatus; canAskAgain: boolean };
+    return { status: current.status, canAskAgain: current.canAskAgain };
+  },
+
   async registerPushToken(authToken?: string): Promise<string | null> {
     if (!Device.isDevice || isExpoGo) return null;
 
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+    // expo-notifications@55's NotificationPermissionsStatus type extends
+    // PermissionResponse, but that base type doesn't resolve through this
+    // SDK's package layout — the `status` field is present at runtime.
+    const existingPermissions = (await Notifications.getPermissionsAsync()) as Notifications.NotificationPermissionsStatus & { status: string };
+    let finalStatus = existingPermissions.status;
 
-    if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+    if (finalStatus !== "granted") {
+      const requestedPermissions = (await Notifications.requestPermissionsAsync()) as Notifications.NotificationPermissionsStatus & { status: string };
+      finalStatus = requestedPermissions.status;
     }
 
     if (finalStatus !== "granted") return null;

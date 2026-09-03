@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   stateButtonText: { color: "#FFFFFF", fontSize: 15, fontFamily: "Manrope-Bold" },
   hero: { height: 290, borderBottomLeftRadius: 34, borderBottomRightRadius: 34, overflow: "hidden", backgroundColor: "#173B31" },
   heroImage: { width: "100%", height: "100%" },
-  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.34)" },
+  heroOverlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.34)" },
   heroSafe: { position: "absolute", top: 0, left: 0, right: 0, paddingHorizontal: 16, paddingTop: 8 },
   heroButton: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   heroCopy: { position: "absolute", left: 24, right: 24, bottom: 26 },

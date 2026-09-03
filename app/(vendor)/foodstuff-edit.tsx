@@ -541,8 +541,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   photoLabel: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#076B51" },
-  uploadedImage: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
-  uploadOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", gap: 6 },
+  uploadedImage: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
+  uploadOverlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", gap: 6 },
   uploadOverlayText: { fontSize: 12, color: "#FFFFFF", fontFamily: "Outfit-Medium" },
   replaceBadge: {
     position: "absolute",

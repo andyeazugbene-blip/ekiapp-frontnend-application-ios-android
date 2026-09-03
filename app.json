@@ -135,7 +135,10 @@
         }
       ],
       "expo-notifications",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-build-properties",
+      "expo-splash-screen",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true

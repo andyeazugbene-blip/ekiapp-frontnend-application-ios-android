@@ -1,6 +1,6 @@
-import type { Href, Router } from "expo-router";
+import type { Href, ImperativeRouter } from "expo-router";
 
-export function goBackOrReplace(router: Router, fallback: Href) {
+export function goBackOrReplace(router: ImperativeRouter, fallback: Href) {
   if (router.canGoBack()) {
     router.back();
     return;
@@ -9,7 +9,7 @@ export function goBackOrReplace(router: Router, fallback: Href) {
   router.replace(fallback);
 }
 
-export function goBackOrPush(router: Router, fallback: Href) {
+export function goBackOrPush(router: ImperativeRouter, fallback: Href) {
   if (router.canGoBack()) {
     router.back();
     return;

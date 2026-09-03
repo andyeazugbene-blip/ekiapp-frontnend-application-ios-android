@@ -2159,7 +2159,7 @@ const styles = StyleSheet.create({
     height: 320,
   },
   heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(12,18,16,0.38)",
   },
   heroTopBar: {

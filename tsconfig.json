@@ -7,7 +7,6 @@
       "DOM"
     ],
     "strict": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./*"
