@@ -13,6 +13,12 @@ assets/figma-slices/
 google-services-key.json
 credentials.json
 google-services.json
+# Native Gradle build needs the real file in the EAS upload archive — the
+# com.google.gms.google-services plugin fails at configuration time without
+# it (this is what broke build 49f720c6). This is the client-side Firebase
+# config file, not a secret (no private key; API key is SHA1+package
+# restricted server-side) — safe for EAS's build sandbox to have it.
+!android/app/google-services.json
 *.jks
 *.keystore
 
