@@ -37,6 +37,10 @@ export default function RegularDeliveryDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [editingItems, setEditingItems] = useState(false);
+  const [draftQuantities, setDraftQuantities] = useState<Record<string, number>>({});
+  const [savingItems, setSavingItems] = useState(false);
+  const [itemsError, setItemsError] = useState("");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -73,6 +77,46 @@ export default function RegularDeliveryDetailScreen() {
       Alert.alert("Couldn't complete that", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setActionBusy(null);
+    }
+  };
+
+  const startEditingItems = () => {
+    if (!sub) return;
+    setItemsError("");
+    setDraftQuantities(Object.fromEntries(sub.items.map((item) => [item.productId, item.quantity])));
+    setEditingItems(true);
+  };
+
+  const cancelEditingItems = () => {
+    setEditingItems(false);
+    setItemsError("");
+  };
+
+  const changeDraftQuantity = (productId: string, delta: number) => {
+    setDraftQuantities((prev) => {
+      const next = Math.max(0, (prev[productId] ?? 0) + delta);
+      return { ...prev, [productId]: next };
+    });
+  };
+
+  const saveItemChanges = async () => {
+    if (!sub) return;
+    const items = Object.entries(draftQuantities)
+      .filter(([, quantity]) => quantity > 0)
+      .map(([productId, quantity]) => ({ productId, quantity }));
+    if (items.length === 0) {
+      setItemsError("Keep at least one product, or cancel this delivery instead.");
+      return;
+    }
+    setSavingItems(true);
+    setItemsError("");
+    try {
+      setSub(await regularDeliveriesService.updateSubscriptionItems(sub.id, items));
+      setEditingItems(false);
+    } catch (err) {
+      setItemsError(err instanceof Error ? err.message : "Couldn't save these changes.");
+    } finally {
+      setSavingItems(false);
     }
   };
 
@@ -162,15 +206,48 @@ export default function RegularDeliveryDetailScreen() {
             </FloatingCard>
 
             <View>
-              <Text style={styles.sectionTitle}>Products</Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>Products</Text>
+                {(isActive || isPaused) && !editingItems ? (
+                  <TouchableOpacity onPress={startEditingItems} activeOpacity={0.85}>
+                    <Text style={styles.editLink}>Edit</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
               <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
                 {sub.items.map((item, index) => (
                   <View key={item.id} style={[styles.itemRow, index > 0 && styles.itemRowBorder]}>
                     <Text style={styles.itemTitle} numberOfLines={1}>{item.product.title}</Text>
-                    <Text style={styles.itemMeta}>x{item.quantity} · {formatDisplayMoney(item.product.priceInCents / 100, item.product.currency, selectedCurrency)}</Text>
+                    {editingItems ? (
+                      <View style={styles.editQuantityRow}>
+                        <TouchableOpacity onPress={() => changeDraftQuantity(item.productId, -1)} activeOpacity={0.85} style={styles.editStepperBtn}>
+                          <Ionicons name="remove" size={14} color="#076B51" />
+                        </TouchableOpacity>
+                        <Text style={styles.editQuantityValue}>{draftQuantities[item.productId] ?? item.quantity}</Text>
+                        <TouchableOpacity onPress={() => changeDraftQuantity(item.productId, 1)} activeOpacity={0.85} style={styles.editStepperBtn}>
+                          <Ionicons name="add" size={14} color="#076B51" />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <Text style={styles.itemMeta}>x{item.quantity} · {formatDisplayMoney(item.product.priceInCents / 100, item.product.currency, selectedCurrency)}</Text>
+                    )}
                   </View>
                 ))}
               </FloatingCard>
+              {editingItems ? (
+                <View style={{ marginTop: 10 }}>
+                  {itemsError ? <Text style={styles.itemsErrorText}>{itemsError}</Text> : null}
+                  <Text style={styles.editHint}>Set a product to 0 to remove it. Changes apply from your next renewal.</Text>
+                  <View style={styles.editActionsRow}>
+                    <TouchableOpacity onPress={cancelEditingItems} disabled={savingItems} activeOpacity={0.85} style={styles.editCancelBtn}>
+                      <Text style={styles.editCancelBtnText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => void saveItemChanges()} disabled={savingItems} activeOpacity={0.85} style={styles.editSaveBtn}>
+                      {savingItems ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.editSaveBtnText}>Save changes</Text>}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : null}
             </View>
 
             <View style={styles.actionsGrid}>
@@ -273,7 +350,19 @@ const styles = StyleSheet.create({
   nextRenewalLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 14 },
   nextRenewalValue: { fontSize: 20, fontFamily: "Manrope-ExtraBold", color: "#151E1B", marginTop: 2, textTransform: "capitalize" },
   sectionTitle: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 10 },
-  itemRow: { flexDirection: "row", justifyContent: "space-between", padding: 14 },
+  sectionTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  editLink: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#076B51", marginBottom: 10 },
+  editQuantityRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  editStepperBtn: { width: 28, height: 28, borderRadius: 9, backgroundColor: "rgba(7,107,81,0.08)", alignItems: "center", justifyContent: "center" },
+  editQuantityValue: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B", minWidth: 18, textAlign: "center" },
+  editHint: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginBottom: 10 },
+  itemsErrorText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#D6552F", marginBottom: 8 },
+  editActionsRow: { flexDirection: "row", gap: 10 },
+  editCancelBtn: { flex: 1, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: "#DCE3DF", alignItems: "center", justifyContent: "center" },
+  editCancelBtnText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#516A60" },
+  editSaveBtn: { flex: 1, minHeight: 44, borderRadius: 12, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  editSaveBtnText: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  itemRow: { flexDirection: "row", justifyContent: "space-between", padding: 14, alignItems: "center" },
   itemRowBorder: { borderTopWidth: 1, borderTopColor: "#F0F0F0" },
   itemTitle: { flex: 1, fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
   itemMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },

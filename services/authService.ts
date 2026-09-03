@@ -124,6 +124,17 @@ export const authService = {
   },
 
   async logout() {
+    // Real server-side revocation (increments the user's tokenVersion, so
+    // this exact token — and any other outstanding one for this account —
+    // stops working immediately instead of just being discarded locally
+    // and remaining valid until it naturally expires). Best-effort: if the
+    // network call fails, the user must still be able to log out locally.
+    try {
+      await apiClient.post("/api/auth/logout");
+    } catch {
+      // Ignore — clearing local tokens below is what actually logs this
+      // device out; the server-side revocation is defense in depth.
+    }
     await tokenStorage.clearTokens();
     return true;
   },
