@@ -45,6 +45,7 @@ const sections: NavSection[] = [
       { name: "Escrow", href: "/escrow" },
       { name: "Payout Requests", href: "/payout-requests" },
       { name: "Refunds", href: "/refunds" },
+      { name: "Ledger Reconciliation", href: "/ledger" },
       { name: "Seller Plans", href: "/subscription-plans" },
     ],
   },
