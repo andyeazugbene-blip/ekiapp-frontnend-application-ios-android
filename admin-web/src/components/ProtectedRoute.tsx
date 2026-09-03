@@ -37,7 +37,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <p className="text-sm font-semibold text-red-600">{authError}</p>
-          <p className="mt-1 text-sm text-slate-500">Your session couldn't be confirmed — this doesn't mean you're logged out.</p>
+          <p className="mt-1 text-sm text-slate-500">Your session couldn&apos;t be confirmed — this doesn&apos;t mean you&apos;re logged out.</p>
           <button
             onClick={retryAuth}
             className="mt-4 inline-flex h-10 items-center justify-center rounded-xl border border-[#096B4A] bg-white px-5 text-sm font-bold text-[#096B4A] hover:bg-emerald-50"

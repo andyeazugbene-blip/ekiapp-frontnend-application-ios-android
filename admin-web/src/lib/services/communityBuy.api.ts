@@ -82,6 +82,10 @@ export interface PendingSupplier {
   vendor?: { storeName: string; verificationStatus: string };
 }
 
+export type MarketPaymentMode = "DISABLED" | "TEST" | "LIVE";
+export type CommunityBuyPaymentMode = "PAY_NOW_REFUND_ON_FAILURE" | "AUTHORISE_THEN_CAPTURE" | "PLEDGE_THEN_CHARGE";
+export type SupplierReleasePolicy = "ON_DELIVERY_CONFIRMED" | "ON_FULFILMENT_MARKED";
+
 export interface MarketConfig {
   id: string;
   countryCode: string;
@@ -91,7 +95,51 @@ export interface MarketConfig {
   organiserApplicationsEnabled: boolean;
   supplierApplicationsEnabled: boolean;
   regularDeliveriesEnabled: boolean;
+  paymentMode: MarketPaymentMode;
+  paymentProvider: string | null;
+  identityProvider: string | null;
+  acceptedIdentityDocuments: string[];
+  campaignMinDurationHours: number | null;
+  campaignMaxDurationHours: number | null;
+  campaignMinValueAmount: number | null;
+  campaignMaxValueAmount: number | null;
+  refundTermsVersion: string | null;
+  organiserFeeBps: number | null;
+  supplierReleasePolicy: SupplierReleasePolicy;
+  deliveryMethods: string[];
+  legalTermsVersion: string | null;
+  // PLEDGE_THEN_CHARGE model (client mandate 2026-09) — the payment mode
+  // must be exactly this before any pledge can be created for a market.
+  communityBuyPaymentMode: CommunityBuyPaymentMode | null;
+  // Eki's processing fee, basis points (500 = 5%). Null blocks supplier
+  // settlement release — never defaulted/invented client-side.
+  communityBuyFeeBps: number | null;
+  createdAt: string;
+  updatedAt: string;
 }
+
+export type MarketConfigUpdate = Partial<{
+  communityBuyEnabled: boolean;
+  communityBuyPaymentsEnabled: boolean;
+  organiserApplicationsEnabled: boolean;
+  supplierApplicationsEnabled: boolean;
+  regularDeliveriesEnabled: boolean;
+  paymentMode: MarketPaymentMode;
+  paymentProvider: string | null;
+  identityProvider: string | null;
+  acceptedIdentityDocuments: string[];
+  campaignMinDurationHours: number | null;
+  campaignMaxDurationHours: number | null;
+  campaignMinValueAmount: number | null;
+  campaignMaxValueAmount: number | null;
+  refundTermsVersion: string | null;
+  organiserFeeBps: number | null;
+  supplierReleasePolicy: SupplierReleasePolicy;
+  deliveryMethods: string[];
+  legalTermsVersion: string | null;
+  communityBuyPaymentMode: CommunityBuyPaymentMode | null;
+  communityBuyFeeBps: number | null;
+}>;
 
 export interface LedgerSummaryRow {
   campaignId: string;
@@ -204,13 +252,7 @@ export const communityBuyAdminAPI = {
     const res = await apiClient.get<{ items?: MarketConfig[] }>("/admin/community-buy/markets");
     return res.items ?? [];
   },
-  async updateMarketConfig(countryCode: string, data: Partial<{
-    communityBuyEnabled: boolean;
-    communityBuyPaymentsEnabled: boolean;
-    organiserApplicationsEnabled: boolean;
-    supplierApplicationsEnabled: boolean;
-    regularDeliveriesEnabled: boolean;
-  }>): Promise<MarketConfig> {
+  async updateMarketConfig(countryCode: string, data: MarketConfigUpdate): Promise<MarketConfig> {
     const res = await apiClient.patch<{ config: MarketConfig }>(`/admin/community-buy/markets/${countryCode}`, data);
     return res.config;
   },
