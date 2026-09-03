@@ -35,6 +35,7 @@
     },
     "android": {
       "package": "com.ekiapp.mobile",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 42,
       "splash": {
         "image": "./assets/splash-icon.png",
