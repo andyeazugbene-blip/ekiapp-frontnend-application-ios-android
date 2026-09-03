@@ -20,7 +20,10 @@
         "EXPO_PUBLIC_VERCEL_FALLBACK_URL": "https://ekiapp-backend.vercel.app",
         "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_live_g7ktIhl7pC6ajaQ1nraoaJeU",
         "EXPO_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAADbdUSFvS7twWicQ",
-        "EXPO_PUBLIC_APP_REVIEW_MODE": "true"
+        "EXPO_PUBLIC_APP_REVIEW_MODE": "true",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "202125496514-alrducvlk3ia17u9mscp2emv6umala4i.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "202125496514-tem3lnl161j203m0hi6eg8k2e9n3rp87.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "202125496514-rl2h7vft68ggk20bla444a1f1bpdjv7a.apps.googleusercontent.com"
       }
     },
     "preview": {
@@ -38,7 +41,10 @@
         "EXPO_PUBLIC_VERCEL_FALLBACK_URL": "https://ekiapp-backend.vercel.app",
         "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_live_g7ktIhl7pC6ajaQ1nraoaJeU",
         "EXPO_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAADbdUSFvS7twWicQ",
-        "EXPO_PUBLIC_APP_REVIEW_MODE": "true"
+        "EXPO_PUBLIC_APP_REVIEW_MODE": "true",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "202125496514-alrducvlk3ia17u9mscp2emv6umala4i.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "202125496514-tem3lnl161j203m0hi6eg8k2e9n3rp87.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "202125496514-rl2h7vft68ggk20bla444a1f1bpdjv7a.apps.googleusercontent.com"
       },
       "android": {
         "buildType": "apk"
@@ -63,7 +69,10 @@
         "EXPO_PUBLIC_VERCEL_FALLBACK_URL": "https://ekiapp-backend.vercel.app",
         "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_live_g7ktIhl7pC6ajaQ1nraoaJeU",
         "EXPO_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAADbdUSFvS7twWicQ",
-        "EXPO_PUBLIC_APP_REVIEW_MODE": "true"
+        "EXPO_PUBLIC_APP_REVIEW_MODE": "true",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "202125496514-alrducvlk3ia17u9mscp2emv6umala4i.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "202125496514-tem3lnl161j203m0hi6eg8k2e9n3rp87.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "202125496514-rl2h7vft68ggk20bla444a1f1bpdjv7a.apps.googleusercontent.com"
       },
       "android": {
         "buildType": "app-bundle"
