@@ -1,4 +1,4 @@
-import { LoginCredentials, RegisterPayload } from "../types/auth";
+import { LoginCredentials, OAuthOutcome, RegisterPayload } from "../types/auth";
 import { apiClient, ApiRequestError } from "./api";
 import { tokenStorage } from "./api/tokenStorage";
 
@@ -130,6 +130,41 @@ export const authService = {
 
   async switchRole() {
     const response = await apiClient.post<AuthResponse>("/api/auth/switch-role");
+    await tokenStorage.setToken(response.token);
+    return { user: normalizeUser(response.user), token: response.token };
+  },
+
+  // ─── Google / Apple Sign-In ────────────────────────────────────────────
+  // These three never store a token themselves for LINK_REQUIRED/
+  // SIGNUP_REQUIRED (there isn't one yet) — only a LOGIN outcome, or a
+  // completed link/signup, actually issues a session.
+
+  async continueWithGoogle(idToken: string, name?: string): Promise<OAuthOutcome> {
+    const outcome = await apiClient.post<OAuthOutcome>("/api/auth/oauth/google", { idToken, name }, { skipAuth: true });
+    if (outcome.status === "LOGIN") {
+      await tokenStorage.setToken(outcome.token);
+      outcome.user = normalizeUser(outcome.user);
+    }
+    return outcome;
+  },
+
+  async continueWithApple(identityToken: string, fullName?: string): Promise<OAuthOutcome> {
+    const outcome = await apiClient.post<OAuthOutcome>("/api/auth/oauth/apple", { identityToken, fullName }, { skipAuth: true });
+    if (outcome.status === "LOGIN") {
+      await tokenStorage.setToken(outcome.token);
+      outcome.user = normalizeUser(outcome.user);
+    }
+    return outcome;
+  },
+
+  async linkOAuthAccount(ticket: string, email: string, password: string) {
+    const response = await apiClient.post<AuthResponse>("/api/auth/oauth/link", { ticket, email, password }, { skipAuth: true });
+    await tokenStorage.setToken(response.token);
+    return { user: normalizeUser(response.user), token: response.token };
+  },
+
+  async completeOAuthSignup(payload: { ticket: string; name?: string; email?: string; role: "BUYER" | "VENDOR"; referralCode?: string }) {
+    const response = await apiClient.post<AuthResponse>("/api/auth/oauth/complete-signup", payload, { skipAuth: true });
     await tokenStorage.setToken(response.token);
     return { user: normalizeUser(response.user), token: response.token };
   },

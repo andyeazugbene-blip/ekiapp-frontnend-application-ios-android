@@ -23,6 +23,8 @@ import {
   OnboardingHeader,
   PrimaryButton,
 } from "../../components/onboarding/FigmaNativeUI";
+import { SocialAuthButtons } from "../../components/auth/SocialAuthButtons";
+import type { OAuthOutcome } from "../../types/auth";
 
 type BuyerSignupStep = "account" | "otp" | "details";
 
@@ -208,6 +210,40 @@ export default function RegisterScreen() {
         router.replace("/(buyer)" as any);
       }
     }
+  };
+
+  const [socialError, setSocialError] = useState("");
+
+  const handleOAuthOutcome = async (outcome: OAuthOutcome) => {
+    setSocialError("");
+    if (outcome.status === "LOGIN") {
+      if (isAuthenticated || user) {
+        await beginFreshAuthFlow().catch(() => {});
+      }
+      useAuthStore.getState().finalizeOAuthSession(outcome.user, outcome.token);
+      const loggedInUser = outcome.user;
+      if (loggedInUser.role === "admin") { router.replace("/(admin)" as any); return; }
+      if (loggedInUser.role === "vendor" && !loggedInUser.hasVendor) { router.replace("/(vendor-onboarding)/setup-store" as any); return; }
+      if (loggedInUser.role === "vendor") { router.replace("/(vendor)" as any); return; }
+      if (redirect) { router.replace(redirect as any); return; }
+      router.replace("/(buyer)" as any);
+      return;
+    }
+    if (outcome.status === "LINK_REQUIRED") {
+      router.push({ pathname: "/(auth)/oauth-link", params: { ticket: outcome.ticket, email: outcome.email, redirect: redirect ?? "", role: resolvedRole } });
+      return;
+    }
+    router.push({
+      pathname: "/(auth)/oauth-complete-signup",
+      params: {
+        ticket: outcome.ticket,
+        prefillName: outcome.prefill.name ?? "",
+        prefillEmail: outcome.prefill.email ?? "",
+        missingFields: outcome.missingFields.join(","),
+        role: resolvedRole,
+        redirect: redirect ?? "",
+      },
+    });
   };
 
   const activeSegments = isVendor ? 0 : buyerStep === "account" ? 0 : buyerStep === "otp" ? 1 : 2;
@@ -459,11 +495,15 @@ export default function RegisterScreen() {
             ) : null}
 
             {buyerStep === "account" ? (
-              <PrimaryButton
-                disabled={isLoading || otpSending}
-                onPress={handleContinue}
-                title={isLoading || otpSending ? "Loading..." : "Continue"}
-              />
+              <>
+                <PrimaryButton
+                  disabled={isLoading || otpSending}
+                  onPress={handleContinue}
+                  title={isLoading || otpSending ? "Loading..." : "Continue"}
+                />
+                {socialError ? <Text style={styles.socialErrorText}>{socialError}</Text> : null}
+                <SocialAuthButtons onOutcome={handleOAuthOutcome} onError={setSocialError} disabled={isLoading || otpSending} />
+              </>
             ) : buyerStep === "otp" ? (
               <>
                 <PrimaryButton
@@ -520,6 +560,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#076B51" },
   flex: { flex: 1 },
+  socialErrorText: { color: "#FB6363", fontSize: 12, lineHeight: 17, marginBottom: 10, textAlign: "center" },
   backButton: {
     width: 36,
     height: 36,

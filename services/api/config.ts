@@ -18,3 +18,9 @@ if (!__DEV__ && !envStripeKey) {
 export const API_BASE_URL = envUrl || "https://ekiapp-backend.vercel.app";
 
 export const STRIPE_PUBLISHABLE_KEY = envStripeKey || "";
+
+// Google Sign-In — absent entirely just means the button renders disabled/
+// hidden rather than the app crashing; see components/auth/SocialAuthButtons.tsx.
+export const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "";
+export const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? "";
+export const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";

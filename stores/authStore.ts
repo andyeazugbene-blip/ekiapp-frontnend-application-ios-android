@@ -42,6 +42,7 @@ interface AuthStore {
   updateProfile: (data: Record<string, unknown>) => Promise<AnyProfile>;
   setUser: (user: AnyProfile) => void;
   switchRole: () => Promise<void>;
+  finalizeOAuthSession: (user: AnyProfile, token: string) => void;
   setLastRole: (role: string) => void;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
@@ -359,6 +360,33 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     setUser: (user) => {
       set({ user });
       persistState();
+    },
+
+    // Used after a Google/Apple LOGIN outcome, or after successfully
+    // completing /oauth/link or /oauth/complete-signup — the token is
+    // already stored by authService at that point (mirroring login()'s
+    // success tail exactly, minus the credential exchange it doesn't need).
+    finalizeOAuthSession: (user, token) => {
+      set({
+        user,
+        token,
+        lastRole: user.role,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+        hasSeenOnboarding: true,
+      });
+      setMonitoringUser({ id: user.id, role: user.role });
+      persistState();
+      pushTokenService
+        .registerPushToken(token)
+        .then((pushToken) => {
+          if (pushToken) {
+            set({ pushToken });
+            persistState();
+          }
+        })
+        .catch(() => {});
     },
     switchRole: async () => {
       try {

@@ -75,3 +75,12 @@ export interface RegisterPayload {
   deliveryAddress?: string;
   referralCode?: string;
 }
+
+// Google/Apple Sign-In — mirrors the backend's three-state resolution
+// (backend/src/modules/auth/oauth/oauth.service.ts). The ticket is an
+// opaque, short-lived (15m) signed token the client never inspects —
+// it's forwarded as-is to /oauth/link or /oauth/complete-signup.
+export type OAuthOutcome =
+  | { status: "LOGIN"; user: any; token: string }
+  | { status: "LINK_REQUIRED"; ticket: string; email: string }
+  | { status: "SIGNUP_REQUIRED"; ticket: string; prefill: { name: string | null; email: string | null }; missingFields: string[] };

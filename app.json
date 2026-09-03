@@ -16,6 +16,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.ekiapp.mobilee",
       "buildNumber": "17",
+      "usesAppleSignIn": true,
       "splash": {
         "image": "./assets/splash-icon.png",
         "resizeMode": "contain",
@@ -138,7 +139,9 @@
       "expo-secure-store",
       "expo-build-properties",
       "expo-splash-screen",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true

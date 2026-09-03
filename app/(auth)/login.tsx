@@ -5,8 +5,10 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
+import { SocialAuthButtons } from "../../components/auth/SocialAuthButtons";
 import { useAuthStore } from "../../stores/authStore";
 import { goBackOrReplace } from "../../utils/navigation";
+import type { OAuthOutcome } from "../../types/auth";
 
 const ROLE_LABELS: Record<string, string> = {
   buyer: "Buyer",
@@ -125,6 +127,40 @@ export default function LoginScreen() {
     }
     if (redirect) { router.replace(redirect as any); return; }
     router.replace("/(buyer)");
+  };
+
+  const [socialError, setSocialError] = useState("");
+
+  const handleOAuthOutcome = async (outcome: OAuthOutcome) => {
+    setSocialError("");
+    if (outcome.status === "LOGIN") {
+      if (isAuthenticated || user) {
+        await beginFreshAuthFlow().catch(() => {});
+      }
+      useAuthStore.getState().finalizeOAuthSession(outcome.user, outcome.token);
+      const loggedInUser = outcome.user;
+      if (loggedInUser.role === "admin") { router.replace("/(admin)"); return; }
+      if (loggedInUser.role === "vendor" && !loggedInUser.hasVendor) { router.replace("/(vendor-onboarding)/setup-store" as any); return; }
+      if (loggedInUser.role === "vendor") { router.replace("/(vendor)"); return; }
+      if (redirect) { router.replace(redirect as any); return; }
+      router.replace("/(buyer)");
+      return;
+    }
+    if (outcome.status === "LINK_REQUIRED") {
+      router.push({ pathname: "/(auth)/oauth-link", params: { ticket: outcome.ticket, email: outcome.email, redirect: redirect ?? "", role: resolvedRole } });
+      return;
+    }
+    router.push({
+      pathname: "/(auth)/oauth-complete-signup",
+      params: {
+        ticket: outcome.ticket,
+        prefillName: outcome.prefill.name ?? "",
+        prefillEmail: outcome.prefill.email ?? "",
+        missingFields: outcome.missingFields.join(","),
+        role: resolvedRole,
+        redirect: redirect ?? "",
+      },
+    });
   };
 
   if (isAdmin) {
@@ -278,6 +314,15 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             <Button title={isAdmin ? "Sign In" : "Continue"} fullWidth loading={isLoading} onPress={handleLogin} />
+
+            {socialError ? (
+              <View style={[styles.errorBanner, { marginTop: 12, marginBottom: 0 }]}>
+                <Ionicons name="alert-circle-outline" size={18} color="#FB6363" style={{ marginTop: 1 }} />
+                <Text style={styles.errorText}>{socialError}</Text>
+              </View>
+            ) : null}
+
+            <SocialAuthButtons onOutcome={handleOAuthOutcome} onError={setSocialError} disabled={isLoading} />
           </View>
 
           <View style={styles.footerRow}>
