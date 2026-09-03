@@ -180,3 +180,8 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// FCM V1 push — reads android/app/google-services.json (Firebase project
+// comekiappmobile, package com.ekiapp.mobile). Must be applied after the
+// android application plugin, hence bottom-of-file.
+apply plugin: 'com.google.gms.google-services'

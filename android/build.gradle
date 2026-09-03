@@ -9,6 +9,12 @@ buildscript {
     classpath('com.android.tools.build:gradle')
     classpath('com.facebook.react:react-native-gradle-plugin')
     classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
+    // FCM V1 push — google-services.json exists in android/app/ but this
+    // directory predates that addition, so the plugin was never wired in.
+    // Standard Firebase-for-Android setup for an existing native project
+    // (not using Expo's CNG regeneration, since this android/ dir has real
+    // prior manual native fixes we shouldn't risk overwriting).
+    classpath('com.google.gms:google-services:4.4.2')
   }
 }
 
