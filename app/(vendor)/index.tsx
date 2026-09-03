@@ -626,9 +626,15 @@ export default function VendorDashboardScreen() {
               />
               <FoodRow
                 icon="people-circle-outline"
-                label={supplierProfile?.isVerified ? "Community Buy" : "Community Buy — become a supplier"}
+                label={supplierProfile?.isVerified ? "Community Buy — Supply" : "Community Buy — become a supplier"}
                 tone="light"
                 onPress={() => navigate("/(vendor)/community-buy-supplier")}
+              />
+              <FoodRow
+                icon="megaphone-outline"
+                label="Community Buy — Organize a campaign"
+                tone="light"
+                onPress={() => navigate("/(buyer)/community-buy-organiser")}
               />
             </View>
 

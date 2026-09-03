@@ -5,7 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
-import { presentPayment } from "../../services/stripePayment";
+import { presentSetupIntent } from "../../services/stripePayment";
+import { regularDeliveriesService, type BuyerPaymentMethod } from "../../services/regularDeliveriesService";
 import {
   ErrorState,
   FloatingCard,
@@ -70,6 +71,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [publishing, setPublishing] = useState(false);
   const [decisionBusy, setDecisionBusy] = useState<"top-up" | "extension" | "end" | null>(null);
   const [topUpQuantity, setTopUpQuantity] = useState("1");
+  const [paymentMethods, setPaymentMethods] = useState<BuyerPaymentMethod[]>([]);
+  const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
+  const [addingCard, setAddingCard] = useState(false);
   const [showExtensionForm, setShowExtensionForm] = useState(false);
   const [extensionDeadline, setExtensionDeadline] = useState("");
   const [extensionReason, setExtensionReason] = useState("");
@@ -99,6 +103,11 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         setPricePerShare(existing.pricePerShareMinor ? String(existing.pricePerShareMinor / 100) : "");
         setDeadline(existing.deadline.slice(0, 10));
         setParticipants(await communityBuyService.listCampaignParticipants(id).catch(() => []));
+        if (existing.status === "RESCUE_WINDOW") {
+          const methods = await regularDeliveriesService.listPaymentMethods().catch(() => [] as BuyerPaymentMethod[]);
+          setPaymentMethods(methods);
+          setPaymentMethodId((prev) => prev ?? methods.find((m) => m.isDefault)?.id ?? methods[0]?.id ?? null);
+        }
         if (["FAILED", "CANCELLED", "REFUNDING"].includes(existing.status)) {
           setRefundProgress(await communityBuyService.getRefundProgress(id).catch(() => null));
         }
@@ -249,23 +258,44 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   // Rescue-window actions — doc §8. There is no "fulfil anyway below
   // minimum" action; only these four ways out of RESCUE_WINDOW.
 
+  const handleAddCard = async () => {
+    setAddingCard(true);
+    try {
+      const { clientSecret } = await regularDeliveriesService.createSetupIntent();
+      const result = await presentSetupIntent({ clientSecret });
+      if (result.status === "succeeded") {
+        const setupIntentId = clientSecret.split("_secret_")[0];
+        await regularDeliveriesService.confirmSetupIntent(setupIntentId);
+        const methods = await regularDeliveriesService.listPaymentMethods();
+        setPaymentMethods(methods);
+        setPaymentMethodId(methods.find((m) => m.isDefault)?.id ?? methods[0]?.id ?? null);
+      } else if (result.status !== "cancelled") {
+        Alert.alert("Could not save card", result.message ?? "Please try again.");
+      }
+    } catch (err) {
+      Alert.alert("Could not save card", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setAddingCard(false);
+    }
+  };
+
+  /**
+   * PLEDGE_THEN_CHARGE (client mandate 2026-09): the organiser's top-up
+   * pledges the shortfall — no charge happens now. It is only captured if
+   * the rescued campaign goes on to reach its minimum/goal.
+   */
   const handleTopUp = async () => {
     if (!campaign) return;
     const qty = Math.round(Number(topUpQuantity));
-    if (!Number.isFinite(qty) || qty <= 0) return Alert.alert("Quantity required", "Enter how many shares you want to purchase.");
+    if (!Number.isFinite(qty) || qty <= 0) return Alert.alert("Quantity required", "Enter how many shares you want to pledge.");
+    if (!paymentMethodId) return Alert.alert("Payment method required", "Add a card to pledge this top-up.");
     setDecisionBusy("top-up");
     try {
-      const { contributionId, clientSecret } = await communityBuyService.createOrganiserTopUp(campaign.id, qty);
-      const result = await presentPayment({ clientSecret, merchantDisplayName: "Eki Community Buy" });
-      if (result.status === "succeeded") {
-        await communityBuyService.confirmContributionPayment(contributionId);
-        setCampaign(await communityBuyService.getCampaign(campaign.id));
-        Alert.alert("Payment confirmed", "Your top-up will count once the payment provider confirms it.");
-      } else if (result.status !== "cancelled") {
-        Alert.alert("Payment failed", result.message ?? "Please try again.");
-      }
+      await communityBuyService.createOrganiserTopUp(campaign.id, qty, paymentMethodId);
+      setCampaign(await communityBuyService.getCampaign(campaign.id));
+      Alert.alert("Pledge recorded", "Your top-up is pledged. Your card will only be charged if this campaign goes on to succeed.");
     } catch (err) {
-      Alert.alert("Couldn't complete the top-up", err instanceof Error ? err.message : "Please try again.");
+      Alert.alert("Couldn't record the top-up", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setDecisionBusy(null);
     }
@@ -366,11 +396,26 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Time remaining</Text><Text style={styles.outcomeValue}>{formatDateTime(campaign.rescueEndsAt)}</Text></View>
                 <Text style={styles.outcomeHint}>You have until then to complete one of these actions. Do not collect payment from participants outside Eki.</Text>
 
-                <Text style={styles.rescueSectionLabel}>Purchase the remaining share(s)</Text>
+                <Text style={styles.rescueSectionLabel}>Pledge the remaining share(s)</Text>
+                <Text style={styles.outcomeHint}>No charge now — your card is only charged if this campaign goes on to succeed.</Text>
+                <View style={{ gap: 8 }}>
+                  {paymentMethods.map((m) => (
+                    <TouchableOpacity key={m.id} onPress={() => setPaymentMethodId(m.id)} activeOpacity={0.85}>
+                      <FloatingCard style={[styles.optionRow, paymentMethodId === m.id && styles.optionRowActive]}>
+                        <Ionicons name={paymentMethodId === m.id ? "radio-button-on" : "radio-button-off"} size={18} color={paymentMethodId === m.id ? "#076B51" : "#C7D2CB"} />
+                        <Text style={styles.optionText}>{(m.brand ?? "Card").toUpperCase()} •••• {m.last4}</Text>
+                      </FloatingCard>
+                    </TouchableOpacity>
+                  ))}
+                  <TouchableOpacity onPress={() => void handleAddCard()} disabled={addingCard} activeOpacity={0.85} style={styles.addRow}>
+                    {addingCard ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="card-outline" size={18} color="#076B51" />}
+                    <Text style={styles.addRowText}>{addingCard ? "Saving card..." : "Add a card"}</Text>
+                  </TouchableOpacity>
+                </View>
                 <View style={styles.quantityRow}>
                   <TextInput style={styles.quantityInput} keyboardType="number-pad" value={topUpQuantity} onChangeText={setTopUpQuantity} placeholder="1" placeholderTextColor="#8AA194" />
                   <TouchableOpacity onPress={handleTopUp} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.fulfilBtn}>
-                    {decisionBusy === "top-up" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fulfilBtnText}>Pay {formatDisplayMoney((Math.round(Number(topUpQuantity)) || 0) * campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text>}
+                    {decisionBusy === "top-up" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fulfilBtnText}>Pledge {formatDisplayMoney((Math.round(Number(topUpQuantity)) || 0) * campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text>}
                   </TouchableOpacity>
                 </View>
 
@@ -559,6 +604,8 @@ const styles = StyleSheet.create({
   outcomeValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
   outcomeHint: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", lineHeight: 17 },
   decisionRow: { flexDirection: "row", gap: 8 },
+  addRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 },
+  addRowText: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#076B51" },
   fulfilBtn: { flex: 1, minHeight: 46, borderRadius: 12, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
   fulfilBtnText: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   cancelBtn: { flex: 1, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: "#D6552F", alignItems: "center", justifyContent: "center" },

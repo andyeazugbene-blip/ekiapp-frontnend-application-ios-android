@@ -31,14 +31,22 @@ export type CampaignStatus =
 
 export type FundingOutcome = "PENDING" | "GOAL_REACHED" | "MINIMUM_REACHED" | "BELOW_MINIMUM";
 
+// PLEDGE_THEN_CHARGE model (client mandate 2026-09): a pledge saves a
+// payment method and reserves a share, but captures nothing. Charging only
+// happens once the campaign succeeds — see PLEDGED / CHARGE_FAILED below.
+// PAYMENT_PROCESSING is reused for "the off-session charge is in flight".
 export type ContributionStatus =
   | "INITIATED"
+  | "PLEDGED"
   | "PAYMENT_PROCESSING"
   | "PAID"
-  | "FAILED"
+  | "PAYMENT_FAILED"
+  | "CHARGE_FAILED"
   | "REFUND_PENDING"
   | "REFUND_PROCESSING"
-  | "REFUNDED";
+  | "REFUNDED"
+  | "REFUND_FAILED"
+  | "CANCELLED";
 
 export type ExtensionRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
 
@@ -121,6 +129,7 @@ export interface MyCommunityBuy {
   };
   totalQuantity: number;
   totalPaid: number;
+  totalPledged: number;
   latestContribution: Contribution;
   refundStatus: "REFUND_PENDING" | "REFUND_PROCESSING" | "REFUNDED" | "REFUND_FAILED" | null;
 }
@@ -271,8 +280,14 @@ export const communityBuyService = {
     await apiClient.post(`/api/community-buy/campaigns/${campaignId}/join`, {});
   },
 
-  async createContribution(campaignId: string, quantity: number): Promise<{ contributionId: string; clientSecret: string; quantity: number; amount: number; currency: string }> {
-    return apiClient.post(`/api/community-buy/campaigns/${campaignId}/contributions`, { quantity });
+  /**
+   * Pledges a quantity against an already-saved payment method — no money
+   * moves here (client mandate 2026-09). Get a paymentMethodId first via
+   * regularDeliveriesService.createSetupIntent/confirmSetupIntent (the same
+   * generic /api/buyer/payment-methods flow, reused as-is).
+   */
+  async pledgeContribution(campaignId: string, quantity: number, paymentMethodId: string): Promise<{ contributionId: string; quantity: number; amount: number; currency: string; status: ContributionStatus }> {
+    return apiClient.post(`/api/community-buy/campaigns/${campaignId}/contributions`, { quantity, paymentMethodId });
   },
 
   async getContribution(id: string): Promise<Contribution> {
@@ -280,8 +295,9 @@ export const communityBuyService = {
     return res.contribution;
   },
 
-  async confirmContributionPayment(id: string): Promise<Contribution> {
-    const res = await apiClient.post<{ contribution: Contribution }>(`/api/community-buy/contributions/${id}/payment`, {});
+  /** Retries a charge that failed but hasn't exhausted its attempts — e.g. after updating a card. */
+  async retryContributionCharge(id: string): Promise<Contribution> {
+    const res = await apiClient.post<{ contribution: Contribution }>(`/api/community-buy/contributions/${id}/retry-charge`, {});
     return res.contribution;
   },
 
@@ -370,8 +386,8 @@ export const communityBuyService = {
   // ─── Rescue-window actions — doc §8. There is no "fulfil anyway below
   // minimum" action; the only ways out of RESCUE_WINDOW are these four. ──
 
-  async createOrganiserTopUp(campaignId: string, quantity: number): Promise<{ contributionId: string; clientSecret: string; quantity: number; amount: number; currency: string }> {
-    return apiClient.post(`/api/organiser/campaigns/${campaignId}/rescue/top-up`, { quantity });
+  async createOrganiserTopUp(campaignId: string, quantity: number, paymentMethodId: string): Promise<{ contributionId: string; quantity: number; amount: number; currency: string; status: ContributionStatus }> {
+    return apiClient.post(`/api/organiser/campaigns/${campaignId}/rescue/top-up`, { quantity, paymentMethodId });
   },
 
   async requestExtension(campaignId: string, input: {

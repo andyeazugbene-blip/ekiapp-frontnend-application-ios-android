@@ -15,7 +15,25 @@ import {
   premiumStyles,
   type Tone,
 } from "../../components/shared/PremiumBlocks";
-import { communityBuyService, type MyCommunityBuy } from "../../services/communityBuyService";
+import { communityBuyService, type ContributionStatus, type MyCommunityBuy } from "../../services/communityBuyService";
+
+// Client mandate (2026-09): accurate states only — never show "Payment
+// successful" when only a payment method has been saved.
+const PLEDGE_TONE: Partial<Record<ContributionStatus, Tone>> = {
+  PLEDGED: "info",
+  PAYMENT_PROCESSING: "info",
+  PAID: "success",
+  CHARGE_FAILED: "error",
+  CANCELLED: "neutral",
+};
+
+const PLEDGE_LABEL: Partial<Record<ContributionStatus, string>> = {
+  PLEDGED: "Payment method saved — awaiting outcome",
+  PAYMENT_PROCESSING: "Payment pending",
+  PAID: "Payment confirmed",
+  CHARGE_FAILED: "Payment failed",
+  CANCELLED: "Pledge cancelled",
+};
 
 const REFUND_TONE: Record<NonNullable<MyCommunityBuy["refundStatus"]>, Tone> = {
   REFUND_PENDING: "warning",
@@ -92,11 +110,19 @@ export default function MyCommunityBuysScreen() {
                 <FloatingCard style={{ gap: 8 }}>
                   <View style={styles.cardTop}>
                     <Text style={styles.cardTitle} numberOfLines={1}>{item.campaign.title}</Text>
-                    {item.refundStatus ? <StatusPill label={REFUND_LABEL[item.refundStatus]} tone={REFUND_TONE[item.refundStatus]} /> : null}
+                    {item.refundStatus ? (
+                      <StatusPill label={REFUND_LABEL[item.refundStatus]} tone={REFUND_TONE[item.refundStatus]} />
+                    ) : PLEDGE_LABEL[item.latestContribution.status] ? (
+                      <StatusPill label={PLEDGE_LABEL[item.latestContribution.status]!} tone={PLEDGE_TONE[item.latestContribution.status] ?? "neutral"} />
+                    ) : null}
                   </View>
                   <Text style={styles.cardVendor}>{item.campaign.supplier?.vendor?.storeName ?? "Community Buy"}</Text>
                   <View style={styles.cardMetaRow}>
-                    <Text style={styles.cardMetaText}>{item.totalQuantity} share{item.totalQuantity === 1 ? "" : "s"} · {formatDisplayMoney(item.totalPaid / 100, item.campaign.currency, selectedCurrency)}</Text>
+                    <Text style={styles.cardMetaText}>
+                      {item.totalPaid > 0
+                        ? `${item.totalQuantity} share${item.totalQuantity === 1 ? "" : "s"} · ${formatDisplayMoney(item.totalPaid / 100, item.campaign.currency, selectedCurrency)} charged`
+                        : `${formatDisplayMoney(item.totalPledged / 100, item.campaign.currency, selectedCurrency)} pledged — not charged yet`}
+                    </Text>
                     <Text style={styles.cardMetaText}>{formatDate(item.campaign.deadline)}</Text>
                   </View>
                 </FloatingCard>

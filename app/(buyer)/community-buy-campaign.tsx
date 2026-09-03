@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
-import { presentPayment } from "../../services/stripePayment";
+import { presentSetupIntent } from "../../services/stripePayment";
 import {
   ErrorState,
   FloatingCard,
@@ -17,6 +17,9 @@ import {
   type Tone,
 } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, type Campaign, type CampaignUpdate, type Contribution } from "../../services/communityBuyService";
+// The saved-card flow is generic (buyer/payment-methods), built for Regular
+// Deliveries — reused as-is for Community Buy pledges rather than duplicated.
+import { regularDeliveriesService, type BuyerPaymentMethod } from "../../services/regularDeliveriesService";
 
 const STATUS_TONE: Record<Campaign["status"], Tone> = {
   DRAFT: "neutral",
@@ -66,6 +69,11 @@ export default function CommunityBuyCampaignScreen() {
   const [updates, setUpdates] = useState<CampaignUpdate[]>([]);
   const [showReceipt, setShowReceipt] = useState(false);
 
+  const [paymentMethods, setPaymentMethods] = useState<BuyerPaymentMethod[]>([]);
+  const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
+  const [addingCard, setAddingCard] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -73,6 +81,21 @@ export default function CommunityBuyCampaignScreen() {
     try {
       setCampaign(await communityBuyService.getCampaign(id));
       setUpdates(await communityBuyService.getCampaignUpdates(id).catch(() => []));
+      const [methods, mine] = await Promise.all([
+        regularDeliveriesService.listPaymentMethods().catch(() => [] as BuyerPaymentMethod[]),
+        communityBuyService.listMyContributions().catch(() => []),
+      ]);
+      setPaymentMethods(methods);
+      setPaymentMethodId((prev) => prev ?? methods.find((m) => m.isDefault)?.id ?? methods[0]?.id ?? null);
+      // Surfaces this buyer's existing pledge for this specific campaign on
+      // revisit — otherwise PAID/CHARGE_FAILED (which only resolve after the
+      // campaign closes, days after the pledge screen was last open) would
+      // never be shown.
+      const mineForCampaign = mine.find((m) => m.campaign.id === id);
+      if (mineForCampaign?.latestContribution) {
+        setContribution(mineForCampaign.latestContribution);
+        setJoined(true);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load this campaign.");
     } finally {
@@ -105,29 +128,69 @@ export default function CommunityBuyCampaignScreen() {
     }
   };
 
+  const handleAddCard = async () => {
+    setAddingCard(true);
+    try {
+      const { clientSecret } = await regularDeliveriesService.createSetupIntent();
+      const result = await presentSetupIntent({ clientSecret });
+      if (result.status === "succeeded") {
+        // The client only confirms the SetupIntent completed — the backend
+        // re-verifies it server-side before actually saving the card.
+        const setupIntentId = clientSecret.split("_secret_")[0];
+        await regularDeliveriesService.confirmSetupIntent(setupIntentId);
+        const methods = await regularDeliveriesService.listPaymentMethods();
+        setPaymentMethods(methods);
+        setPaymentMethodId(methods.find((m) => m.isDefault)?.id ?? methods[0]?.id ?? null);
+      } else if (result.status !== "cancelled") {
+        Alert.alert("Could not save card", result.message ?? "Please try again.");
+      }
+    } catch (err) {
+      Alert.alert("Could not save card", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setAddingCard(false);
+    }
+  };
+
+  /**
+   * PLEDGE_THEN_CHARGE (client mandate 2026-09): this only saves a pledge
+   * against an already-collected payment method. No charge happens now —
+   * the amount is only captured later if the campaign actually succeeds.
+   */
   const handleContribute = async () => {
     const value = Math.round(Number(quantity));
     if (!Number.isFinite(value) || value <= 0) {
       setContributeError("Enter a valid number of shares.");
       return;
     }
+    if (!paymentMethodId) {
+      setContributeError("Add a payment method to continue.");
+      return;
+    }
     setContributing(true);
     setContributeError("");
     try {
-      const { contributionId, clientSecret } = await communityBuyService.createContribution(id, value);
-      const result = await presentPayment({ clientSecret, merchantDisplayName: "Eki Community Buy" });
-      if (result.status === "succeeded") {
-        const confirmed = await communityBuyService.confirmContributionPayment(contributionId);
-        setContribution(confirmed);
-        setJoined(true);
-        await load();
-      } else if (result.status !== "cancelled") {
-        setContributeError(result.message ?? "Payment failed.");
-      }
+      const pledge = await communityBuyService.pledgeContribution(id, value, paymentMethodId);
+      const full = await communityBuyService.getContribution(pledge.contributionId);
+      setContribution(full);
+      setJoined(true);
+      await load();
     } catch (err) {
-      setContributeError(err instanceof Error ? err.message : "Could not start your contribution.");
+      setContributeError(err instanceof Error ? err.message : "Could not record your pledge.");
     } finally {
       setContributing(false);
+    }
+  };
+
+  const handleRetryCharge = async () => {
+    if (!contribution) return;
+    setRetrying(true);
+    try {
+      const updated = await communityBuyService.retryContributionCharge(contribution.id);
+      setContribution(updated);
+    } catch (err) {
+      Alert.alert("Could not retry payment", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setRetrying(false);
     }
   };
 
@@ -208,7 +271,7 @@ export default function CommunityBuyCampaignScreen() {
           ) : campaign.status === "FAILED" ? (
             <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
               <Ionicons name="time-outline" size={20} color="#B48A00" />
-              <Text style={styles.outcomeText}>This campaign did not reach its minimum. No supplier order will be created — an individual refund is being created for every eligible confirmed contribution.</Text>
+              <Text style={styles.outcomeText}>This campaign did not reach its minimum. No supplier order will be created — no participant was ever charged, so there is nothing to refund. Any saved pledge has been cancelled.</Text>
             </FloatingCard>
           ) : campaign.status === "REFUNDING" ? (
             <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
@@ -218,7 +281,7 @@ export default function CommunityBuyCampaignScreen() {
           ) : campaign.status === "CANCELLED" ? (
             <FloatingCard style={[styles.outcomeCard, styles.outcomeCardError]}>
               <Ionicons name="return-down-back-outline" size={20} color="#D6552F" />
-              <Text style={styles.outcomeText}>This campaign was ended. Any contribution you made is being refunded.</Text>
+              <Text style={styles.outcomeText}>This campaign was ended. No participant was charged — any pledge you made has been cancelled.</Text>
             </FloatingCard>
           ) : null}
 
@@ -235,7 +298,7 @@ export default function CommunityBuyCampaignScreen() {
                 <FloatingCard style={styles.outcomeCard}>
                   <Ionicons name="checkmark-circle-outline" size={20} color="#076B51" />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.outcomeText}>Your contribution of {formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)} for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} is confirmed.</Text>
+                    <Text style={styles.outcomeText}>Payment confirmed — this campaign succeeded, and your saved card was charged {formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)} for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"}.</Text>
                     <TouchableOpacity onPress={() => setShowReceipt((v) => !v)} activeOpacity={0.85}>
                       <Text style={styles.receiptToggle}>{showReceipt ? "Hide receipt" : "View receipt"}</Text>
                     </TouchableOpacity>
@@ -244,12 +307,37 @@ export default function CommunityBuyCampaignScreen() {
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Campaign</Text><Text style={styles.receiptValue} numberOfLines={1}>{campaign.title}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Shares</Text><Text style={styles.receiptValue}>{contribution.quantity}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Price per share</Text><Text style={styles.receiptValue}>{formatDisplayMoney(campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text></View>
-                        <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Total paid</Text><Text style={styles.receiptValue}>{formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}</Text></View>
+                        <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Total charged</Text><Text style={styles.receiptValue}>{formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Date</Text><Text style={styles.receiptValue}>{formatDateTime(contribution.createdAt)}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Reference</Text><Text style={styles.receiptValue} numberOfLines={1}>{contribution.id}</Text></View>
                       </View>
                     ) : null}
                   </View>
+                </FloatingCard>
+              ) : contribution?.status === "PLEDGED" ? (
+                <FloatingCard style={styles.outcomeCard}>
+                  <Ionicons name="bookmark-outline" size={20} color="#076B51" />
+                  <Text style={styles.outcomeText}>Pledge recorded — payment method saved for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} ({formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}). You will only be charged if this campaign succeeds. Awaiting campaign outcome.</Text>
+                </FloatingCard>
+              ) : contribution?.status === "PAYMENT_PROCESSING" ? (
+                <FloatingCard style={styles.outcomeCard}>
+                  <ActivityIndicator size="small" color="#076B51" />
+                  <Text style={styles.outcomeText}>Payment pending — this campaign succeeded and we're collecting payment from your saved card now.</Text>
+                </FloatingCard>
+              ) : contribution?.status === "CHARGE_FAILED" ? (
+                <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#B48A00" />
+                  <View style={{ flex: 1, gap: 8 }}>
+                    <Text style={styles.outcomeText}>Payment failed — we couldn't collect payment for your pledge. Retry now or update your card to keep your place.</Text>
+                    <TouchableOpacity onPress={() => void handleRetryCharge()} disabled={retrying} activeOpacity={0.88} style={[styles.primaryBtn, retrying && { opacity: 0.7 }]}>
+                      {retrying ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Retry payment</Text>}
+                    </TouchableOpacity>
+                  </View>
+                </FloatingCard>
+              ) : contribution?.status === "CANCELLED" ? (
+                <FloatingCard style={styles.outcomeCard}>
+                  <Ionicons name="close-circle-outline" size={20} color="#6A7B72" />
+                  <Text style={styles.outcomeText}>This pledge was cancelled — the campaign didn't proceed. Your saved payment method was never charged.</Text>
                 </FloatingCard>
               ) : (
                 <FloatingCard style={{ gap: 10 }}>
@@ -272,12 +360,30 @@ export default function CommunityBuyCampaignScreen() {
                   </View>
                   <Text style={styles.progressMetaSub}>{remainingCapacity} share{remainingCapacity === 1 ? "" : "s"} remain available.</Text>
                   <View style={styles.progressMetaRow}>
-                    <Text style={styles.fieldLabel}>Subtotal</Text>
+                    <Text style={styles.fieldLabel}>Amount if this campaign succeeds</Text>
                     <Text style={styles.progressMetaText}>{formatDisplayMoney(subtotal / 100, campaign.currency, selectedCurrency)}</Text>
                   </View>
+
+                  <Text style={styles.fieldLabel}>Payment method</Text>
+                  <View style={{ gap: 8 }}>
+                    {paymentMethods.map((m) => (
+                      <TouchableOpacity key={m.id} onPress={() => setPaymentMethodId(m.id)} activeOpacity={0.85}>
+                        <FloatingCard style={[styles.optionRow, paymentMethodId === m.id && styles.optionRowActive]}>
+                          <Ionicons name={paymentMethodId === m.id ? "radio-button-on" : "radio-button-off"} size={18} color={paymentMethodId === m.id ? "#076B51" : "#C7D2CB"} />
+                          <Text style={styles.optionTitle}>{(m.brand ?? "Card").toUpperCase()} •••• {m.last4}</Text>
+                        </FloatingCard>
+                      </TouchableOpacity>
+                    ))}
+                    <TouchableOpacity onPress={() => void handleAddCard()} disabled={addingCard} activeOpacity={0.85} style={styles.addRow}>
+                      {addingCard ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="card-outline" size={18} color="#076B51" />}
+                      <Text style={styles.addRowText}>{addingCard ? "Saving card..." : "Add a card"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.disclosureText}>Your card will not be charged now. It will only be charged {formatDisplayMoney(subtotal / 100, campaign.currency, selectedCurrency)} if this campaign reaches its minimum or goal.</Text>
+
                   {contributeError ? <Text style={styles.errorText}>{contributeError}</Text> : null}
                   <TouchableOpacity onPress={handleContribute} disabled={contributing} activeOpacity={0.88} style={[styles.primaryBtn, contributing && { opacity: 0.7 }]}>
-                    {contributing ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Continue</Text>}
+                    {contributing ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Pledge — no charge now</Text>}
                   </TouchableOpacity>
                 </FloatingCard>
               )}
@@ -346,4 +452,10 @@ const styles = StyleSheet.create({
   updateDate: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 2 },
   reportIssueRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 14 },
   reportIssueText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  optionRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1.5, borderColor: "transparent" },
+  optionRowActive: { borderColor: "#076B51" },
+  optionTitle: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  addRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 },
+  addRowText: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#076B51" },
+  disclosureText: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72", lineHeight: 16 },
 });
