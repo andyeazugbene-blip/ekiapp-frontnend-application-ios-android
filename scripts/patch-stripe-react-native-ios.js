@@ -279,15 +279,17 @@ function patchStripeSdkImpl() {
 
     @objc(isCardInWallet:resolver:rejecter:)`,
     );
+    // Targets just the one line that calls into the excluded
+    // ios/PushProvisioning/**/* sources (see patchPodspec above) — not the
+    // whole function body via a signature match, so it isn't sensitive to
+    // exact formatting (e.g. `) {` vs `) -> Void {`) shifting between
+    // package versions the way the previous whole-function regex was. That
+    // regex silently stopped matching against the real installed 0.64.0
+    // source (real signature is `) {`, not `) -> Void {`), so this call
+    // kept reaching a real build unpatched: "cannot find 'PushProvisioningUtils' in scope".
     next = next.replace(
-      /  public func isCardInWallet\(\n        params: NSDictionary,\n        resolver resolve: @escaping RCTPromiseResolveBlock,\n        rejecter reject: @escaping RCTPromiseRejectBlock\n    \) -> Void \{\n[\s\S]*?        resolve\(\["isInWallet": PushProvisioningUtils\.getPassLocation\(last4: last4\) != nil\]\)\n    \}/,
-      `  public func isCardInWallet(
-        params: NSDictionary,
-        resolver resolve: @escaping RCTPromiseResolveBlock,
-        rejecter reject: @escaping RCTPromiseRejectBlock
-    ) -> Void {
-        resolve(["isInWallet": false])
-    }`,
+      /resolve\(\["isInWallet": PushProvisioningUtils\.getPassLocation\(last4: last4\) != nil\]\)/,
+      'resolve(["isInWallet": false])',
     );
     return next;
   });

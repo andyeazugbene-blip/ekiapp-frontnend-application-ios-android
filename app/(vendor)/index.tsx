@@ -15,7 +15,6 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 
 import { useAuthStore } from "../../stores/authStore";
 import { vendorService } from "../../services/vendorService";
@@ -278,13 +277,6 @@ export default function VendorDashboardScreen() {
     limits?.ordersRemaining ??
     (limits?.maxOrders != null ? Math.max(0, limits.maxOrders - limits.currentOrders) : null) ??
     (Number.isFinite(dashboardPlanRemaining) ? Math.max(0, dashboardPlanRemaining) : null);
-  const planOrdersText =
-    limits?.maxOrders === null
-      ? null
-      : planOrdersRemaining != null && planOrdersRemaining <= 5
-        ? `Orders remaining: ${planOrdersRemaining}`
-        : null;
-
   const planMaxOrders = limits?.maxOrders ?? null;
   const planUsageRatio = planMaxOrders != null && planMaxOrders > 0 && planOrdersRemaining != null
     ? planOrdersRemaining / planMaxOrders
@@ -292,11 +284,6 @@ export default function VendorDashboardScreen() {
   const planDegraded = planUsageRatio <= 0;
   const planWarning = planUsageRatio > 0 && planUsageRatio <= 0.25;
   const planCardBg = planDegraded ? "#991B1B" : planWarning ? "#92400E" : "#076B51";
-  const planGradient = planDegraded
-    ? ["#991B1B", "#450A0A"] as const
-    : planWarning
-      ? ["#92400E", "#451A03"] as const
-      : ["#1A6B55", "#0A2A1F"] as const;
 
   const dashboardSurfaceStyle = {
     transform: [
@@ -386,27 +373,35 @@ export default function VendorDashboardScreen() {
             </View>
           ) : (
             <>
-            {/* ── Alerts ──────────────────────────────────────────────── */}
-            <View style={styles.alertsList}>
-              <AlertRow
-                icon="cart-outline"
-                label="Orders requiring action"
-                count={alertOrderAction}
-                onPress={() => navigate("/(vendor)/orders")}
-              />
-              <AlertRow
-                icon="cube-outline"
-                label="Low stock alerts"
-                count={alertLowStock}
-                onPress={() => navigate("/(vendor)/foodstuff")}
-              />
-              <AlertRow
-                icon="chatbubble-ellipses-outline"
-                label="Unread buyer messages"
-                count={alertUnreadMessages}
-                onPress={() => navigate("/(vendor)/messages")}
-              />
-            </View>
+            {/* ── Alerts — hide any urgent action with zero activity ──── */}
+            {(alertOrderAction > 0 || alertLowStock > 0 || alertUnreadMessages > 0) && (
+              <View style={styles.alertsList}>
+                {alertOrderAction > 0 && (
+                  <AlertRow
+                    icon="cart-outline"
+                    label="Orders requiring action"
+                    count={alertOrderAction}
+                    onPress={() => navigate("/(vendor)/orders")}
+                  />
+                )}
+                {alertLowStock > 0 && (
+                  <AlertRow
+                    icon="cube-outline"
+                    label="Low stock alerts"
+                    count={alertLowStock}
+                    onPress={() => navigate("/(vendor)/foodstuff")}
+                  />
+                )}
+                {alertUnreadMessages > 0 && (
+                  <AlertRow
+                    icon="chatbubble-ellipses-outline"
+                    label="Unread buyer messages"
+                    count={alertUnreadMessages}
+                    onPress={() => navigate("/(vendor)/messages")}
+                  />
+                )}
+              </View>
+            )}
 
             {/* ── Your Sales (live earnings) ──────────────────────────── */}
             <Text style={styles.section}>Your Sales</Text>
@@ -713,51 +708,27 @@ export default function VendorDashboardScreen() {
               </View>
             </View>
 
-            {/* ── Vendor Services card ─────────────────────────────────── */}
-            <LinearGradient
-              colors={planGradient as any}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.planCard}
+            {/* ── Vendor account — compact row, not the old oversized banner ── */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => navigate("/(vendor)/subscription-plans")}
+              style={styles.vendorAccountRow}
             >
-              <View style={styles.planHeaderRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.planTitle}>
-                    {subscriptionPlan === "free"
-                      ? "Vendor Services"
-                      : subscriptionPlan === "growth"
-                        ? "Vendor Services"
-                        : "Vendor Services"}
-                  </Text>
-                  {planOrdersText ? (
-                    <Text style={styles.planSub}>{planOrdersText}</Text>
-                  ) : null}
-                </View>
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => navigate("/(vendor)/subscription-plans")}
-                  style={styles.planIconBtn}
-                >
-                  <Ionicons name="briefcase" size={16} color="#FFFFFF" />
-                </TouchableOpacity>
+              <View style={[styles.vendorAccountIcon, { backgroundColor: planCardBg }]}>
+                <Ionicons name="briefcase" size={16} color="#FFFFFF" />
               </View>
-              <Text style={styles.planBody}>
-                {planDegraded
-                  ? "You have reached your business limit. View your vendor account to manage limits."
-                  : planWarning
-                    ? "You're approaching your order limit. Check your vendor account for details."
-                    : "Manage your vendor services, business limits, and account details."}
-              </Text>
-              <View style={styles.planDivider} />
-              <TouchableOpacity
-                activeOpacity={0.86}
-                onPress={() => navigate("/(vendor)/subscription-plans")}
-                style={styles.upgradeBtn}
-              >
-                <Text style={styles.upgradeText}>Vendor Account</Text>
-                <Ionicons name={"arrow-forward" as any} size={15} color="#076B51" style={{ transform: [{ rotate: "-45deg" }] }} />
-              </TouchableOpacity>
-            </LinearGradient>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.vendorAccountTitle}>Vendor account</Text>
+                <Text style={styles.vendorAccountSub} numberOfLines={1}>
+                  {planDegraded
+                    ? "Business limit reached — tap to manage"
+                    : planWarning
+                      ? "Approaching your order limit — tap to review"
+                      : "Manage your business details, payment account and services"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+            </TouchableOpacity>
           </>
         )}
         </View>
@@ -1362,13 +1333,23 @@ const styles = StyleSheet.create({
   deliveryBadgeText: { color: "#076B51", fontSize: 11, fontFamily: "Manrope-Bold" },
 
   // ── Plan card ────────────────────────────────────────────────────────
-  planCard: { borderRadius: 24, padding: 24, overflow: "hidden" as const },
-  planHeaderRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
-  planTitle: { color: "#FFFFFF", fontSize: 22, fontFamily: "Manrope-Bold", fontStyle: "italic" },
-  planIconBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
-  planSub: { color: "rgba(255,255,255,0.85)", fontSize: 14, fontFamily: "Outfit-Regular", marginTop: 5 },
-  planBody: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontFamily: "Outfit-Regular", lineHeight: 19, marginTop: 16 },
-  planDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.15)", marginTop: 22, marginBottom: 14 },
-  upgradeBtn: { height: 50, borderRadius: 14, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 10 },
-  upgradeText: { color: "#076B51", fontSize: 15, fontFamily: "Manrope-SemiBold" },
+  vendorAccountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+  },
+  vendorAccountIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  vendorAccountTitle: { color: "#202124", fontSize: 15, fontFamily: "Manrope-SemiBold" },
+  vendorAccountSub: { color: "#687076", fontSize: 12.5, fontFamily: "Outfit-Regular", marginTop: 2 },
 });
