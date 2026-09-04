@@ -4,7 +4,7 @@
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
-import { Platform } from "react-native";
+import { Alert, Platform } from "react-native";
 import { apiClient } from "./api";
 import { API_BASE_URL } from "./api/config";
 import { tokenStorage } from "./api/tokenStorage";
@@ -108,6 +108,20 @@ export const pushTokenService = {
     try {
       const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
       pushToken = tokenData.data;
+
+      // DEV-ONLY diagnostic for testing the real push path on a physical
+      // device — never runs in a production build (__DEV__ is stripped
+      // false by the release bundler), never touches production UI, and
+      // does not change the registration flow below in any way. Remove
+      // once real-device push testing for this pass is done.
+      if (__DEV__) {
+        const looksValid = /^ExponentPushToken\[.+\]$/.test(pushToken);
+        console.log(`[PushToken][DEV] ${looksValid ? "valid" : "UNEXPECTED"} format: ${pushToken}`);
+        Alert.alert(
+          "Dev: Expo Push Token",
+          `${looksValid ? "" : "⚠ unexpected format\n\n"}${pushToken}`,
+        );
+      }
     } catch (err) {
       console.warn("[PushToken] getExpoPushTokenAsync failed", err instanceof Error ? err.message : err);
       return null;
