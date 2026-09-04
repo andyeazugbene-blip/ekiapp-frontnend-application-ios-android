@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useMessageStore, type Conversation } from "../../stores/messageStore";
 import { RemoteImage } from "../../components/ui/RemoteImage";
@@ -9,6 +9,7 @@ import { goBackOrReplace } from "../../utils/navigation";
 
 export default function BuyerMessagesScreen() {
   const router = useRouter();
+  const { conversationId: deepLinkConversationId } = useLocalSearchParams<{ conversationId?: string }>();
   const { conversations: rawConversations, isLoading, loadConversations, setSelectedConversation } = useMessageStore();
   const conversations = rawConversations ?? [];
   const [activeTab, setActiveTab] = useState<"vendor" | "order">("vendor");
@@ -30,6 +31,15 @@ export default function BuyerMessagesScreen() {
     setSelectedConversation(convo);
     router.push("/(buyer)/message-chat" as any);
   };
+
+  // Opened via a "new message" push notification tap — jump straight into
+  // that thread once the conversation list has loaded, instead of leaving
+  // the recipient to find it themselves.
+  useEffect(() => {
+    if (!deepLinkConversationId) return;
+    const target = conversations.find((c) => c.id === deepLinkConversationId);
+    if (target) openConversation(target);
+  }, [deepLinkConversationId, conversations]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>

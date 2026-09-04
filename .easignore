@@ -21,4 +21,12 @@ google-services.json
 !android/app/google-services.json
 *.jks
 *.keystore
+# EAS reads env vars from eas.json's own "env" blocks per build profile —
+# these local dotfiles are dev-machine-only and unrelated to what a build
+# actually consumes; exclude them from the upload archive on principle
+# (their current contents are EXPO_PUBLIC_* publishable values only, but
+# a future secret added here shouldn't have to remember this rule).
+.env
+.env.local
+.env.*.local
 

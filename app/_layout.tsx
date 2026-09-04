@@ -146,7 +146,10 @@ export default function RootLayout() {
         } else if (type === "order_paid" || type === "order_delivered") {
           router.push(`/(buyer)/orders`);
         } else if (type === "new_message") {
-          router.push(`/(vendor)/messages`);
+          const role = useAuthStore.getState().user?.role;
+          const conversationId = data.conversationId as string | undefined;
+          const base = role === "vendor" || role === "admin" ? "/(vendor)/messages" : "/(buyer)/messages";
+          router.push(conversationId ? `${base}?conversationId=${conversationId}` : base);
         } else if (type === "earnings_released" || type === "payout_approved") {
           router.push(`/(vendor)/earnings`);
         } else if (type === "subscription_update") {
