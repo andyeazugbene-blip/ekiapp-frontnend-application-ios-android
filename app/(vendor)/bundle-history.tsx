@@ -181,6 +181,15 @@ export default function BundleHistoryScreen() {
                 </View>
 
                 <View style={styles.detailRow}>
+                  <Ionicons name="layers-outline" size={16} color="#076B51" />
+                  <Text style={styles.detailText}>
+                    {bundle.quantityAvailable == null
+                      ? `${bundle.quantitySold} sold · unlimited available`
+                      : `${bundle.quantitySold} sold · ${Math.max(0, bundle.quantityAvailable - bundle.quantitySold)} remaining`}
+                  </Text>
+                </View>
+
+                <View style={styles.detailRow}>
                   <Ionicons name="calendar-outline" size={16} color="#076B51" />
                   <Text style={styles.detailText}>
                     Created {new Date(bundle.createdAt).toLocaleDateString()}

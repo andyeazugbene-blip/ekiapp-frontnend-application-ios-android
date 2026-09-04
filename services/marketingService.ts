@@ -31,6 +31,8 @@ export interface BundleInput {
   productIds: string[];
   bundlePrice: number;
   currency: string;
+  /** Optional — how many bundle units can ever be sold. Unset means unlimited. */
+  quantityAvailable?: number | null;
 }
 
 export interface Bundle extends BundleInput {
@@ -40,6 +42,8 @@ export interface Bundle extends BundleInput {
   isActive: boolean;
   shareUrl?: string;
   createdAt: string;
+  quantityAvailable: number | null;
+  quantitySold: number;
 }
 
 export type FlashSaleStatus = "UPCOMING" | "ACTIVE" | "EXPIRED" | "INACTIVE";
@@ -140,6 +144,8 @@ function normalizeBundle(raw: any): Bundle {
     isActive: raw?.isActive !== false,
     shareUrl: typeof raw?.shareUrl === "string" ? raw.shareUrl : undefined,
     createdAt: raw?.createdAt ?? new Date().toISOString(),
+    quantityAvailable: typeof raw?.quantityAvailable === "number" ? raw.quantityAvailable : null,
+    quantitySold: typeof raw?.quantitySold === "number" ? raw.quantitySold : 0,
   };
 }
 
@@ -293,6 +299,7 @@ export const marketingService = {
       productIds: input.productIds,
       bundlePriceMinor: Math.round(input.bundlePrice * 100),
       currency: input.currency,
+      quantityAvailable: input.quantityAvailable ?? null,
     });
     return normalizeBundle(res.bundle);
   },

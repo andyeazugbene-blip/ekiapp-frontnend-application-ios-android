@@ -76,6 +76,7 @@ interface AggregatedDashboard {
   verificationSubmitted: boolean;
   pendingRenewals: Renewal[];
   supplierProfile: SupplierProfile | null;
+  communityBuyEnabled: boolean;
 }
 
 /**
@@ -118,6 +119,7 @@ export default function VendorDashboardScreen() {
     verificationSubmitted: false,
     pendingRenewals: [],
     supplierProfile: null,
+    communityBuyEnabled: false,
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -140,7 +142,7 @@ export default function VendorDashboardScreen() {
       const profile = await vendorService.getMyProfile().catch(() => null);
 
       // 2. Everything else in parallel; each call is independent + best-effort.
-      const [data, subscription, limits, products, orders, conversations, buyers, zones, verification, pendingRenewals, supplierProfile] = await Promise.all([
+      const [data, subscription, limits, products, orders, conversations, buyers, zones, verification, pendingRenewals, supplierProfile, marketConfig] = await Promise.all([
         vendorService.getVendorDashboard().catch(() => null),
         subscriptionService.getCurrentSubscription().catch(() => null),
         subscriptionService.getLimits().catch(() => null),
@@ -154,6 +156,13 @@ export default function VendorDashboardScreen() {
         vendorService.getVerificationStatus().catch(() => null),
         regularDeliveriesService.listMyRenewals().catch(() => [] as Renewal[]),
         communityBuyService.getMySupplierProfile().catch(() => null),
+        // Backend-authoritative — Community Buy must never be offered as an
+        // entry point in a market it isn't enabled for (architecture doc:
+        // "do not show Community Buy in unsupported markets"). Defaults to
+        // hidden on any failure, never shown-by-default.
+        profile?.country
+          ? communityBuyService.getMarketConfig(profile.country).catch(() => null)
+          : Promise.resolve(null),
       ]);
 
       const unreadMessages = asArray<any>(conversations).reduce(
@@ -174,6 +183,7 @@ export default function VendorDashboardScreen() {
         verificationSubmitted: asArray<any>(verification?.documents).some((doc) => doc.status !== "REJECTED"),
         pendingRenewals: asArray<Renewal>(pendingRenewals).filter((r) => r.status === "AWAITING_STOCK"),
         supplierProfile: supplierProfile as SupplierProfile | null,
+        communityBuyEnabled: Boolean((marketConfig as { communityBuyEnabled?: boolean } | null)?.communityBuyEnabled),
       });
     } finally {
       setLoading(false);
@@ -202,7 +212,7 @@ export default function VendorDashboardScreen() {
   const navigate = (path: string) => router.push(path as any);
 
   // ── Live-derived values (no hardcoded numbers) ─────────────────────────
-  const { profile, data, subscription, limits, products, orders, buyers, zones, unreadMessages, verificationSubmitted, pendingRenewals, supplierProfile } = agg;
+  const { profile, data, subscription, limits, products, orders, buyers, zones, unreadMessages, verificationSubmitted, pendingRenewals, supplierProfile, communityBuyEnabled } = agg;
 
   const storeName =
     asText(profile?.storeName).trim() || asText(data?.storeName).trim() || asText(user?.name, "your store") || "your store";
@@ -619,18 +629,26 @@ export default function VendorDashboardScreen() {
                 tone="light"
                 onPress={() => navigate("/(vendor)/regular-deliveries")}
               />
-              <FoodRow
-                icon="people-circle-outline"
-                label={supplierProfile?.isVerified ? "Community Buy — Supply" : "Community Buy — become a supplier"}
-                tone="light"
-                onPress={() => navigate("/(vendor)/community-buy-supplier")}
-              />
-              <FoodRow
-                icon="megaphone-outline"
-                label="Community Buy — Organize a campaign"
-                tone="light"
-                onPress={() => navigate("/(buyer)/community-buy-organiser")}
-              />
+              {/* Backend-authoritative market gate — never shown by default
+                  (communityBuyEnabled starts false); a market with Community
+                  Buy off must show no CTA into it at all, per the
+                  architecture doc. */}
+              {communityBuyEnabled && (
+                <>
+                  <FoodRow
+                    icon="people-circle-outline"
+                    label={supplierProfile?.isVerified ? "Community Buy — Supply" : "Community Buy — become a supplier"}
+                    tone="light"
+                    onPress={() => navigate("/(vendor)/community-buy-supplier")}
+                  />
+                  <FoodRow
+                    icon="megaphone-outline"
+                    label="Community Buy — Organize a campaign"
+                    tone="light"
+                    onPress={() => navigate("/(buyer)/community-buy-organiser")}
+                  />
+                </>
+              )}
             </View>
 
             {/* ── Your Buyers (live horizontal cards) ─────────────────── */}

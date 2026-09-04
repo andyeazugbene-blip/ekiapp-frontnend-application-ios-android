@@ -20,6 +20,7 @@ export default function CreateBundleScreen() {
   const [name, setName] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bundlePrice, setBundlePrice] = useState("");
+  const [quantityAvailable, setQuantityAvailable] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [step, setStep] = useState<"form" | "review">("form");
@@ -36,6 +37,7 @@ export default function CreateBundleScreen() {
   const currency = products[0]?.currency ?? "GBP";
   const symbol = CURRENCY_SYMBOL[currency] ?? "£";
   const parsedPrice = Number(bundlePrice) || 0;
+  const parsedQuantity = Math.round(Number(quantityAvailable));
   const regularTotal = products.filter((p) => selectedIds.includes(p.id)).reduce((sum, p) => sum + p.price, 0);
   const buyerSaving = Math.max(0, regularTotal - parsedPrice);
 
@@ -57,6 +59,10 @@ export default function CreateBundleScreen() {
       setError("Please enter a valid bundle price.");
       return;
     }
+    if (quantityAvailable.trim() && (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0)) {
+      setError("Quantity available must be a whole number greater than 0, or left blank for unlimited.");
+      return;
+    }
 
     setStep("review");
   };
@@ -69,6 +75,7 @@ export default function CreateBundleScreen() {
         productIds: selectedIds,
         bundlePrice: parsedPrice,
         currency,
+        quantityAvailable: quantityAvailable.trim() ? parsedQuantity : null,
       });
       router.push({
         pathname: "/(vendor)/promo-link",
@@ -126,6 +133,10 @@ export default function CreateBundleScreen() {
                 <View style={styles.reviewRow}>
                   <Text style={styles.reviewLabel}>Buyer saving</Text>
                   <Text style={styles.reviewValue}>{symbol}{buyerSaving.toFixed(2)}</Text>
+                </View>
+                <View style={styles.reviewRow}>
+                  <Text style={styles.reviewLabel}>Quantity available</Text>
+                  <Text style={styles.reviewValue}>{quantityAvailable.trim() ? parsedQuantity : "Unlimited"}</Text>
                 </View>
               </View>
 
@@ -221,6 +232,21 @@ export default function CreateBundleScreen() {
                   placeholder="e.g £ 5.00"
                   placeholderTextColor="#858585"
                   keyboardType="decimal-pad"
+                  style={styles.input}
+                />
+              </View>
+            </View>
+
+            {/* Bundle quantity available */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Bundle quantity available (optional)</Text>
+              <View style={styles.inputWrap}>
+                <TextInput
+                  value={quantityAvailable}
+                  onChangeText={setQuantityAvailable}
+                  placeholder="Leave blank for unlimited"
+                  placeholderTextColor="#858585"
+                  keyboardType="number-pad"
                   style={styles.input}
                 />
               </View>
