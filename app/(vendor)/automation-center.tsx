@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import {
@@ -20,6 +20,7 @@ import {
   type AutomationType,
   type VendorAutomation,
 } from "../../services/automationService";
+import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { pushTokenService, type PushPermissionStatus } from "../../services/notificationService";
 
 function describeRun(run: AutomationRun): string {
@@ -90,11 +91,9 @@ export default function AutomationCenterScreen() {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
+  // Skips redundant refetch when returning to this screen within 30s of
+  // the last load — see hooks/useFocusRefresh.ts.
+  useFocusRefresh(load);
 
   const handleToggle = async (type: AutomationType, enabled: boolean) => {
     setAutomations((prev) => prev.map((a) => (a.type === type ? { ...a, enabled } : a)));

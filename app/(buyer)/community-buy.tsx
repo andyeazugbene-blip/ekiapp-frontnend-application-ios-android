@@ -1,10 +1,11 @@
 import React, { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
+import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import {
   EmptyState,
   ErrorState,
@@ -49,7 +50,7 @@ export default function CommunityBuyDiscoveryScreen() {
     }
   }, [countryFilter]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusRefresh(load);
 
   return (
     <View style={premiumStyles.page}>

@@ -13,9 +13,10 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { useAuthStore } from "../../stores/authStore";
 import { vendorService } from "../../services/vendorService";
 import { productService } from "../../services/productService";
@@ -191,18 +192,12 @@ export default function VendorDashboardScreen() {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        if (cancelled) return;
-        await load();
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [load])
-  );
+  // Refetches on focus only when the last load is >30s old — not on every
+  // single return to Home. Passes silent=true so a stale-triggered refetch
+  // updates data quietly instead of re-showing the full-page spinner;
+  // `loading` already starts true, so the real first mount is unaffected.
+  // onRefresh (pull-to-refresh) below always forces a real fetch regardless.
+  useFocusRefresh(useCallback(() => load(true), [load]));
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

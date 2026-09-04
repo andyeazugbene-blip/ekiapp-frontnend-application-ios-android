@@ -14,13 +14,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { rewardService, type Reward } from "../../services/rewardService";
 import { giftCardService, type GiftCard } from "../../services/giftCardService";
 import { campaignService, campaignColors, type Campaign } from "../../services/campaignService";
 import { marketingService } from "../../services/marketingService";
+import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { useCartStore, CurrencyMismatchError } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -155,11 +156,9 @@ export default function BuyerHomeScreen() {
     void loadCampaigns();
   }, [loadCampaigns]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [loadData]),
-  );
+  // Skips redundant refetch when returning to Home within 30s of the last
+  // load — see hooks/useFocusRefresh.ts.
+  useFocusRefresh(loadData);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

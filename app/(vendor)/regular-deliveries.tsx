@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
+import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import {
   EmptyState,
   ErrorState,
@@ -60,7 +61,7 @@ export default function VendorRegularDeliveriesScreen() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusRefresh(load);
 
   const togglePublish = async (offer: SubscriptionOffer) => {
     setBusyId(offer.id);
