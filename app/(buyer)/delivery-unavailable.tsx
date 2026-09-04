@@ -34,7 +34,7 @@ export default function DeliveryUnavailableScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/cart" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)/cart" as any)} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
@@ -69,7 +69,7 @@ export default function DeliveryUnavailableScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
   header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 30, borderBottomLeftRadius: 35, borderBottomRightRadius: 35 },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
   content: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
   iconWrap: { width: 96, height: 96, borderRadius: 48, backgroundColor: "#F0F0F0", alignItems: "center", justifyContent: "center", marginBottom: 24 },
   title: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828", textAlign: "center" },

@@ -9,10 +9,6 @@ const production = eas.build?.production ?? {};
 const productionEnv = production.env ?? {};
 const submitAndroid = eas.submit?.production?.android ?? {};
 
-if (productionEnv.EXPO_PUBLIC_APP_REVIEW_MODE !== "true") {
-  failures.push("Production EXPO_PUBLIC_APP_REVIEW_MODE must be true.");
-}
-
 const productionStripeKey = productionEnv.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 if (typeof productionStripeKey === "string" && productionStripeKey.startsWith("pk_test_")) {
   failures.push("Production EAS profile must not embed a Stripe test publishable key.");

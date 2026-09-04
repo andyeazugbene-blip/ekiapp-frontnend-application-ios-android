@@ -136,7 +136,7 @@ export default function EditStoreProfileScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -255,7 +255,7 @@ function Field({ label, value, onChangeText, placeholder, multiline }: FieldProp
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
   header: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14 },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#282828" },
   headerSubtitle: { fontSize: 13, lineHeight: 18, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 4 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },

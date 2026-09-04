@@ -74,7 +74,7 @@ export default function AccountDeletionScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.8} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.8} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Delete Account</Text>
@@ -140,15 +140,15 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: { fontSize: 20, fontFamily: "Manrope-Bold", color: "#111827" },
-  headerSpacer: { width: 40 },
+  headerSpacer: { width: 44 },
   scrollContent: { padding: 16, paddingBottom: 40 },
   hero: {
     backgroundColor: "#FFFFFF",

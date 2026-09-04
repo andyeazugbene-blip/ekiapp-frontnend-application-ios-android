@@ -86,7 +86,7 @@ export default function WithdrawPayoutScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/earnings" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/earnings" as any)} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
           <Ionicons name="arrow-back" size={22} color="#282828" />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
@@ -194,7 +194,7 @@ export default function WithdrawPayoutScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, gap: 12, backgroundColor: "#FFFFFF" },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
   headerInfo: { flex: 1 },
   headerTitle: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#282828" },
   headerSubtitle: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 4, lineHeight: 18 },

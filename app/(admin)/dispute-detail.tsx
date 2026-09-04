@@ -132,7 +132,7 @@ export default function DisputeDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Dispute Detail</Text>
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#FFFFFF", flex: 1 },
   currencyButton: { minWidth: 66, height: 36, borderRadius: 18, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
   currencyButtonText: { color: "#076B51", fontSize: 12, fontFamily: "Manrope-Bold" },

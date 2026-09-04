@@ -57,7 +57,7 @@ export default function BuyerMessagesScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Messages</Text>
@@ -147,7 +147,7 @@ function formatConversationTime(value: string) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, gap: 12 },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828" },
   segmentWrap: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingBottom: 14 },
   segmentActive: { flex: 1, height: 52, borderRadius: 26, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },

@@ -81,7 +81,7 @@ export default function VendorAccountScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
           <Ionicons name="chevron-back" size={22} color="#282828" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F9F9F9" },
 
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 16, gap: 14, borderBottomWidth: 1, borderBottomColor: "#F0F0F0" },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#F0F0F0", alignItems: "center", justifyContent: "center" },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#F0F0F0", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 22, fontFamily: "Manrope-Bold", color: "#282828" },
   headerSubtitle: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 2 },
 

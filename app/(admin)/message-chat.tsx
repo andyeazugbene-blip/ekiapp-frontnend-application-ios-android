@@ -107,7 +107,7 @@ export default function AdminMessageChatScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <View style={styles.headerAvatar}>
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   backToListText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
   emptyChat: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", paddingTop: 40 },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#F0F0F0" },
-  backButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center", marginRight: 12 },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center", marginRight: 12 },
   headerAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(7,107,81,0.1)", alignItems: "center", justifyContent: "center", marginRight: 10 },
   headerAvatarText: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#076B51" },
   headerInfo: { flex: 1 },

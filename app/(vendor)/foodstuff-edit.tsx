@@ -30,7 +30,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   GBP: "£", USD: "$", EUR: "€", NGN: "₦", CAD: "C$", AUD: "A$", GHS: "₵", KES: "KSh",
 };
 
-const SUPPORTED_CURRENCIES = ["GBP", "USD", "EUR", "NGN", "GHS", "KES", "CAD"];
+const SUPPORTED_CURRENCIES = ["GBP", "USD", "EUR", "NGN", "GHS", "KES", "CAD"] as const;
 
 const UNITS = ["kg", "g", "lb", "oz", "pack", "bunch", "piece", "litre", "ml"];
 

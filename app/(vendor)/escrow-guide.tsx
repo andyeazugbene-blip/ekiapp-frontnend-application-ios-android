@@ -19,7 +19,7 @@ export default function VendorPlanGuideScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#17211D" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -54,7 +54,7 @@ export default function VendorPlanGuideScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7FAF8" },
   header: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: 16, paddingVertical: 16 },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   title: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#17211D" },
   subtitle: { marginTop: 4, fontSize: 13, lineHeight: 19, fontFamily: "Outfit-Regular", color: "#6A746F" },
   content: { paddingHorizontal: 16, paddingBottom: 40 },

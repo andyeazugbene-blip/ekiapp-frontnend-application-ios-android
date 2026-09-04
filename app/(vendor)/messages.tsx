@@ -64,7 +64,7 @@ export default function MessagesScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)" as any)} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)" as any)} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Messages</Text>
@@ -164,7 +164,7 @@ function formatConversationTime(value: string) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F4F4" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, gap: 12, backgroundColor: "#FFFFFF" },
-  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#F4F4F4", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 24, fontFamily: "Manrope-Bold", color: "#282828" },
   tabRow: { flexDirection: "row", paddingHorizontal: 16, gap: 8, paddingBottom: 12, backgroundColor: "#FFFFFF", flexWrap: "wrap" },
   tab: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20, backgroundColor: "#F4F4F4" },
