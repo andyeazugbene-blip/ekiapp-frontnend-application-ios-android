@@ -63,6 +63,24 @@ export const VENDOR_AUTOMATION_TYPES: AutomationType[] = [
   "PRICE_APPROVAL_REMINDER",
 ];
 
+// Human-facing explainer for each vendor-toggleable automation, used
+// anywhere a.description (the raw backend message template, containing
+// literal {{name}}/{{store_name}}/etc. placeholders meant for interpolation
+// at send time, not display) would otherwise leak unresolved to a vendor.
+// Only covers VENDOR_AUTOMATION_TYPES — CAMPAIGN_* types never reach vendor
+// screens.
+export const AUTOMATION_EXPLAINER: Partial<Record<AutomationType, string>> = {
+  FIRST_SALE: "Eki guides new stores through completing their store, sharing their store link, creating an introductory offer, and following up with interested buyers — to help your store get its first completed order.",
+  CART_RECOVERY: "Eki reminds eligible buyers when they leave foodstuff without completing payment.",
+  BUYER_WIN_BACK: "Eki reconnects with buyers who have not ordered recently.",
+  REVIEW_REQUEST: "Eki asks buyers to review a completed order.",
+  LOW_STOCK_ALERT: "Eki lets you know when your foodstuff is running low so buyers aren't disappointed.",
+  BUYER_REFERRAL: "Eki rewards buyers who introduce new customers to your store. A referral qualifies only after the new buyer's first order is paid and completed.",
+  PAYMENT_RECOVERY: "Eki follows up when a payment for an order or renewal fails, so you don't lose the sale.",
+  RENEWAL_REMINDER: "Eki reminds Regular Delivery subscribers before their next renewal is charged.",
+  PRICE_APPROVAL_REMINDER: "Eki reminds buyers when a price change on their Regular Delivery needs their approval.",
+};
+
 export const AUTOMATION_LABELS: Record<AutomationType, string> = {
   FIRST_SALE: "First sale nudge",
   CART_RECOVERY: "Cart recovery",

@@ -15,6 +15,7 @@ import {
 } from "../../components/shared/PremiumBlocks";
 import {
   automationService,
+  AUTOMATION_EXPLAINER,
   AUTOMATION_LABELS,
   type AutomationRun,
   type AutomationType,
@@ -156,7 +157,7 @@ export default function AutomationCenterScreen() {
                         <IconAvatar icon={ICON_FOR_TYPE[a.type] ?? "flash-outline"} tone={a.enabled ? "success" : "neutral"} />
                         <View style={styles.automationCopy}>
                           <Text style={styles.automationTitle}>{AUTOMATION_LABELS[a.type] ?? a.type}</Text>
-                          <Text style={styles.automationBody} numberOfLines={2}>{a.description}</Text>
+                          <Text style={styles.automationBody} numberOfLines={2}>{AUTOMATION_EXPLAINER[a.type] ?? "Details for this automation are being prepared."}</Text>
                         </View>
                         {togglingType === a.type ? (
                           <ActivityIndicator size="small" color="#076B51" />

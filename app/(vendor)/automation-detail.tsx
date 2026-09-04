@@ -14,6 +14,7 @@ import {
 } from "../../components/shared/PremiumBlocks";
 import {
   automationService,
+  AUTOMATION_EXPLAINER,
   AUTOMATION_LABELS,
   CONFIGURABLE_AUTOMATION_TYPES,
   VENDOR_AUTOMATION_TYPES,
@@ -34,21 +35,6 @@ const ICON_FOR_TYPE: Record<AutomationType, React.ComponentProps<typeof Ionicons
   CAMPAIGN_MILESTONE: "flag-outline",
   CAMPAIGN_DEADLINE: "time-outline",
   CAMPAIGN_REFUND_UPDATE: "cash-outline",
-};
-
-// Doc §"Workstream 2" per-automation explainer copy (Screens 09-13). Only
-// covers the types a vendor can actually see/toggle — CAMPAIGN_* types are
-// buyer-facing and never reach this screen.
-const EXPLAINER: Partial<Record<AutomationType, string>> = {
-  FIRST_SALE: "Eki guides new stores through completing their store, sharing their store link, creating an introductory offer, and following up with interested buyers — to help your store get its first completed order.",
-  CART_RECOVERY: "Eki reminds eligible buyers when they leave foodstuff without completing payment.",
-  BUYER_WIN_BACK: "Eki reconnects with buyers who have not ordered recently.",
-  REVIEW_REQUEST: "Eki asks buyers to review a completed order.",
-  LOW_STOCK_ALERT: "Eki lets you know when your foodstuff is running low so buyers aren't disappointed.",
-  BUYER_REFERRAL: "Eki rewards buyers who introduce new customers to your store. A referral qualifies only after the new buyer's first order is paid and completed.",
-  PAYMENT_RECOVERY: "Eki follows up when a payment for an order or renewal fails, so you don't lose the sale.",
-  RENEWAL_REMINDER: "Eki reminds Regular Delivery subscribers before their next renewal is charged.",
-  PRICE_APPROVAL_REMINDER: "Eki reminds buyers when a price change on their Regular Delivery needs their approval.",
 };
 
 const CONFIG_PRESETS: Partial<Record<AutomationType, { key: string; label: string; options: number[]; unit: string }>> = {
@@ -141,7 +127,7 @@ export default function AutomationDetailScreen() {
                   <StatusPill label={automation.enabled ? "Active" : "Not active"} tone={automation.enabled ? "success" : "neutral"} />
                 </View>
               </View>
-              <Text style={styles.explainer}>{EXPLAINER[automationType] ?? automation.description}</Text>
+              <Text style={styles.explainer}>{AUTOMATION_EXPLAINER[automationType] ?? "Details for this automation are being prepared."}</Text>
 
               <TouchableOpacity onPress={() => void handleToggle()} disabled={toggling} activeOpacity={0.88} style={[styles.toggleBtn, automation.enabled && styles.toggleBtnActive]}>
                 {toggling ? (
