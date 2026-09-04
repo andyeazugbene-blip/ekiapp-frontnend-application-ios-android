@@ -52,6 +52,7 @@ export default function WithdrawPayoutScreen() {
   );
 
   const handleSubmit = async () => {
+    if (submitting) return;
     setError("");
     const parsed = Number(amount);
     if (!Number.isFinite(parsed) || parsed <= 0) {

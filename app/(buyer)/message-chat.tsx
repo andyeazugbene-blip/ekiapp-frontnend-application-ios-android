@@ -21,7 +21,7 @@ function formatMessageTime(value: string): string {
 
 export default function BuyerMessageChatScreen() {
   const router = useRouter();
-  const { selectedConversation, messages, isLoading, isSending, sendMessage, stopPolling } = useMessageStore();
+  const { selectedConversation, messages, isLoading, isSending, sendMessage, retryFailedMessage, stopPolling } = useMessageStore();
   const [input, setInput] = useState("");
   const [sendingImage, setSendingImage] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -188,7 +188,13 @@ export default function BuyerMessageChatScreen() {
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.messageList}
-            renderItem={({ item }) => <Bubble message={item} avatarUri={conversation.participantAvatar} />}
+            renderItem={({ item }) => (
+              <Bubble
+                message={item}
+                avatarUri={conversation.participantAvatar}
+                onRetry={item.failed ? () => retryFailedMessage(conversation.id, item.id) : undefined}
+              />
+            )}
             ListHeaderComponent={<View style={styles.dayLabel}><Text style={styles.dayLabelText}>Today</Text></View>}
             ListEmptyComponent={<Text style={styles.emptyChat}>Say hi to start the conversation.</Text>}
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
@@ -224,7 +230,7 @@ export default function BuyerMessageChatScreen() {
   );
 }
 
-function Bubble({ message, avatarUri }: { message: ChatMessage; avatarUri?: string }) {
+function Bubble({ message, avatarUri, onRetry }: { message: ChatMessage; avatarUri?: string; onRetry?: () => void }) {
   const isMine = message.senderRole === "buyer";
   return (
     <View style={[styles.bubbleRow, isMine ? styles.bubbleRowRight : styles.bubbleRowLeft]}>
@@ -238,11 +244,18 @@ function Bubble({ message, avatarUri }: { message: ChatMessage; avatarUri?: stri
         />
       )}
       <View style={styles.bubbleContent}>
-        <View style={[styles.bubble, isMine ? styles.bubbleRight : styles.bubbleLeft]}>
+        <View style={[styles.bubble, isMine ? styles.bubbleRight : styles.bubbleLeft, message.failed && styles.bubbleFailed]}>
           {message.imageUrl ? <Image source={{ uri: message.imageUrl }} style={styles.messageImage} resizeMode="cover" /> : null}
           {message.text ? <Text style={[styles.bubbleText, message.imageUrl && styles.bubbleTextWithImage]}>{message.text}</Text> : null}
         </View>
-        <Text style={[styles.bubbleTime, isMine && { textAlign: "right" }]}>{formatMessageTime(message.createdAt)}</Text>
+        {message.failed ? (
+          <TouchableOpacity onPress={onRetry} activeOpacity={0.7} style={styles.failedRow}>
+            <Ionicons name="alert-circle" size={13} color="#DC2626" />
+            <Text style={styles.failedText}>Not delivered — tap to retry</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={[styles.bubbleTime, isMine && { textAlign: "right" }]}>{formatMessageTime(message.createdAt)}</Text>
+        )}
       </View>
       {isMine && <View style={styles.bubbleAvatar}><View style={styles.bubbleAvatarInner} /></View>}
     </View>
@@ -282,6 +295,9 @@ const styles = StyleSheet.create({
   bubbleTextWithImage: { marginTop: 10 },
   messageImage: { width: 190, height: 190, borderRadius: 12, backgroundColor: "#E9EEEB" },
   bubbleTime: { fontSize: 10, fontFamily: "Outfit-Regular", color: "#B0B0B0", marginTop: 4, marginHorizontal: 4 },
+  bubbleFailed: { opacity: 0.6, borderWidth: 1, borderColor: "#DC2626" },
+  failedRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4, marginHorizontal: 4 },
+  failedText: { fontSize: 10.5, fontFamily: "Outfit-Regular", color: "#DC2626" },
   inputBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, gap: 8, borderTopWidth: 1, borderTopColor: "#F0F0F0" },
   inputAction: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   inputWrap: { flex: 1, flexDirection: "row", alignItems: "center", backgroundColor: "#F4F4F4", borderRadius: 22, paddingHorizontal: 12, paddingVertical: 8, gap: 8 },

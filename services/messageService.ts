@@ -24,6 +24,8 @@ export interface Message {
   text: string;
   imageUrl?: string;
   createdAt: string;
+  /** Client-only — set when the optimistic send to the backend failed. Never present on a message that actually reached the server. */
+  failed?: boolean;
 }
 
 interface ConversationListResponse {

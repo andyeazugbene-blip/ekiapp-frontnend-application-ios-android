@@ -89,6 +89,7 @@ export default function WalletScreen() {
   }, [currency, ensureCurrency]);
 
   const handleTopUp = async () => {
+    if (topUpLoading) return;
     const amount = Number(topUpAmount);
     if (!amount || amount <= 0) {
       Alert.alert("Enter an amount", "Please choose a valid wallet top-up amount.");

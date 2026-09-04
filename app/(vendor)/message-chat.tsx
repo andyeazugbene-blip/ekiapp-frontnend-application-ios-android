@@ -33,7 +33,7 @@ function formatMessageTime(value: string): string {
 
 export default function VendorMessageChatScreen() {
   const router = useRouter();
-  const { selectedConversation, messages, isLoading, isSending, sendMessage, stopPolling } = useMessageStore();
+  const { selectedConversation, messages, isLoading, isSending, sendMessage, retryFailedMessage, stopPolling } = useMessageStore();
   const [input, setInput] = useState("");
   const [sendingImage, setSendingImage] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -210,6 +210,7 @@ export default function VendorMessageChatScreen() {
                 message={item}
                 avatarUri={conversation.participantAvatar}
                 participantRole={conversation.participantRole}
+                onRetry={item.failed ? () => retryFailedMessage(conversation.id, item.id) : undefined}
               />
             )}
             ListHeaderComponent={
@@ -267,7 +268,7 @@ export default function VendorMessageChatScreen() {
   );
 }
 
-function MessageBubble({ message, avatarUri, participantRole }: { message: ChatMessage; avatarUri?: string; participantRole: "buyer" | "vendor" | "admin" }) {
+function MessageBubble({ message, avatarUri, participantRole, onRetry }: { message: ChatMessage; avatarUri?: string; participantRole: "buyer" | "vendor" | "admin"; onRetry?: () => void }) {
   const isMine = message.senderRole === "vendor";
 
   return (
@@ -282,11 +283,18 @@ function MessageBubble({ message, avatarUri, participantRole }: { message: ChatM
         />
       )}
       <View style={styles.bubbleContent}>
-        <View style={[styles.bubble, isMine ? styles.bubbleRight : styles.bubbleLeft]}>
+        <View style={[styles.bubble, isMine ? styles.bubbleRight : styles.bubbleLeft, message.failed && styles.bubbleFailed]}>
           {message.imageUrl ? <Image source={{ uri: message.imageUrl }} style={styles.messageImage} resizeMode="cover" /> : null}
           {message.text ? <Text style={[styles.bubbleText, message.imageUrl && styles.bubbleTextWithImage]}>{message.text}</Text> : null}
         </View>
-        <Text style={[styles.bubbleTime, isMine && { textAlign: "right" }]}>{formatMessageTime(message.createdAt)}</Text>
+        {message.failed ? (
+          <TouchableOpacity onPress={onRetry} activeOpacity={0.7} style={styles.failedRow}>
+            <Ionicons name="alert-circle" size={13} color="#DC2626" />
+            <Text style={styles.failedText}>Not delivered — tap to retry</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={[styles.bubbleTime, isMine && { textAlign: "right" }]}>{formatMessageTime(message.createdAt)}</Text>
+        )}
       </View>
       {isMine && <View style={styles.bubbleAvatar}><View style={styles.bubbleAvatarInner} /></View>}
     </View>
@@ -326,6 +334,9 @@ const styles = StyleSheet.create({
   bubbleTextWithImage: { marginTop: 10 },
   messageImage: { width: 190, height: 190, borderRadius: 12, backgroundColor: "#E9EEEB" },
   bubbleTime: { fontSize: 10, fontFamily: "Outfit-Regular", color: "#B0B0B0", marginTop: 4, marginHorizontal: 4 },
+  bubbleFailed: { opacity: 0.6, borderWidth: 1, borderColor: "#DC2626" },
+  failedRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4, marginHorizontal: 4 },
+  failedText: { fontSize: 10.5, fontFamily: "Outfit-Regular", color: "#DC2626" },
   disclaimer: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: "#F9F9F9", marginHorizontal: 16, borderRadius: 8 },
   disclaimerText: { flex: 1, fontSize: 11, fontFamily: "Outfit-Regular", color: "#858585" },
   inputBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, gap: 8, borderTopWidth: 1, borderTopColor: "#F0F0F0" },

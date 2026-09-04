@@ -117,6 +117,7 @@ export default function CommunityBuyCampaignScreen() {
   };
 
   const handleJoin = async () => {
+    if (joining) return;
     setJoining(true);
     try {
       await communityBuyService.joinCampaign(id);

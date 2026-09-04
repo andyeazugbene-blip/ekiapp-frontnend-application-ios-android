@@ -140,11 +140,15 @@ export default function RootLayout() {
             if (role === "vendor" || role === "admin") {
               router.push(`/(vendor)/order-detail?id=${data.orderId}`);
             } else {
-              router.push(`/(buyer)/orders`);
+              router.push(`/(buyer)/track-order?id=${data.orderId}`);
             }
+          } else {
+            const role = useAuthStore.getState().user?.role;
+            router.push(role === "vendor" || role === "admin" ? `/(vendor)/orders` : `/(buyer)/orders`);
           }
         } else if (type === "order_paid" || type === "order_delivered") {
-          router.push(`/(buyer)/orders`);
+          const orderId = data.orderId as string | undefined;
+          router.push(orderId ? `/(buyer)/track-order?id=${orderId}` : `/(buyer)/orders`);
         } else if (type === "new_message") {
           const role = useAuthStore.getState().user?.role;
           const conversationId = data.conversationId as string | undefined;
@@ -155,10 +159,17 @@ export default function RootLayout() {
         } else if (type === "subscription_update") {
           const role = useAuthStore.getState().user?.role;
           const event = data.event as string | undefined;
+          const subscriptionId = data.subscriptionId as string | undefined;
           if (event === "vendor_renewal_paid") {
             router.push(`/(vendor)/regular-deliveries`);
           } else if (event === "order_created") {
             router.push(`/(buyer)/orders`);
+          } else if (subscriptionId) {
+            // price_approval_required, payment_failed, renewal_cancelled,
+            // price_approval_expired — all real, per-subscription events
+            // that previously always opened the generic list instead of
+            // the specific subscription the notification was actually about.
+            router.push(`/(buyer)/regular-delivery-detail?id=${subscriptionId}`);
           } else if (role === "vendor") {
             router.push(`/(vendor)/regular-deliveries`);
           } else {

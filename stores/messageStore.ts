@@ -51,6 +51,7 @@ interface MessageStore {
   loadConversations: () => Promise<void>;
   selectConversation: (conv: Conversation) => Promise<void>;
   sendMessage: (conversationId: string, input: string | (SendMessageInput & { localImageUri?: string })) => Promise<void>;
+  retryFailedMessage: (conversationId: string, messageId: string) => Promise<void>;
   startPolling: (conversationId: string) => void;
   stopPolling: () => void;
   markRead: (conversationId: string) => void;
@@ -157,6 +158,10 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
       createdAt: new Date().toISOString(),
     };
 
+    // Captured so a failed send can restore the conversation's real last-message
+    // preview instead of permanently showing text that never reached the server.
+    const priorConversation = get().conversations.find((c) => c.id === conversationId);
+
     set((s) => ({
       messages: mergeMessages([...s.messages, optimisticMsg], []),
       localMessages: {
@@ -214,12 +219,43 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
         ),
       }));
     } catch (error) {
-      // Keep the optimistic message locally so image/text sending still works in-app.
+      // The message never reached the backend — it must NOT keep looking
+      // like a normal sent bubble (that was the actual bug: sender sees
+      // "sent", recipient never gets it, and the conversation list
+      // permanently shows the unsent text as the last message). Mark it
+      // failed so the UI can render a retry affordance, and restore the
+      // conversation preview to what it really was.
       set((s) => ({
+        messages: s.messages.map((m) => (m.id === optimisticMsg.id ? { ...m, failed: true } : m)),
+        localMessages: {
+          ...s.localMessages,
+          [conversationId]: (s.localMessages[conversationId] ?? []).map((m) =>
+            m.id === optimisticMsg.id ? { ...m, failed: true } : m,
+          ),
+        },
+        conversations: s.conversations.map((c) =>
+          c.id === conversationId && priorConversation
+            ? { ...c, lastMessage: priorConversation.lastMessage, lastMessageAt: priorConversation.lastMessageAt }
+            : c
+        ),
         isSending: false,
       }));
       throw error;
     }
+  },
+
+  retryFailedMessage: async (conversationId: string, messageId: string) => {
+    const failedMsg = get().messages.find((m) => m.id === messageId && m.failed);
+    if (!failedMsg) return;
+    // Drop the failed bubble, then re-run the normal send path for the same content.
+    set((s) => ({
+      messages: s.messages.filter((m) => m.id !== messageId),
+      localMessages: {
+        ...s.localMessages,
+        [conversationId]: (s.localMessages[conversationId] ?? []).filter((m) => m.id !== messageId),
+      },
+    }));
+    await get().sendMessage(conversationId, { text: failedMsg.text, imageUrl: failedMsg.imageUrl });
   },
 
   startPolling: (conversationId) => {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -35,10 +35,23 @@ export default function BuyerMessagesScreen() {
   // Opened via a "new message" push notification tap — jump straight into
   // that thread once the conversation list has loaded, instead of leaving
   // the recipient to find it themselves.
+  //
+  // The `conversationId` route param never clears itself, and this list
+  // reloads on every focus (below) — including the focus that happens when
+  // the user presses Back OUT of the thread this effect just opened. Without
+  // a latch, `conversations` gets a new array identity on every reload, the
+  // effect re-fires, and it force-navigates back into the thread — Back
+  // becomes permanently non-functional and the nav stack grows without
+  // bound. The ref latches per conversationId so this only ever fires once
+  // for a given deep link, not once per list refresh.
+  const openedDeepLinkRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!deepLinkConversationId) return;
+    if (!deepLinkConversationId || openedDeepLinkRef.current === deepLinkConversationId) return;
     const target = conversations.find((c) => c.id === deepLinkConversationId);
-    if (target) openConversation(target);
+    if (target) {
+      openedDeepLinkRef.current = deepLinkConversationId;
+      openConversation(target);
+    }
   }, [deepLinkConversationId, conversations]);
 
   return (
