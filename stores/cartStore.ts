@@ -69,15 +69,25 @@ function cartCurrencyFromServer(items: ServerCartItem[]): string | undefined {
   return currencies[0];
 }
 
+// vendorIds is every vendor actually in the cart, not just one item's vendor
+// — a multi-vendor cart must accept a zone belonging to ANY of those
+// vendors (or a global, vendor-less zone), not only the first item's. The
+// backend independently resolves each vendor's own zone/fallback per group
+// (see payments.service.ts createPaymentIntent) — this only needs to find
+// ONE zone that establishes the right country + currency. Scoping to a
+// single vendor here previously made a same-currency multi-vendor cart
+// throw "delivery not available" whenever the first item's vendor had no
+// zone (or only a vendor-specific one) even though another vendor already
+// in the cart had a perfectly valid zone.
 function findCompatibleDeliveryZone(
   zones: DeliveryZone[],
   country: string,
   currency?: string,
-  vendorId?: string,
+  vendorIds?: string[],
 ): DeliveryZone | null {
   const countryMatches = zones.filter((zone) => {
     if (zone.active === false || !matchesDeliveryZoneCountry(zone, country)) return false;
-    return !vendorId || !zone.vendorId || zone.vendorId === vendorId;
+    return !vendorIds?.length || !zone.vendorId || vendorIds.includes(zone.vendorId);
   });
   const expectedCurrency = normalizeCurrency(currency);
   if (!expectedCurrency) return countryMatches[0] ?? null;
@@ -88,12 +98,12 @@ function deliveryZoneError(
   country: string,
   currency: string | undefined,
   zones: DeliveryZone[],
-  vendorId?: string,
+  vendorIds?: string[],
 ): string {
   const expectedCurrency = normalizeCurrency(currency);
   const countryMatches = zones.filter((zone) => {
     if (zone.active === false || !matchesDeliveryZoneCountry(zone, country)) return false;
-    return !vendorId || !zone.vendorId || zone.vendorId === vendorId;
+    return !vendorIds?.length || !zone.vendorId || vendorIds.includes(zone.vendorId);
   });
 
   if (expectedCurrency && countryMatches.length > 0) {
@@ -283,9 +293,10 @@ export const useCartStore = create<CartStore>((set, get) => ({
 
       const cartCurrency = cartCurrencyFromServer(cart.items);
       const firstItem = cart.items[0];
+      const vendorIds = Array.from(new Set(cart.items.map((item) => item.vendorId).filter(Boolean)));
       const zones = await deliveryService.listAllZones();
-      const match = findCompatibleDeliveryZone(zones, country, cartCurrency, firstItem?.vendorId);
-      if (!match) throw new Error(deliveryZoneError(country, cartCurrency, zones, firstItem?.vendorId));
+      const match = findCompatibleDeliveryZone(zones, country, cartCurrency, vendorIds);
+      if (!match) throw new Error(deliveryZoneError(country, cartCurrency, zones, vendorIds));
 
       const estimates = await cartService.calculateDelivery({
         cartId: cart.id,
@@ -332,10 +343,10 @@ export const useCartStore = create<CartStore>((set, get) => ({
         Array.from(serverCurrencies)[0] ??
         normalizeCurrency(get().items[0]?.product.currency ?? get().serverItems[0]?.currency);
       const country = resolveDeliveryCountry(get().deliveryCountry, cartCurrency, deliveryCountryOverride);
-      const firstItem = cart.items[0];
-      const match = findCompatibleDeliveryZone(zones, country, cartCurrency, firstItem?.vendorId);
+      const vendorIds = Array.from(new Set(cart.items.map((item) => item.vendorId).filter(Boolean)));
+      const match = findCompatibleDeliveryZone(zones, country, cartCurrency, vendorIds);
       destinationZoneId = match?.id;
-      if (!destinationZoneId) throw new Error(deliveryZoneError(country, cartCurrency, zones, firstItem?.vendorId));
+      if (!destinationZoneId) throw new Error(deliveryZoneError(country, cartCurrency, zones, vendorIds));
 
       set({ deliveryCountry: country });
       const intent = await cartService.createPaymentIntent({

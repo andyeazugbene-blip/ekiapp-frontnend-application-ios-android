@@ -345,7 +345,11 @@ export default function CheckoutScreen() {
               <Ionicons name="checkmark-circle" size={40} color="#076B51" />
             </View>
             <Text style={styles.modalTitle}>Payment Successful</Text>
-            <Text style={styles.modalBody}>Your order has been placed and the vendor has been notified.</Text>
+            <Text style={styles.modalBody}>
+              {createdOrderIds.length > 1
+                ? `Your order has been split across ${createdOrderIds.length} sellers — each has been notified and will fulfil their part separately.`
+                : "Your order has been placed and the vendor has been notified."}
+            </Text>
             {appliedCampaign ? (
               <Text style={styles.modalDiscount}>
                 {appliedCampaign.title} applied: −{formatDisplayMoney(appliedCampaign.discount / 100, checkoutCurrency, checkoutCurrency)}
