@@ -219,6 +219,14 @@ class APIClient {
     });
   }
 
+  async put<T>(endpoint: string, data?: any, options?: RequestOptions): Promise<T> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: "PUT",
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
   async delete<T>(endpoint: string, options?: RequestOptions): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: "DELETE" });
   }

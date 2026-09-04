@@ -373,8 +373,18 @@ export const vendorService = {
       earnings,
       insights: {
         bestSellingProduct: raw.insights?.bestSellingProduct ?? null,
-        repeatBuyers: raw.insights?.totalOrders ?? 0,
+        // Real repeat-buyer count now lives on performance.repeatBuyers —
+        // insights.totalOrders was never a repeat-buyer figure.
+        repeatBuyers: raw.performance?.repeatBuyers ?? 0,
       },
+      // Pass the architecture's prepared-payload groups through as-is
+      // instead of silently discarding them.
+      recommended_action: raw.recommended_action ?? null,
+      marketing_tools: raw.marketing_tools ?? [],
+      business_tools: raw.business_tools ?? [],
+      business_counts: raw.business_counts,
+      performance: raw.performance,
+      vendor_account_status: raw.vendor_account_status,
     } as VendorDashboardData;
   },
 

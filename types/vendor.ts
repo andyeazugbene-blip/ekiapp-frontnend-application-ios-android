@@ -56,6 +56,26 @@ export interface VendorDashboardData {
     bestSellingProduct: string;
     repeatBuyers: number;
   };
+  /**
+   * architecture doc "Module 3 — Dashboard Orchestration" prepared payload
+   * (GET /api/vendors/me/dashboard) — additive groups alongside the legacy
+   * fields above. Optional here because older cached/mocked responses in
+   * tests may not include them; real backend responses always do.
+   */
+  recommended_action?: { id: string; type: string; label: string; reason: string } | null;
+  marketing_tools?: { id: string; type: string; label: string; route: string; count?: number }[];
+  business_tools?: { id: string; type: string; label: string; route: string; count?: number }[];
+  business_counts?: { products: number; orders: number; buyers: number; lowStock: number };
+  performance?: { rating: number; totalReviews: number; repeatBuyers: number };
+  vendor_account_status?: {
+    verificationStatus: string;
+    accountStatus: string;
+    serviceLevel: string;
+    serviceName: string;
+    ordersRemaining: number | null;
+    maxOrders: number | null;
+    renewalDate: string | null;
+  };
 }
 
 export type VendorAnalyticsRange = "today" | "7d" | "month" | "30d" | "all";

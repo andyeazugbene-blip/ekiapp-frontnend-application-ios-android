@@ -15,7 +15,7 @@ import {
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
-  RENEWAL_STATUS_LABELS,
+  VENDOR_RENEWAL_STATUS_LABELS as RENEWAL_STATUS_LABELS,
   type BuyerSubscription,
   type Renewal,
   type SubscriptionOffer,

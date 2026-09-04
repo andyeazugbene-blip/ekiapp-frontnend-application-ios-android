@@ -39,6 +39,18 @@ export const RENEWAL_STATUS_LABELS: Record<RenewalStatus, string> = {
   CANCELLED: "Cancelled",
 };
 
+/**
+ * Vendor-facing renewal status labels. Spec §6.6: "Vendor sees 'Awaiting
+ * buyer approval.'" — the buyer's own copy above ("Awaiting your price
+ * approval") is correct on the buyer's screen but wrong when reused
+ * verbatim on the vendor's, since there the vendor isn't the one waiting
+ * on themselves.
+ */
+export const VENDOR_RENEWAL_STATUS_LABELS: Record<RenewalStatus, string> = {
+  ...RENEWAL_STATUS_LABELS,
+  AWAITING_PRICE_APPROVAL: "Awaiting buyer approval",
+};
+
 export interface OfferProduct {
   productId: string;
   product: { id: string; title: string; priceInCents: number; currency: string; imageUrl?: string | null };
