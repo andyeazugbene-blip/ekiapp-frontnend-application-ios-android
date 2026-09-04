@@ -149,6 +149,14 @@ export default function RootLayout() {
         } else if (type === "order_paid" || type === "order_delivered") {
           const orderId = data.orderId as string | undefined;
           router.push(orderId ? `/(buyer)/track-order?id=${orderId}` : `/(buyer)/orders`);
+        } else if (type === "order_refunded") {
+          // orderIds is an array — a refund can span every order under one
+          // checkout. A single refunded order deep-links exactly; more than
+          // one has no single detail screen to land on, so the orders list
+          // (where each shows its real REFUNDED status) is the correct
+          // target, not a wrong guess at which one to open.
+          const orderIds = data.orderIds as string[] | undefined;
+          router.push(orderIds?.length === 1 ? `/(buyer)/track-order?id=${orderIds[0]}` : `/(buyer)/orders`);
         } else if (type === "new_message") {
           const role = useAuthStore.getState().user?.role;
           const conversationId = data.conversationId as string | undefined;

@@ -40,6 +40,7 @@ export default function CheckoutScreen() {
   const deliveryTotal = useCartStore((s) => s.deliveryTotal());
   const grandTotal = useCartStore((s) => s.grandTotal());
   const createCheckout = useCartStore((s) => s.createCheckout);
+  const syncWithServer = useCartStore((s) => s.syncWithServer);
   const calculateDelivery = useCartStore((s) => s.calculateDelivery);
   const clearCart = useCartStore((s) => s.clearCart);
   const storeDeliveryCountry = useCartStore((s) => s.deliveryCountry);
@@ -79,6 +80,12 @@ export default function CheckoutScreen() {
   const estimatedTotal = Math.max(0, grandTotal - estimatedDiscount);
 
   useEffect(() => {
+    // Checkout can be reached without passing back through the cart screen
+    // (backgrounded app resumed here, a deep link, a slow re-render) — always
+    // re-sync with the server on mount so the price/stock shown here, and
+    // used to compute the total the buyer is about to pay, is live rather
+    // than whatever was cached from whenever the cart was last touched.
+    syncWithServer().catch(() => {});
     walletService
       .getWallet()
       .then((nextWallet) => setWallet(nextWallet))
