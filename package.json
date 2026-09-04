@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.13",
   "scripts": {
-    "postinstall": "node scripts/patch-stripe-react-native-ios.js",
+    "postinstall": "node scripts/patch-stripe-react-native-ios.js && node scripts/fix-hermesc-permissions.js",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",

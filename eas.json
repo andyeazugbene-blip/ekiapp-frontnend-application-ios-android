@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 16.16.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -53,7 +53,7 @@
     },
     "production": {
       "channel": "production",
-      "autoIncrement": true,
+      "autoIncrement": false,
       "credentialsSource": "remote",
       "env": {
         "EXPO_PUBLIC_USE_MOCK_API": "false",
