@@ -22,10 +22,15 @@ import {
   type Campaign,
   type CampaignFulfilment,
   type CampaignParticipant,
+  type CampaignUpdate,
   type MarketConfig,
   type RefundProgress,
   type SupplierProfile,
 } from "../../services/communityBuyService";
+
+// Mirrors the backend's postCampaignUpdate() gate (community-campaigns.service.ts) —
+// an update only makes sense once a campaign has actually gone live.
+const UPDATE_POSTABLE_STATUSES = ["LIVE", "PAUSED", "CLOSING", "RESCUE_WINDOW", "SUCCEEDED", "FAILED", "REFUNDING", "FULFILLING", "COMPLETED", "FINANCIALLY_CLOSED"];
 
 const FULFILMENT_STEP_LABEL: Record<CampaignFulfilment["status"], string> = {
   AWAITING_INVENTORY_CONFIRMATION: "Waiting for the supplier to confirm inventory",
@@ -83,6 +88,11 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [refundProgress, setRefundProgress] = useState<RefundProgress | null>(null);
   const [fulfilment, setFulfilment] = useState<CampaignFulfilment | null>(null);
   const [confirmingCompletion, setConfirmingCompletion] = useState(false);
+  const [updates, setUpdates] = useState<CampaignUpdate[]>([]);
+  const [showUpdateForm, setShowUpdateForm] = useState(false);
+  const [updateTitleInput, setUpdateTitleInput] = useState("");
+  const [updateMessageInput, setUpdateMessageInput] = useState("");
+  const [postingUpdate, setPostingUpdate] = useState(false);
   const { selectedCurrency } = useCurrencyStore();
 
   const load = useCallback(async () => {
@@ -113,6 +123,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         }
         if (["FULFILLING", "SUCCEEDED", "COMPLETED"].includes(existing.status)) {
           setFulfilment(await communityBuyService.getOrganiserFulfilment(id).catch(() => null));
+        }
+        if (UPDATE_POSTABLE_STATUSES.includes(existing.status)) {
+          setUpdates(await communityBuyService.getCampaignUpdates(id).catch(() => []));
         }
       } else {
         const profile = await communityBuyService.getMyOrganiserProfile();
@@ -349,6 +362,26 @@ export default function CommunityBuyOrganiserCampaignScreen() {
     );
   };
 
+  const handlePostUpdate = async () => {
+    if (!campaign) return;
+    if (!updateTitleInput.trim() || !updateMessageInput.trim()) {
+      return Alert.alert("Title and message required", "Give participants both a title and a message.");
+    }
+    setPostingUpdate(true);
+    try {
+      const posted = await communityBuyService.postCampaignUpdate(campaign.id, updateTitleInput.trim(), updateMessageInput.trim());
+      setUpdates((prev) => [posted, ...prev]);
+      setUpdateTitleInput("");
+      setUpdateMessageInput("");
+      setShowUpdateForm(false);
+      Alert.alert("Update posted", "Every participant has been notified.");
+    } catch (err) {
+      Alert.alert("Couldn't post this update", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setPostingUpdate(false);
+    }
+  };
+
   const isDraftLike = campaign ? ["DRAFT", "CHANGES_REQUIRED"].includes(campaign.status) : true;
   const isLiveLike = campaign ? ["LIVE", "PAUSED", "RESCUE_WINDOW"].includes(campaign.status) : false;
   // Financial terms (min/goal/max/price/deadline) can only change in draft.
@@ -565,6 +598,44 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               </View>
             ) : null}
 
+            {isEdit && campaign && UPDATE_POSTABLE_STATUSES.includes(campaign.status) ? (
+              <View style={{ gap: 10 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <Text style={styles.sectionOutside}>Campaign updates</Text>
+                  <TouchableOpacity onPress={() => setShowUpdateForm((v) => !v)} activeOpacity={0.85}>
+                    <Text style={styles.linkText}>{showUpdateForm ? "Cancel" : "Post an update"}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {showUpdateForm ? (
+                  <FloatingCard style={{ gap: 8 }}>
+                    <Text style={styles.label}>Title</Text>
+                    <TextInput style={styles.input} placeholder="e.g. Shipping this week" placeholderTextColor="#8AA194" value={updateTitleInput} onChangeText={setUpdateTitleInput} maxLength={140} />
+                    <Text style={styles.label}>Message</Text>
+                    <TextInput style={[styles.input, styles.inputMultiline]} placeholder="What do participants need to know?" placeholderTextColor="#8AA194" value={updateMessageInput} onChangeText={setUpdateMessageInput} multiline maxLength={2000} />
+                    <Text style={styles.outcomeHint}>Every participant is notified. This is for messages only — it can never change price, minimum, goal or maximum.</Text>
+                    <TouchableOpacity onPress={() => void handlePostUpdate()} disabled={postingUpdate} activeOpacity={0.88} style={styles.primaryBtnInline}>
+                      {postingUpdate ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fulfilBtnText}>Post update</Text>}
+                    </TouchableOpacity>
+                  </FloatingCard>
+                ) : null}
+
+                {updates.length > 0 ? (
+                  <View style={{ gap: 8 }}>
+                    {updates.map((u) => (
+                      <FloatingCard key={u.id} style={{ gap: 3 }}>
+                        <Text style={styles.updateTitle}>{u.title}</Text>
+                        {u.body ? <Text style={styles.fieldHint}>{u.body}</Text> : null}
+                        <Text style={styles.updateDate}>{formatDateTime(u.createdAt)}</Text>
+                      </FloatingCard>
+                    ))}
+                  </View>
+                ) : !showUpdateForm ? (
+                  <Text style={styles.fieldHint}>No updates posted yet.</Text>
+                ) : null}
+              </View>
+            ) : null}
+
             {!isLocked ? (
               <PrimaryButton label={isEdit ? "Save changes" : "Create campaign"} onPress={() => void handleSave()} loading={saving} />
             ) : null}
@@ -621,6 +692,9 @@ const styles = StyleSheet.create({
   input: { backgroundColor: "#F4F6F5", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: "Outfit-Regular", color: "#151E1B" },
   inputMultiline: { minHeight: 70, textAlignVertical: "top" },
   sectionOutside: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 10 },
+  linkText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  updateTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  updateDate: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 2 },
   emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72" },
   optionRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: "transparent" },
   optionRowActive: { borderColor: "#076B51" },

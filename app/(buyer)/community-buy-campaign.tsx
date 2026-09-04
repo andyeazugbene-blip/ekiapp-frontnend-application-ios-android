@@ -396,7 +396,14 @@ export default function CommunityBuyCampaignScreen() {
               <View style={{ gap: 8 }}>
                 {updates.map((u) => (
                   <FloatingCard key={u.id} style={{ gap: 3 }}>
-                    <Text style={styles.updateTitle}>{u.title}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Text style={styles.updateTitle}>{u.title}</Text>
+                      {u.authorRole === "ORGANISER" || u.authorRole === "SUPPLIER" ? (
+                        <View style={styles.updateAuthorPill}>
+                          <Text style={styles.updateAuthorPillText}>{u.authorRole === "ORGANISER" ? "Organiser" : "Supplier"}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                     {u.body ? <Text style={styles.updateBody}>{u.body}</Text> : null}
                     <Text style={styles.updateDate}>{formatDateTime(u.createdAt)}</Text>
                   </FloatingCard>
@@ -450,6 +457,8 @@ const styles = StyleSheet.create({
   updateTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
   updateBody: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#4A5A52", lineHeight: 17 },
   updateDate: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 2 },
+  updateAuthorPill: { backgroundColor: "#E7F0EB", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  updateAuthorPillText: { fontSize: 10, fontFamily: "Manrope-SemiBold", color: "#3A6B52" },
   reportIssueRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 14 },
   reportIssueText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
   optionRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1.5, borderColor: "transparent" },

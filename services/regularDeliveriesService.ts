@@ -168,11 +168,32 @@ interface Items<T> {
   items?: T[];
 }
 
+export interface PublicOfferSummary {
+  id: string;
+  title: string;
+  description?: string | null;
+  frequencies: SubscriptionFrequency[];
+  fulfilmentMethod: OfferFulfilmentMethod;
+  discountPercent?: number | null;
+  vendor: { id: string; storeName: string; avatar?: string | null; country?: string | null; city?: string | null };
+  products: { productId: string; product: { id: string; title: string; priceInCents: number; currency: string; images: string[]; stock: number } }[];
+}
+
 export const regularDeliveriesService = {
   // ─── Public / buyer: offers ───────────────────────────────────────────
   async getOffer(offerId: string): Promise<SubscriptionOffer> {
     const res = await apiClient.get<{ offer: SubscriptionOffer }>(`/api/subscription-offers/${offerId}`, { skipAuth: true });
     return res.offer;
+  },
+
+  /** Real discovery — no previous purchase, deep link, or existing subscription required. */
+  async listPublicOffers(filters?: { country?: string; vendorId?: string }): Promise<PublicOfferSummary[]> {
+    const query = new URLSearchParams();
+    if (filters?.country) query.set("country", filters.country);
+    if (filters?.vendorId) query.set("vendorId", filters.vendorId);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const res = await apiClient.get<{ items?: PublicOfferSummary[] }>(`/api/subscription-offers/public${suffix}`, { skipAuth: true });
+    return res.items ?? [];
   },
 
   // ─── Buyer: saved payment methods ─────────────────────────────────────

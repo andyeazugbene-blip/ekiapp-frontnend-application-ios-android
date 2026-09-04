@@ -77,6 +77,11 @@ export default function RegularDeliveriesScreen() {
         title="Regular Deliveries"
         subtitle={loading ? undefined : `${items.length} subscription${items.length === 1 ? "" : "s"}`}
         onBack={() => goBackOrReplace(router, "/(buyer)/profile" as any)}
+        right={
+          <TouchableOpacity onPress={() => router.push("/(buyer)/regular-deliveries-browse" as any)} activeOpacity={0.85} style={styles.headerIconBtn}>
+            <Ionicons name="search-outline" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        }
       />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
@@ -110,12 +115,15 @@ export default function RegularDeliveriesScreen() {
 
             <View style={{ gap: 10 }}>
               {items.length === 0 ? (
-                <FloatingCard>
+                <FloatingCard style={{ gap: 12 }}>
                   <EmptyState
                     icon="repeat-outline"
                     title="No Regular Deliveries yet"
-                    body="Open a vendor's store to see if they offer Regular Deliveries, then set up a recurring order from there."
+                    body="Browse what vendors near you offer, or open a vendor's store directly."
                   />
+                  <TouchableOpacity onPress={() => router.push("/(buyer)/regular-deliveries-browse" as any)} activeOpacity={0.85} style={styles.browseBtn}>
+                    <Text style={styles.browseBtnText}>Browse Regular Deliveries</Text>
+                  </TouchableOpacity>
                 </FloatingCard>
               ) : (
                 items.map((sub) => (
@@ -153,6 +161,9 @@ export default function RegularDeliveriesScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerIconBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
+  browseBtn: { minHeight: 44, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  browseBtnText: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 },
   cardTitle: { flex: 1, fontSize: 15, fontFamily: "Manrope-Bold", color: "#151E1B" },
   cardVendor: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },

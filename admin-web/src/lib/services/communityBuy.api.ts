@@ -49,6 +49,24 @@ export interface AdminExtensionRequest {
 
 export type SupplierPaymentStatus = "NOT_RELEASED" | "PROCESSING" | "PAID" | "ON_HOLD" | "FAILED";
 
+export interface CurrencySupplierPaymentTotals {
+  currency: string;
+  count: number;
+  totalAmount: number;
+  totalReleased: number;
+  totalPending: number;
+  totalHeld: number;
+  totalFailed: number;
+  totalProcessing: number;
+}
+
+export interface SupplierPaymentAggregate {
+  totalsByCurrency: CurrencySupplierPaymentTotals[];
+  byCampaign: { campaignId: string; campaignTitle: string; currency: string; amount: number; status: SupplierPaymentStatus; releasedAt: string | null }[];
+  bySupplier: { supplierId: string; supplierName: string; currency: string; count: number; totalAmount: number; totalReleased: number }[];
+  payments: AdminSupplierPayment[];
+}
+
 export interface AdminSupplierPayment {
   id: string;
   campaignId: string;
@@ -296,6 +314,18 @@ export const communityBuyAdminAPI = {
   async holdSupplierPayment(campaignId: string, reason: string): Promise<AdminSupplierPayment> {
     const res = await apiClient.post<{ payment: AdminSupplierPayment }>(`/admin/community-campaigns/${campaignId}/supplier-payment/hold`, { reason });
     return res.payment;
+  },
+
+  /** Real cross-campaign/cross-supplier aggregate — every number comes from actual CampaignSupplierPayment rows, never mixed across currencies. */
+  async getSupplierPaymentAggregate(filters?: { from?: string; to?: string; status?: SupplierPaymentStatus; supplierId?: string; campaignId?: string }): Promise<SupplierPaymentAggregate> {
+    const query = new URLSearchParams();
+    if (filters?.from) query.set("from", filters.from);
+    if (filters?.to) query.set("to", filters.to);
+    if (filters?.status) query.set("status", filters.status);
+    if (filters?.supplierId) query.set("supplierId", filters.supplierId);
+    if (filters?.campaignId) query.set("campaignId", filters.campaignId);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return apiClient.get<SupplierPaymentAggregate>(`/admin/community-buy/supplier-payments/aggregate${suffix}`);
   },
 
   // ─── Risk controls — restrict/unrestrict without revoking verification ──

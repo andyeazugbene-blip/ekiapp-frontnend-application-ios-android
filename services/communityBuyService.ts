@@ -139,7 +139,8 @@ export interface CampaignUpdate {
   title: string;
   body?: string | null;
   createdAt: string;
-  readAt?: string | null;
+  source?: "broadcast" | "system";
+  authorRole?: "ORGANISER" | "SUPPLIER" | "SYSTEM";
 }
 
 export interface CampaignParticipant {
@@ -309,6 +310,12 @@ export const communityBuyService = {
   async getCampaignUpdates(campaignId: string): Promise<CampaignUpdate[]> {
     const res = await apiClient.get<Items<CampaignUpdate>>(`/api/community-buy/campaigns/${campaignId}/updates`);
     return res.items ?? [];
+  },
+
+  /** Organiser or supplier posts a real broadcast update — communication content only. */
+  async postCampaignUpdate(campaignId: string, title: string, message: string): Promise<CampaignUpdate> {
+    const res = await apiClient.post<{ update: CampaignUpdate }>(`/api/community-buy/campaigns/${campaignId}/updates`, { title, message });
+    return res.update;
   },
 
   // ─── Organiser ────────────────────────────────────────────────────────────
