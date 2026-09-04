@@ -93,7 +93,7 @@ export default function FulfilmentDelaysPage() {
 
           {staleConfigured === false && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-700">
-              The "no progress" fallback check is inactive — set FULFILMENT_STALE_THRESHOLD_HOURS to enable it for fulfilments with no estimated-ready date at all. This is a client configuration decision, not a bug.
+              The &ldquo;no progress&rdquo; fallback check is inactive — set FULFILMENT_STALE_THRESHOLD_HOURS to enable it for fulfilments with no estimated-ready date at all. This is a client configuration decision, not a bug.
             </div>
           )}
 
