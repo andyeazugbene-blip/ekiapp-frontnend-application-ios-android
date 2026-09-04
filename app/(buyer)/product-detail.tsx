@@ -9,6 +9,7 @@ import { reviewService } from "../../services/reviewService";
 import { deliveryService } from "../../services/deliveryService";
 import { matchesDeliveryZoneCountry } from "../../services/deliveryService";
 import { useCartStore, CurrencyMismatchError } from "../../stores/cartStore";
+import { showCurrencyMismatchAlert } from "../../utils/cartCurrencyAlert";
 import { useAuthStore } from "../../stores/authStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useFavoritesStore } from "../../stores/favoritesStore";
@@ -97,17 +98,10 @@ export default function ProductDetailScreen() {
       ]);
     } catch (err) {
       if (err instanceof CurrencyMismatchError) {
-        Alert.alert(
-          "Different currency",
-          `Your cart has ${err.existing} items. Replace with this ${err.incoming} product?`,
-          [
-            { text: "Cancel", style: "cancel" },
-            { text: "Replace Cart", style: "destructive", onPress: async () => {
-              try { await clearCart(); await addItem(product, 1); Alert.alert("Added to cart", `${product.name} has been added to your cart.`); }
-              catch (e) { Alert.alert("Cart not updated", e instanceof Error ? e.message : "Could not add this item to your cart."); }
-            }},
-          ],
-        );
+        showCurrencyMismatchAlert(err, async () => {
+          try { await clearCart(); await addItem(product, 1); Alert.alert("Added to cart", `${product.name} has been added to your cart.`); }
+          catch (e) { Alert.alert("Cart not updated", e instanceof Error ? e.message : "Could not add this item to your cart."); }
+        });
       } else {
         Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
       }

@@ -8,6 +8,7 @@ import { productService } from "../../services/productService";
 import { reviewService, type ReviewsWithStats } from "../../services/reviewService";
 import { deliveryService, type DeliveryZone } from "../../services/deliveryService";
 import { useCartStore, CurrencyMismatchError } from "../../stores/cartStore";
+import { showCurrencyMismatchAlert } from "../../utils/cartCurrencyAlert";
 import type { VendorSummary } from "../../types/vendor";
 import type { Product, Review } from "../../types/product";
 import { RemoteImage } from "../../components/ui/RemoteImage";
@@ -96,10 +97,7 @@ export default function VendorDetailScreen() {
   const handleAddToCart = (product: Product) => {
     addItem(product, 1).catch((err) => {
       if (err instanceof CurrencyMismatchError) {
-        Alert.alert("Different currency", `Your cart has ${err.existing} items. Replace with this ${err.incoming} product?`, [
-          { text: "Cancel", style: "cancel" },
-          { text: "Replace Cart", style: "destructive", onPress: () => { clearCart().then(() => addItem(product, 1)).catch(() => {}); }},
-        ]);
+        showCurrencyMismatchAlert(err, () => { clearCart().then(() => addItem(product, 1)).catch(() => {}); });
       } else {
         Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
       }

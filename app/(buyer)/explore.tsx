@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { vendorService } from "../../services/vendorService";
 import { useCartStore, CurrencyMismatchError } from "../../stores/cartStore";
+import { showCurrencyMismatchAlert } from "../../utils/cartCurrencyAlert";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { Product } from "../../types/product";
 import { VendorSummary } from "../../types/vendor";
@@ -96,10 +97,7 @@ export default function ExploreScreen() {
     ]).start(() => setRecentlyAddedId(null));
     addItem(product, 1).catch((err) => {
       if (err instanceof CurrencyMismatchError) {
-        Alert.alert("Different currency", `Your cart has ${err.existing} items. Replace with this ${err.incoming} product?`, [
-          { text: "Cancel", style: "cancel" },
-          { text: "Replace Cart", style: "destructive", onPress: () => { clearCart().then(() => addItem(product, 1)).catch(() => {}); }},
-        ]);
+        showCurrencyMismatchAlert(err, () => { clearCart().then(() => addItem(product, 1)).catch(() => {}); });
       } else {
         Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
       }
