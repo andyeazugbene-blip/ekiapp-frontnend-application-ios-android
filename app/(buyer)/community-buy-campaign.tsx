@@ -157,6 +157,11 @@ export default function CommunityBuyCampaignScreen() {
    * the amount is only captured later if the campaign actually succeeds.
    */
   const handleContribute = async () => {
+    // Re-entrancy guard — the backend has no unique constraint preventing
+    // the same user from pledging twice to the same campaign (contributions
+    // are deliberately independent rows), so a double-tap race here is the
+    // one thing currently stopping a real duplicate pledge, not just a UX nicety.
+    if (contributing) return;
     const value = Math.round(Number(quantity));
     if (!Number.isFinite(value) || value <= 0) {
       setContributeError("Enter a valid number of shares.");
@@ -182,7 +187,7 @@ export default function CommunityBuyCampaignScreen() {
   };
 
   const handleRetryCharge = async () => {
-    if (!contribution) return;
+    if (!contribution || retrying) return;
     setRetrying(true);
     try {
       const updated = await communityBuyService.retryContributionCharge(contribution.id);

@@ -148,7 +148,7 @@ export default function RegularDeliveryOfferScreen() {
   };
 
   const handleStart = async () => {
-    if (!offer || !frequency) return;
+    if (!offer || !frequency || submitting) return;
     const items = Array.from(selectedProductIds).map((productId) => ({ productId, quantity: quantities[productId] ?? 1 }));
     if (items.length === 0) {
       setSubmitError("Choose at least one product.");

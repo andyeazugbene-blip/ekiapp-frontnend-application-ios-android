@@ -116,6 +116,12 @@ export default function CheckoutScreen() {
   }, [calculateDelivery, country, items.length]);
 
   const handlePlaceOrder = async () => {
+    // Re-entrancy guard: `disabled={submitting}` on the button stops a
+    // SECOND real tap once React has re-rendered, but two rapid taps in the
+    // same event-loop tick (before that re-render lands) can both invoke
+    // this handler — this is the actual gate that stops a real double
+    // checkout attempt, not just the visual disabled state.
+    if (submitting) return;
     setError("");
 
     if (!country.trim()) {

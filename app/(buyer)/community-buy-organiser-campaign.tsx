@@ -298,7 +298,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
    * the rescued campaign goes on to reach its minimum/goal.
    */
   const handleTopUp = async () => {
-    if (!campaign) return;
+    if (!campaign || decisionBusy) return;
     const qty = Math.round(Number(topUpQuantity));
     if (!Number.isFinite(qty) || qty <= 0) return Alert.alert("Quantity required", "Enter how many shares you want to pledge.");
     if (!paymentMethodId) return Alert.alert("Payment method required", "Add a card to pledge this top-up.");
