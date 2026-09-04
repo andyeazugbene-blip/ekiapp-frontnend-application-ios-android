@@ -18,6 +18,13 @@ import { productService } from "../../services/productService";
 import type { Product } from "../../types/product";
 import { goBackOrReplace } from "../../utils/navigation";
 
+const CURRENCY_SYMBOL: Record<string, string> = { GBP: "£", USD: "$", EUR: "€" };
+
+function formatMinor(minor: number, currency: string): string {
+  const symbol = CURRENCY_SYMBOL[currency] ?? "";
+  return `${symbol}${(minor / 100).toFixed(2)}`;
+}
+
 export default function BundleHistoryScreen() {
   const router = useRouter();
   const [bundles, setBundles] = useState<Bundle[]>([]);
@@ -77,7 +84,7 @@ export default function BundleHistoryScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await marketingService.deleteDiscount(bundle.id);
+            await marketingService.deleteBundle(bundle.id);
             setBundles((prev) => prev.filter((b) => b.id !== bundle.id));
           } catch (err) {
             Alert.alert("Error", err instanceof Error ? err.message : "Could not delete bundle.");
@@ -154,6 +161,16 @@ export default function BundleHistoryScreen() {
                       {bundle.productIds.length} product{bundle.productIds.length !== 1 ? "s" : ""}
                     </Text>
                   </View>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Ionicons name="pricetag-outline" size={16} color="#076B51" />
+                  <Text style={styles.detailText}>
+                    {formatMinor(bundle.bundlePriceMinor, bundle.currency)}
+                    {bundle.regularPriceMinor > bundle.bundlePriceMinor
+                      ? `  (was ${formatMinor(bundle.regularPriceMinor, bundle.currency)})`
+                      : ""}
+                  </Text>
                 </View>
 
                 <View style={styles.detailRow}>

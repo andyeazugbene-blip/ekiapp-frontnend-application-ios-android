@@ -4,7 +4,6 @@
 import { apiClient } from "./api";
 import { buyerService } from "./buyerService";
 import { messageService } from "./messageService";
-import { productService } from "./productService";
 
 export type DiscountAudience = "all" | "repeat" | "new" | "country";
 export type DiscountKind = "percentage" | "fixed_amount";
@@ -36,9 +35,14 @@ export interface BundleInput {
 
 export interface Bundle extends BundleInput {
   id: string;
+  bundlePriceMinor: number;
+  regularPriceMinor: number;
+  isActive: boolean;
   shareUrl?: string;
   createdAt: string;
 }
+
+export type FlashSaleStatus = "UPCOMING" | "ACTIVE" | "EXPIRED" | "INACTIVE";
 
 export interface FlashSaleInput {
   productId: string;
@@ -50,6 +54,10 @@ export interface FlashSaleInput {
 
 export interface FlashSale extends FlashSaleInput {
   id: string;
+  salePriceMinor: number;
+  regularPriceMinor: number;
+  isActive: boolean;
+  status: FlashSaleStatus;
   shareUrl?: string;
   createdAt: string;
 }
@@ -116,6 +124,44 @@ function toIsoDateOrThrow(value?: string): string | undefined {
   }
 
   return parsed.toISOString();
+}
+
+function normalizeBundle(raw: any): Bundle {
+  return {
+    id: String(raw?.id ?? ""),
+    name: typeof raw?.name === "string" ? raw.name : "",
+    productIds: Array.isArray(raw?.items)
+      ? raw.items.map((item: any) => String(item?.productId ?? item?.product?.id ?? "")).filter(Boolean)
+      : [],
+    bundlePriceMinor: Number(raw?.bundlePriceMinor ?? 0),
+    bundlePrice: Number(raw?.bundlePriceMinor ?? 0) / 100,
+    regularPriceMinor: Number(raw?.regularPriceMinor ?? 0),
+    currency: typeof raw?.currency === "string" ? raw.currency : "",
+    isActive: raw?.isActive !== false,
+    shareUrl: typeof raw?.shareUrl === "string" ? raw.shareUrl : undefined,
+    createdAt: raw?.createdAt ?? new Date().toISOString(),
+  };
+}
+
+function normalizeFlashSale(raw: any): FlashSale {
+  const status: FlashSaleStatus =
+    raw?.status === "UPCOMING" || raw?.status === "ACTIVE" || raw?.status === "EXPIRED" || raw?.status === "INACTIVE"
+      ? raw.status
+      : "ACTIVE";
+  return {
+    id: String(raw?.id ?? ""),
+    productId: String(raw?.productId ?? ""),
+    salePriceMinor: Number(raw?.salePriceMinor ?? 0),
+    salePrice: Number(raw?.salePriceMinor ?? 0) / 100,
+    regularPriceMinor: Number(raw?.regularPriceMinor ?? raw?.product?.priceInCents ?? 0),
+    currency: typeof raw?.currency === "string" ? raw.currency : "",
+    startsAt: raw?.startsAt instanceof Date ? raw.startsAt.toISOString() : String(raw?.startsAt ?? ""),
+    endsAt: raw?.endsAt instanceof Date ? raw.endsAt.toISOString() : String(raw?.endsAt ?? ""),
+    isActive: raw?.isActive !== false,
+    status,
+    shareUrl: typeof raw?.shareUrl === "string" ? raw.shareUrl : undefined,
+    createdAt: raw?.createdAt ?? new Date().toISOString(),
+  };
 }
 
 function normalizeDiscount(raw: any): Discount {
@@ -242,90 +288,42 @@ export const marketingService = {
   },
 
   async createBundle(input: BundleInput): Promise<Bundle> {
-    const products = await productService.getMyVendorProducts();
-    const selected = products.filter((product) => input.productIds.includes(product.id));
-    const regularTotal = selected.reduce((sum, product) => sum + product.price, 0);
-    const discountValue = Math.max(0, regularTotal - input.bundlePrice);
-
-    if (selected.length < 2 || discountValue <= 0) {
-      throw new Error("Bundle price must be lower than the selected products' regular total.");
-    }
-
-    const discount = await this.createDiscount({
+    const res = await apiClient.post<{ bundle: any }>("/api/bundles/me", {
+      name: input.name,
       productIds: input.productIds,
-      audience: "all",
-      kind: "fixed_amount",
-      value: discountValue,
-      code: generatePromoCode("BUNDLE"),
+      bundlePriceMinor: Math.round(input.bundlePrice * 100),
+      currency: input.currency,
     });
-
-    return {
-      ...input,
-      id: discount.id,
-      shareUrl: discount.shareUrl,
-      createdAt: discount.createdAt,
-    };
+    return normalizeBundle(res.bundle);
   },
 
   async listBundles(): Promise<Bundle[]> {
-    const all = await this.listDiscounts();
-    return all
-      .filter((d) => d.code?.startsWith("BUNDLE"))
-      .map((d) => ({
-        id: d.id,
-        name: d.code ?? "",
-        productIds: d.productIds,
-        bundlePrice: 0,
-        currency: "",
-        shareUrl: d.shareUrl,
-        createdAt: d.createdAt,
-      }));
+    const res = await apiClient.get<{ items?: any[] }>("/api/bundles/me");
+    return (res.items ?? []).map(normalizeBundle);
+  },
+
+  async deleteBundle(id: string): Promise<void> {
+    await apiClient.delete(`/api/bundles/me/${id}`);
   },
 
   async createFlashSale(input: FlashSaleInput): Promise<FlashSale> {
-    const products = await productService.getMyVendorProducts();
-    const product = products.find((item) => item.id === input.productId);
-    if (!product) {
-      throw new Error("Selected product was not found in your store.");
-    }
-
-    const discountValue = Math.max(0, product.price - input.salePrice);
-    if (discountValue <= 0) {
-      throw new Error("Flash sale price must be lower than the product price.");
-    }
-
-    const discount = await this.createDiscount({
-      productIds: [input.productId],
-      audience: "all",
-      kind: "fixed_amount",
-      value: discountValue,
-      code: generatePromoCode("FLASH"),
+    const res = await apiClient.post<{ flashSale: any }>("/api/flash-sales/me", {
+      productId: input.productId,
+      salePriceMinor: Math.round(input.salePrice * 100),
+      currency: input.currency,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
     });
-
-    return {
-      ...input,
-      id: discount.id,
-      shareUrl: discount.shareUrl,
-      createdAt: discount.createdAt,
-    };
+    return normalizeFlashSale(res.flashSale);
   },
 
   async listFlashSales(): Promise<FlashSale[]> {
-    const all = await this.listDiscounts();
-    return all
-      .filter((d) => d.code?.startsWith("FLASH"))
-      .map((d) => ({
-        id: d.id,
-        productId: d.productIds[0] ?? "",
-        salePrice: 0,
-        currency: "",
-        startsAt: d.startsAt ?? d.createdAt,
-        endsAt: d.endsAt ?? "",
-        shareUrl: d.shareUrl,
-        createdAt: d.createdAt,
-      }));
+    const res = await apiClient.get<{ items?: any[] }>("/api/flash-sales/me");
+    return (res.items ?? []).map(normalizeFlashSale);
+  },
+
+  async deleteFlashSale(id: string): Promise<void> {
+    await apiClient.delete(`/api/flash-sales/me/${id}`);
   },
 
   async sendOffer(input: OfferInput): Promise<Offer> {

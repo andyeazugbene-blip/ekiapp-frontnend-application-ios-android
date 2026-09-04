@@ -18,18 +18,28 @@ import { productService } from "../../services/productService";
 import type { Product } from "../../types/product";
 import { goBackOrReplace } from "../../utils/navigation";
 
-function getStatus(sale: FlashSale) {
-  const now = Date.now();
-  const start = sale.startsAt ? Date.parse(sale.startsAt) : 0;
-  const end = sale.endsAt ? Date.parse(sale.endsAt) : 0;
+const CURRENCY_SYMBOL: Record<string, string> = { GBP: "£", USD: "$", EUR: "€" };
 
-  if (start && Number.isFinite(start) && start > now) {
-    return { label: "Scheduled", tone: "scheduled" as const };
+function formatMinor(minor: number, currency: string): string {
+  const symbol = CURRENCY_SYMBOL[currency] ?? "";
+  return `${symbol}${(minor / 100).toFixed(2)}`;
+}
+
+// Status is computed by the backend from real dates (FlashSale.status) —
+// never recomputed client-side, so the UI can never drift from what the
+// server considers active/upcoming/expired.
+function statusPresentation(status: FlashSale["status"]) {
+  switch (status) {
+    case "UPCOMING":
+      return { label: "Scheduled", tone: "scheduled" as const };
+    case "EXPIRED":
+      return { label: "Expired", tone: "expired" as const };
+    case "INACTIVE":
+      return { label: "Inactive", tone: "inactive" as const };
+    case "ACTIVE":
+    default:
+      return { label: "Active", tone: "active" as const };
   }
-  if (end && Number.isFinite(end) && end < now) {
-    return { label: "Expired", tone: "expired" as const };
-  }
-  return { label: "Active", tone: "active" as const };
 }
 
 export default function FlashSaleHistoryScreen() {
@@ -79,7 +89,7 @@ export default function FlashSaleHistoryScreen() {
       sales.map((s) => ({
         ...s,
         productName: products[s.productId]?.name ?? "Unknown product",
-        status: getStatus(s),
+        statusView: statusPresentation(s.status),
       })),
     [sales, products],
   );
@@ -92,7 +102,7 @@ export default function FlashSaleHistoryScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await marketingService.deleteDiscount(sale.id);
+            await marketingService.deleteFlashSale(sale.id);
             setSales((prev) => prev.filter((s) => s.id !== sale.id));
           } catch (err) {
             Alert.alert("Error", err instanceof Error ? err.message : "Could not delete flash sale.");
@@ -174,26 +184,40 @@ export default function FlashSaleHistoryScreen() {
                   <View
                     style={[
                       styles.statusPill,
-                      sale.status.tone === "expired"
+                      sale.statusView.tone === "expired"
                         ? styles.statusPillExpired
-                        : sale.status.tone === "scheduled"
+                        : sale.statusView.tone === "scheduled"
                           ? styles.statusPillScheduled
-                          : styles.statusPillActive,
+                          : sale.statusView.tone === "inactive"
+                            ? styles.statusPillInactive
+                            : styles.statusPillActive,
                     ]}
                   >
                     <Text
                       style={[
                         styles.statusPillText,
-                        sale.status.tone === "expired"
+                        sale.statusView.tone === "expired"
                           ? styles.statusPillTextExpired
-                          : sale.status.tone === "scheduled"
+                          : sale.statusView.tone === "scheduled"
                             ? styles.statusPillTextScheduled
-                            : styles.statusPillTextActive,
+                            : sale.statusView.tone === "inactive"
+                              ? styles.statusPillTextInactive
+                              : styles.statusPillTextActive,
                       ]}
                     >
-                      {sale.status.label}
+                      {sale.statusView.label}
                     </Text>
                   </View>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Ionicons name="pricetag-outline" size={16} color="#076B51" />
+                  <Text style={styles.detailText}>
+                    {formatMinor(sale.salePriceMinor, sale.currency)}
+                    {sale.regularPriceMinor > sale.salePriceMinor
+                      ? `  (was ${formatMinor(sale.regularPriceMinor, sale.currency)})`
+                      : ""}
+                  </Text>
                 </View>
 
                 <View style={styles.detailRow}>
@@ -314,10 +338,12 @@ const styles = StyleSheet.create({
   statusPillActive: { backgroundColor: "#EAF7F1" },
   statusPillScheduled: { backgroundColor: "#FFF4E5" },
   statusPillExpired: { backgroundColor: "#FDECEC" },
+  statusPillInactive: { backgroundColor: "#F1F2F1" },
   statusPillText: { fontSize: 11, fontFamily: "Manrope-SemiBold" },
   statusPillTextActive: { color: "#076B51" },
   statusPillTextScheduled: { color: "#B45309" },
   statusPillTextExpired: { color: "#DC2626" },
+  statusPillTextInactive: { color: "#687076" },
   detailRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 12 },
   detailText: { flex: 1, fontSize: 13, lineHeight: 18, fontFamily: "Outfit-Regular", color: "#48505A" },
   actionRow: { flexDirection: "row", gap: 10, marginTop: 14 },
