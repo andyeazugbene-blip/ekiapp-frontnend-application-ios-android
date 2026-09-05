@@ -148,7 +148,12 @@ export default function RootLayout() {
           }
         } else if (type === "order_paid" || type === "order_delivered") {
           const orderId = data.orderId as string | undefined;
-          router.push(orderId ? `/(buyer)/track-order?id=${orderId}` : `/(buyer)/orders`);
+          const role = useAuthStore.getState().user?.role;
+          if (role === "vendor" || role === "admin") {
+            router.push(orderId ? `/(vendor)/order-detail?id=${orderId}` : `/(vendor)/orders`);
+          } else {
+            router.push(orderId ? `/(buyer)/track-order?id=${orderId}` : `/(buyer)/orders`);
+          }
         } else if (type === "order_refunded") {
           // orderIds is an array — a refund can span every order under one
           // checkout. A single refunded order deep-links exactly; more than
@@ -156,14 +161,20 @@ export default function RootLayout() {
           // (where each shows its real REFUNDED status) is the correct
           // target, not a wrong guess at which one to open.
           const orderIds = data.orderIds as string[] | undefined;
-          router.push(orderIds?.length === 1 ? `/(buyer)/track-order?id=${orderIds[0]}` : `/(buyer)/orders`);
+          const role = useAuthStore.getState().user?.role;
+          if (role === "vendor" || role === "admin") {
+            router.push(orderIds?.length === 1 ? `/(vendor)/order-detail?id=${orderIds[0]}` : `/(vendor)/orders`);
+          } else {
+            router.push(orderIds?.length === 1 ? `/(buyer)/track-order?id=${orderIds[0]}` : `/(buyer)/orders`);
+          }
         } else if (type === "new_message") {
           const role = useAuthStore.getState().user?.role;
           const conversationId = data.conversationId as string | undefined;
           const base = role === "vendor" || role === "admin" ? "/(vendor)/messages" : "/(buyer)/messages";
           router.push(conversationId ? `${base}?conversationId=${conversationId}` : base);
         } else if (type === "earnings_released" || type === "payout_approved") {
-          router.push(`/(vendor)/earnings`);
+          const role = useAuthStore.getState().user?.role;
+          router.push(role === "vendor" || role === "admin" ? `/(vendor)/earnings` : `/(buyer)`);
         } else if (type === "subscription_update") {
           const role = useAuthStore.getState().user?.role;
           const event = data.event as string | undefined;
