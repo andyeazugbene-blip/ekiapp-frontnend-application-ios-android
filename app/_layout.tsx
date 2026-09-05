@@ -125,9 +125,15 @@ export default function RootLayout() {
       }
     });
 
-    // Handle notification taps - deep link to relevant screen
-    const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
+    // Handle notification taps - deep link to relevant screen. Shared by
+    // both the live listener below (tap while the app is already running)
+    // and getLastNotificationResponseAsync() (tap that COLD-STARTED the
+    // app from fully killed) — addNotificationResponseReceivedListener
+    // alone can race a cold start, since the native side may record the
+    // tap before this listener is even attached. router.push to a path
+    // the app is already on is a no-op, so both paths firing for the same
+    // tap is harmless.
+    const handleNotificationTap = (data: Record<string, unknown> | null | undefined) => {
       if (!data) return;
       try {
         const router = require("expo-router").router;
@@ -230,7 +236,22 @@ export default function RootLayout() {
       } catch {
         // Router not ready yet — ignore
       }
+    };
+
+    const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
+      handleNotificationTap(response.notification.request.content.data);
     });
+
+    // Cold start: the app was fully killed and the user tapped a
+    // notification to launch it. getLastNotificationResponseAsync() is
+    // Expo's documented way to retrieve that tap — the live listener above
+    // is not guaranteed to fire for it, since native can record the
+    // response before this listener is attached.
+    Notifications.getLastNotificationResponseAsync()
+      .then(response => {
+        if (response) handleNotificationTap(response.notification.request.content.data);
+      })
+      .catch(() => {});
 
     return () => {
       receivedSub.remove();
