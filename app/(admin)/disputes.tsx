@@ -108,11 +108,23 @@ export default function AdminDisputesScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          activeOpacity={0.85}
+          style={styles.backButton}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Ionicons name="arrow-back" size={22} color="#0A6C52" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Disputes</Text>
-        <TouchableOpacity onPress={() => setCurrencyModalVisible(true)} activeOpacity={0.85} style={styles.currencyButton}>
+        <TouchableOpacity
+          onPress={() => setCurrencyModalVisible(true)}
+          activeOpacity={0.85}
+          style={styles.currencyButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Change currency, current currency ${selectedCurrency}`}
+        >
           <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
         </TouchableOpacity>
       </View>
@@ -170,6 +182,7 @@ export default function AdminDisputesScreen() {
                     onPress={() => router.push({ pathname: "/(admin)/dispute-detail", params: { id: dispute.id } } as any)}
                     activeOpacity={0.85}
                     style={styles.secondaryAction}
+                    accessibilityRole="button"
                   >
                     <Text style={styles.secondaryActionText}>
                       {tone === "ready" ? "Release payment" : "View Details"}
@@ -183,6 +196,7 @@ export default function AdminDisputesScreen() {
                       styles.primaryAction,
                       tone === "ready" ? styles.primaryActionDark : undefined,
                     ]}
+                    accessibilityRole="button"
                   >
                     <Text style={styles.primaryActionText}>
                       {tone === "ready" ? "Hold payment" : "Resolve Dispute"}

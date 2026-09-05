@@ -5,7 +5,7 @@
     "version": "1.5.4",
     "orientation": "portrait",
     "scheme": "ekiapp",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -29,8 +29,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Eki uses your camera for product photos, identity verification, and chat image sharing.",
-        "NSPhotoLibraryUsageDescription": "Eki uses your photo library so you can upload product photos, verification documents, and chat images.",
-        "NSPhotoLibraryAddUsageDescription": "Eki can save selected images when you choose to download or share them."
+        "NSPhotoLibraryUsageDescription": "Eki uses your photo library so you can upload product photos, verification documents, and chat images."
       }
     },
     "android": {
