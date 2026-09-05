@@ -293,6 +293,11 @@ export default function CommunityBuyCampaignScreen() {
               <Ionicons name="return-down-back-outline" size={20} color="#D6552F" />
               <Text style={styles.outcomeText}>This campaign was ended. No participant was charged — any pledge you made has been cancelled.</Text>
             </FloatingCard>
+          ) : campaign.status === "PAUSED" ? (
+            <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
+              <Ionicons name="pause-circle-outline" size={20} color="#B48A00" />
+              <Text style={styles.outcomeText}>This campaign is temporarily paused — new contributions aren't being accepted right now. Check back soon, or contact support if you have a question about a pledge you already made.</Text>
+            </FloatingCard>
           ) : null}
 
           {isLive ? (
