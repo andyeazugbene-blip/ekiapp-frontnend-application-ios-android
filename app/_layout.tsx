@@ -170,6 +170,11 @@ export default function RootLayout() {
           const subscriptionId = data.subscriptionId as string | undefined;
           if (event === "vendor_renewal_paid") {
             router.push(`/(vendor)/regular-deliveries`);
+          } else if (event === "vendor_price_decision") {
+            // Vendor-targeted (see notifyVendorPriceDecision, backend repo)
+            // — must not fall into the buyer-only regular-delivery-detail
+            // branch below just because subscriptionId is present.
+            router.push(subscriptionId ? `/(vendor)/regular-delivery-subscriber-detail?id=${subscriptionId}` : `/(vendor)/regular-deliveries`);
           } else if (event === "order_created") {
             router.push(`/(buyer)/orders`);
           } else if (subscriptionId) {
