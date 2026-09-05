@@ -8,7 +8,6 @@ import { productService } from "../../services/productService";
 import { reviewService, type ReviewsWithStats } from "../../services/reviewService";
 import { deliveryService, type DeliveryZone } from "../../services/deliveryService";
 import { useCartStore } from "../../stores/cartStore";
-import { showCurrencySwitchNotice } from "../../utils/cartCurrencyAlert";
 import type { VendorSummary } from "../../types/vendor";
 import type { Product, Review } from "../../types/product";
 import { RemoteImage } from "../../components/ui/RemoteImage";
@@ -94,15 +93,9 @@ export default function VendorDetailScreen() {
     : [vendor.country].filter(Boolean);
 
   const handleAddToCart = (product: Product) => {
-    addItem(product, 1)
-      .then((result) => {
-        if (result.switchedCurrency && result.previousCurrency) {
-          showCurrencySwitchNotice(result.previousCurrency, result.currency);
-        }
-      })
-      .catch((err) => {
-        Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
-      });
+    addItem(product, 1).catch((err) => {
+      Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
+    });
   };
 
   const handleMessageVendor = () => {

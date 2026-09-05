@@ -44,7 +44,13 @@ const CONFIG_PRESETS: Partial<Record<AutomationType, { key: string; label: strin
 
 export default function AutomationDetailScreen() {
   const router = useRouter();
-  const { type } = useLocalSearchParams<{ type?: string }>();
+  const { type: rawType } = useLocalSearchParams<{ type?: string | string[] }>();
+  // expo-router can hand back string[] for a query-style param depending on
+  // how navigation reached this screen — casting straight to AutomationType
+  // (as the previous code did) silently made VENDOR_AUTOMATION_TYPES.includes()
+  // always false for an array value, with nothing distinguishing that from
+  // a real network failure. Always resolve to a single string first.
+  const type = Array.isArray(rawType) ? rawType[0] : rawType;
   const automationType = (type ?? "") as AutomationType;
   const isValidType = VENDOR_AUTOMATION_TYPES.includes(automationType);
 
@@ -55,22 +61,37 @@ export default function AutomationDetailScreen() {
   const [savingConfigKey, setSavingConfigKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!isValidType) { setLoading(false); return; }
+    // A missing/invalid route param is a navigation problem, not a network
+    // one — say so explicitly instead of falling through to "automation"
+    // staying null with no error set, which rendered the generic "Check
+    // your connection and try again" fallback for a completely different
+    // real cause.
+    if (!isValidType) {
+      setLoading(false);
+      setError(type ? `"${type}" isn't a recognized automation. Go back to Automation Center and try again.` : "No automation was specified. Go back to Automation Center and try again.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
       const list = await automationService.listVendorAutomations();
       const found = list.find((a) => a.type === automationType);
-      if (!found) throw new Error("Automation not found");
+      if (!found) throw new Error(`This automation isn't available for your account yet. Go back to Automation Center and try again.`);
       setAutomation(found);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load this automation.");
+      setError(err instanceof Error ? err.message : "Could not load this automation. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
-  }, [automationType, isValidType]);
+  }, [automationType, isValidType, type]);
 
+  // useFocusEffect alone only reruns on a genuine focus event — if the
+  // route param arrives or changes a tick after this screen is already
+  // considered focused (a real timing edge case with useLocalSearchParams),
+  // the stale "invalid type" result from the first pass would never be
+  // retried. A plain effect keyed on the actual param value closes that gap.
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  React.useEffect(() => { load(); }, [load]);
 
   const handleToggle = async () => {
     if (!automation) return;

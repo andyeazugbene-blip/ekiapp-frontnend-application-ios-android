@@ -1,13 +1,7 @@
 import { create } from "zustand";
 import { CartItem, Product } from "../types/product";
-import { cartService, ServerCartItem, DeliveryEstimate, CheckoutIntent, CartSummaryEntry } from "../services/cartService";
+import { cartService, ServerCartItem, DeliveryEstimate, CheckoutIntent } from "../services/cartService";
 import { DeliveryZone, deliveryService, matchesDeliveryZoneCountry } from "../services/deliveryService";
-
-export interface AddItemResult {
-  switchedCurrency: boolean;
-  currency: string;
-  previousCurrency?: string;
-}
 
 export interface VendorGroup {
   vendorId: string;
@@ -20,19 +14,24 @@ export interface VendorGroup {
 interface CartStore {
   items: CartItem[];
   serverItems: ServerCartItem[];
-  currency: string;
-  otherCarts: CartSummaryEntry[];
+  /** Buyer's chosen checkout currency — every line item, delivery fee, and
+   * discount is normalized into this ONE currency on the backend before
+   * Stripe ever sees an amount. Empty string until the cart has synced at
+   * least once; defaults to the cart's first item's currency. */
+  checkoutCurrency: string;
   isLoading: boolean;
   error: string | null;
   deliveryEstimates: DeliveryEstimate[];
   checkoutIntent: CheckoutIntent | null;
   deliveryCountry: string;
 
-  addItem: (product: Product, quantity?: number) => Promise<AddItemResult>;
+  addItem: (product: Product, quantity?: number) => Promise<void>;
   removeItem: (productId: string) => Promise<void>;
   updateQuantity: (productId: string, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
-  switchCurrency: (currency: string) => Promise<void>;
+  /** Buyer explicitly changes the checkout currency — re-normalizes
+   * delivery/totals, never touches the cart's contents. */
+  setCheckoutCurrency: (currency: string) => Promise<void>;
   syncWithServer: () => Promise<void>;
   calculateDelivery: (country: string) => Promise<void>;
   setDeliveryCountry: (country: string) => void;
@@ -44,6 +43,9 @@ interface CartStore {
   grandTotal: () => number;
   groupedByVendor: () => VendorGroup[];
   vendorCount: () => number;
+  /** Every distinct native currency actually present in the cart right
+   * now — length > 1 means normalization is genuinely happening. */
+  nativeCurrencies: () => string[];
   reset: () => void;
 }
 
@@ -67,54 +69,31 @@ function normalizeCurrency(currency?: string): string {
   return (currency ?? "").trim().toUpperCase();
 }
 
-function cartCurrencyFromServer(items: ServerCartItem[]): string | undefined {
-  const currencies = items.map((item) => normalizeCurrency(item.currency)).filter(Boolean);
-  return currencies[0];
-}
-
 // vendorIds is every vendor actually in the cart, not just one item's vendor
 // — a multi-vendor cart must accept a zone belonging to ANY of those
 // vendors (or a global, vendor-less zone), not only the first item's. The
 // backend independently resolves each vendor's own zone/fallback per group
 // (see payments.service.ts createPaymentIntent) — this only needs to find
-// ONE zone that establishes the right country + currency. Scoping to a
-// single vendor here previously made a same-currency multi-vendor cart
-// throw "delivery not available" whenever the first item's vendor had no
-// zone (or only a vendor-specific one) even though another vendor already
-// in the cart had a perfectly valid zone.
+// a zone for the right country; currency compatibility is no longer a
+// filter here since the backend normalizes any zone's native fee into the
+// checkout currency.
 function findCompatibleDeliveryZone(
   zones: DeliveryZone[],
   country: string,
-  currency?: string,
   vendorIds?: string[],
 ): DeliveryZone | null {
   const countryMatches = zones.filter((zone) => {
     if (zone.active === false || !matchesDeliveryZoneCountry(zone, country)) return false;
     return !vendorIds?.length || !zone.vendorId || vendorIds.includes(zone.vendorId);
   });
-  const expectedCurrency = normalizeCurrency(currency);
-  if (!expectedCurrency) return countryMatches[0] ?? null;
-  return countryMatches.find((zone) => normalizeCurrency(zone.currency) === expectedCurrency) ?? null;
+  return countryMatches[0] ?? null;
 }
 
 // Buyer-facing copy only — never the raw "zone currency mismatch"/ops
-// language. Both branches mean the same thing to a buyer: this address
-// can't be delivered to right now. checkout.tsx renders this inside the
-// friendly "can't deliver" banner with "Choose another address" /
-// "View delivery options" actions, not as a raw error string.
+// language. checkout.tsx renders this inside the friendly "can't deliver"
+// banner with a "Choose another address" action, not as a raw error string.
 function deliveryZoneError(country: string): string {
   return `We can't deliver to ${country || "this address"} yet. Choose another address or check the vendor's delivery area.`;
-}
-
-function assertDeliveryEstimateCurrency(estimates: DeliveryEstimate[], expectedCurrency?: string) {
-  const expected = normalizeCurrency(expectedCurrency);
-  if (!expected) return;
-  const mismatch = estimates.find((estimate) => normalizeCurrency(estimate.currency) !== expected);
-  if (mismatch) {
-    throw new Error(
-      `Delivery zone currency mismatch. This cart is ${expected}, but delivery returned ${normalizeCurrency(mismatch.currency) || "another currency"}.`,
-    );
-  }
 }
 
 function resolveDeliveryCountry(currentCountry: string | undefined, currency?: string, override?: string): string {
@@ -162,38 +141,30 @@ function cartItemsFromServer(items: ServerCartItem[]): CartItem[] {
 export const useCartStore = create<CartStore>((set, get) => ({
   items: [],
   serverItems: [],
-  currency: "",
-  otherCarts: [],
+  checkoutCurrency: "",
   isLoading: false,
   error: null,
   deliveryEstimates: [],
   checkoutIntent: null,
   deliveryCountry: "UK",
 
-  // Carts are one-per-(buyer, currency) on the server — adding a product
-  // never fails on a currency mismatch. It routes straight to (or creates)
-  // the cart for THAT product's currency, which becomes the active cart.
-  // The caller gets told whether that meant switching away from a
-  // different currency's cart, so it can show a brief, non-destructive
-  // notice instead of the old blocking "start a new cart" alert — nothing
-  // is ever cleared or lost.
+  // A cart may hold products from vendors with different native
+  // currencies — adding a product never fails on a currency mismatch and
+  // never clears anything. Currency safety is enforced once, at checkout,
+  // by backend FX normalization into one checkout currency.
   addItem: async (product, quantity = 1) => {
-    const previousCurrency = get().currency;
     set({ isLoading: true, error: null });
     try {
       const cart = await cartService.addItem(product.id, quantity);
-      const switchedCurrency = Boolean(previousCurrency) && previousCurrency !== cart.currency;
       set({
         items: cartItemsFromServer(cart.items),
         serverItems: cart.items,
-        currency: cart.currency,
-        deliveryEstimates: switchedCurrency ? [] : get().deliveryEstimates,
+        // Only set a default checkout currency the FIRST time the cart
+        // gets a currency at all — adding a second, different-currency
+        // product must never silently retarget an already-chosen currency.
+        checkoutCurrency: get().checkoutCurrency || cart.currency,
         isLoading: false,
       });
-      if (switchedCurrency) {
-        cartService.getCartsSummary().then((carts) => set({ otherCarts: carts })).catch(() => {});
-      }
-      return { switchedCurrency, currency: cart.currency, previousCurrency: switchedCurrency ? previousCurrency : undefined };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not add item to cart.";
       set({ isLoading: false, error: message });
@@ -255,15 +226,11 @@ export const useCartStore = create<CartStore>((set, get) => ({
     }
   },
 
-  // Clears the currently-active currency-cart (e.g. after a successful
-  // checkout of that cart). Each currency-cart is independent — this never
-  // touches any other currency-cart the buyer has saved.
   clearCart: async () => {
-    const currency = get().currency;
     set({ isLoading: true, error: null });
     try {
-      if (currency) await cartService.clearCart(currency);
-      set({ items: [], serverItems: [], deliveryEstimates: [], checkoutIntent: null, isLoading: false });
+      await cartService.clearCart();
+      set({ items: [], serverItems: [], checkoutCurrency: "", deliveryEstimates: [], checkoutIntent: null, isLoading: false });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not clear cart.";
       set({ isLoading: false, error: message });
@@ -271,40 +238,27 @@ export const useCartStore = create<CartStore>((set, get) => ({
     }
   },
 
-  // Switches the active cart to a different currency the buyer already has
-  // a saved cart in (from the "other saved carts" list) — no data loss,
-  // nothing is cleared, the previously-active cart just becomes inactive.
-  switchCurrency: async (currency) => {
-    set({ isLoading: true, error: null });
-    try {
-      const cart = await cartService.getCart(currency);
-      set({
-        items: cartItemsFromServer(cart.items),
-        serverItems: cart.items,
-        currency: cart.currency,
-        deliveryEstimates: [],
-        isLoading: false,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not switch cart.";
-      set({ isLoading: false, error: message });
-      throw err;
+  // Re-normalizes delivery into the new currency; the cart's products and
+  // quantities are completely untouched by this — there is no server call
+  // that could delete anything here, just a fresh delivery estimate.
+  setCheckoutCurrency: async (currency) => {
+    const next = currency.trim().toUpperCase();
+    if (!next || next === get().checkoutCurrency) return;
+    set({ checkoutCurrency: next, deliveryEstimates: [] });
+    if (get().items.length > 0 && get().deliveryCountry) {
+      await get().calculateDelivery(get().deliveryCountry).catch(() => {});
     }
   },
 
   syncWithServer: async () => {
     set({ isLoading: true, error: null });
     try {
-      const [cart, otherCarts] = await Promise.all([
-        cartService.getCart(),
-        cartService.getCartsSummary().catch(() => [] as CartSummaryEntry[]),
-      ]);
+      const cart = await cartService.getCart();
       const resolvedCountry = resolveDeliveryCountry(get().deliveryCountry, cart.items[0]?.currency);
       set({
         items: cartItemsFromServer(cart.items),
         serverItems: cart.items,
-        currency: cart.currency,
-        otherCarts: otherCarts.filter((entry) => entry.currency !== cart.currency),
+        checkoutCurrency: get().checkoutCurrency || cart.currency,
         deliveryCountry: resolvedCountry,
         isLoading: false,
       });
@@ -323,22 +277,22 @@ export const useCartStore = create<CartStore>((set, get) => ({
         return;
       }
 
-      const cartCurrency = cartCurrencyFromServer(cart.items);
+      const checkoutCurrency = get().checkoutCurrency || cart.currency;
       const firstItem = cart.items[0];
       const vendorIds = Array.from(new Set(cart.items.map((item) => item.vendorId).filter(Boolean)));
       const zones = await deliveryService.listAllZones();
-      const match = findCompatibleDeliveryZone(zones, country, cartCurrency, vendorIds);
+      const match = findCompatibleDeliveryZone(zones, country, vendorIds);
       if (!match) throw new Error(deliveryZoneError(country));
 
       const estimates = await cartService.calculateDelivery({
         cartId: cart.id,
         destinationZoneId: match.id,
         country,
+        checkoutCurrency,
         vendorId: firstItem?.vendorId,
         vendorName: firstItem?.vendorName,
       });
-      assertDeliveryEstimateCurrency(estimates, cartCurrency);
-      set({ deliveryEstimates: estimates, isLoading: false });
+      set({ deliveryEstimates: estimates, checkoutCurrency, isLoading: false });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not calculate delivery.";
       set({ isLoading: false, error: message, deliveryEstimates: [] });
@@ -355,29 +309,16 @@ export const useCartStore = create<CartStore>((set, get) => ({
   createCheckout: async (address, walletAmount, deliveryCountryOverride, promoCode) => {
     set({ isLoading: true, error: null });
     try {
-      const uniqueCurrencies = new Set(get().items.map((item) => normalizeCurrency(item.product.currency)).filter(Boolean));
-      if (uniqueCurrencies.size > 1) {
-        throw new Error("Your cart contains multiple currencies. Clear the cart and place one currency at a time.");
-      }
-
       const cart = await cartService.getCart();
       if (!cart.id) throw new Error("Your cart is not available on the server.");
       if (cart.items.length === 0) throw new Error("Your cart is empty.");
 
-      const serverCurrencies = new Set(cart.items.map((item) => normalizeCurrency(item.currency)).filter(Boolean));
-      if (serverCurrencies.size > 1) {
-        throw new Error("Your cart contains multiple currencies. Clear the cart and place one currency at a time.");
-      }
-
-      let destinationZoneId: string | undefined;
-      const zones = await deliveryService.listAllZones();
-      const cartCurrency =
-        Array.from(serverCurrencies)[0] ??
-        normalizeCurrency(get().items[0]?.product.currency ?? get().serverItems[0]?.currency);
-      const country = resolveDeliveryCountry(get().deliveryCountry, cartCurrency, deliveryCountryOverride);
+      const checkoutCurrency = get().checkoutCurrency || cart.currency;
+      const country = resolveDeliveryCountry(get().deliveryCountry, checkoutCurrency, deliveryCountryOverride);
       const vendorIds = Array.from(new Set(cart.items.map((item) => item.vendorId).filter(Boolean)));
-      const match = findCompatibleDeliveryZone(zones, country, cartCurrency, vendorIds);
-      destinationZoneId = match?.id;
+      const zones = await deliveryService.listAllZones();
+      const match = findCompatibleDeliveryZone(zones, country, vendorIds);
+      const destinationZoneId = match?.id;
       if (!destinationZoneId) throw new Error(deliveryZoneError(country));
 
       set({ deliveryCountry: country });
@@ -386,6 +327,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
         destinationZoneId,
         deliveryAddress: address,
         deliveryCountry: country,
+        checkoutCurrency,
         walletAmount,
         promoCode,
       });
@@ -415,6 +357,9 @@ export const useCartStore = create<CartStore>((set, get) => ({
     return vendorIds.size;
   },
 
+  nativeCurrencies: () =>
+    Array.from(new Set(get().items.map((i) => normalizeCurrency(i.product.currency)).filter(Boolean))),
+
   groupedByVendor: () => {
     const { items, deliveryEstimates } = get();
     const groups: Record<string, VendorGroup> = {};
@@ -441,8 +386,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
     set({
       items: [],
       serverItems: [],
-      currency: "",
-      otherCarts: [],
+      checkoutCurrency: "",
       isLoading: false,
       error: null,
       deliveryEstimates: [],

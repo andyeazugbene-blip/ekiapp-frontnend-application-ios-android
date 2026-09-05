@@ -22,16 +22,15 @@ export interface ServerCartItem {
 
 export interface ServerCart {
   id?: string;
+  /** The cart's dominant (first item's) native currency — informational
+   * only. A cart may hold products in several native currencies; the
+   * buyer's actual checkout currency is tracked separately (see
+   * useCartStore's checkoutCurrency) and normalization happens server-side
+   * at checkout/delivery-calculation time. */
   currency: string;
   items: ServerCartItem[];
   totalItems: number;
   subtotal: number;
-}
-
-export interface CartSummaryEntry {
-  currency: string;
-  itemCount: number;
-  updatedAt: string;
 }
 
 export interface DeliveryEstimate {
@@ -63,6 +62,9 @@ export interface CheckoutIntent {
   campaignId?: string;
   campaignTitle?: string;
   campaignDiscount?: number;
+  /** True when at least one cart item's native currency differed from the
+   * checkout currency and was normalized. */
+  conversionApplied?: boolean;
 }
 
 // ─── Cart Service ──────────────────────────────────────────────────────────────
@@ -96,29 +98,17 @@ function normalizeCart(raw: any): ServerCart {
 
 export const cartService = {
   /**
-   * Get a cart from the server. With no currency, returns the buyer's
-   * active (most-recently-touched) cart. With a currency, returns that
-   * specific currency-cart — carts are one-per-(buyer, currency), never
-   * cleared or merged when the buyer shops in a different currency.
+   * Get current cart from server.
    */
-  async getCart(currency?: string): Promise<ServerCart> {
-    const query = currency ? `?currency=${encodeURIComponent(currency)}` : "";
-    const res = await apiClient.get<{ cart: any }>(`/api/cart${query}`);
+  async getCart(): Promise<ServerCart> {
+    const res = await apiClient.get<{ cart: any }>("/api/cart");
     return normalizeCart(res.cart ?? res);
   },
 
   /**
-   * Lightweight summary of every currency-cart the buyer currently has
-   * items in — used to let them switch back to a cart that isn't active
-   * without losing anything.
-   */
-  async getCartsSummary(): Promise<CartSummaryEntry[]> {
-    const res = await apiClient.get<{ carts: CartSummaryEntry[] }>("/api/cart/summary");
-    return res.carts ?? [];
-  },
-
-  /**
-   * Add item to cart.
+   * Add item to cart. A cart may hold products from vendors with
+   * different native currencies — this never fails on a currency
+   * mismatch and never clears anything.
    */
   async addItem(productId: string, quantity = 1): Promise<ServerCart> {
     const res = await apiClient.post<{ cart: any }>("/api/cart/items", { productId, quantity });
@@ -142,26 +132,29 @@ export const cartService = {
   },
 
   /**
-   * Clear one specific currency-cart. There is no "clear everything" call —
-   * each currency-cart is independent, so a currency is always required.
+   * Clear entire cart.
    */
-  async clearCart(currency: string): Promise<void> {
-    await apiClient.delete<void>(`/api/cart?currency=${encodeURIComponent(currency)}`);
+  async clearCart(): Promise<void> {
+    await apiClient.delete<void>("/api/cart");
   },
 
   /**
-   * Calculate delivery costs for all vendors in cart.
+   * Calculate delivery costs for all vendors in cart, normalized into
+   * checkoutCurrency (defaults server-side to the cart's own dominant
+   * currency when omitted).
    */
   async calculateDelivery(input: {
     cartId: string;
     destinationZoneId: string;
     country: string;
+    checkoutCurrency?: string;
     vendorId?: string;
     vendorName?: string;
   }): Promise<DeliveryEstimate[]> {
     const res = await apiClient.post<DeliveryCalculationResponse>("/api/delivery/calculate", {
       cartId: input.cartId,
       destinationZoneId: input.destinationZoneId,
+      checkoutCurrency: input.checkoutCurrency,
     });
 
     return [{
@@ -176,8 +169,11 @@ export const cartService = {
   },
 
   /**
-   * Create payment intent for checkout.
-   * Backend expects cartId + destinationZoneId.
+   * Create payment intent for checkout. Backend normalizes every line
+   * item and delivery fee into checkoutCurrency (defaults to the cart's
+   * dominant currency when omitted) and creates exactly ONE Stripe
+   * PaymentIntent in that one currency, regardless of how many native
+   * currencies were mixed in the cart.
    * Returns Stripe clientSecret + order IDs.
    */
   async createPaymentIntent(payload: {
@@ -185,6 +181,7 @@ export const cartService = {
     destinationZoneId?: string;
     deliveryAddress?: string;
     deliveryCountry?: string;
+    checkoutCurrency?: string;
     walletAmount?: number;
     promoCode?: string;
   }): Promise<CheckoutIntent> {

@@ -15,9 +15,9 @@ export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const items = useCartStore((state) => state.items);
-  const cartCurrency = useCartStore((state) => state.currency);
-  const otherCarts = useCartStore((state) => state.otherCarts);
-  const switchCurrency = useCartStore((state) => state.switchCurrency);
+  const storeCheckoutCurrency = useCartStore((state) => state.checkoutCurrency);
+  const setCheckoutCurrency = useCartStore((state) => state.setCheckoutCurrency);
+  const nativeCurrencies = useCartStore((state) => state.nativeCurrencies());
   const groupedByVendor = useCartStore((state) => state.groupedByVendor());
   const vendorCount = useCartStore((state) => state.vendorCount());
   const updateQuantity = useCartStore((state) => state.updateQuantity);
@@ -44,7 +44,8 @@ export default function CartScreen() {
   );
 
   const totalWeight = items.reduce((sum, item) => sum + (item.product.weight ?? 0) * item.quantity, 0);
-  const checkoutCurrency = cartCurrency || items[0]?.product.currency || "GBP";
+  const checkoutCurrency = storeCheckoutCurrency || items[0]?.product.currency || "GBP";
+  const isMultiCurrency = nativeCurrencies.length > 1;
 
   React.useEffect(() => {
     ensureCurrency(checkoutCurrency).catch(() => undefined);
@@ -56,9 +57,9 @@ export default function CartScreen() {
     });
   };
 
-  const handleSwitchCurrency = (currency: string) => {
-    switchCurrency(currency).catch((err) => {
-      Alert.alert("Could not switch cart", err instanceof Error ? err.message : "Please try again.");
+  const handleSetCheckoutCurrency = (currency: string) => {
+    setCheckoutCurrency(currency).catch((err) => {
+      Alert.alert("Could not update checkout currency", err instanceof Error ? err.message : "Please try again.");
     });
   };
 
@@ -74,19 +75,19 @@ export default function CartScreen() {
         </TouchableOpacity>
       </View>
 
-      {otherCarts.length > 0 ? (
-        <View style={styles.otherCartsRow}>
-          <Text style={styles.otherCartsLabel}>Also saved:</Text>
+      {isMultiCurrency ? (
+        <View style={styles.checkoutCurrencyRow}>
+          <Text style={styles.checkoutCurrencyLabel}>Pay in:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {otherCarts.map((entry) => (
+            {nativeCurrencies.map((code) => (
               <TouchableOpacity
-                key={entry.currency}
-                onPress={() => handleSwitchCurrency(entry.currency)}
+                key={code}
+                onPress={() => handleSetCheckoutCurrency(code)}
                 activeOpacity={0.85}
-                style={styles.otherCartPill}
+                style={[styles.checkoutCurrencyPill, checkoutCurrency.toUpperCase() === code && styles.checkoutCurrencyPillActive]}
               >
-                <Text style={styles.otherCartPillText}>
-                  {entry.currency} cart · {entry.itemCount} item{entry.itemCount === 1 ? "" : "s"}
+                <Text style={[styles.checkoutCurrencyPillText, checkoutCurrency.toUpperCase() === code && styles.checkoutCurrencyPillTextActive]}>
+                  {code}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -119,7 +120,9 @@ export default function CartScreen() {
                 {vendorCount > 1 ? `${vendorCount} sellers in this basket` : "1 seller in this basket"}
               </Text>
               <Text style={styles.vendorSummaryBody}>
-                Eki can handle one checkout across multiple sellers when the basket stays in the same currency.
+                {isMultiCurrency
+                  ? `Eki handles one checkout across multiple sellers and currencies — everything is charged together in ${checkoutCurrency.toUpperCase()}.`
+                  : "Eki can handle one checkout across multiple sellers in a single payment."}
               </Text>
             </View>
 
@@ -238,10 +241,12 @@ const styles = StyleSheet.create({
   currencyButton: { minWidth: 58, height: 38, borderRadius: 19, backgroundColor: "#EAF5F0", alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
   currencyButtonText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#076B51" },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
-  otherCartsRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
-  otherCartsLabel: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#858585" },
-  otherCartPill: { backgroundColor: "#F4F8F6", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: "#E0EDE7" },
-  otherCartPillText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  checkoutCurrencyRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
+  checkoutCurrencyLabel: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#858585" },
+  checkoutCurrencyPill: { backgroundColor: "#F4F8F6", borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: "#E0EDE7" },
+  checkoutCurrencyPillActive: { backgroundColor: "#076B51", borderColor: "#076B51" },
+  checkoutCurrencyPillText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#076B51" },
+  checkoutCurrencyPillTextActive: { color: "#FFFFFF" },
   stateWrap: { paddingVertical: 60, alignItems: "center" },
   emptyTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 },
   emptyBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 6 },

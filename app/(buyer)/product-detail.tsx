@@ -9,7 +9,6 @@ import { reviewService } from "../../services/reviewService";
 import { deliveryService } from "../../services/deliveryService";
 import { matchesDeliveryZoneCountry } from "../../services/deliveryService";
 import { useCartStore } from "../../stores/cartStore";
-import { showCurrencySwitchNotice } from "../../utils/cartCurrencyAlert";
 import { useAuthStore } from "../../stores/authStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useFavoritesStore } from "../../stores/favoritesStore";
@@ -90,15 +89,11 @@ export default function ProductDetailScreen() {
     if (!product) return;
     setAdding(true);
     try {
-      const result = await addItem(product, 1);
-      if (result.switchedCurrency && result.previousCurrency) {
-        showCurrencySwitchNotice(result.previousCurrency, result.currency);
-      } else {
-        Alert.alert("Added to cart", `${product.name} has been added to your cart.`, [
-          { text: "Continue Shopping", style: "cancel" },
-          { text: "View Cart", onPress: () => router.push("/(buyer)/cart" as any) },
-        ]);
-      }
+      await addItem(product, 1);
+      Alert.alert("Added to cart", `${product.name} has been added to your cart.`, [
+        { text: "Continue Shopping", style: "cancel" },
+        { text: "View Cart", onPress: () => router.push("/(buyer)/cart" as any) },
+      ]);
     } catch (err) {
       Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
     } finally {

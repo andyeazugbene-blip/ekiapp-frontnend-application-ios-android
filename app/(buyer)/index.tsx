@@ -22,7 +22,6 @@ import { giftCardService, type GiftCard } from "../../services/giftCardService";
 import { campaignService, campaignColors, type Campaign } from "../../services/campaignService";
 import { marketingService } from "../../services/marketingService";
 import { useFocusRefresh } from "../../hooks/useFocusRefresh";
-import { showCurrencySwitchNotice } from "../../utils/cartCurrencyAlert";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -230,15 +229,9 @@ export default function BuyerHomeScreen() {
   };
 
   const handleAddToCart = (item: Product) => {
-    addItem(item, 1)
-      .then((result) => {
-        if (result.switchedCurrency && result.previousCurrency) {
-          showCurrencySwitchNotice(result.previousCurrency, result.currency);
-        }
-      })
-      .catch((err) => {
-        Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
-      });
+    addItem(item, 1).catch((err) => {
+      Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
+    });
   };
 
   const handleOpenVendor = (vendorId: string) => {

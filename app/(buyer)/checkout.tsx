@@ -40,7 +40,7 @@ function inferCountryFromCurrency(currency?: string): string {
 export default function CheckoutScreen() {
   const router = useRouter();
   const items = useCartStore((s) => s.items);
-  const cartCurrency = useCartStore((s) => s.currency);
+  const cartCurrency = useCartStore((s) => s.checkoutCurrency);
   const subtotal = useCartStore((s) => s.subtotal());
   const deliveryTotal = useCartStore((s) => s.deliveryTotal());
   const grandTotal = useCartStore((s) => s.grandTotal());
