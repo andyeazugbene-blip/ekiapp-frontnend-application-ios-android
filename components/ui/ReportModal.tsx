@@ -81,7 +81,7 @@ export function ReportModal({ visible, onClose, targetType, targetId, targetLabe
           <View style={styles.handle} />
           <View style={styles.header}>
             <Text style={styles.title}>Report {typeLabel}</Text>
-            <TouchableOpacity onPress={handleClose} activeOpacity={0.7} style={styles.closeBtn}>
+            <TouchableOpacity onPress={handleClose} activeOpacity={0.7} accessibilityLabel="Close report dialog" accessibilityRole="button" style={styles.closeBtn}>
               <Ionicons name="close" size={20} color="#282828" />
             </TouchableOpacity>
           </View>
@@ -175,9 +175,9 @@ const styles = StyleSheet.create({
     color: "#1A1A1A",
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#F4F4F4",
     alignItems: "center",
     justifyContent: "center",

@@ -303,7 +303,15 @@ export default function CommunityBuyCampaignScreen() {
           {isLive ? (
             <>
               {!joined ? (
-                <TouchableOpacity onPress={handleJoin} disabled={joining} activeOpacity={0.88} style={styles.secondaryBtn}>
+                <TouchableOpacity
+                  onPress={handleJoin}
+                  disabled={joining}
+                  activeOpacity={0.88}
+                  accessibilityRole="button"
+                  accessibilityLabel={joining ? "Joining campaign" : "Join this campaign"}
+                  accessibilityState={{ busy: joining, disabled: joining }}
+                  style={styles.secondaryBtn}
+                >
                   {joining ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Join this campaign</Text>}
                 </TouchableOpacity>
               ) : null}
@@ -397,7 +405,15 @@ export default function CommunityBuyCampaignScreen() {
                   <Text style={styles.disclosureText}>Your card will not be charged now. It will only be charged {formatDisplayMoney(subtotal / 100, campaign.currency, selectedCurrency)} if this campaign reaches its minimum or goal.</Text>
 
                   {contributeError ? <Text style={styles.errorText}>{contributeError}</Text> : null}
-                  <TouchableOpacity onPress={handleContribute} disabled={contributing} activeOpacity={0.88} style={[styles.primaryBtn, contributing && { opacity: 0.7 }]}>
+                  <TouchableOpacity
+                    onPress={handleContribute}
+                    disabled={contributing}
+                    activeOpacity={0.88}
+                    accessibilityRole="button"
+                    accessibilityLabel={contributing ? "Submitting pledge" : "Pledge, no charge now"}
+                    accessibilityState={{ busy: contributing, disabled: contributing }}
+                    style={[styles.primaryBtn, contributing && { opacity: 0.7 }]}
+                  >
                     {contributing ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Pledge — no charge now</Text>}
                   </TouchableOpacity>
                 </FloatingCard>

@@ -23,7 +23,7 @@ export function CurrencySelector({ selectedCurrency, onChange, visible, onClose 
         <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
           <View style={styles.header}>
             <Text style={styles.title}>Display currency</Text>
-            <TouchableOpacity onPress={onClose} activeOpacity={0.8} style={styles.closeButton}>
+            <TouchableOpacity onPress={onClose} activeOpacity={0.8} accessibilityLabel="Close currency selector" accessibilityRole="button" style={styles.closeButton}>
               <Ionicons name="close" size={18} color="#282828" />
             </TouchableOpacity>
           </View>
@@ -97,9 +97,9 @@ const styles = StyleSheet.create({
     color: "#687076",
   },
   closeButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#F4F4F4",
     alignItems: "center",
     justifyContent: "center",

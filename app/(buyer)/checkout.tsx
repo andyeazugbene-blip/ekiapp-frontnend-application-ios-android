@@ -252,6 +252,9 @@ export default function CheckoutScreen() {
         <View style={styles.paymentOptions}>
           <TouchableOpacity
             onPress={() => setPaymentMethod("stripe")}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: paymentMethod === "stripe" }}
+            accessibilityLabel="Pay with card"
             style={[styles.paymentOption, paymentMethod === "stripe" && styles.paymentOptionActive]}
           >
             <Ionicons name="card-outline" size={18} color={paymentMethod === "stripe" ? "#076B51" : "#858585"} />
@@ -261,6 +264,9 @@ export default function CheckoutScreen() {
 
           <TouchableOpacity
             onPress={() => setPaymentMethod("wallet")}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: paymentMethod === "wallet", disabled: !canPayFullyWithWallet }}
+            accessibilityLabel={canPayFullyWithWallet ? "Pay with wallet" : "Pay with wallet — insufficient balance"}
             style={[styles.paymentOption, paymentMethod === "wallet" && styles.paymentOptionActive, !canPayFullyWithWallet && styles.paymentOptionDisabled]}
             disabled={!canPayFullyWithWallet}
           >
@@ -337,6 +343,9 @@ export default function CheckoutScreen() {
         <TouchableOpacity
           onPress={handlePlaceOrder}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={submitting ? "Processing payment" : "Pay securely"}
+          accessibilityState={{ busy: submitting, disabled: submitting || items.length === 0 }}
           style={[styles.placeOrderBtn, (submitting || items.length === 0) && { opacity: 0.6 }]}
           disabled={submitting || items.length === 0}
         >
