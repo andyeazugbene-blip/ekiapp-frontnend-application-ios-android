@@ -76,11 +76,22 @@ export function SocialAuthButtons({ onOutcome, onError, disabled }: SocialAuthBu
   // (below) is what actually gates whether the button renders/works —
   // this placeholder is never exercised because promptAsync() is only
   // ever called from a press handler that checks GOOGLE_CONFIGURED first.
+  // responseType is intentionally left unset. expo-auth-session's own
+  // Google provider defaults installed apps (iOS/Android) to
+  // ResponseType.Code — the real production bug was overriding that to
+  // "id_token" here, which sends response_type=id_token to Google's
+  // authorization endpoint. Google's iOS-type OAuth client (registered
+  // for the native code+PKCE flow, no client secret) rejects that
+  // implicit response type with "Error 400: unsupported_response_type"
+  // (real TestFlight error, confirmed against expo-auth-session@57.0.11's
+  // published source: the code flow auto-exchanges via PKCE, no secret
+  // needed, and populates result.params.id_token from the exchange —
+  // the exact same field this component already reads below, so no
+  // other change is needed.
   const [, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
     iosClientId: GOOGLE_IOS_CLIENT_ID || "unconfigured.apps.googleusercontent.com",
     androidClientId: GOOGLE_ANDROID_CLIENT_ID || "unconfigured.apps.googleusercontent.com",
     webClientId: GOOGLE_WEB_CLIENT_ID || "unconfigured.apps.googleusercontent.com",
-    responseType: "id_token",
     scopes: ["openid", "profile", "email"],
   });
 

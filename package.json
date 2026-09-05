@@ -14,6 +14,7 @@
     "check:no-old-domain": "node scripts/check-no-old-domain.js",
     "check:billing-compliance": "node scripts/check-billing-compliance.js",
     "check:release-config": "node scripts/check-release-config.js",
+    "check:google-oauth-response-type": "node scripts/check-google-oauth-response-type.js",
     "check:subscription-backend-contract": "node scripts/check-subscription-backend-contract.js",
     "check:domains": "node scripts/check-domain-links.js",
     "k6:smoke": "k6 run performance/k6/smoke.js",
