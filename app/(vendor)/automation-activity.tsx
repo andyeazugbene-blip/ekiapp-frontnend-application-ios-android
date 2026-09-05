@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import {
@@ -56,7 +57,7 @@ export default function AutomationActivityScreen() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusRefresh(load);
 
   const typesPresent = useMemo(
     () => VENDOR_AUTOMATION_TYPES.filter((t) => activity.some((r) => r.type === t)),

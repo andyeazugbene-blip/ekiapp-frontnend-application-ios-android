@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
+import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
@@ -48,7 +49,7 @@ export default function RegularDeliveriesBrowseScreen() {
     }
   }, [countryFilter]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusRefresh(load);
 
   return (
     <View style={premiumStyles.page}>

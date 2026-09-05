@@ -1,7 +1,8 @@
 import React, { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
+import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatMoney } from "../../utils/currency";
 import {
@@ -35,7 +36,7 @@ export default function RegularDeliveryInsightsScreen() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusRefresh(load);
 
   return (
     <View style={premiumStyles.page}>

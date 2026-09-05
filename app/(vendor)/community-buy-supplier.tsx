@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
+import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
@@ -71,7 +72,7 @@ export default function VendorCommunityBuySupplierScreen() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusRefresh(load);
 
   const handleApply = async (countryCode: string) => {
     setApplying(countryCode);
