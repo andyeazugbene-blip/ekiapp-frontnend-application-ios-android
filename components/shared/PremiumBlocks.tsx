@@ -173,13 +173,13 @@ const emptyStyles = StyleSheet.create({
   actionText: { color: "#076B51", fontSize: 13, fontFamily: "Manrope-Bold" },
 });
 
-export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+export function ErrorState({ title, message, onRetry }: { title?: string; message: string; onRetry: () => void }) {
   return (
     <View style={emptyStyles.wrap}>
       <View style={[emptyStyles.iconWrap, { backgroundColor: "rgba(214,85,47,0.12)" }]}>
         <Ionicons name="alert-circle-outline" size={30} color="#D6552F" />
       </View>
-      <Text style={emptyStyles.title}>Something went wrong</Text>
+      <Text style={emptyStyles.title}>{title ?? "We hit a snag"}</Text>
       <Text style={emptyStyles.body}>{message}</Text>
       <TouchableOpacity onPress={onRetry} activeOpacity={0.86} style={emptyStyles.action}>
         <Text style={emptyStyles.actionText}>Try again</Text>

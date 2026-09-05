@@ -214,7 +214,11 @@ export default function CommunityBuyCampaignScreen() {
       <View style={premiumStyles.page}>
         <PremiumHeader title="Campaign" onBack={() => goBackOrReplace(router, "/(buyer)/community-buy" as any)} />
         <View style={premiumStyles.block}>
-          <ErrorState message={error || "This campaign is not available."} onRetry={() => void load()} />
+          <ErrorState
+            title="We couldn't load this campaign"
+            message={error || "Check your connection and try again."}
+            onRetry={() => void load()}
+          />
         </View>
       </View>
     );

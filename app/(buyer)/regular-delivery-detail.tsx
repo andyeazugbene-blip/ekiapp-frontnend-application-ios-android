@@ -141,7 +141,11 @@ export default function RegularDeliveryDetailScreen() {
         <LoadingBlock />
       ) : error || !sub ? (
         <View style={premiumStyles.block}>
-          <ErrorState message={error || "This Regular Delivery is not available."} onRetry={() => void load()} />
+          <ErrorState
+            title="We couldn't load this Regular Delivery"
+            message={error || "Check your connection and try again."}
+            onRetry={() => void load()}
+          />
         </View>
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>

@@ -188,7 +188,11 @@ export default function RegularDeliveryOfferScreen() {
         <LoadingBlock />
       ) : error || !offer ? (
         <View style={premiumStyles.block}>
-          <ErrorState message={error || "This Regular Delivery offer is not available."} onRetry={() => void load()} />
+          <ErrorState
+            title="We couldn't load this offer"
+            message={error || "Check your connection and try again."}
+            onRetry={() => void load()}
+          />
         </View>
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>

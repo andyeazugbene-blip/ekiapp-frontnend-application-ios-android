@@ -115,7 +115,11 @@ export default function AutomationDetailScreen() {
         <LoadingBlock />
       ) : error || !automation ? (
         <View style={premiumStyles.block}>
-          <ErrorState message={error || "This automation is not available."} onRetry={() => void load()} />
+          <ErrorState
+            title="We couldn't load this automation"
+            message={error || "Check your connection and try again."}
+            onRetry={() => void load()}
+          />
         </View>
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
