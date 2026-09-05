@@ -6,8 +6,8 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { vendorService } from "../../services/vendorService";
-import { useCartStore, CurrencyMismatchError } from "../../stores/cartStore";
-import { showCurrencyMismatchAlert } from "../../utils/cartCurrencyAlert";
+import { useCartStore } from "../../stores/cartStore";
+import { showCurrencySwitchNotice } from "../../utils/cartCurrencyAlert";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { Product } from "../../types/product";
 import { VendorSummary } from "../../types/vendor";
@@ -25,7 +25,6 @@ export default function ExploreScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ search?: string; category?: string; view?: string; sort?: string }>();
   const addItem = useCartStore((s) => s.addItem);
-  const clearCart = useCartStore((s) => s.clearCart);
   const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
   const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
   const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
@@ -95,13 +94,15 @@ export default function ExploreScreen() {
       Animated.timing(addedAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
       Animated.timing(addedAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
     ]).start(() => setRecentlyAddedId(null));
-    addItem(product, 1).catch((err) => {
-      if (err instanceof CurrencyMismatchError) {
-        showCurrencyMismatchAlert(err, () => { clearCart().then(() => addItem(product, 1)).catch(() => {}); });
-      } else {
+    addItem(product, 1)
+      .then((result) => {
+        if (result.switchedCurrency && result.previousCurrency) {
+          showCurrencySwitchNotice(result.previousCurrency, result.currency);
+        }
+      })
+      .catch((err) => {
         Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
-      }
-    });
+      });
   };
 
   const openView = (view: ExploreView, sort?: string) => {

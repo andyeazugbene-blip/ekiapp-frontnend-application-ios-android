@@ -22,8 +22,8 @@ import { giftCardService, type GiftCard } from "../../services/giftCardService";
 import { campaignService, campaignColors, type Campaign } from "../../services/campaignService";
 import { marketingService } from "../../services/marketingService";
 import { useFocusRefresh } from "../../hooks/useFocusRefresh";
-import { showCurrencyMismatchAlert } from "../../utils/cartCurrencyAlert";
-import { useCartStore, CurrencyMismatchError } from "../../stores/cartStore";
+import { showCurrencySwitchNotice } from "../../utils/cartCurrencyAlert";
+import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
 import { type Product } from "../../types/product";
@@ -104,7 +104,6 @@ function rankVendors(vendors: VendorSummary[], products: Product[]): VendorSumma
 export default function BuyerHomeScreen() {
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
-  const clearCart = useCartStore((s) => s.clearCart);
   const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
   const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
   const user = useAuthStore((s) => s.user);
@@ -231,13 +230,15 @@ export default function BuyerHomeScreen() {
   };
 
   const handleAddToCart = (item: Product) => {
-    addItem(item, 1).catch((err) => {
-      if (err instanceof CurrencyMismatchError) {
-        showCurrencyMismatchAlert(err, () => { clearCart().then(() => addItem(item, 1)).catch(() => {}); });
-      } else {
+    addItem(item, 1)
+      .then((result) => {
+        if (result.switchedCurrency && result.previousCurrency) {
+          showCurrencySwitchNotice(result.previousCurrency, result.currency);
+        }
+      })
+      .catch((err) => {
         Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
-      }
-    });
+      });
   };
 
   const handleOpenVendor = (vendorId: string) => {

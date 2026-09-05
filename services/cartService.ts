@@ -22,9 +22,16 @@ export interface ServerCartItem {
 
 export interface ServerCart {
   id?: string;
+  currency: string;
   items: ServerCartItem[];
   totalItems: number;
   subtotal: number;
+}
+
+export interface CartSummaryEntry {
+  currency: string;
+  itemCount: number;
+  updatedAt: string;
 }
 
 export interface DeliveryEstimate {
@@ -82,17 +89,32 @@ function normalizeCart(raw: any): ServerCart {
 
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const currency = (raw?.currency ?? items[0]?.currency ?? "GBP").toUpperCase();
 
-  return { id: raw?.id, items, totalItems, subtotal };
+  return { id: raw?.id, currency, items, totalItems, subtotal };
 }
 
 export const cartService = {
   /**
-   * Get current cart from server.
+   * Get a cart from the server. With no currency, returns the buyer's
+   * active (most-recently-touched) cart. With a currency, returns that
+   * specific currency-cart — carts are one-per-(buyer, currency), never
+   * cleared or merged when the buyer shops in a different currency.
    */
-  async getCart(): Promise<ServerCart> {
-    const res = await apiClient.get<{ cart: any }>("/api/cart");
+  async getCart(currency?: string): Promise<ServerCart> {
+    const query = currency ? `?currency=${encodeURIComponent(currency)}` : "";
+    const res = await apiClient.get<{ cart: any }>(`/api/cart${query}`);
     return normalizeCart(res.cart ?? res);
+  },
+
+  /**
+   * Lightweight summary of every currency-cart the buyer currently has
+   * items in — used to let them switch back to a cart that isn't active
+   * without losing anything.
+   */
+  async getCartsSummary(): Promise<CartSummaryEntry[]> {
+    const res = await apiClient.get<{ carts: CartSummaryEntry[] }>("/api/cart/summary");
+    return res.carts ?? [];
   },
 
   /**
@@ -120,10 +142,11 @@ export const cartService = {
   },
 
   /**
-   * Clear entire cart.
+   * Clear one specific currency-cart. There is no "clear everything" call —
+   * each currency-cart is independent, so a currency is always required.
    */
-  async clearCart(): Promise<void> {
-    await apiClient.delete<void>("/api/cart");
+  async clearCart(currency: string): Promise<void> {
+    await apiClient.delete<void>(`/api/cart?currency=${encodeURIComponent(currency)}`);
   },
 
   /**

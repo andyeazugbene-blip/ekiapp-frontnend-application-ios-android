@@ -11,8 +11,13 @@ import { walletService, type Wallet } from "../../services/walletService";
 import { campaignService, type Campaign } from "../../services/campaignService";
 import { presentPayment, isPaymentSheetAvailable } from "../../services/stripePayment";
 import { orderService } from "../../services/orderService";
+import { addressService, type SavedAddress } from "../../services/addressService";
 import { formatDisplayMoney } from "../../utils/currency";
 import { goBackOrReplace } from "../../utils/navigation";
+
+function formatAddress(a: SavedAddress): string {
+  return [a.line1, a.line2, a.city, a.postalCode, a.country].filter(Boolean).join(", ");
+}
 
 type PaymentMethod = "stripe" | "wallet";
 
@@ -35,6 +40,7 @@ function inferCountryFromCurrency(currency?: string): string {
 export default function CheckoutScreen() {
   const router = useRouter();
   const items = useCartStore((s) => s.items);
+  const cartCurrency = useCartStore((s) => s.currency);
   const subtotal = useCartStore((s) => s.subtotal());
   const deliveryTotal = useCartStore((s) => s.deliveryTotal());
   const grandTotal = useCartStore((s) => s.grandTotal());
@@ -50,6 +56,13 @@ export default function CheckoutScreen() {
 
   const [address, setAddress] = useState("");
   const [country, setCountry] = useState("");
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [showAddressPicker, setShowAddressPicker] = useState(false);
+  const [showAddAddressForm, setShowAddAddressForm] = useState(false);
+  const [newAddress, setNewAddress] = useState({ recipientName: "", line1: "", city: "", postalCode: "", country: "", phone: "" });
+  const [savingAddress, setSavingAddress] = useState(false);
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("stripe");
   const [walletAmount, setWalletAmount] = useState("");
@@ -62,21 +75,21 @@ export default function CheckoutScreen() {
   const [promoCode, setPromoCode] = useState("");
 
   const walletBalance = wallet?.balance ?? 0;
-  const checkoutCurrency = items[0]?.product.currency ?? wallet?.currency ?? "GBP";
+  const checkoutCurrency = cartCurrency || items[0]?.product.currency || wallet?.currency || "GBP";
   const walletCurrency = wallet?.currency ?? checkoutCurrency;
   const walletMatchesCheckoutCurrency = walletCurrency.toUpperCase() === checkoutCurrency.toUpperCase();
   const parsedWalletAmount = Number(walletAmount) || 0;
   const parsedWalletAmountInCheckoutCurrency = walletMatchesCheckoutCurrency ? parsedWalletAmount : 0;
   const canPayFullyWithWallet = walletMatchesCheckoutCurrency && walletBalance >= grandTotal;
-  // A delivery/currency-zone error (e.g. cart is USD but the entered
-  // country's delivery zone is only configured for GBP/EUR) clears
-  // deliveryEstimates and sets `error` — but previously left the Pay button
-  // fully enabled, so the buyer could tap into a payment attempt from a
-  // screen that was already showing a blocking error. Once there's at least
-  // one item, a resolved (non-zero) delivery estimate is required before
-  // payment is allowed.
+  const hasNoSavedAddress = !loadingAddresses && addresses.length === 0;
+  // A delivery/currency-zone error (e.g. this address's country has no
+  // matching delivery zone) clears deliveryEstimates and sets `error` — but
+  // previously left the Pay button fully enabled, so the buyer could tap
+  // into a payment attempt from a screen that was already showing a
+  // blocking error. Once there's at least one item, a resolved (non-zero)
+  // delivery estimate AND a selected address are required before payment.
   const deliveryUnresolved = items.length > 0 && deliveryEstimates.length === 0;
-  const canSubmitOrder = !submitting && items.length > 0 && !deliveryUnresolved;
+  const canSubmitOrder = !submitting && items.length > 0 && !deliveryUnresolved && Boolean(selectedAddressId);
 
   const estimatedDiscount = eligibleDeal && eligibleDeal.discountValue != null
     ? eligibleDeal.discountType === "PERCENTAGE"
@@ -112,6 +125,33 @@ export default function CheckoutScreen() {
   }, [checkoutCurrency, ensureCurrency]);
 
   useEffect(() => {
+    let cancelled = false;
+    addressService
+      .getAddresses()
+      .then((list) => {
+        if (cancelled) return;
+        setAddresses(list);
+        const preferred = list.find((a) => a.isDefault) ?? list[0];
+        if (preferred) {
+          setSelectedAddressId(preferred.id);
+          setAddress(formatAddress(preferred));
+          setCountry(preferred.country);
+          setDeliveryCountry(preferred.country);
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoadingAddresses(false); });
+    return () => { cancelled = true; };
+    // Runs once on mount — the buyer's address book doesn't change from
+    // anything else on this screen re-rendering.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    // Only fall back to a currency-inferred country when the buyer genuinely
+    // has no saved address yet — once an address exists, IT is the source
+    // of truth for delivery country, not a currency guess.
+    if (addresses.length > 0 || loadingAddresses) return;
     const profileCountry =
       user && "country" in user && typeof user.country === "string"
         ? user.country.trim()
@@ -119,7 +159,7 @@ export default function CheckoutScreen() {
     const nextCountry = profileCountry || storeDeliveryCountry || inferCountryFromCurrency(checkoutCurrency);
     setCountry((current) => current || nextCountry);
     setDeliveryCountry(nextCountry);
-  }, [checkoutCurrency, setDeliveryCountry, storeDeliveryCountry, user]);
+  }, [addresses.length, checkoutCurrency, loadingAddresses, setDeliveryCountry, storeDeliveryCountry, user]);
 
   useEffect(() => {
     if (!items.length || !country.trim()) return;
@@ -128,6 +168,42 @@ export default function CheckoutScreen() {
     });
   }, [calculateDelivery, country, items.length]);
 
+  const selectAddress = (a: SavedAddress) => {
+    setSelectedAddressId(a.id);
+    setAddress(formatAddress(a));
+    setCountry(a.country);
+    setDeliveryCountry(a.country);
+    setShowAddressPicker(false);
+    setShowAddAddressForm(false);
+    if (error) setError("");
+  };
+
+  const handleSaveNewAddress = async () => {
+    if (!newAddress.recipientName.trim() || !newAddress.line1.trim() || !newAddress.city.trim() || !newAddress.country.trim()) {
+      setError("Enter a recipient name, address line, city, and country to save this address.");
+      return;
+    }
+    setSavingAddress(true);
+    try {
+      const saved = await addressService.createAddress({
+        recipientName: newAddress.recipientName.trim(),
+        line1: newAddress.line1.trim(),
+        city: newAddress.city.trim(),
+        postalCode: newAddress.postalCode.trim(),
+        country: newAddress.country.trim(),
+        phone: newAddress.phone.trim() || undefined,
+        isDefault: addresses.length === 0,
+      });
+      setAddresses((prev) => [...prev, saved]);
+      selectAddress(saved);
+      setNewAddress({ recipientName: "", line1: "", city: "", postalCode: "", country: "", phone: "" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save this address.");
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
   const handlePlaceOrder = async () => {
     // Re-entrancy guard: `disabled={submitting}` on the button stops a
     // SECOND real tap once React has re-rendered, but two rapid taps in the
@@ -135,20 +211,16 @@ export default function CheckoutScreen() {
     // this handler — this is the actual gate that stops a real double
     // checkout attempt, not just the visual disabled state.
     if (submitting) return;
+    if (!selectedAddressId || !address.trim()) {
+      setError("Add a delivery address to continue.");
+      return;
+    }
     if (deliveryUnresolved) {
-      setError("We can't confirm a matching delivery/currency configuration for this order yet. Resolve the issue above before paying.");
+      setError("We can't deliver to this address yet. Choose another address or check the vendor's delivery area.");
       return;
     }
     setError("");
 
-    if (!country.trim()) {
-      setError("Please enter your delivery country.");
-      return;
-    }
-    if (!address.trim()) {
-      setError("Please enter your delivery address.");
-      return;
-    }
     if (items.length === 0) {
       setError("Your cart is empty.");
       return;
@@ -219,35 +291,96 @@ export default function CheckoutScreen() {
           <Text style={styles.protectionText}>Your payment is protected until delivery is confirmed</Text>
         </View>
 
-        <Text style={styles.fieldLabel}>Delivery country</Text>
-        <View style={styles.inputWrap}>
-          <TextInput
-            style={styles.input}
-            placeholder="Delivery country"
-            placeholderTextColor="#858585"
-            value={country}
-            autoCapitalize="words"
-            onChangeText={(value) => {
-              setCountry(value);
-              setDeliveryCountry(value);
-              if (error) setError("");
-            }}
-          />
-        </View>
-
         <Text style={styles.fieldLabel}>Delivery address</Text>
-        <View style={styles.inputWrap}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your full address"
-            placeholderTextColor="#858585"
-            value={address}
-            onChangeText={(value) => {
-              setAddress(value);
-              if (error) setError("");
-            }}
-          />
-        </View>
+        {loadingAddresses ? (
+          <View style={styles.addressCard}>
+            <ActivityIndicator color="#076B51" size="small" />
+          </View>
+        ) : hasNoSavedAddress && !showAddAddressForm ? (
+          <View style={styles.addressEmptyCard}>
+            <Ionicons name="location-outline" size={22} color="#858585" />
+            <Text style={styles.addressEmptyText}>Add a delivery address to continue.</Text>
+            <TouchableOpacity onPress={() => setShowAddAddressForm(true)} activeOpacity={0.85} style={styles.addAddressBtn}>
+              <Text style={styles.addAddressBtnText}>Add address</Text>
+            </TouchableOpacity>
+          </View>
+        ) : showAddAddressForm ? (
+          <View style={styles.addressFormCard}>
+            <TextInput style={styles.input} placeholder="Recipient name" placeholderTextColor="#858585" value={newAddress.recipientName} onChangeText={(v) => setNewAddress((p) => ({ ...p, recipientName: v }))} />
+            <TextInput style={[styles.input, { marginTop: 8 }]} placeholder="Address line" placeholderTextColor="#858585" value={newAddress.line1} onChangeText={(v) => setNewAddress((p) => ({ ...p, line1: v }))} />
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+              <TextInput style={[styles.input, { flex: 1 }]} placeholder="City" placeholderTextColor="#858585" value={newAddress.city} onChangeText={(v) => setNewAddress((p) => ({ ...p, city: v }))} />
+              <TextInput style={[styles.input, { flex: 1 }]} placeholder="Postal code" placeholderTextColor="#858585" value={newAddress.postalCode} onChangeText={(v) => setNewAddress((p) => ({ ...p, postalCode: v }))} />
+            </View>
+            <TextInput style={[styles.input, { marginTop: 8 }]} placeholder="Country" placeholderTextColor="#858585" autoCapitalize="words" value={newAddress.country} onChangeText={(v) => setNewAddress((p) => ({ ...p, country: v }))} />
+            <TextInput style={[styles.input, { marginTop: 8 }]} placeholder="Phone (optional)" placeholderTextColor="#858585" keyboardType="phone-pad" value={newAddress.phone} onChangeText={(v) => setNewAddress((p) => ({ ...p, phone: v }))} />
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+              <TouchableOpacity onPress={handleSaveNewAddress} disabled={savingAddress} activeOpacity={0.85} style={[styles.addAddressBtn, { flex: 1 }, savingAddress && { opacity: 0.6 }]}>
+                {savingAddress ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.addAddressBtnText}>Save address</Text>}
+              </TouchableOpacity>
+              {addresses.length > 0 ? (
+                <TouchableOpacity onPress={() => setShowAddAddressForm(false)} activeOpacity={0.85} style={styles.addressCancelBtn}>
+                  <Text style={styles.addressCancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        ) : (
+          <View style={styles.addressCard}>
+            <View style={{ flex: 1 }}>
+              {addresses.find((a) => a.id === selectedAddressId) ? (
+                <>
+                  <Text style={styles.addressName}>{addresses.find((a) => a.id === selectedAddressId)!.recipientName}</Text>
+                  <Text style={styles.addressText}>{address}</Text>
+                </>
+              ) : (
+                <Text style={styles.addressText}>{address}</Text>
+              )}
+            </View>
+            <TouchableOpacity onPress={() => setShowAddressPicker(true)} activeOpacity={0.85} style={styles.changeAddressBtn}>
+              <Text style={styles.changeAddressBtnText}>Change</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {showAddressPicker ? (
+          <View style={styles.addressPickerCard}>
+            {addresses.map((a) => (
+              <TouchableOpacity key={a.id} onPress={() => selectAddress(a)} activeOpacity={0.85} style={styles.addressPickerRow}>
+                <Ionicons name={a.id === selectedAddressId ? "radio-button-on" : "radio-button-off"} size={18} color="#076B51" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.addressName}>{a.recipientName}</Text>
+                  <Text style={styles.addressText}>{formatAddress(a)}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              onPress={() => { setShowAddressPicker(false); setShowAddAddressForm(true); }}
+              activeOpacity={0.85}
+              style={styles.addressPickerRow}
+            >
+              <Ionicons name="add-circle-outline" size={18} color="#076B51" />
+              <Text style={[styles.addressName, { color: "#076B51" }]}>Add new address</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowAddressPicker(false)} activeOpacity={0.85} style={styles.addressCancelBtn}>
+              <Text style={styles.addressCancelBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {deliveryUnresolved && selectedAddressId ? (
+          <View style={[styles.infoBanner, { backgroundColor: "#FDEDED" }]}>
+            <Ionicons name="alert-circle-outline" size={18} color="#B3261E" style={{ marginTop: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.infoBannerText, { color: "#B3261E" }]}>
+                We can't deliver to this address yet. Choose another address or check the vendor's delivery area.
+              </Text>
+              <TouchableOpacity onPress={() => setShowAddressPicker(true)} activeOpacity={0.85} style={styles.chooseAnotherBtn}>
+                <Text style={styles.chooseAnotherBtnText}>Choose another address</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
 
         <Text style={styles.fieldLabel}>Promo code</Text>
         <View style={styles.inputWrap}>
@@ -354,20 +487,20 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {error && deliveryUnresolved ? (
-          <View style={[styles.infoBanner, { backgroundColor: "#FDEDED" }]}>
-            <Ionicons name="alert-circle-outline" size={18} color="#B3261E" style={{ marginTop: 1 }} />
-            <Text style={[styles.infoBannerText, { color: "#B3261E" }]}>{error}</Text>
-          </View>
-        ) : error ? (
-          <Text style={styles.errorText}>{error}</Text>
-        ) : null}
+        {/* The delivery-unresolved case already has its own dedicated
+            banner (with a "Choose another address" action) right after the
+            address section above — showing it again here as a second,
+            duplicate banner is exactly the "repeated warning" this screen
+            used to have. This generic line only ever shows OTHER errors
+            (payment failures, validation messages) that aren't already
+            covered by a dedicated banner elsewhere on the screen. */}
+        {error && !deliveryUnresolved ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <TouchableOpacity
           onPress={handlePlaceOrder}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel={submitting ? "Processing payment" : canSubmitOrder ? "Pay securely" : "Resolve delivery issue to continue"}
+          accessibilityLabel={submitting ? "Processing payment" : canSubmitOrder ? "Pay securely" : !selectedAddressId ? "Add a delivery address to continue" : "Resolve delivery issue to continue"}
           accessibilityState={{ busy: submitting, disabled: !canSubmitOrder }}
           style={[styles.placeOrderBtn, !canSubmitOrder && { opacity: 0.6 }]}
           disabled={!canSubmitOrder}
@@ -376,7 +509,7 @@ export default function CheckoutScreen() {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.placeOrderText}>
-              {deliveryUnresolved ? "Resolve delivery issue to continue" : "Pay Securely"}
+              {!selectedAddressId ? "Add a delivery address to continue" : deliveryUnresolved ? "Resolve delivery issue to continue" : "Pay Securely"}
             </Text>
           )}
         </TouchableOpacity>
@@ -432,7 +565,23 @@ const styles = StyleSheet.create({
   protectionText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#282828" },
   fieldLabel: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#858585", marginBottom: 8 },
   inputWrap: { backgroundColor: "#F4F4F4", borderRadius: 12, marginBottom: 20 },
-  input: { minHeight: 50, paddingHorizontal: 16, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
+  input: { minHeight: 50, paddingHorizontal: 16, fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828", backgroundColor: "#F4F4F4", borderRadius: 12 },
+  addressCard: { flexDirection: "row", alignItems: "center", backgroundColor: "#F4F4F4", borderRadius: 12, padding: 16, marginBottom: 20, gap: 12 },
+  addressEmptyCard: { alignItems: "center", backgroundColor: "#F4F4F4", borderRadius: 12, padding: 20, marginBottom: 20, gap: 10 },
+  addressEmptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center" },
+  addressFormCard: { backgroundColor: "#F9F9F9", borderRadius: 12, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: "#EEEEEE" },
+  addAddressBtn: { height: 44, borderRadius: 10, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
+  addAddressBtnText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+  addressCancelBtn: { height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center", paddingHorizontal: 16, borderWidth: 1, borderColor: "#E0E0E0" },
+  addressCancelBtnText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#858585" },
+  changeAddressBtn: { height: 36, borderRadius: 10, borderWidth: 1, borderColor: "#076B51", alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
+  changeAddressBtnText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  addressName: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828" },
+  addressText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 2 },
+  addressPickerCard: { backgroundColor: "#FFFFFF", borderRadius: 12, borderWidth: 1, borderColor: "#EEEEEE", padding: 12, marginBottom: 20, gap: 4 },
+  addressPickerRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10 },
+  chooseAnotherBtn: { marginTop: 8, alignSelf: "flex-start", height: 36, borderRadius: 10, backgroundColor: "#B3261E", alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
+  chooseAnotherBtnText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
   paymentOptions: { gap: 8, marginBottom: 20 },
   paymentOption: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#F4F4F4", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1.5, borderColor: "transparent" },
   paymentOptionActive: { borderColor: "#076B51", backgroundColor: "rgba(7,107,81,0.05)" },

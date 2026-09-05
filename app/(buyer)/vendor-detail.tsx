@@ -7,8 +7,8 @@ import { vendorService } from "../../services/vendorService";
 import { productService } from "../../services/productService";
 import { reviewService, type ReviewsWithStats } from "../../services/reviewService";
 import { deliveryService, type DeliveryZone } from "../../services/deliveryService";
-import { useCartStore, CurrencyMismatchError } from "../../stores/cartStore";
-import { showCurrencyMismatchAlert } from "../../utils/cartCurrencyAlert";
+import { useCartStore } from "../../stores/cartStore";
+import { showCurrencySwitchNotice } from "../../utils/cartCurrencyAlert";
 import type { VendorSummary } from "../../types/vendor";
 import type { Product, Review } from "../../types/product";
 import { RemoteImage } from "../../components/ui/RemoteImage";
@@ -23,7 +23,6 @@ export default function VendorDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { selectedCurrency } = useCurrencyStore();
   const addItem = useCartStore((state) => state.addItem);
-  const clearCart = useCartStore((state) => state.clearCart);
 
   const [vendor, setVendor] = useState<VendorSummary | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -95,13 +94,15 @@ export default function VendorDetailScreen() {
     : [vendor.country].filter(Boolean);
 
   const handleAddToCart = (product: Product) => {
-    addItem(product, 1).catch((err) => {
-      if (err instanceof CurrencyMismatchError) {
-        showCurrencyMismatchAlert(err, () => { clearCart().then(() => addItem(product, 1)).catch(() => {}); });
-      } else {
+    addItem(product, 1)
+      .then((result) => {
+        if (result.switchedCurrency && result.previousCurrency) {
+          showCurrencySwitchNotice(result.previousCurrency, result.currency);
+        }
+      })
+      .catch((err) => {
         Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not add this item to your cart.");
-      }
-    });
+      });
   };
 
   const handleMessageVendor = () => {

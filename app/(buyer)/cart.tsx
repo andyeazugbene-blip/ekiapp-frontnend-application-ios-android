@@ -15,6 +15,9 @@ export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const items = useCartStore((state) => state.items);
+  const cartCurrency = useCartStore((state) => state.currency);
+  const otherCarts = useCartStore((state) => state.otherCarts);
+  const switchCurrency = useCartStore((state) => state.switchCurrency);
   const groupedByVendor = useCartStore((state) => state.groupedByVendor());
   const vendorCount = useCartStore((state) => state.vendorCount());
   const updateQuantity = useCartStore((state) => state.updateQuantity);
@@ -41,7 +44,7 @@ export default function CartScreen() {
   );
 
   const totalWeight = items.reduce((sum, item) => sum + (item.product.weight ?? 0) * item.quantity, 0);
-  const checkoutCurrency = items[0]?.product.currency ?? "GBP";
+  const checkoutCurrency = cartCurrency || items[0]?.product.currency || "GBP";
 
   React.useEffect(() => {
     ensureCurrency(checkoutCurrency).catch(() => undefined);
@@ -50,6 +53,12 @@ export default function CartScreen() {
   const handleQuantityChange = (productId: string, quantity: number) => {
     updateQuantity(productId, quantity).catch((err) => {
       Alert.alert("Cart not updated", err instanceof Error ? err.message : "Could not update this item.");
+    });
+  };
+
+  const handleSwitchCurrency = (currency: string) => {
+    switchCurrency(currency).catch((err) => {
+      Alert.alert("Could not switch cart", err instanceof Error ? err.message : "Please try again.");
     });
   };
 
@@ -64,6 +73,26 @@ export default function CartScreen() {
           <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
         </TouchableOpacity>
       </View>
+
+      {otherCarts.length > 0 ? (
+        <View style={styles.otherCartsRow}>
+          <Text style={styles.otherCartsLabel}>Also saved:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {otherCarts.map((entry) => (
+              <TouchableOpacity
+                key={entry.currency}
+                onPress={() => handleSwitchCurrency(entry.currency)}
+                activeOpacity={0.85}
+                style={styles.otherCartPill}
+              >
+                <Text style={styles.otherCartPillText}>
+                  {entry.currency} cart · {entry.itemCount} item{entry.itemCount === 1 ? "" : "s"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isLoading && items.length === 0 ? (
@@ -209,6 +238,10 @@ const styles = StyleSheet.create({
   currencyButton: { minWidth: 58, height: 38, borderRadius: 19, backgroundColor: "#EAF5F0", alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
   currencyButtonText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#076B51" },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
+  otherCartsRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
+  otherCartsLabel: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#858585" },
+  otherCartPill: { backgroundColor: "#F4F8F6", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: "#E0EDE7" },
+  otherCartPillText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   stateWrap: { paddingVertical: 60, alignItems: "center" },
   emptyTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828", marginTop: 16 },
   emptyBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 6 },
