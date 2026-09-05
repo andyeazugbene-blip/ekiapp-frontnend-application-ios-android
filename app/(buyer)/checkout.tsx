@@ -11,7 +11,6 @@ import { walletService, type Wallet } from "../../services/walletService";
 import { campaignService, type Campaign } from "../../services/campaignService";
 import { presentPayment, isPaymentSheetAvailable } from "../../services/stripePayment";
 import { orderService } from "../../services/orderService";
-import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { formatDisplayMoney } from "../../utils/currency";
 import { goBackOrReplace } from "../../utils/navigation";
 
@@ -39,15 +38,14 @@ export default function CheckoutScreen() {
   const subtotal = useCartStore((s) => s.subtotal());
   const deliveryTotal = useCartStore((s) => s.deliveryTotal());
   const grandTotal = useCartStore((s) => s.grandTotal());
+  const deliveryEstimates = useCartStore((s) => s.deliveryEstimates);
   const createCheckout = useCartStore((s) => s.createCheckout);
   const syncWithServer = useCartStore((s) => s.syncWithServer);
   const calculateDelivery = useCartStore((s) => s.calculateDelivery);
   const clearCart = useCartStore((s) => s.clearCart);
   const storeDeliveryCountry = useCartStore((s) => s.deliveryCountry);
   const setDeliveryCountry = useCartStore((s) => s.setDeliveryCountry);
-  const selectedCurrency = useCurrencyStore((s) => s.selectedCurrency);
   const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
-  const setSelectedCurrency = useCurrencyStore((s) => s.setSelectedCurrency);
   const user = useAuthStore((s) => s.user);
 
   const [address, setAddress] = useState("");
@@ -61,7 +59,6 @@ export default function CheckoutScreen() {
   const [createdOrderIds, setCreatedOrderIds] = useState<string[]>([]);
   const [appliedCampaign, setAppliedCampaign] = useState<{ title: string; discount: number } | null>(null);
   const [eligibleDeal, setEligibleDeal] = useState<Campaign | null>(null);
-  const [currencyOpen, setCurrencyOpen] = useState(false);
   const [promoCode, setPromoCode] = useState("");
 
   const walletBalance = wallet?.balance ?? 0;
@@ -71,6 +68,15 @@ export default function CheckoutScreen() {
   const parsedWalletAmount = Number(walletAmount) || 0;
   const parsedWalletAmountInCheckoutCurrency = walletMatchesCheckoutCurrency ? parsedWalletAmount : 0;
   const canPayFullyWithWallet = walletMatchesCheckoutCurrency && walletBalance >= grandTotal;
+  // A delivery/currency-zone error (e.g. cart is USD but the entered
+  // country's delivery zone is only configured for GBP/EUR) clears
+  // deliveryEstimates and sets `error` — but previously left the Pay button
+  // fully enabled, so the buyer could tap into a payment attempt from a
+  // screen that was already showing a blocking error. Once there's at least
+  // one item, a resolved (non-zero) delivery estimate is required before
+  // payment is allowed.
+  const deliveryUnresolved = items.length > 0 && deliveryEstimates.length === 0;
+  const canSubmitOrder = !submitting && items.length > 0 && !deliveryUnresolved;
 
   const estimatedDiscount = eligibleDeal && eligibleDeal.discountValue != null
     ? eligibleDeal.discountType === "PERCENTAGE"
@@ -129,6 +135,10 @@ export default function CheckoutScreen() {
     // this handler — this is the actual gate that stops a real double
     // checkout attempt, not just the visual disabled state.
     if (submitting) return;
+    if (deliveryUnresolved) {
+      setError("We can't confirm a matching delivery/currency configuration for this order yet. Resolve the issue above before paying.");
+      return;
+    }
     setError("");
 
     if (!country.trim()) {
@@ -191,9 +201,15 @@ export default function CheckoutScreen() {
           <Ionicons name="arrow-back" size={20} color="#282828" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Complete your order</Text>
-        <TouchableOpacity onPress={() => setCurrencyOpen(true)} activeOpacity={0.85} style={styles.currencyButton}>
-          <Text style={styles.currencyButtonText}>{selectedCurrency}</Text>
-        </TouchableOpacity>
+        {/* This always shows the real currency the buyer is being charged
+            in — it is not an editable display preference. Checkout currency
+            is fixed by what's in the cart, so letting a stale/unrelated
+            "preferred currency" from browsing show here (while every actual
+            amount below was already computed correctly) was the exact
+            confusing-checkout bug this badge used to cause. */}
+        <View style={styles.currencyButton}>
+          <Text style={styles.currencyButtonText}>{checkoutCurrency.toUpperCase()}</Text>
+        </View>
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
@@ -338,18 +354,31 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error && deliveryUnresolved ? (
+          <View style={[styles.infoBanner, { backgroundColor: "#FDEDED" }]}>
+            <Ionicons name="alert-circle-outline" size={18} color="#B3261E" style={{ marginTop: 1 }} />
+            <Text style={[styles.infoBannerText, { color: "#B3261E" }]}>{error}</Text>
+          </View>
+        ) : error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : null}
 
         <TouchableOpacity
           onPress={handlePlaceOrder}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel={submitting ? "Processing payment" : "Pay securely"}
-          accessibilityState={{ busy: submitting, disabled: submitting || items.length === 0 }}
-          style={[styles.placeOrderBtn, (submitting || items.length === 0) && { opacity: 0.6 }]}
-          disabled={submitting || items.length === 0}
+          accessibilityLabel={submitting ? "Processing payment" : canSubmitOrder ? "Pay securely" : "Resolve delivery issue to continue"}
+          accessibilityState={{ busy: submitting, disabled: !canSubmitOrder }}
+          style={[styles.placeOrderBtn, !canSubmitOrder && { opacity: 0.6 }]}
+          disabled={!canSubmitOrder}
         >
-          {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.placeOrderText}>Pay Securely</Text>}
+          {submitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.placeOrderText}>
+              {deliveryUnresolved ? "Resolve delivery issue to continue" : "Pay Securely"}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
       </KeyboardAvoidingView>
@@ -387,13 +416,6 @@ export default function CheckoutScreen() {
           </View>
         </View>
       </Modal>
-
-      <CurrencySelector
-        selectedCurrency={selectedCurrency}
-        onChange={setSelectedCurrency}
-        visible={currencyOpen}
-        onClose={() => setCurrencyOpen(false)}
-      />
     </SafeAreaView>
   );
 }

@@ -457,9 +457,6 @@ export default function VendorDashboardScreen() {
                   <Text style={styles.insightLabel}>Best selling foodstuff</Text>
                   <Text style={styles.insightTitle}>{bestSellingText}</Text>
                 </View>
-                <View style={styles.timelineRightCol}>
-                  <Sparkline points={[8, 14, 10, 18, 12, 20, 16]} />
-                </View>
               </View>
 
               {/* Row 2 */}
@@ -474,9 +471,6 @@ export default function VendorDashboardScreen() {
                   <Text style={styles.insightLabel}>Repeat buyers</Text>
                   <Text style={styles.insightTitle}>{repeatBuyerCount.toLocaleString("en-US")}</Text>
                 </View>
-                <View style={styles.timelineRightCol}>
-                  <Sparkline points={[6, 10, 8, 16, 12, 14, 18]} />
-                </View>
               </View>
 
               {/* Row 3 */}
@@ -487,11 +481,8 @@ export default function VendorDashboardScreen() {
                   </View>
                 </View>
                 <View style={styles.timelineContentCol}>
-                  <Text style={styles.insightLabel}>Sales by country</Text>
+                  <Text style={styles.insightLabel}>Primary market</Text>
                   <Text style={styles.insightTitle}>{sellsCountryText}</Text>
-                </View>
-                <View style={styles.timelineRightCol}>
-                  <Sparkline points={[10, 6, 14, 8, 18, 12, 16]} />
                 </View>
               </View>
             </View>
@@ -845,28 +836,6 @@ function SalesTile({
   return <View style={tileStyle}>{content}</View>;
 }
 
-function Sparkline({ points }: { points: number[] }) {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "flex-end", height: 24, width: 68, gap: 3 }}>
-      {points.map((h, i) => (
-        <View 
-          key={i} 
-          style={{ 
-            width: 7, 
-            height: h, 
-            backgroundColor: "#076B5115", 
-            borderTopLeftRadius: 3, 
-            borderTopRightRadius: 3,
-            borderColor: "#076B51",
-            borderWidth: 1,
-            borderBottomWidth: 0
-          }} 
-        />
-      ))}
-    </View>
-  );
-}
-
 function GrowCard({
   tone,
   icon,
@@ -1204,11 +1173,6 @@ const styles = StyleSheet.create({
   timelineContentCol: {
     flex: 1,
     marginLeft: 12,
-  },
-  timelineRightCol: {
-    marginLeft: 8,
-    alignItems: "flex-end",
-    justifyContent: "center",
   },
   insightLabel: {
     color: "#858585",

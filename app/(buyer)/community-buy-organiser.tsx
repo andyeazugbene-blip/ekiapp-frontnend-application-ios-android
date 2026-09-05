@@ -106,7 +106,21 @@ export default function CommunityBuyOrganiserScreen() {
               </Text>
             </FloatingCard>
             {markets.length === 0 ? (
-              <Text style={styles.emptyText}>Organiser applications aren't open in any market yet.</Text>
+              <FloatingCard style={styles.introCard}>
+                <IconAvatar icon="hourglass-outline" tone="warning" size={52} />
+                <Text style={styles.introTitle}>Organiser applications open market-by-market</Text>
+                <Text style={styles.introBody}>
+                  We're rolling out Community Buy one market at a time, so each one can complete its legal and payments review before organisers start collecting pledges there. No market has finished that review yet, so applications aren't open anywhere right now.
+                </Text>
+                <Text style={[styles.introBody, { marginTop: 4 }]}>
+                  You'll get a notification the moment your market opens. In the meantime, you can still browse any Community Buy campaigns already running.
+                </Text>
+                <PrimaryButton
+                  label="Browse Community Buy"
+                  icon="search-outline"
+                  onPress={() => router.push("/(buyer)/community-buy" as any)}
+                />
+              </FloatingCard>
             ) : (
               <View style={{ gap: 8 }}>
                 {markets.map((m) => (
