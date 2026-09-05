@@ -5,7 +5,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { TAB_BAR_RESERVED_SPACE } from "../../components/layout/tabBarConstants";
-import { useCartStore } from "../../stores/cartStore";
+import { useCartStore, deliveryEligibilityMessage } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { formatDisplayMoney } from "../../utils/currency";
@@ -19,6 +19,7 @@ export default function CartScreen() {
   const setCheckoutCurrency = useCartStore((state) => state.setCheckoutCurrency);
   const nativeCurrencies = useCartStore((state) => state.nativeCurrencies());
   const groupedByVendor = useCartStore((state) => state.groupedByVendor());
+  const ineligibleVendors = useCartStore((state) => state.ineligibleVendors());
   const vendorCount = useCartStore((state) => state.vendorCount());
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const subtotal = useCartStore((state) => state.subtotal());
@@ -126,12 +127,24 @@ export default function CartScreen() {
               </Text>
             </View>
 
+            {ineligibleVendors.length > 0 ? (
+              <View style={styles.eligibilityBanner}>
+                <Ionicons name="alert-circle-outline" size={16} color="#B3261E" />
+                <Text style={styles.eligibilityBannerText}>{deliveryEligibilityMessage(ineligibleVendors)}</Text>
+              </View>
+            ) : null}
+
             {groupedByVendor.map((group) => (
               <View key={group.vendorId} style={styles.vendorSection}>
                 <Text style={styles.vendorName}>{group.vendorName || "Vendor"}</Text>
                 <Text style={styles.vendorMeta}>
                   {group.items.length} item{group.items.length === 1 ? "" : "s"} · {formatDisplayMoney(group.subtotal, checkoutCurrency, selectedCurrency)}
                 </Text>
+                {group.delivery && !group.delivery.eligible ? (
+                  <Text style={styles.vendorIneligibleText}>
+                    Can't be delivered to your current address — choose another address or remove these items.
+                  </Text>
+                ) : null}
 
                 {group.items.map((item) => (
                   <View key={item.product.id} style={styles.cartItem}>
@@ -255,9 +268,12 @@ const styles = StyleSheet.create({
   vendorSummaryCard: { backgroundColor: "#F4F8F6", borderRadius: 16, padding: 16, marginBottom: 14 },
   vendorSummaryTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828" },
   vendorSummaryBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 6, lineHeight: 19 },
+  eligibilityBanner: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#FDEDED", borderRadius: 12, padding: 12, marginBottom: 14 },
+  eligibilityBannerText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#B3261E", lineHeight: 18 },
   vendorSection: { marginBottom: 18 },
   vendorName: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
   vendorMeta: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#687076", marginTop: 4, marginBottom: 10 },
+  vendorIneligibleText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#B3261E", marginTop: -4, marginBottom: 10 },
   cartItem: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 16, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: "#F0F0F0" },
   itemImage: { width: 72, height: 72, borderRadius: 12, backgroundColor: "#F0E6D4", marginRight: 14 },
   itemInfo: { flex: 1 },

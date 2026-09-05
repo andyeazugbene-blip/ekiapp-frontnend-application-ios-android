@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useAuthStore } from "../../stores/authStore";
-import { useCartStore } from "../../stores/cartStore";
+import { useCartStore, deliveryEligibilityMessage } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { walletService, type Wallet } from "../../services/walletService";
 import { campaignService, type Campaign } from "../../services/campaignService";
@@ -45,6 +45,7 @@ export default function CheckoutScreen() {
   const deliveryTotal = useCartStore((s) => s.deliveryTotal());
   const grandTotal = useCartStore((s) => s.grandTotal());
   const deliveryEstimates = useCartStore((s) => s.deliveryEstimates);
+  const ineligibleVendors = useCartStore((s) => s.ineligibleVendors());
   const createCheckout = useCartStore((s) => s.createCheckout);
   const syncWithServer = useCartStore((s) => s.syncWithServer);
   const calculateDelivery = useCartStore((s) => s.calculateDelivery);
@@ -88,7 +89,12 @@ export default function CheckoutScreen() {
   // into a payment attempt from a screen that was already showing a
   // blocking error. Once there's at least one item, a resolved (non-zero)
   // delivery estimate AND a selected address are required before payment.
-  const deliveryUnresolved = items.length > 0 && deliveryEstimates.length === 0;
+  // A cart with multiple vendors may have SOME vendors eligible and one
+  // specific vendor not — that still blocks payment (a single combined
+  // charge can't silently drop that vendor's items), but the banner below
+  // identifies exactly which vendor/items are the problem instead of a
+  // blanket failure.
+  const deliveryUnresolved = items.length > 0 && (deliveryEstimates.length === 0 || ineligibleVendors.length > 0);
   const canSubmitOrder = !submitting && items.length > 0 && !deliveryUnresolved && Boolean(selectedAddressId);
 
   const estimatedDiscount = eligibleDeal && eligibleDeal.discountValue != null
@@ -216,7 +222,11 @@ export default function CheckoutScreen() {
       return;
     }
     if (deliveryUnresolved) {
-      setError("We can't deliver to this address yet. Choose another address or check the vendor's delivery area.");
+      setError(
+        ineligibleVendors.length > 0
+          ? deliveryEligibilityMessage(ineligibleVendors)
+          : "We can't deliver to this address yet. Choose another address or check the vendor's delivery area.",
+      );
       return;
     }
     setError("");
@@ -373,11 +383,24 @@ export default function CheckoutScreen() {
             <Ionicons name="alert-circle-outline" size={18} color="#B3261E" style={{ marginTop: 1 }} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.infoBannerText, { color: "#B3261E" }]}>
-                We can't deliver to this address yet. Choose another address or check the vendor's delivery area.
+                {ineligibleVendors.length > 0
+                  ? deliveryEligibilityMessage(ineligibleVendors)
+                  : "We can't deliver to this address yet. Choose another address or check the vendor's delivery area."}
               </Text>
-              <TouchableOpacity onPress={() => setShowAddressPicker(true)} activeOpacity={0.85} style={styles.chooseAnotherBtn}>
-                <Text style={styles.chooseAnotherBtnText}>Choose another address</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                {ineligibleVendors.length > 0 ? (
+                  <TouchableOpacity
+                    onPress={() => router.push("/(buyer)/cart" as any)}
+                    activeOpacity={0.85}
+                    style={[styles.chooseAnotherBtn, { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#B3261E" }]}
+                  >
+                    <Text style={[styles.chooseAnotherBtnText, { color: "#B3261E" }]}>View affected items</Text>
+                  </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity onPress={() => setShowAddressPicker(true)} activeOpacity={0.85} style={styles.chooseAnotherBtn}>
+                  <Text style={styles.chooseAnotherBtnText}>Choose another address</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         ) : null}

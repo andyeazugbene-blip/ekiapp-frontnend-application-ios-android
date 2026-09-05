@@ -33,6 +33,8 @@ export interface ServerCart {
   subtotal: number;
 }
 
+export type DeliveryIneligibilityReason = "VENDOR_ZONE_INACTIVE" | "NO_COVERAGE";
+
 export interface DeliveryEstimate {
   vendorId: string;
   vendorName: string;
@@ -41,14 +43,42 @@ export interface DeliveryEstimate {
   currency: string;
   estimatedDays: string;
   weight: number;
+  /** False when this vendor specifically cannot deliver to the address just
+   * calculated for — a valid vendor stays eligible even when another vendor
+   * in the same cart is not. */
+  eligible: boolean;
+  reason?: DeliveryIneligibilityReason;
+  productIds: string[];
+  productTitles: string[];
+}
+
+export interface DeliveryCalculationResult {
+  /** True only when every vendor in the cart can deliver to this address. */
+  eligible: boolean;
+  estimates: DeliveryEstimate[];
+  subtotalAmount: number;
+  deliveryAmount: number;
+  totalAmount: number;
+  currency: string;
 }
 
 interface DeliveryCalculationResponse {
+  eligible: boolean;
   subtotalAmount: number;
   deliveryAmount: number;
   totalAmount: number;
   totalWeightGrams: number;
   currency: string;
+  vendors: {
+    vendorId: string;
+    vendorName: string;
+    eligible: boolean;
+    reason?: DeliveryIneligibilityReason;
+    productIds: string[];
+    productTitles: string[];
+    subtotalAmount?: number;
+    deliveryAmount?: number;
+  }[];
 }
 
 export interface CheckoutIntent {
@@ -139,33 +169,46 @@ export const cartService = {
   },
 
   /**
-   * Calculate delivery costs for all vendors in cart, normalized into
+   * Calculate delivery costs for every vendor in the cart, normalized into
    * checkoutCurrency (defaults server-side to the cart's own dominant
-   * currency when omitted).
+   * currency when omitted). Each vendor's delivery eligibility for this
+   * country is resolved independently on the backend — a valid vendor's
+   * estimate is returned even when another vendor in the same cart cannot
+   * deliver here.
    */
   async calculateDelivery(input: {
     cartId: string;
-    destinationZoneId: string;
     country: string;
     checkoutCurrency?: string;
-    vendorId?: string;
-    vendorName?: string;
-  }): Promise<DeliveryEstimate[]> {
+  }): Promise<DeliveryCalculationResult> {
     const res = await apiClient.post<DeliveryCalculationResponse>("/api/delivery/calculate", {
       cartId: input.cartId,
-      destinationZoneId: input.destinationZoneId,
+      deliveryCountry: input.country,
       checkoutCurrency: input.checkoutCurrency,
     });
 
-    return [{
-      vendorId: input.vendorId ?? "",
-      vendorName: input.vendorName ?? "",
+    const estimates: DeliveryEstimate[] = (res.vendors ?? []).map((v) => ({
+      vendorId: v.vendorId,
+      vendorName: v.vendorName,
       country: input.country,
-      cost: res.deliveryAmount / 100,
+      cost: v.eligible ? (v.deliveryAmount ?? 0) / 100 : 0,
       currency: (res.currency ?? "GBP").toUpperCase(),
       estimatedDays: "",
-      weight: res.totalWeightGrams / 1000,
-    }];
+      weight: 0,
+      eligible: v.eligible,
+      reason: v.reason,
+      productIds: v.productIds,
+      productTitles: v.productTitles,
+    }));
+
+    return {
+      eligible: res.eligible,
+      estimates,
+      subtotalAmount: res.subtotalAmount,
+      deliveryAmount: res.deliveryAmount,
+      totalAmount: res.totalAmount,
+      currency: res.currency,
+    };
   },
 
   /**
@@ -173,12 +216,14 @@ export const cartService = {
    * item and delivery fee into checkoutCurrency (defaults to the cart's
    * dominant currency when omitted) and creates exactly ONE Stripe
    * PaymentIntent in that one currency, regardless of how many native
-   * currencies were mixed in the cart.
+   * currencies were mixed in the cart. Independently re-checks every
+   * vendor's delivery eligibility and refuses to charge if any vendor
+   * cannot actually deliver to deliveryCountry, even if the caller's own
+   * pre-check was stale.
    * Returns Stripe clientSecret + order IDs.
    */
   async createPaymentIntent(payload: {
     cartId?: string;
-    destinationZoneId?: string;
     deliveryAddress?: string;
     deliveryCountry?: string;
     checkoutCurrency?: string;

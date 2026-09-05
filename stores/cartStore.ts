@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { CartItem, Product } from "../types/product";
 import { cartService, ServerCartItem, DeliveryEstimate, CheckoutIntent } from "../services/cartService";
-import { DeliveryZone, deliveryService, matchesDeliveryZoneCountry } from "../services/deliveryService";
 
 export interface VendorGroup {
   vendorId: string;
@@ -46,6 +45,9 @@ interface CartStore {
   /** Every distinct native currency actually present in the cart right
    * now — length > 1 means normalization is genuinely happening. */
   nativeCurrencies: () => string[];
+  /** The subset of deliveryEstimates that cannot deliver to the currently
+   * calculated address — empty when every vendor is eligible. */
+  ineligibleVendors: () => DeliveryEstimate[];
   reset: () => void;
 }
 
@@ -69,31 +71,18 @@ function normalizeCurrency(currency?: string): string {
   return (currency ?? "").trim().toUpperCase();
 }
 
-// vendorIds is every vendor actually in the cart, not just one item's vendor
-// — a multi-vendor cart must accept a zone belonging to ANY of those
-// vendors (or a global, vendor-less zone), not only the first item's. The
-// backend independently resolves each vendor's own zone/fallback per group
-// (see payments.service.ts createPaymentIntent) — this only needs to find
-// a zone for the right country; currency compatibility is no longer a
-// filter here since the backend normalizes any zone's native fee into the
-// checkout currency.
-function findCompatibleDeliveryZone(
-  zones: DeliveryZone[],
-  country: string,
-  vendorIds?: string[],
-): DeliveryZone | null {
-  const countryMatches = zones.filter((zone) => {
-    if (zone.active === false || !matchesDeliveryZoneCountry(zone, country)) return false;
-    return !vendorIds?.length || !zone.vendorId || vendorIds.includes(zone.vendorId);
-  });
-  return countryMatches[0] ?? null;
-}
-
-// Buyer-facing copy only — never the raw "zone currency mismatch"/ops
-// language. checkout.tsx renders this inside the friendly "can't deliver"
-// banner with a "Choose another address" action, not as a raw error string.
-function deliveryZoneError(country: string): string {
-  return `We can't deliver to ${country || "this address"} yet. Choose another address or check the vendor's delivery area.`;
+/**
+ * Builds a specific, actionable message naming exactly which vendor/items
+ * can't be delivered — never a generic "can't deliver" banner when only
+ * SOME vendors in a multi-vendor cart are actually affected.
+ */
+export function deliveryEligibilityMessage(ineligible: DeliveryEstimate[]): string {
+  const totalProducts = ineligible.reduce((sum, e) => sum + e.productTitles.length, 0);
+  if (ineligible.length === 1 && totalProducts === 1) {
+    return `One item in your cart can't be delivered to this address: ${ineligible[0].productTitles[0]} (${ineligible[0].vendorName}).`;
+  }
+  const lines = ineligible.map((e) => `${e.vendorName}: ${e.productTitles.join(", ")}`);
+  return `These items can't be delivered to this address:\n${lines.map((l) => `- ${l}`).join("\n")}`;
 }
 
 function resolveDeliveryCountry(currentCountry: string | undefined, currency?: string, override?: string): string {
@@ -268,6 +257,12 @@ export const useCartStore = create<CartStore>((set, get) => ({
     }
   },
 
+  // Each vendor's delivery eligibility for `country` is resolved
+  // independently on the backend (see delivery.service.ts) — a valid
+  // vendor's estimate is returned even when another vendor in the same
+  // cart cannot deliver here. This only throws for a genuine failure
+  // (network, missing cart); partial ineligibility is a normal result,
+  // reflected in deliveryEligible/deliveryEstimates, not an error.
   calculateDelivery: async (country) => {
     set({ isLoading: true, deliveryCountry: country, error: null });
     try {
@@ -278,21 +273,12 @@ export const useCartStore = create<CartStore>((set, get) => ({
       }
 
       const checkoutCurrency = get().checkoutCurrency || cart.currency;
-      const firstItem = cart.items[0];
-      const vendorIds = Array.from(new Set(cart.items.map((item) => item.vendorId).filter(Boolean)));
-      const zones = await deliveryService.listAllZones();
-      const match = findCompatibleDeliveryZone(zones, country, vendorIds);
-      if (!match) throw new Error(deliveryZoneError(country));
-
-      const estimates = await cartService.calculateDelivery({
-        cartId: cart.id,
-        destinationZoneId: match.id,
-        country,
-        checkoutCurrency,
-        vendorId: firstItem?.vendorId,
-        vendorName: firstItem?.vendorName,
+      const result = await cartService.calculateDelivery({ cartId: cart.id, country, checkoutCurrency });
+      set({
+        deliveryEstimates: result.estimates,
+        checkoutCurrency: result.currency || checkoutCurrency,
+        isLoading: false,
       });
-      set({ deliveryEstimates: estimates, checkoutCurrency, isLoading: false });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not calculate delivery.";
       set({ isLoading: false, error: message, deliveryEstimates: [] });
@@ -306,6 +292,11 @@ export const useCartStore = create<CartStore>((set, get) => ({
     set({ deliveryCountry: nextCountry, error: null });
   },
 
+  // The backend independently re-checks every vendor's delivery
+  // eligibility for `country` and refuses to charge (DELIVERY_INELIGIBLE_
+  // VENDOR) if any vendor can't actually deliver there — this never
+  // pre-picks a zone client-side, so that check can never be stale or
+  // bypassed by an out-of-date zones list.
   createCheckout: async (address, walletAmount, deliveryCountryOverride, promoCode) => {
     set({ isLoading: true, error: null });
     try {
@@ -315,16 +306,10 @@ export const useCartStore = create<CartStore>((set, get) => ({
 
       const checkoutCurrency = get().checkoutCurrency || cart.currency;
       const country = resolveDeliveryCountry(get().deliveryCountry, checkoutCurrency, deliveryCountryOverride);
-      const vendorIds = Array.from(new Set(cart.items.map((item) => item.vendorId).filter(Boolean)));
-      const zones = await deliveryService.listAllZones();
-      const match = findCompatibleDeliveryZone(zones, country, vendorIds);
-      const destinationZoneId = match?.id;
-      if (!destinationZoneId) throw new Error(deliveryZoneError(country));
 
       set({ deliveryCountry: country });
       const intent = await cartService.createPaymentIntent({
         cartId: cart.id,
-        destinationZoneId,
         deliveryAddress: address,
         deliveryCountry: country,
         checkoutCurrency,
@@ -359,6 +344,8 @@ export const useCartStore = create<CartStore>((set, get) => ({
 
   nativeCurrencies: () =>
     Array.from(new Set(get().items.map((i) => normalizeCurrency(i.product.currency)).filter(Boolean))),
+
+  ineligibleVendors: () => get().deliveryEstimates.filter((e) => !e.eligible),
 
   groupedByVendor: () => {
     const { items, deliveryEstimates } = get();
