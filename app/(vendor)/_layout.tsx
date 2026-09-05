@@ -167,6 +167,9 @@ export default function VendorLayout() {
       <Tabs.Screen name="order-completed" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="upgrade-prompt" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="automation-center" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="automation-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="automation-activity" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="notification-permission" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="regular-deliveries" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="regular-delivery-offer-edit" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="regular-delivery-subscriber-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />

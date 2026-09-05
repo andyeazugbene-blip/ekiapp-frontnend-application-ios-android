@@ -126,6 +126,7 @@ export default function BuyerLayout() {
       <Tabs.Screen name="deals" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="regular-deliveries" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="regular-deliveries-browse" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="regular-delivery-offer" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="regular-delivery-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="community-buy" options={{ href: null, tabBarStyle: { display: "none" } }} />
