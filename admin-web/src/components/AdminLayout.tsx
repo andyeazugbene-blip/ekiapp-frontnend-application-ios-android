@@ -36,6 +36,7 @@ const sections: NavSection[] = [
       { name: "Disputes", href: "/disputes" },
       { name: "Chargebacks", href: "/stripe-disputes" },
       { name: "Approvals", href: "/approvals" },
+      { name: "Content Reports", href: "/content-reports" },
       { name: "Activity Logs", href: "/activity-logs" },
     ],
   },
