@@ -2,7 +2,7 @@
   "expo": {
     "name": "Eki",
     "slug": "eki-app",
-    "version": "1.5.3",
+    "version": "1.5.4",
     "orientation": "portrait",
     "scheme": "ekiapp",
     "userInterfaceStyle": "automatic",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ekiapp.mobilee",
-      "buildNumber": "99",
+      "buildNumber": "101",
       "usesAppleSignIn": true,
       "splash": {
         "image": "./assets/splash-icon.png",
