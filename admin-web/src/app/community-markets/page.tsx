@@ -19,7 +19,7 @@ const FLAGS: { key: keyof MarketConfig; label: string; note: string }[] = [
   { key: "communityBuyPaymentsEnabled", label: "Community Buy payments", note: "Requires legal/payment-provider review — no money can move until this is on." },
   { key: "organiserApplicationsEnabled", label: "Organiser applications", note: "Buyers in this market can apply to become organisers." },
   { key: "supplierApplicationsEnabled", label: "Supplier applications", note: "Verified vendors in this market can apply to become suppliers." },
-  { key: "regularDeliveriesEnabled", label: "Regular Deliveries", note: "Informational flag for this market — the feature itself is not gated on it in this release." },
+  { key: "regularDeliveriesEnabled", label: "Regular Deliveries", note: "Buyers in this market can browse and subscribe to Regular Delivery offers when this is on." },
 ];
 
 const PAYMENT_MODE_OPTIONS: MarketPaymentMode[] = ["DISABLED", "TEST", "LIVE"];
