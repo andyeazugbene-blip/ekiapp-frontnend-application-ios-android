@@ -2,10 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
-import { Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader } from "@/components/AdminUI";
+import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { communicationsAPI } from "@/lib/services/communications.api";
+import { vendorsAPI } from "@/lib/services/vendors.api";
+import { usersAPI } from "@/lib/services/users.api";
+import { productsAPI } from "@/lib/services/products.api";
+import { Vendor, User, Product } from "@/types";
 
 type OfferAudience =
   | "all_buyers"
@@ -48,12 +52,48 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export default function SendOfferPage() {
   const [audience, setAudience] = useState<OfferAudience>("all_buyers");
+  const [title, setTitle] = useState("Special Offer");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [channels, setChannels] = useState<BroadcastChannel[]>(["in_app", "push"]);
   const [estimatedRecipients, setEstimatedRecipients] = useState<number | null>(null);
+
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [buyers, setBuyers] = useState<User[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [vendorSearch, setVendorSearch] = useState("");
+  const [buyerSearch, setBuyerSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+
+  useEffect(() => {
+    if (audience === "individual_vendor" && vendors.length === 0) {
+      void vendorsAPI.getVendors({ limit: 100 }).then(setVendors).catch(() => setVendors([]));
+    }
+    if (audience === "individual_buyer" && buyers.length === 0) {
+      void usersAPI.getUsers({ role: "BUYER", limit: 100 }).then(setBuyers).catch(() => setBuyers([]));
+    }
+    if (audience === "bought_specific_product" && products.length === 0) {
+      void productsAPI.getProducts().then(setProducts).catch(() => setProducts([]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audience]);
+
+  const filteredVendors = useMemo(() => {
+    const term = vendorSearch.toLowerCase();
+    return vendors.filter((v) => `${v.storeName} ${v.ownerName ?? ""} ${v.city ?? ""} ${v.country ?? ""}`.toLowerCase().includes(term)).slice(0, 8);
+  }, [vendorSearch, vendors]);
+
+  const filteredBuyers = useMemo(() => {
+    const term = buyerSearch.toLowerCase();
+    return buyers.filter((u) => `${u.name} ${u.email}`.toLowerCase().includes(term)).slice(0, 8);
+  }, [buyerSearch, buyers]);
+
+  const filteredProducts = useMemo(() => {
+    const term = productSearch.toLowerCase();
+    return products.filter((p) => p.title.toLowerCase().includes(term)).slice(0, 8);
+  }, [productSearch, products]);
 
   const toggleChannel = (channel: BroadcastChannel) => {
     setChannels((prev) => prev.includes(channel) ? prev.filter((c) => c !== channel) : [...prev, channel]);
@@ -85,6 +125,10 @@ export default function SendOfferPage() {
     setError("");
     setSuccess("");
 
+    if (!title.trim()) {
+      setError("Please write an offer title.");
+      return;
+    }
     if (!message.trim()) {
       setError("Please write your offer message.");
       return;
@@ -110,7 +154,7 @@ export default function SendOfferPage() {
     try {
       const { audience: backendAudience, vendorId, userId, productId } = mapAudienceToBackend(audience);
       const result = await communicationsAPI.sendBroadcast({
-        title: "Special Offer",
+        title: title.trim(),
         body: message.trim(),
         audience: backendAudience as any,
         channels,
@@ -160,6 +204,61 @@ export default function SendOfferPage() {
               ))}
             </div>
             <p className="mt-4 text-sm text-slate-500">{selectedAudience.helper}</p>
+
+            {audience === "individual_vendor" ? (
+              <div className="mt-6 border-t border-slate-100 pt-6">
+                <h3 className="text-sm font-black uppercase text-slate-500">Choose vendor</h3>
+                <div className="mt-4 flex h-14 items-center gap-3 rounded-xl border border-slate-300 px-4">
+                  <Icon name="search" className="h-5 w-5 text-slate-400" />
+                  <input value={vendorSearch} onChange={(e) => setVendorSearch(e.target.value)} placeholder="Search vendor..." className="w-full bg-transparent outline-none" />
+                </div>
+                <div className="mt-4 space-y-3">
+                  {filteredVendors.map((v) => (
+                    <button key={v.id} onClick={() => setSelectedVendorId(v.id)} className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left ${selectedVendorId === v.id ? "border-[#096B4A] bg-emerald-50" : "border-slate-200"}`}>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 font-black text-[#096B4A]">{v.storeName.slice(0, 2).toUpperCase()}</div>
+                      <div className="flex-1"><p className="font-black">{v.storeName}</p><p className="text-sm text-slate-500">{v.city}, {v.country}</p></div>
+                      {selectedVendorId === v.id ? <Badge tone="green">Selected</Badge> : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {audience === "individual_buyer" ? (
+              <div className="mt-6 border-t border-slate-100 pt-6">
+                <h3 className="text-sm font-black uppercase text-slate-500">Choose buyer</h3>
+                <div className="mt-4 flex h-14 items-center gap-3 rounded-xl border border-slate-300 px-4">
+                  <Icon name="search" className="h-5 w-5 text-slate-400" />
+                  <input value={buyerSearch} onChange={(e) => setBuyerSearch(e.target.value)} placeholder="Search buyer by name or email..." className="w-full bg-transparent outline-none" />
+                </div>
+                <div className="mt-4 space-y-3">
+                  {filteredBuyers.map((u) => (
+                    <button key={u.id} onClick={() => setSelectedBuyerId(u.id)} className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left ${selectedBuyerId === u.id ? "border-[#096B4A] bg-emerald-50" : "border-slate-200"}`}>
+                      <div className="flex-1"><p className="font-black">{u.name}</p><p className="text-sm text-slate-500">{u.email}</p></div>
+                      {selectedBuyerId === u.id ? <Badge tone="green">Selected</Badge> : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {audience === "bought_specific_product" ? (
+              <div className="mt-6 border-t border-slate-100 pt-6">
+                <h3 className="text-sm font-black uppercase text-slate-500">Choose product</h3>
+                <div className="mt-4 flex h-14 items-center gap-3 rounded-xl border border-slate-300 px-4">
+                  <Icon name="search" className="h-5 w-5 text-slate-400" />
+                  <input value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Search product..." className="w-full bg-transparent outline-none" />
+                </div>
+                <div className="mt-4 space-y-3">
+                  {filteredProducts.map((p) => (
+                    <button key={p.id} onClick={() => setSelectedProductId(p.id)} className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left ${selectedProductId === p.id ? "border-[#096B4A] bg-emerald-50" : "border-slate-200"}`}>
+                      <div className="flex-1"><p className="font-black">{p.title}</p><p className="text-sm text-slate-500">{p.vendorName ?? ""}</p></div>
+                      {selectedProductId === p.id ? <Badge tone="green">Selected</Badge> : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </Card>
 
           <Card>
@@ -190,6 +289,14 @@ export default function SendOfferPage() {
           <Card>
             <h2 className="text-xl font-black">Offer details</h2>
             <div className="mt-6 space-y-4">
+              <label className="text-sm font-bold text-gray-700">Offer title</label>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Special Offer"
+                maxLength={120}
+                className="w-full rounded-xl border border-slate-300 p-4 outline-none focus:border-[#096B4A]"
+              />
               <label className="text-sm font-bold text-gray-700">Offer message</label>
               <textarea
                 value={message}
