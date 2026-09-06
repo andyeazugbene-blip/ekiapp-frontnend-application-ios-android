@@ -51,7 +51,24 @@ export default function OrdersPage() {
     late: orders.filter((order) => order.status === "shipped").length,
     notDelivered: orders.filter((order) => ["pending", "confirmed"].includes(order.status)).length,
   };
-  const chartData = orders.slice(0, 7).map((order, index) => ({ day: new Date(order.createdAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" }), orders: index + 1 })).reverse();
+  // Real order counts grouped by calendar day (from the fetched orders) — not
+  // a fabricated series. No backend endpoint provides a true daily
+  // time-series, so this reflects only the days actually present in the
+  // current fetch rather than inventing a fixed 7-day window.
+  const chartData = useMemo(() => {
+    const byDay = new Map<string, number>();
+    for (const order of orders) {
+      const key = new Date(order.createdAt).toISOString().slice(0, 10);
+      byDay.set(key, (byDay.get(key) ?? 0) + 1);
+    }
+    return [...byDay.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-7)
+      .map(([key, count]) => ({
+        day: new Date(key).toLocaleDateString("en-GB", { month: "short", day: "numeric" }),
+        orders: count,
+      }));
+  }, [orders]);
 
   return (
     <ProtectedRoute>
@@ -67,11 +84,15 @@ export default function OrdersPage() {
 
             <Card className="bg-[#101820] text-white">
               <div className="grid gap-6 lg:grid-cols-[0.25fr_0.75fr]">
-                <div><p className="text-2xl">Total orders</p><p className="mt-4 text-5xl font-black">{orders.length}</p><p className="mt-6 text-lg text-emerald-200">↑ +12.5% vs previous period</p></div>
+                <div><p className="text-2xl">Total orders</p><p className="mt-4 text-5xl font-black">{orders.length}</p></div>
                 <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}><XAxis dataKey="day" stroke="#b8c3ca" /><YAxis stroke="#b8c3ca" /><Tooltip /><Area type="monotone" dataKey="orders" stroke="#8ee5b4" strokeWidth={4} fill="#8ee5b4" fillOpacity={0.22} /></AreaChart>
-                  </ResponsiveContainer>
+                  {chartData.length > 1 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData}><XAxis dataKey="day" stroke="#b8c3ca" /><YAxis stroke="#b8c3ca" allowDecimals={false} /><Tooltip /><Area type="monotone" dataKey="orders" stroke="#8ee5b4" strokeWidth={4} fill="#8ee5b4" fillOpacity={0.22} /></AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-white/60">Not enough recent orders to chart a trend</div>
+                  )}
                 </div>
               </div>
             </Card>

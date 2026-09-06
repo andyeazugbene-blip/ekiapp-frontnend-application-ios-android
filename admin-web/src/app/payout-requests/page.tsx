@@ -6,12 +6,12 @@ import AdminLayout from "@/components/AdminLayout";
 import { Card, ErrorPanel, LoadingPanel } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { API2FARequiredError, APIError } from "@/lib/api";
-import { formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
+import { convertMoney, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
 import { payoutRequestsAPI } from "@/lib/services/payout-requests.api";
 import { vendorsAPI } from "@/lib/services/vendors.api";
 import { AdminPayoutRequest, Vendor } from "@/types";
 
-type TabKey = "pending" | "approved" | "paid" | "failed" | "rejected";
+type TabKey = "pending" | "approved" | "paid" | "rejected";
 
 function StatCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
@@ -75,20 +75,28 @@ export default function PayoutRequestsPage() {
     finally { setBusyId(null); }
   };
 
+  // PayoutRequestStatus has no FAILED value (PENDING/APPROVED/REJECTED/PAID
+  // only) — there is no such thing as a "failed" payout request today, so
+  // that tab/stat is removed rather than showing a permanently-fake 0.
+  // Payout requests can be in different currencies per vendor — summing raw
+  // amounts and labelling the total with one fixed currency would silently
+  // misrepresent the real total. Convert each item into the selected display
+  // currency before summing, same conversion used everywhere else money is
+  // aggregated across currencies (see displayCurrency.ts).
   const stats = useMemo(() => {
     const pending = items.filter(i => i.status === "PENDING");
     const approved = items.filter(i => i.status === "APPROVED");
     const paid = items.filter(i => i.status === "PAID");
     const rejected = items.filter(i => i.status === "REJECTED");
+    const sumIn = (list: AdminPayoutRequest[]) => list.reduce((s, i) => s + convertMoney(i.amount, i.currency, selectedCurrency), 0);
     return {
-      pendingAmount: pending.reduce((s, i) => s + i.amount, 0),
+      pendingAmount: sumIn(pending),
       count: pending.length,
-      approvedToday: approved.reduce((s, i) => s + i.amount, 0),
-      paidToday: paid.reduce((s, i) => s + i.amount, 0),
-      failed: 0,
+      approvedToday: sumIn(approved),
+      paidToday: sumIn(paid),
       rejected: rejected.length,
     };
-  }, [items]);
+  }, [items, selectedCurrency]);
 
   const filteredItems = useMemo(() => {
     let list = items;
@@ -113,7 +121,6 @@ export default function PayoutRequestsPage() {
     { key: "pending", label: `Pending (${items.filter(i => i.status === "PENDING").length})` },
     { key: "approved", label: "Approved" },
     { key: "paid", label: "Paid" },
-    { key: "failed", label: "Failed" },
     { key: "rejected", label: "Rejected" },
   ];
 
@@ -128,7 +135,7 @@ export default function PayoutRequestsPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h1 className="text-2xl font-black tracking-tight text-[#101820]">Payout Requests</h1>
-                <p className="text-[13px] text-slate-400">GBP {stats.pendingAmount.toLocaleString("en-GB")} pending payouts</p>
+                <p className="text-[13px] text-slate-400">{formatDisplayMoney(stats.pendingAmount, selectedCurrency, selectedCurrency)} pending payouts</p>
               </div>
               <div className="flex items-center gap-2">
                 <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-[13px] font-medium text-slate-600">
@@ -144,12 +151,11 @@ export default function PayoutRequestsPage() {
             {error && <ErrorPanel message={error} onRetry={() => void loadData()} />}
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-              <StatCard label="Pending" value={`GBP ${stats.pendingAmount.toLocaleString("en-GB")}`} color="text-emerald-600" />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+              <StatCard label="Pending" value={formatDisplayMoney(stats.pendingAmount, selectedCurrency, selectedCurrency)} color="text-emerald-600" />
               <StatCard label="Count" value={stats.count} color="text-blue-500" />
-              <StatCard label="Approved Today" value={`GBP ${stats.approvedToday.toLocaleString("en-GB")}`} color="text-emerald-600" />
-              <StatCard label="Paid Today" value={`GBP ${stats.paidToday.toLocaleString("en-GB")}`} color="text-emerald-600" />
-              <StatCard label="Failed" value={stats.failed} color="text-red-500" />
+              <StatCard label="Approved Today" value={formatDisplayMoney(stats.approvedToday, selectedCurrency, selectedCurrency)} color="text-emerald-600" />
+              <StatCard label="Paid Today" value={formatDisplayMoney(stats.paidToday, selectedCurrency, selectedCurrency)} color="text-emerald-600" />
               <StatCard label="Rejected" value={stats.rejected} color="text-red-500" />
             </div>
 
@@ -183,11 +189,11 @@ export default function PayoutRequestsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {pagedItems.map((item, idx) => (
+                      {pagedItems.map((item) => (
                         <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                          <td className="px-4 py-3.5 text-[12px] font-medium text-slate-700">PAY-{(filteredItems.length - ((page - 1) * perPage + idx)).toString().padStart(4, "0")}</td>
+                          <td className="px-4 py-3.5 text-[12px] font-medium text-slate-700" title={item.id}>PAY-{item.id.slice(-8).toUpperCase()}</td>
                           <td className="px-4 py-3.5 text-[12px] text-slate-700">{vendorMap.get(item.vendorId) ?? "Unknown"}</td>
-                          <td className="px-4 py-3.5 text-[12px] font-medium text-slate-800">GBP {item.amount.toFixed(2)}</td>
+                          <td className="px-4 py-3.5 text-[12px] font-medium text-slate-800">{fmtAmt(item.amount, item.currency)}</td>
                           <td className="px-4 py-3.5 text-[12px] text-slate-600">{item.payoutMethod?.type === "BANK_TRANSFER" ? "Bank Transfer" : item.payoutMethod?.details?.provider === "stripe" ? "Stripe Payout" : "Bank Transfer"}</td>
                           <td className="px-4 py-3.5 text-[12px] text-slate-600">{item.payoutMethod?.details?.country ?? "—"}</td>
                           <td className="px-4 py-3.5 text-[12px] text-slate-500">{item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" }) : "—"}</td>
@@ -204,7 +210,7 @@ export default function PayoutRequestsPage() {
                                 <button disabled={busyId === item.id} onClick={() => void handleMarkPaid(item)} className="rounded-lg bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-blue-600 hover:bg-blue-100 transition disabled:opacity-50">Mark Paid</button>
                               )}
                               {(item.status === "PAID" || item.status === "REJECTED") && (
-                                <span className="rounded-lg bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-500">Reject</span>
+                                <span className="text-[11px] text-slate-300">—</span>
                               )}
                             </div>
                           </td>
@@ -218,7 +224,7 @@ export default function PayoutRequestsPage() {
 
             {/* Pagination */}
             <div className="flex items-center justify-between">
-              <p className="text-[12px] text-slate-400">Showing {(page - 1) * perPage + 1}-{Math.min(page * perPage, filteredItems.length)} of many records</p>
+              <p className="text-[12px] text-slate-400">{filteredItems.length === 0 ? "No records" : `Showing ${(page - 1) * perPage + 1}-${Math.min(page * perPage, filteredItems.length)} of ${filteredItems.length}`}</p>
               <div className="flex items-center gap-1">
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="rounded-lg px-3 py-1.5 text-[12px] font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-40">{"<"}</button>
                 {Array.from({ length: Math.min(totalPages, 3) }, (_, i) => (

@@ -177,7 +177,7 @@ export default function ReviewsPage() {
 
             {/* Pagination */}
             <div className="flex items-center justify-between">
-              <p className="text-[12px] text-slate-400">Showing {(page - 1) * perPage + 1}-{Math.min(page * perPage, filteredReviews.length)} of many records</p>
+              <p className="text-[12px] text-slate-400">{filteredReviews.length === 0 ? "No records" : `Showing ${(page - 1) * perPage + 1}-${Math.min(page * perPage, filteredReviews.length)} of ${filteredReviews.length}`}</p>
               <div className="flex items-center gap-1">
                 {totalPages > 1 && Array.from({ length: Math.min(totalPages, 3) }, (_, i) => (
                   <button key={i + 1} onClick={() => setPage(i + 1)} className={`h-7 w-7 rounded-lg text-[12px] font-bold ${page === i + 1 ? "bg-[#096B4A] text-white" : "text-slate-500 hover:bg-slate-100"}`}>{i + 1}</button>

@@ -37,7 +37,13 @@ export default function DisputesPage() {
     return {
       open: open.length,
       urgent: open.filter((d) => d.status.toLowerCase().includes("urgent") || d.reason.toLowerCase().includes("not received")).length,
-      awaiting: open.filter((d) => d.status.toLowerCase().includes("await")).length || open.length,
+      // Every open dispute is, by definition, awaiting an admin decision —
+      // DisputeStatus has no separate "in review"/"assigned" sub-state, so
+      // this is just open.length. (Previously filtered for a status
+      // containing "await", which no real DisputeStatus value does, then
+      // fell back to open.length anyway — always silently equal to open
+      // count, but looked like a distinct, narrower metric.)
+      awaiting: open.length,
       hold: open.filter((d) => d.refundAmount && d.refundAmount > 0).length,
       ready: open.filter((d) => d.status.toLowerCase().includes("ready")).length,
     };
@@ -91,8 +97,19 @@ export default function DisputesPage() {
                           <div className="space-y-3 text-sm font-semibold text-[#101820]"><p>{dispute.buyerId || "Unknown buyer"}</p><p>{dispute.reason || "No reason provided"}</p><p><StatusBadge status={dispute.status} /></p></div>
                           <div className="flex flex-wrap gap-3" onClick={(e) => e.stopPropagation()}>
                             <Button variant="secondary" onClick={() => router.push(`/disputes/${dispute.id}`)}>View Details →</Button>
-                            <Button disabled={resolvingId === dispute.id} onClick={() => void resolve(dispute, "buyer")}>Release payment</Button>
-                            <Button variant="danger" disabled={resolvingId === dispute.id} onClick={() => void resolve(dispute, "vendor")}>Hold payment</Button>
+                            {/*
+                              Label corrected to match the real backend effect
+                              (dispute.service.ts resolveDispute): resolution
+                              "buyer" refunds the buyer; resolution "vendor"
+                              completes the order and releases real payment to
+                              the vendor. These used to be labelled backwards
+                              ("Release payment" on the buyer-refund action,
+                              "Hold payment" — danger-styled — on the action
+                              that actually pays the vendor), which risked an
+                              admin sending real money to the wrong party.
+                            */}
+                            <Button variant="secondary" disabled={resolvingId === dispute.id} onClick={() => void resolve(dispute, "buyer")}>Refund buyer</Button>
+                            <Button disabled={resolvingId === dispute.id} onClick={() => void resolve(dispute, "vendor")}>Release to vendor</Button>
                           </div>
                         </div>
                       </div>

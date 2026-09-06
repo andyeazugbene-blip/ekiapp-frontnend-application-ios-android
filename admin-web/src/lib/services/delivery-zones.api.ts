@@ -1,16 +1,22 @@
 import { apiClient } from "../api";
 
+// Field names match the real DeliveryZone Prisma model exactly (name,
+// country, flag, baseFeeAmount, feePerKgAmount, currency, isActive) —
+// there is no region/city/estimatedDays column on this model, and currency
+// is always server-derived from country (never client-settable), matching
+// admin-delivery-zones.controller.ts. A prior version of this file used
+// baseFee/feePerKm/region/city/estimatedDays, which the backend has never
+// accepted or returned — every create/update from this page 400'd, and the
+// list view silently showed 0.00 fees for every real zone.
 export interface DeliveryZone {
   id: string;
   name: string;
   country: string;
-  region: string | null;
-  city: string | null;
-  baseFee: number;
-  feePerKm: number;
+  flag: string | null;
+  baseFeeAmount: number;
+  feePerKgAmount: number;
   currency: string;
   isActive: boolean;
-  estimatedDays: number;
   createdAt: string;
 }
 
@@ -23,13 +29,11 @@ function normalizeDeliveryZone(raw: any): DeliveryZone {
     id: raw.id,
     name: raw.name ?? "",
     country: raw.country ?? "",
-    region: raw.region ?? null,
-    city: raw.city ?? null,
-    baseFee: centsToUnit(raw.baseFee),
-    feePerKm: centsToUnit(raw.feePerKm ?? 0),
+    flag: raw.flag ?? null,
+    baseFeeAmount: centsToUnit(raw.baseFeeAmount),
+    feePerKgAmount: centsToUnit(raw.feePerKgAmount),
     currency: (raw.currency ?? "GBP").toUpperCase(),
     isActive: raw.isActive ?? true,
-    estimatedDays: raw.estimatedDays ?? 0,
     createdAt: raw.createdAt ?? "",
   };
 }
@@ -43,17 +47,16 @@ export const deliveryZonesAPI = {
   async createZone(input: {
     name: string;
     country: string;
-    region?: string;
-    city?: string;
-    baseFee: number;
-    feePerKm?: number;
-    currency: string;
-    estimatedDays: number;
+    flag?: string;
+    baseFeeAmount: number;
+    feePerKgAmount?: number;
   }): Promise<DeliveryZone> {
     const res = await apiClient.post<any>("/admin/delivery-zones", {
-      ...input,
-      baseFee: Math.round(input.baseFee * 100),
-      feePerKm: input.feePerKm ? Math.round(input.feePerKm * 100) : undefined,
+      name: input.name,
+      country: input.country,
+      flag: input.flag,
+      baseFeeAmount: Math.round(input.baseFeeAmount * 100),
+      feePerKgAmount: input.feePerKgAmount ? Math.round(input.feePerKgAmount * 100) : 0,
     });
     return normalizeDeliveryZone(res.zone ?? res);
   },
@@ -61,17 +64,14 @@ export const deliveryZonesAPI = {
   async updateZone(zoneId: string, input: Partial<{
     name: string;
     country: string;
-    region: string;
-    city: string;
-    baseFee: number;
-    feePerKm: number;
-    currency: string;
+    flag: string;
+    baseFeeAmount: number;
+    feePerKgAmount: number;
     isActive: boolean;
-    estimatedDays: number;
   }>): Promise<DeliveryZone> {
     const payload: Record<string, unknown> = { ...input };
-    if (input.baseFee !== undefined) payload.baseFee = Math.round(input.baseFee * 100);
-    if (input.feePerKm !== undefined) payload.feePerKm = Math.round(input.feePerKm * 100);
+    if (input.baseFeeAmount !== undefined) payload.baseFeeAmount = Math.round(input.baseFeeAmount * 100);
+    if (input.feePerKgAmount !== undefined) payload.feePerKgAmount = Math.round(input.feePerKgAmount * 100);
     const res = await apiClient.patch<any>(`/admin/delivery-zones/${zoneId}`, payload);
     return normalizeDeliveryZone(res.zone ?? res);
   },

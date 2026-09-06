@@ -10,12 +10,9 @@ import { APIError } from "@/lib/api";
 const EMPTY_FORM = {
   name: "",
   country: "",
-  region: "",
-  city: "",
-  baseFee: "",
-  feePerKm: "",
-  currency: "GBP",
-  estimatedDays: "3",
+  flag: "",
+  baseFeeAmount: "",
+  feePerKgAmount: "",
 };
 
 export default function DeliveryZonesPage() {
@@ -48,7 +45,7 @@ export default function DeliveryZonesPage() {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim() || !form.country.trim() || !form.baseFee) {
+    if (!form.name.trim() || !form.country.trim() || !form.baseFeeAmount) {
       setError("Name, country, and base fee are required.");
       return;
     }
@@ -58,12 +55,9 @@ export default function DeliveryZonesPage() {
       const payload = {
         name: form.name.trim(),
         country: form.country.trim(),
-        region: form.region.trim() || undefined,
-        city: form.city.trim() || undefined,
-        baseFee: Number(form.baseFee),
-        feePerKm: form.feePerKm ? Number(form.feePerKm) : undefined,
-        currency: form.currency,
-        estimatedDays: Number(form.estimatedDays),
+        flag: form.flag.trim() || undefined,
+        baseFeeAmount: Number(form.baseFeeAmount),
+        feePerKgAmount: form.feePerKgAmount ? Number(form.feePerKgAmount) : undefined,
       };
       if (editingId) {
         await deliveryZonesAPI.updateZone(editingId, payload);
@@ -83,12 +77,9 @@ export default function DeliveryZonesPage() {
     setForm({
       name: zone.name,
       country: zone.country,
-      region: zone.region ?? "",
-      city: zone.city ?? "",
-      baseFee: String(zone.baseFee),
-      feePerKm: String(zone.feePerKm),
-      currency: zone.currency,
-      estimatedDays: String(zone.estimatedDays),
+      flag: zone.flag ?? "",
+      baseFeeAmount: String(zone.baseFeeAmount),
+      feePerKgAmount: String(zone.feePerKgAmount),
     });
     setEditingId(zone.id);
   };
@@ -162,36 +153,22 @@ export default function DeliveryZonesPage() {
                     <div>
                       <label className="mb-2 block text-sm font-bold text-gray-700">Country *</label>
                       <input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} placeholder="e.g. Nigeria" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
+                      <p className="mt-1 text-xs text-slate-400">Currency is derived from this on save — not client-settable.</p>
                     </div>
                     <div>
-                      <label className="mb-2 block text-sm font-bold text-gray-700">Currency</label>
-                      <input value={form.currency} disabled className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-500 outline-none" />
-                      <p className="mt-1 text-xs text-slate-400">Auto-set from country — cannot be overridden.</p>
-                    </div>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-2 block text-sm font-bold text-gray-700">Region</label>
-                      <input value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} placeholder="e.g. Western" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-sm font-bold text-gray-700">City</label>
-                      <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="e.g. Lagos" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
+                      <label className="mb-2 block text-sm font-bold text-gray-700">Flag (optional)</label>
+                      <input value={form.flag} onChange={(e) => setForm({ ...form, flag: e.target.value })} placeholder="e.g. 🇳🇬" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
                     </div>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-2 block text-sm font-bold text-gray-700">Base fee *</label>
-                      <input type="number" min="0" step="0.01" value={form.baseFee} onChange={(e) => setForm({ ...form, baseFee: e.target.value })} placeholder="e.g. 5.00" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
+                      <input type="number" min="0" step="0.01" value={form.baseFeeAmount} onChange={(e) => setForm({ ...form, baseFeeAmount: e.target.value })} placeholder="e.g. 5.00" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
                     </div>
                     <div>
-                      <label className="mb-2 block text-sm font-bold text-gray-700">Fee per km</label>
-                      <input type="number" min="0" step="0.01" value={form.feePerKm} onChange={(e) => setForm({ ...form, feePerKm: e.target.value })} placeholder="e.g. 1.50" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
+                      <label className="mb-2 block text-sm font-bold text-gray-700">Fee per kg</label>
+                      <input type="number" min="0" step="0.01" value={form.feePerKgAmount} onChange={(e) => setForm({ ...form, feePerKgAmount: e.target.value })} placeholder="e.g. 1.50" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
                     </div>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-gray-700">Estimated delivery (days)</label>
-                    <input type="number" min="1" value={form.estimatedDays} onChange={(e) => setForm({ ...form, estimatedDays: e.target.value })} className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
                   </div>
                   <div className="flex gap-3">
                     <Button disabled={submitting} onClick={() => void handleSave()} className="flex-1">
@@ -213,15 +190,13 @@ export default function DeliveryZonesPage() {
                       <div key={zone.id} className="flex items-center gap-6 p-6">
                         <div className="flex-1">
                           <div className="flex items-center gap-3">
+                            {zone.flag ? <span>{zone.flag}</span> : null}
                             <span className="text-lg font-black">{zone.name}</span>
                             <span className={`h-2.5 w-2.5 rounded-full ${zone.isActive ? "bg-green-500" : "bg-slate-300"}`} />
                           </div>
+                          <p className="mt-1 text-sm text-slate-500">{zone.country}</p>
                           <p className="mt-1 text-sm text-slate-500">
-                            {zone.country}{zone.region ? ` · ${zone.region}` : ""}{zone.city ? ` · ${zone.city}` : ""}
-                          </p>
-                          <p className="mt-1 text-sm text-slate-500">
-                            {zone.currency} {zone.baseFee.toFixed(2)} base{zone.feePerKm > 0 ? ` + ${zone.feePerKm.toFixed(2)}/km` : ""}
-                            {zone.estimatedDays > 0 ? ` · ${zone.estimatedDays}d` : ""}
+                            {zone.currency} {zone.baseFeeAmount.toFixed(2)} base{zone.feePerKgAmount > 0 ? ` + ${zone.feePerKgAmount.toFixed(2)}/kg` : ""}
                           </p>
                         </div>
                         <div className="flex gap-2">
