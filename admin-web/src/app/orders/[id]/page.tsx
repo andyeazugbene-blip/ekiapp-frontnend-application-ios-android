@@ -7,6 +7,7 @@ import { ErrorPanel, LoadingPanel } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { ordersAPI } from "@/lib/services/orders.api";
 import { APIError } from "@/lib/api";
+import { Card } from "@/components/AdminUI";
 
 function fmt(amount: number, currency: string) {
   return `${currency} ${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -50,6 +51,8 @@ function SectionCard({ title, children }: { title: string; children: React.React
   );
 }
 
+// Not yet wired to a real backend action — shown disabled with an honest
+// label rather than as a clickable control that would silently do nothing.
 function ActionItem({ label, color }: { label: string; color: string }) {
   const colorMap: Record<string, string> = {
     green: "bg-emerald-50 text-emerald-700",
@@ -61,9 +64,10 @@ function ActionItem({ label, color }: { label: string; color: string }) {
     green: "bg-emerald-500", orange: "bg-amber-500", slate: "bg-slate-400", red: "bg-red-500",
   };
   return (
-    <button className={`flex items-center gap-2.5 w-full rounded-lg px-3.5 py-2 text-[12px] font-semibold transition hover:opacity-80 ${colorMap[color] ?? colorMap.slate}`}>
+    <button disabled title="Not yet available" className={`flex items-center gap-2.5 w-full rounded-lg px-3.5 py-2 text-[12px] font-semibold opacity-50 cursor-not-allowed ${colorMap[color] ?? colorMap.slate}`}>
       <span className={`h-[6px] w-[6px] rounded-full ${dotMap[color] ?? dotMap.slate}`} />
       {label}
+      <span className="ml-auto text-[10px] font-normal text-slate-400">Coming soon</span>
     </button>
   );
 }
@@ -76,6 +80,14 @@ export default function OrderDetailPage() {
   const [error, setError] = useState("");
   const [notes, setNotes] = useState("");
 
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refundTwoFactorCode, setRefundTwoFactorCode] = useState("");
+  const [refundError, setRefundError] = useState("");
+  const [refundResult, setRefundResult] = useState<{ pending: boolean; message: string } | null>(null);
+  const [refundBusy, setRefundBusy] = useState(false);
+
   const load = useCallback(async () => {
     try { setLoading(true); setError(""); setOrder(await ordersAPI.getOrder(id)); }
     catch (err) { setError(err instanceof APIError ? err.message : "Failed"); }
@@ -83,6 +95,39 @@ export default function OrderDetailPage() {
   }, [id]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const openRefundModal = () => {
+    setRefundAmount("");
+    setRefundReason("");
+    setRefundTwoFactorCode("");
+    setRefundError("");
+    setRefundResult(null);
+    setShowRefundModal(true);
+  };
+
+  const submitRefund = async () => {
+    if (!refundReason.trim()) { setRefundError("A reason is required"); return; }
+    try {
+      setRefundBusy(true);
+      setRefundError("");
+      const amount = refundAmount.trim() ? Number(refundAmount) : undefined;
+      if (refundAmount.trim() && (!Number.isFinite(amount) || (amount as number) <= 0)) {
+        setRefundError("Amount must be a positive number");
+        return;
+      }
+      const res = await ordersAPI.refundOrder(id, { amount, reason: refundReason.trim(), twoFactorCode: refundTwoFactorCode || undefined });
+      if (res.pendingApproval) {
+        setRefundResult({ pending: true, message: res.message ?? "This refund requires a second admin's approval before it executes." });
+      } else {
+        setRefundResult({ pending: false, message: `Refund issued: ${(res.currency ?? "").toUpperCase()} ${((res.amount ?? 0) / 100).toFixed(2)}` });
+        await load();
+      }
+    } catch (err) {
+      setRefundError(err instanceof APIError ? err.message : "Failed to issue refund");
+    } finally {
+      setRefundBusy(false);
+    }
+  };
 
   if (loading) return <ProtectedRoute><AdminLayout><LoadingPanel label="Loading order..." /></AdminLayout></ProtectedRoute>;
   if (error || !order) return <ProtectedRoute><AdminLayout><ErrorPanel message={error || "Not found"} onRetry={() => router.push("/orders")} /></AdminLayout></ProtectedRoute>;
@@ -122,10 +167,14 @@ export default function OrderDetailPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h1 className="text-xl font-black tracking-tight text-[#101820]">Order {order.orderNumber}</h1>
               <div className="flex items-center gap-2 flex-wrap">
-                <button className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition">Release Payout</button>
-                <button className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-[12px] font-bold text-red-500 hover:bg-red-100 transition">Refund Buyer</button>
-                <button className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition">Message Vendor</button>
-                <button className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[12px] font-semibold text-slate-600 hover:bg-slate-50 transition">Message Buyer</button>
+                <button disabled title="Not yet available" className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[12px] font-semibold text-slate-400 cursor-not-allowed transition">Release Payout</button>
+                {order.status === "refunded" ? (
+                  <span className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-[12px] font-bold text-slate-500">Already refunded</span>
+                ) : (
+                  <button onClick={openRefundModal} className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-[12px] font-bold text-red-500 hover:bg-red-100 transition">Refund Buyer</button>
+                )}
+                <button disabled title="Not yet available" className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[12px] font-semibold text-slate-400 cursor-not-allowed transition">Message Vendor</button>
+                <button disabled title="Not yet available" className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[12px] font-semibold text-slate-400 cursor-not-allowed transition">Message Buyer</button>
               </div>
             </div>
           </div>
@@ -236,13 +285,43 @@ export default function OrderDetailPage() {
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12px] text-slate-700 outline-none focus:border-[#096B4A] focus:ring-1 focus:ring-[#096B4A] transition resize-none"
                   rows={4}
                 />
-                <button className="mt-2 rounded-lg bg-[#096B4A] px-4 py-2 text-[11px] font-bold text-white hover:bg-[#07553b] transition">
-                  Save Note
+                <button disabled title="Not yet available — admin notes aren't persisted yet" className="mt-2 rounded-lg bg-slate-200 px-4 py-2 text-[11px] font-bold text-slate-500 cursor-not-allowed transition">
+                  Save Note (coming soon)
                 </button>
               </SectionCard>
             </div>
           </div>
         </div>
+
+        {showRefundModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+            <Card className="w-full max-w-md">
+              {refundResult ? (
+                <>
+                  <h3 className="text-xl font-black text-[#101820]">{refundResult.pending ? "Approval required" : "Refund issued"}</h3>
+                  <p className="mt-2 text-sm text-slate-500">{refundResult.message}</p>
+                  {refundResult.pending && (
+                    <p className="mt-2 text-[12px] text-slate-400">A second, different admin can decide this from the <a href="/approvals" className="font-bold text-[#096B4A] underline">Approvals</a> queue.</p>
+                  )}
+                  <button onClick={() => setShowRefundModal(false)} className="mt-4 w-full rounded-xl bg-[#096B4A] px-4 py-2.5 text-sm font-bold text-white">Close</button>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-xl font-black text-[#101820]">Refund order {order.orderNumber}</h3>
+                  <p className="mt-2 text-sm text-slate-500">Leave amount blank for a full refund of {fmt(gross, cur)}. A refund at or above the configured threshold will require a second admin&apos;s approval before it executes.</p>
+                  <input value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} placeholder={`Amount in ${cur} (blank = full)`} className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" />
+                  <textarea rows={2} value={refundReason} onChange={(e) => setRefundReason(e.target.value)} placeholder="Reason (required)" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" />
+                  <input value={refundTwoFactorCode} onChange={(e) => setRefundTwoFactorCode(e.target.value)} placeholder="2FA code (if enabled)" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" />
+                  {refundError && <p className="mt-2 text-[12px] text-red-500">{refundError}</p>}
+                  <div className="mt-4 flex gap-3">
+                    <button disabled={refundBusy} onClick={() => void submitRefund()} className="flex-1 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{refundBusy ? "Processing..." : "Confirm refund"}</button>
+                    <button onClick={() => setShowRefundModal(false)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600">Cancel</button>
+                  </div>
+                </>
+              )}
+            </Card>
+          </div>
+        )}
       </AdminLayout>
     </ProtectedRoute>
   );

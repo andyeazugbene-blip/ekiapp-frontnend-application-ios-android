@@ -52,6 +52,23 @@ function normalizeOrder(raw: any): Order {
   };
 }
 
+export interface AdminRefundListItem {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  buyerName: string | null;
+  buyerEmail: string | null;
+  vendorName: string | null;
+  amount: number | null;
+  currency: string | null;
+  reason: string | null;
+  status: "REQUESTED" | "REJECTED" | "COMPLETED";
+  requestedBy: { id: string; name: string; email: string } | null;
+  decidedBy: { id: string; name: string; email: string } | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
 export const ordersAPI = {
   async getOrders(params?: { status?: OrderStatus; limit?: number }): Promise<Order[]> {
     const query = new URLSearchParams();
@@ -101,11 +118,18 @@ export const ordersAPI = {
     return apiClient.post(`/admin/orders/${orderId}/force-process`, {});
   },
 
+  /**
+   * Returns the raw response — a full/immediate refund resolves with
+   * `{ refundId, amount, currency, status, provider }`; a refund at or
+   * above a configured four-eyes threshold instead resolves with
+   * `{ pendingApproval, message }` and does NOT execute yet (see
+   * /approvals for the second-admin decision).
+   */
   async refundOrder(
     orderId: string,
     params: { amount?: number; reason: string; twoFactorCode?: string }
-  ): Promise<void> {
-    await apiClient.post(
+  ): Promise<{ pendingApproval?: unknown; message?: string; refundId?: string; amount?: number; currency?: string; status?: string; provider?: string }> {
+    return apiClient.post(
       `/admin/orders/${orderId}/refund`,
       {
         amount: params.amount ? Math.round(params.amount * 100) : undefined,
@@ -113,5 +137,9 @@ export const ordersAPI = {
       },
       { twoFactorCode: params.twoFactorCode }
     );
+  },
+
+  async listRefunds(): Promise<{ items: AdminRefundListItem[]; counts: { requested: number; rejected: number; completed: number } }> {
+    return apiClient.get(`/admin/refunds`);
   },
 };

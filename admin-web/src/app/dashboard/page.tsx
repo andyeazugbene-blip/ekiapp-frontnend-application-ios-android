@@ -384,13 +384,10 @@ export default function DashboardPage() {
                 <div className="rounded-2xl border border-slate-100 bg-white p-4">
                   <h3 className="mb-3 text-sm font-black text-slate-800">Recent Activity</h3>
                   <div className="space-y-1">
-                    {stats && (stats.pendingApprovals > 0 || stats.activeVendors > 0) && (
-                      <ActivityItem icon="✓" iconColor="#10b981" title="Vendor Approved" subtitle="Recent vendor" />
-                    )}
                     {recentActivity.map((item, i) => (
                       <ActivityItem key={i} {...item} />
                     ))}
-                    {recentActivity.length === 0 && !stats?.activeVendors && (
+                    {recentActivity.length === 0 && (
                       <p className="text-xs text-slate-400 text-center py-3">No recent activity</p>
                     )}
                   </div>
