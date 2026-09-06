@@ -1,11 +1,22 @@
 /**
  * Country / city dataset for vendor onboarding selectors.
  *
- * Kept intentionally small — focused on the markets Eki currently serves
- * (Africa origin + UK / US / Canada / Europe destinations).
+ * Scoped to EXACTLY Eki's 10 currently approved launch markets — the same
+ * set the backend enforces (see ekiapp-backend-main/src/shared/currency.ts,
+ * MARKET_CODE_COUNTRY_NAMES / LAUNCH_MARKET_COUNTRIES, itself derived from
+ * MarketConfiguration's INITIAL_MARKETS seed). This list previously
+ * included 12 African countries plus Germany/Netherlands/Ireland (none
+ * approved for launch) and was MISSING two approved markets (Switzerland,
+ * Croatia) entirely — a vendor could select an unsupported country in the
+ * app with no backend backstop at the time. The backend now independently
+ * rejects any vendor country outside this same set (vendorsService
+ * .createVendor/updateOwnVendor), so this list existing is a UX
+ * convenience, not the only gate — but it must never offer more than the
+ * backend allows.
  *
- * If you need more cities for a country, append them here. The selector
- * gracefully degrades to an empty array (the UI just shows "Other").
+ * If Eki launches a new market, add it here AND get the corresponding
+ * MarketConfiguration row created on the backend first — the two must stay
+ * in sync by hand until the app fetches this list live from the backend.
  */
 
 export interface CountryEntry {
@@ -14,32 +25,16 @@ export interface CountryEntry {
 }
 
 export const COUNTRIES: CountryEntry[] = [
-  // ── Africa (vendor origin) ────────────────────────────────────────────
-  { name: "Nigeria", cities: ["Lagos", "Abuja", "Port Harcourt", "Ibadan", "Kano", "Benin City", "Enugu", "Kaduna"] },
-  { name: "Ghana", cities: ["Accra", "Kumasi", "Tamale", "Takoradi", "Cape Coast"] },
-  { name: "Kenya", cities: ["Nairobi", "Mombasa", "Kisumu", "Nakuru", "Eldoret"] },
-  { name: "South Africa", cities: ["Johannesburg", "Cape Town", "Durban", "Pretoria", "Port Elizabeth"] },
-  { name: "Senegal", cities: ["Dakar", "Thiès", "Saint-Louis"] },
-  { name: "Côte d'Ivoire", cities: ["Abidjan", "Yamoussoukro", "Bouaké"] },
-  { name: "Cameroon", cities: ["Douala", "Yaoundé", "Bafoussam"] },
-  { name: "Ethiopia", cities: ["Addis Ababa", "Dire Dawa", "Mek'ele"] },
-  { name: "Uganda", cities: ["Kampala", "Entebbe", "Jinja"] },
-  { name: "Tanzania", cities: ["Dar es Salaam", "Dodoma", "Arusha", "Mwanza"] },
-  { name: "Morocco", cities: ["Casablanca", "Rabat", "Marrakech", "Fes", "Tangier"] },
-  { name: "Egypt", cities: ["Cairo", "Alexandria", "Giza"] },
-
-  // ── Buyer destinations ────────────────────────────────────────────────
   { name: "United Kingdom", cities: ["London", "Manchester", "Birmingham", "Leeds", "Liverpool", "Glasgow", "Edinburgh", "Bristol"] },
   { name: "United States", cities: ["New York", "Los Angeles", "Chicago", "Houston", "Atlanta", "Dallas", "Miami", "Boston", "Seattle"] },
   { name: "Canada", cities: ["Toronto", "Montreal", "Vancouver", "Calgary", "Ottawa", "Edmonton"] },
-  { name: "Italy", cities: ["Rome", "Milan", "Naples", "Turin", "Florence", "Bologna"] },
   { name: "France", cities: ["Paris", "Marseille", "Lyon", "Toulouse", "Nice", "Bordeaux"] },
-  { name: "Germany", cities: ["Berlin", "Hamburg", "Munich", "Cologne", "Frankfurt"] },
   { name: "Spain", cities: ["Madrid", "Barcelona", "Valencia", "Seville"] },
-  { name: "Netherlands", cities: ["Amsterdam", "Rotterdam", "The Hague", "Utrecht"] },
-  { name: "Belgium", cities: ["Brussels", "Antwerp", "Ghent"] },
-  { name: "Ireland", cities: ["Dublin", "Cork", "Galway"] },
   { name: "Portugal", cities: ["Lisbon", "Porto"] },
+  { name: "Switzerland", cities: ["Zurich", "Geneva", "Basel", "Bern", "Lausanne"] },
+  { name: "Belgium", cities: ["Brussels", "Antwerp", "Ghent"] },
+  { name: "Italy", cities: ["Rome", "Milan", "Naples", "Turin", "Florence", "Bologna"] },
+  { name: "Croatia", cities: ["Zagreb", "Split", "Rijeka", "Osijek"] },
 ];
 
 export const COUNTRY_NAMES: string[] = COUNTRIES.map((c) => c.name);
@@ -48,4 +43,10 @@ export function getCitiesForCountry(country: string | null | undefined): string[
   if (!country) return [];
   const entry = COUNTRIES.find((c) => c.name.toLowerCase() === country.toLowerCase());
   return entry?.cities ?? [];
+}
+
+/** True only for one of the 10 approved launch markets (case-insensitive). */
+export function isApprovedLaunchCountry(country: string | null | undefined): boolean {
+  if (!country) return false;
+  return COUNTRY_NAMES.some((name) => name.toLowerCase() === country.trim().toLowerCase());
 }

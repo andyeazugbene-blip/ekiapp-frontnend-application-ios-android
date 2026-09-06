@@ -31,8 +31,13 @@ export default function SetupStoreScreen() {
   const vendorUser = isVendor ? (user as any) : null;
 
   const [storeName, setStoreName] = useState(storeDetails.storeName || vendorUser?.storeName || "");
-  const [country, setCountry] = useState<string>(vendorUser?.country || "Nigeria");
-  const [city, setCity] = useState<string>(vendorUser?.city || "Lagos");
+  // No default country/city — Eki has no product rule requiring one, and a
+  // silent default (this used to be "Nigeria"/"Lagos") let a vendor
+  // complete onboarding without ever consciously picking a market, in a
+  // country that was never actually approved for launch. Require explicit
+  // selection instead (enforced below in handleContinue).
+  const [country, setCountry] = useState<string>(vendorUser?.country || "");
+  const [city, setCity] = useState<string>(vendorUser?.city || "");
   const [description, setDescription] = useState(storeDetails.description || vendorUser?.storeDescription || "");
   const [submitting, setSubmitting] = useState(false);
 
@@ -54,6 +59,10 @@ export default function SetupStoreScreen() {
   const handleContinue = async () => {
     if (!storeName.trim()) {
       Alert.alert("Missing details", "Store name is required.");
+      return;
+    }
+    if (!country) {
+      Alert.alert("Missing details", "Please select your store's country.");
       return;
     }
 

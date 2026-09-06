@@ -12,6 +12,15 @@ export interface AutomationSummary {
     failureReason?: string | null;
     createdAt: string;
   }[];
+  recentSuppressed: {
+    id: string;
+    type: string;
+    vendorId?: string | null;
+    recipientUserId: string;
+    status: string;
+    suppressedReason?: string | null;
+    createdAt: string;
+  }[];
 }
 
 export const automationAPI = {

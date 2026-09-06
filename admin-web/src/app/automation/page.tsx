@@ -28,6 +28,7 @@ export default function AutomationPage() {
 
   const sentCount = summary?.byStatus.find((s) => s.status === "SENT")?.count ?? 0;
   const failedCount = summary?.byStatus.find((s) => s.status === "FAILED")?.count ?? 0;
+  const suppressedCount = summary?.byStatus.find((s) => s.status === "SUPPRESSED")?.count ?? 0;
   const totalRuns = (summary?.byStatus ?? []).reduce((sum, s) => sum + s.count, 0);
 
   return (
@@ -38,9 +39,16 @@ export default function AutomationPage() {
             <PageHeader title="Automation" subtitle="Event-driven vendor/buyer automation runs over the last 30 days." />
             {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
 
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-4">
               <MetricCard icon="trending" label="Total runs (30d)" value={totalRuns} tone="green" />
               <MetricCard icon="check" label="Sent" value={sentCount} tone="green" />
+              {/*
+                Suppressed = a real run that correctly did NOT communicate
+                anything (its template was disabled/missing, or it had no
+                eligible channel) — distinct from a genuine delivery. Before
+                this fix, these were indistinguishable from "Sent" here.
+              */}
+              <MetricCard icon="warning" label="Suppressed" value={suppressedCount} tone={suppressedCount > 0 ? "amber" : "green"} />
               <MetricCard icon="warning" label="Failed" value={failedCount} tone={failedCount > 0 ? "red" : "green"} />
             </div>
 
@@ -74,6 +82,26 @@ export default function AutomationPage() {
                           <Badge tone="red">Failed</Badge>
                         </div>
                         <p className="mt-1 text-xs text-slate-500">{run.failureReason ?? "No reason recorded"}</p>
+                        <p className="mt-1 text-xs text-slate-400">{new Date(run.createdAt).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              <Card>
+                <h2 className="text-2xl font-black">Recent suppressed</h2>
+                {(summary?.recentSuppressed ?? []).length === 0 ? (
+                  <p className="mt-6 text-slate-500">No suppressed runs in the last 30 days.</p>
+                ) : (
+                  <div className="mt-6 space-y-3">
+                    {summary!.recentSuppressed.map((run) => (
+                      <div key={run.id} className="rounded-xl border border-amber-100 bg-amber-50/40 px-4 py-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-slate-800">{run.type.replace(/_/g, " ")}</span>
+                          <Badge tone="amber">Suppressed</Badge>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">{run.suppressedReason ?? "No reason recorded"}</p>
                         <p className="mt-1 text-xs text-slate-400">{new Date(run.createdAt).toLocaleString()}</p>
                       </div>
                     ))}
