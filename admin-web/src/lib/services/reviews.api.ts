@@ -1,5 +1,7 @@
 import { apiClient } from "../api";
 
+export type ReviewStatus = "PENDING" | "APPROVED" | "HIDDEN" | "REJECTED";
+
 export interface AdminReview {
   id: string;
   orderId: string;
@@ -7,12 +9,11 @@ export interface AdminReview {
   vendorName: string;
   buyerId: string;
   buyerName: string;
+  productTitle: string | null;
   rating: number;
-  title: string | null;
   body: string | null;
-  isModerated: boolean;
-  moderationAction: string | null;
-  moderationReason: string | null;
+  status: ReviewStatus;
+  moderatedBy: string | null;
   createdAt: string;
 }
 
@@ -21,38 +22,44 @@ function normalizeReview(raw: any): AdminReview {
     id: raw.id,
     orderId: raw.orderId ?? "",
     vendorId: raw.vendorId ?? "",
-    vendorName: raw.vendorName ?? raw.vendor?.storeName ?? "",
+    vendorName: raw.vendorName ?? "",
     buyerId: raw.buyerId ?? "",
-    buyerName: raw.buyerName ?? raw.buyer?.name ?? "",
+    buyerName: raw.buyerName ?? "",
+    productTitle: raw.productTitle ?? null,
     rating: raw.rating ?? 0,
-    title: raw.title ?? null,
-    body: raw.body ?? raw.comment ?? null,
-    isModerated: raw.isModerated ?? raw.moderatedBy != null,
-    moderationAction: raw.status ?? null,
-    moderationReason: raw.moderationReason ?? null,
+    body: raw.comment ?? null,
+    status: raw.status ?? "PENDING",
+    moderatedBy: raw.moderatedBy ?? null,
     createdAt: raw.createdAt ?? "",
   };
 }
 
 export const reviewsAPI = {
-  async getReviews(params?: { status?: "all" | "flagged" | "moderated" }): Promise<AdminReview[]> {
+  /**
+   * Real backend cursor pagination + status/search filtering — this used
+   * to fetch a single flat limit=100 batch and do every filter/tab/
+   * pagination/stat client-side over that one capped fetch (so any review
+   * past the first 100 was invisible, and pagination was fake).
+   */
+  async getReviews(params: { status?: ReviewStatus; q?: string; cursor?: string; limit?: number }): Promise<{
+    items: AdminReview[];
+    nextCursor: string | null;
+    counts: Record<string, number>;
+  }> {
     const query = new URLSearchParams();
-    query.set("limit", "100");
+    query.set("limit", String(params.limit ?? 20));
+    if (params.status) query.set("status", params.status);
+    if (params.q) query.set("q", params.q);
+    if (params.cursor) query.set("cursor", params.cursor);
     const res = await apiClient.get<any>(`/admin/reviews?${query.toString()}`);
-    let items = (res.items ?? res.reviews ?? []).map(normalizeReview);
-    if (params?.status === "flagged") {
-      items = items.filter((r: AdminReview) => r.rating <= 2 && !r.isModerated);
-    } else if (params?.status === "moderated") {
-      items = items.filter((r: AdminReview) => r.isModerated);
-    }
-    return items;
+    return {
+      items: (res.items ?? []).map(normalizeReview),
+      nextCursor: res.nextCursor ?? null,
+      counts: res.counts ?? {},
+    };
   },
 
-  async moderateReview(reviewId: string, action: "approve" | "reject", reason?: string): Promise<void> {
-    // Backend expects status (APPROVED/REJECTED), not action
-    await apiClient.patch(`/admin/reviews/${reviewId}/moderate`, {
-      status: action === "approve" ? "APPROVED" : "REJECTED",
-      reason: reason ?? null,
-    });
+  async moderateReview(reviewId: string, status: "APPROVED" | "HIDDEN" | "REJECTED"): Promise<void> {
+    await apiClient.patch(`/admin/reviews/${reviewId}/moderate`, { status });
   },
 };
