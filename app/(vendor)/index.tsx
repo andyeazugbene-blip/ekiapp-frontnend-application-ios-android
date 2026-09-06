@@ -143,7 +143,7 @@ export default function VendorDashboardScreen() {
       const profile = await vendorService.getMyProfile().catch(() => null);
 
       // 2. Everything else in parallel; each call is independent + best-effort.
-      const [data, subscription, limits, products, orders, conversations, buyers, zones, verification, pendingRenewals, supplierProfile, marketConfig] = await Promise.all([
+      const [data, subscription, limits, products, orders, conversations, buyers, zones, verification, pendingRenewals, supplierProfile] = await Promise.all([
         vendorService.getVendorDashboard().catch(() => null),
         subscriptionService.getCurrentSubscription().catch(() => null),
         subscriptionService.getLimits().catch(() => null),
@@ -157,13 +157,6 @@ export default function VendorDashboardScreen() {
         vendorService.getVerificationStatus().catch(() => null),
         regularDeliveriesService.listMyRenewals().catch(() => [] as Renewal[]),
         communityBuyService.getMySupplierProfile().catch(() => null),
-        // Backend-authoritative — Community Buy must never be offered as an
-        // entry point in a market it isn't enabled for (architecture doc:
-        // "do not show Community Buy in unsupported markets"). Defaults to
-        // hidden on any failure, never shown-by-default.
-        profile?.country
-          ? communityBuyService.getMarketConfig(profile.country).catch(() => null)
-          : Promise.resolve(null),
       ]);
 
       const unreadMessages = asArray<any>(conversations).reduce(
@@ -184,7 +177,11 @@ export default function VendorDashboardScreen() {
         verificationSubmitted: asArray<any>(verification?.documents).some((doc) => doc.status !== "REJECTED"),
         pendingRenewals: asArray<Renewal>(pendingRenewals).filter((r) => r.status === "AWAITING_STOCK"),
         supplierProfile: supplierProfile as SupplierProfile | null,
-        communityBuyEnabled: Boolean((marketConfig as { communityBuyEnabled?: boolean } | null)?.communityBuyEnabled),
+        // Backend-authoritative — /me/dashboard's marketing_tools already
+        // checks EVERY active market this vendor operates in (architecture
+        // doc: "do not show Community Buy in unsupported markets"), not
+        // just the primary one. Defaults to hidden on any failure.
+        communityBuyEnabled: asArray<{ type?: string }>(data?.marketing_tools).some((t) => t.type === "community_buy"),
       });
     } finally {
       setLoading(false);
@@ -236,7 +233,16 @@ export default function VendorDashboardScreen() {
   const totalOrders = orders.length;
   const ratingValue = Number(profile?.rating ?? 0);
   const safeRatingValue = Number.isFinite(ratingValue) ? ratingValue : 0;
-  const sellsCountryText = asText(profile?.country).trim() || "Country not set";
+  // Never collapse a multi-market vendor into a single "country" — the
+  // dashboard shows every active market it operates in, per its own
+  // resolved currency (never a mixed total).
+  const vendorMarkets = data?.markets ?? [];
+  const activeMarkets = vendorMarkets.filter((m) => m.enabled);
+  const sellsCountryLabel = activeMarkets.length > 1 ? "Markets served" : "Primary market";
+  const sellsCountryText =
+    activeMarkets.length > 0
+      ? activeMarkets.map((m) => m.countryName).join(" · ")
+      : asText(profile?.country).trim() || "Country not set";
 
   // Avg delivery — average estimated days across all zones, otherwise empty.
   const avgDeliveryText = (() => {
@@ -481,8 +487,8 @@ export default function VendorDashboardScreen() {
                   </View>
                 </View>
                 <View style={styles.timelineContentCol}>
-                  <Text style={styles.insightLabel}>Primary market</Text>
-                  <Text style={styles.insightTitle}>{sellsCountryText}</Text>
+                  <Text style={styles.insightLabel}>{sellsCountryLabel}</Text>
+                  <Text style={styles.insightTitle} numberOfLines={2}>{sellsCountryText}</Text>
                 </View>
               </View>
             </View>

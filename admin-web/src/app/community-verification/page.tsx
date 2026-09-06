@@ -6,6 +6,7 @@ import { Badge, Button, Card, ErrorPanel, LoadingPanel, MetricCard, PageHeader }
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { communityBuyAdminAPI, type PendingOrganiser, type PendingSupplier } from "@/lib/services/communityBuy.api";
+import { countryDisplayName } from "@/lib/countries";
 
 export default function CommunityVerificationPage() {
   const [organisers, setOrganisers] = useState<PendingOrganiser[]>([]);
@@ -142,7 +143,7 @@ export default function CommunityVerificationPage() {
                       <div key={o.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-4">
                         <div>
                           <p className="text-sm font-bold text-[#101820]">{o.user?.name ?? "Unknown"}</p>
-                          <p className="text-xs text-slate-500">{o.user?.email} · <Badge tone="gray">{o.country}</Badge></p>
+                          <p className="text-xs text-slate-500">{o.user?.email} · <Badge tone="gray">{countryDisplayName(o.country)}</Badge></p>
                         </div>
                         <Button disabled={busyId === o.id} onClick={() => void verifyOrganiser(o.id)}>Verify</Button>
                       </div>
@@ -163,7 +164,7 @@ export default function CommunityVerificationPage() {
                           <p className="text-sm font-bold text-[#101820]">{s.vendor?.storeName ?? "Unknown store"}</p>
                           <p className="text-xs text-slate-500">
                             <Badge tone={s.vendor?.verificationStatus === "VERIFIED" ? "green" : "amber"}>{s.vendor?.verificationStatus ?? "UNKNOWN"}</Badge>
-                            {" "}· <Badge tone="gray">{s.country}</Badge>
+                            {" "}· <Badge tone="gray">{countryDisplayName(s.country)}</Badge>
                           </p>
                         </div>
                         <Button disabled={busyId === s.id} onClick={() => void verifySupplier(s.id)}>Verify</Button>
@@ -191,7 +192,7 @@ export default function CommunityVerificationPage() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm font-bold text-[#101820]">{o.user?.name ?? "Unknown"}</p>
-                            <p className="text-xs text-slate-500">{o.user?.email} · <Badge tone="gray">{o.country}</Badge></p>
+                            <p className="text-xs text-slate-500">{o.user?.email} · <Badge tone="gray">{countryDisplayName(o.country)}</Badge></p>
                           </div>
                           {o.isRestricted ? <Badge tone="red">Restricted</Badge> : <Badge tone="green">Active</Badge>}
                         </div>
@@ -228,7 +229,7 @@ export default function CommunityVerificationPage() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm font-bold text-[#101820]">{s.vendor?.storeName ?? "Unknown store"}</p>
-                            <p className="text-xs text-slate-500"><Badge tone="gray">{s.country}</Badge></p>
+                            <p className="text-xs text-slate-500"><Badge tone="gray">{countryDisplayName(s.country)}</Badge></p>
                           </div>
                           {s.isRestricted ? <Badge tone="red">Restricted</Badge> : <Badge tone="green">Active</Badge>}
                         </div>

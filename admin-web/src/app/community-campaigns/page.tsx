@@ -6,6 +6,7 @@ import { Badge, Button, Card, ErrorPanel, LoadingPanel, MetricCard, PageHeader }
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { communityBuyAdminAPI, type AdminCampaign, type AdminExtensionRequest, type AdminSupplierPayment, type CampaignStatus } from "@/lib/services/communityBuy.api";
+import { countryDisplayName } from "@/lib/countries";
 
 function centsToUnit(value: unknown): number {
   return typeof value === "number" ? value / 100 : 0;
@@ -118,7 +119,7 @@ export default function CommunityCampaignsPage() {
                   {items.map((c) => (
                     <div key={c.id} className="rounded-2xl border border-slate-200 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <Badge tone="amber">{c.country}</Badge>
+                        <Badge tone="amber">{countryDisplayName(c.country)}</Badge>
                         <span className="text-sm text-slate-500">{new Date(c.createdAt).toLocaleString()}</span>
                       </div>
                       <h3 className="mt-3 text-lg font-bold text-[#101820]">{c.title}</h3>
@@ -173,7 +174,7 @@ export default function CommunityCampaignsPage() {
                     <div key={c.id} className="rounded-2xl border border-slate-200 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <Badge tone={CLOSED_STATUS_TONE[c.status]}>{CLOSED_STATUS_LABEL[c.status]}</Badge>
-                        <span className="text-sm text-slate-500">{c.country}</span>
+                        <span className="text-sm text-slate-500">{countryDisplayName(c.country)}</span>
                       </div>
                       <h3 className="mt-3 text-base font-bold text-[#101820]">{c.title}</h3>
                       <div className="mt-2 grid gap-1 text-sm text-slate-600 md:grid-cols-3">

@@ -36,6 +36,7 @@ import type { Order } from "../../types/order";
 import type { Product, Review } from "../../types/product";
 import type { VendorSummary } from "../../types/vendor";
 import { getPublicStoreUrl } from "../../utils/shareLinks";
+import { countryDisplayName } from "../../utils/countries";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { WebStripeCheckoutForm } from "../../components/publicStore/WebStripeCheckoutForm";
 
@@ -387,7 +388,7 @@ export default function PublicStoreScreen() {
 
     const fallbackCountry =
       vendor.deliveryCountries?.[0] ||
-      (vendor.country ? `United ${vendor.country}` : "") ||
+      (vendor.country ? countryDisplayName(vendor.country) : "") ||
       "United Kingdom";
 
     setCheckout((current) => ({ ...current, country: fallbackCountry }));
@@ -1126,7 +1127,7 @@ export default function PublicStoreScreen() {
                   </View>
 
                   <Text style={styles.storeOverviewLocation}>
-                    {vendor.city || "Birmingham"}, {vendor.country || "UK"}
+                    {vendor.city || "Birmingham"}, {vendor.country ? countryDisplayName(vendor.country) : "United Kingdom"}
                   </Text>
                   <Text style={styles.storeOverviewDescription}>
                     {vendor.description || "Authentic African foodstuff delivered to your door. Order securely without sending DMs."}

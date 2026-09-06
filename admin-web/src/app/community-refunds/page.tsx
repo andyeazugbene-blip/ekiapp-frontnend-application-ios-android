@@ -6,6 +6,7 @@ import { Badge, Button, Card, ErrorPanel, LoadingPanel, MetricCard, PageHeader }
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { communityBuyAdminAPI, type AdminCampaignRefund } from "@/lib/services/communityBuy.api";
+import { countryDisplayName } from "@/lib/countries";
 
 function centsToUnit(value: unknown): number {
   return typeof value === "number" ? value / 100 : 0;
@@ -99,7 +100,7 @@ export default function CommunityRefundsPage() {
                     <tbody>
                       {items.map((r) => (
                         <tr key={r.id} className="border-b border-slate-100">
-                          <td className="py-3 font-semibold text-[#101820]">{r.contribution.campaign.title} <span className="text-slate-400">({r.contribution.campaign.country})</span></td>
+                          <td className="py-3 font-semibold text-[#101820]">{r.contribution.campaign.title} <span className="text-slate-400">({countryDisplayName(r.contribution.campaign.country)})</span></td>
                           <td className="py-3 text-slate-600">{r.contribution.participant.user.name} <span className="text-slate-400">({r.contribution.participant.user.email})</span></td>
                           <td className="py-3 font-semibold">{centsToUnit(r.amount).toFixed(2)} {r.currency}</td>
                           <td className="py-3"><Badge tone={tone(r.status)}>{r.status.replace(/_/g, " ")}</Badge>{r.failureReason ? <p className="mt-1 text-xs text-red-500">{r.failureReason}</p> : null}</td>

@@ -17,6 +17,7 @@ import {
   type Tone,
 } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, type Campaign, type CampaignUpdate, type Contribution } from "../../services/communityBuyService";
+import { countryDisplayName } from "../../utils/countries";
 // The saved-card flow is generic (buyer/payment-methods), built for Regular
 // Deliveries — reused as-is for Community Buy pledges rather than duplicated.
 import { regularDeliveriesService, type BuyerPaymentMethod } from "../../services/regularDeliveriesService";
@@ -247,7 +248,7 @@ export default function CommunityBuyCampaignScreen() {
         <View style={[premiumStyles.block, { gap: 14 }]}>
           <FloatingCard style={{ gap: 10 }}>
             <View style={styles.statusRow}>
-              <View style={styles.countryPill}><Text style={styles.countryPillText}>{campaign.country}</Text></View>
+              <View style={styles.countryPill}><Text style={styles.countryPillText}>{countryDisplayName(campaign.country)}</Text></View>
               <StatusPill label={campaign.status.replace("_", " ")} tone={STATUS_TONE[campaign.status]} />
             </View>
             {campaign.description ? <Text style={styles.description}>{campaign.description}</Text> : null}

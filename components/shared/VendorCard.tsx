@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { VendorSummary } from "../../types/vendor";
+import { countryDisplayName } from "../../utils/countries";
 import { Avatar } from "../ui/Avatar";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -57,7 +58,7 @@ export const VendorCard: React.FC<VendorCardProps> = ({
             {vendor.ownerName}
           </Text>
           <Text className="text-xs text-gray-400 mt-0.5">
-            {vendor.city}, {vendor.country}
+            {vendor.city}, {countryDisplayName(vendor.country)}
           </Text>
 
           {variant === "buyer" && vendor.rating > 0 && (

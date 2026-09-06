@@ -20,6 +20,8 @@ import {
   type MarketConfig,
   type SupplierProfile,
 } from "../../services/communityBuyService";
+import { vendorService, type VendorMarket } from "../../services/vendorService";
+import { countryDisplayName } from "../../utils/countries";
 
 const STATUS_LABEL: Record<Campaign["status"], string> = {
   DRAFT: "Draft",
@@ -56,12 +58,17 @@ export default function VendorCommunityBuySupplierScreen() {
     setLoading(true);
     setError("");
     try {
-      const [profileData, marketList] = await Promise.all([
+      const [profileData, marketList, vendorMarkets] = await Promise.all([
         communityBuyService.getMySupplierProfile(),
         communityBuyService.listMarketConfigs().catch(() => [] as MarketConfig[]),
+        vendorService.getMyMarkets().catch(() => [] as VendorMarket[]),
       ]);
       setProfile(profileData);
-      setMarkets(marketList.filter((m) => m.supplierApplicationsEnabled));
+      // A vendor can only apply as a supplier for a market they're actually
+      // assigned to (backend enforces this too) — showing every open market
+      // regardless would just produce a confusing rejection on submit.
+      const activeVendorCodes = new Set(vendorMarkets.filter((m) => m.enabled).map((m) => m.marketCode));
+      setMarkets(marketList.filter((m) => m.supplierApplicationsEnabled && activeVendorCodes.has(m.countryCode)));
       if (profileData?.isVerified) {
         setCampaigns(await communityBuyService.listMySupplierCampaigns());
       }
@@ -124,7 +131,7 @@ export default function VendorCommunityBuySupplierScreen() {
                 {markets.map((m) => (
                   <TouchableOpacity key={m.countryCode} disabled={applying === m.countryCode} onPress={() => void handleApply(m.countryCode)} activeOpacity={0.85}>
                     <FloatingCard style={styles.applyRow}>
-                      <Text style={styles.applyRowText}>Apply for {m.countryCode}</Text>
+                      <Text style={styles.applyRowText}>Apply for {countryDisplayName(m.countryCode)}</Text>
                       {applying === m.countryCode ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="chevron-forward" size={16} color="#8AA194" />}
                     </FloatingCard>
                   </TouchableOpacity>
@@ -139,7 +146,7 @@ export default function VendorCommunityBuySupplierScreen() {
               <IconAvatar icon="time-outline" tone="warning" size={52} />
               <Text style={styles.introTitle}>Application under review</Text>
               <Text style={styles.introBody}>
-                Your supplier application for {profile.country} is being verified. You'll be notified once organisers can select you for a campaign.
+                Your supplier application for {countryDisplayName(profile.country)} is being verified. You'll be notified once organisers can select you for a campaign.
               </Text>
             </FloatingCard>
           </View>

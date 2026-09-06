@@ -6,6 +6,7 @@ import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { presentSetupIntent } from "../../services/stripePayment";
+import { countryCodeForName, countryDisplayName } from "../../utils/countries";
 import { regularDeliveriesService, type BuyerPaymentMethod } from "../../services/regularDeliveriesService";
 import {
   ErrorState,
@@ -132,7 +133,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         if (!profile?.isVerified) throw new Error("A verified organiser profile is required to create a campaign.");
         setCountry(profile.country);
         const markets = await communityBuyService.listMarketConfigs().catch(() => [] as MarketConfig[]);
-        const market = markets.find((m) => m.countryCode === profile.country);
+        const market = markets.find((m) => (countryCodeForName(m.countryCode) ?? m.countryCode) === (countryCodeForName(profile.country) ?? profile.country));
         setCurrency(market?.currency ?? "GBP");
         const supplierList = await communityBuyService.listVerifiedSuppliers(profile.country);
         setSuppliers(supplierList);
@@ -568,7 +569,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               <View>
                 <Text style={styles.sectionOutside}>Supplier</Text>
                 {suppliers.length === 0 ? (
-                  <Text style={styles.emptyText}>No verified suppliers in {country} yet.</Text>
+                  <Text style={styles.emptyText}>No verified suppliers in {countryDisplayName(country)} yet.</Text>
                 ) : (
                   <View style={{ gap: 8 }}>
                     {suppliers.map((s) => (

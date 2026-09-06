@@ -7,8 +7,9 @@ import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader, TextLi
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
-import { vendorsAPI } from "@/lib/services/vendors.api";
+import { vendorsAPI, type VendorMarket } from "@/lib/services/vendors.api";
 import { ordersAPI } from "@/lib/services/orders.api";
+import { COUNTRIES, countryDisplayName } from "@/lib/countries";
 
 export default function VendorDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -56,7 +57,7 @@ export default function VendorDetailPage() {
           <div className="space-y-3">
             <InfoRow label="Owner" value={data.ownerName ?? data.user?.name ?? "N/A"} />
             <InfoRow label="Email" value={data.contactEmail ?? data.user?.email ?? "N/A"} />
-            <InfoRow label="Country" value={data.country ?? "—"} />
+            <InfoRow label="Primary market" value={data.country ? countryDisplayName(data.country) : "—"} />
             <InfoRow label="City" value={data.city ?? "—"} />
             <InfoRow label="Joined" value={data.createdAt ? new Date(data.createdAt).toLocaleDateString() : "N/A"} />
             <InfoRow label="Verification" value={<span className={`px-2 py-1 rounded-full text-xs font-medium ${data.verificationStatus === "VERIFIED" ? "bg-green-100 text-green-800" : data.verificationStatus === "REJECTED" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>{verif.toUpperCase()}</span>} />
@@ -129,6 +130,8 @@ export default function VendorDetailPage() {
 
       <SellerPlanCard vendorId={data.id} currentPlan={data.subscriptionPlan ?? "free"} onSaved={load} />
 
+      <VendorMarketsCard vendorId={data.id} />
+
       <Card><h2 className="text-lg font-bold mb-4">Admin Actions</h2>
         <div className="flex flex-wrap gap-3">
           {data.adminStatus === "pending" && <>
@@ -163,6 +166,137 @@ function SellerPlanCard({ vendorId, currentPlan, onSaved }: { vendorId: string; 
         <Button disabled={saving} onClick={async () => { setSaving(true); setMsg(""); try { await vendorsAPI.assignSellerPlan(vendorId, plan); setMsg("Plan updated."); onSaved(); } catch (err) { setMsg(err instanceof Error ? err.message : "Failed"); } finally { setSaving(false); } }}>{saving ? "Saving..." : "Assign Plan"}</Button>
         {msg && <span className="text-sm text-gray-600">{msg}</span>}
       </div>
+    </Card>
+  );
+}
+
+function VendorMarketsCard({ vendorId }: { vendorId: string }) {
+  const [markets, setMarkets] = useState<VendorMarket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busyCode, setBusyCode] = useState<string | null>(null);
+  const [addValue, setAddValue] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+      setMarkets(await vendorsAPI.getVendorMarkets(vendorId));
+    } catch (err) {
+      setError(err instanceof APIError ? err.message : "Failed to load markets");
+    } finally {
+      setLoading(false);
+    }
+  }, [vendorId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const activeCount = markets.filter((m) => m.enabled).length;
+  const assignedCodes = new Set(markets.map((m) => m.marketCode));
+  const addable = COUNTRIES.filter((c) => !assignedCodes.has(c.code));
+
+  const handleAdd = async () => {
+    if (!addValue) return;
+    setBusyCode("adding");
+    setError("");
+    try {
+      const reason = prompt("Reason for adding this market (for the audit log):") ?? undefined;
+      await vendorsAPI.addVendorMarket(vendorId, addValue, reason);
+      setAddValue("");
+      await load();
+    } catch (err) {
+      setError(err instanceof APIError ? err.message : "Could not add market");
+    } finally {
+      setBusyCode(null);
+    }
+  };
+
+  const handleToggle = async (market: VendorMarket) => {
+    if (market.enabled && activeCount <= 1) {
+      alert("A vendor must have at least one active market — add another market before disabling this one.");
+      return;
+    }
+    setBusyCode(market.marketCode);
+    setError("");
+    try {
+      const reason = prompt(`Reason for ${market.enabled ? "disabling" : "enabling"} ${market.countryName} (for the audit log):`) ?? undefined;
+      await vendorsAPI.setVendorMarketEnabled(vendorId, market.marketCode, !market.enabled, reason);
+      await load();
+    } catch (err) {
+      setError(err instanceof APIError ? err.message : "Could not update market");
+    } finally {
+      setBusyCode(null);
+    }
+  };
+
+  const handleRemove = async (market: VendorMarket) => {
+    if (market.enabled && activeCount <= 1) {
+      alert("A vendor must have at least one active market — add another market before removing this one.");
+      return;
+    }
+    if (!confirm(`Remove ${market.countryName} from this vendor's markets? This cannot be undone from here.`)) return;
+    setBusyCode(market.marketCode);
+    setError("");
+    try {
+      await vendorsAPI.removeVendorMarket(vendorId, market.marketCode);
+      await load();
+    } catch (err) {
+      setError(err instanceof APIError ? err.message : "Could not remove market");
+    } finally {
+      setBusyCode(null);
+    }
+  };
+
+  return (
+    <Card>
+      <h2 className="text-lg font-bold mb-4">Markets ({markets.length})</h2>
+      <p className="mb-4 text-sm text-gray-500">
+        Each market resolves its own currency independently. The vendor&apos;s primary market/currency above is unaffected by these.
+      </p>
+      {error ? <ErrorPanel message={error} onRetry={load} /> : null}
+      {loading ? (
+        <p className="text-sm text-gray-500">Loading...</p>
+      ) : (
+        <div className="space-y-2">
+          {markets.map((market) => (
+            <div key={market.marketCode} className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{market.countryName}</p>
+                <p className="text-xs text-gray-500">{market.currency}{!market.enabled ? " · Inactive" : ""}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  disabled={busyCode === market.marketCode}
+                  onClick={() => void handleToggle(market)}
+                >
+                  {market.enabled ? "Disable" : "Enable"}
+                </Button>
+                <Button
+                  variant="danger"
+                  disabled={busyCode === market.marketCode}
+                  onClick={() => void handleRemove(market)}
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+          ))}
+          {markets.length === 0 ? <p className="text-sm text-gray-500">No markets configured.</p> : null}
+        </div>
+      )}
+
+      {addable.length > 0 ? (
+        <div className="mt-4 flex items-center gap-3">
+          <select value={addValue} onChange={(e) => setAddValue(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
+            <option value="">Select a market to add...</option>
+            {addable.map((c) => <option key={c.code} value={c.name}>{c.name}</option>)}
+          </select>
+          <Button disabled={!addValue || busyCode === "adding"} onClick={() => void handleAdd()}>
+            {busyCode === "adding" ? "Adding..." : "Add market"}
+          </Button>
+        </div>
+      ) : null}
     </Card>
   );
 }

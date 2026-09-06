@@ -10,6 +10,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { API2FARequiredError, APIError } from "@/lib/api";
 import { vendorsAPI, VendorStats } from "@/lib/services/vendors.api";
 import { Vendor, VendorStatus } from "@/types";
+import { countryDisplayName } from "@/lib/countries";
 
 type TabKey = "all" | "pending" | "approved" | "rejected" | "suspended" | "verified" | "active" | "trial" | "highRevenue";
 
@@ -221,7 +222,7 @@ export default function VendorsPage() {
               <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setPage(1); }} placeholder="Search name, email, phone..." className="h-9 w-48 rounded-xl border border-slate-200 bg-white px-3 text-[12px] outline-none" />
               <select value={countryFilter} onChange={e => { setCountryFilter(e.target.value); setPage(1); }} className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-[12px] text-slate-600">
                 <option value="all">Country: All</option>
-                {countries.map(c => <option key={c} value={c}>{c}</option>)}
+                {countries.map(c => <option key={c} value={c}>{countryDisplayName(c)}</option>)}
               </select>
               <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-[12px] text-slate-600">
                 <option value="all">Status: All</option>
@@ -291,7 +292,7 @@ export default function VendorsPage() {
                             </Link>
                           </td>
                           <td className="px-4 py-3.5 text-[12px] text-slate-600">{vendor.email || "—"}</td>
-                          <td className="px-4 py-3.5 text-[12px] text-slate-600">{vendor.country || "—"}</td>
+                          <td className="px-4 py-3.5 text-[12px] text-slate-600">{vendor.country ? countryDisplayName(vendor.country) : "—"}</td>
                           <td className="px-4 py-3.5 text-[12px] text-slate-500">{vendor.joinedAt ? new Date(vendor.joinedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" }) : "—"}</td>
                           <td className="px-4 py-3.5"><VerifBadge status={vendor.verificationStatus} /></td>
                           <td className="px-4 py-3.5"><StatusBdg status={vendor.adminStatus} /></td>

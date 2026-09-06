@@ -7,14 +7,16 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useOnboardingStore } from "../../stores/onboardingStore";
 import { useAuthStore } from "../../stores/authStore";
 import { vendorService } from "../../services/vendorService";
-import { COUNTRY_NAMES, getCitiesForCountry } from "../../utils/countries";
+import { COUNTRIES, getCitiesForCountry } from "../../utils/countries";
 import {
   FieldLabel,
   FormCard,
@@ -31,38 +33,48 @@ export default function SetupStoreScreen() {
   const vendorUser = isVendor ? (user as any) : null;
 
   const [storeName, setStoreName] = useState(storeDetails.storeName || vendorUser?.storeName || "");
-  // No default country/city — Eki has no product rule requiring one, and a
-  // silent default (this used to be "Nigeria"/"Lagos") let a vendor
-  // complete onboarding without ever consciously picking a market, in a
-  // country that was never actually approved for launch. Require explicit
-  // selection instead (enforced below in handleContinue).
-  const [country, setCountry] = useState<string>(vendorUser?.country || "");
+  // No default market — Eki has no product rule requiring one, and a silent
+  // default (this used to be "Nigeria"/"Lagos") let a vendor complete
+  // onboarding without ever consciously picking a market, in a country that
+  // was never actually approved for launch. Require explicit selection
+  // instead (enforced below in handleContinue). A vendor may now serve more
+  // than one approved market — the first one picked (in the list's order)
+  // becomes their primary market/currency.
+  const [markets, setMarkets] = useState<string[]>(vendorUser?.country ? [vendorUser.country] : []);
   const [city, setCity] = useState<string>(vendorUser?.city || "");
   const [description, setDescription] = useState(storeDetails.description || vendorUser?.storeDescription || "");
   const [submitting, setSubmitting] = useState(false);
 
-  const cityOptions = useMemo(() => getCitiesForCountry(country), [country]);
+  // markets[0] is whichever market was picked first — that's the primary
+  // market/currency, matching exactly what the backend does with the same
+  // array (see vendorsService.createVendor).
+  const primaryCountry = markets[0] ?? "";
+  const cityOptions = useMemo(() => getCitiesForCountry(primaryCountry), [primaryCountry]);
+
+  const toggleMarket = (name: string) => {
+    setMarkets((current) => (current.includes(name) ? current.filter((m) => m !== name) : [...current, name]));
+  };
 
   useEffect(() => {
     if (vendorUser?.storeName && !storeName) setStoreName(vendorUser.storeName);
     if (vendorUser?.storeDescription && !description) setDescription(vendorUser.storeDescription);
   }, [vendorUser?.storeName, vendorUser?.storeDescription, storeName, description]);
 
-  // When country changes, ensure city stays consistent.
+  // When the primary market changes, ensure city stays consistent.
   useEffect(() => {
     if (cityOptions.length === 0) return;
     if (!cityOptions.includes(city)) {
       setCity(cityOptions[0]);
     }
-  }, [country, cityOptions, city]);
+  }, [primaryCountry, cityOptions, city]);
 
   const handleContinue = async () => {
     if (!storeName.trim()) {
       Alert.alert("Missing details", "Store name is required.");
       return;
     }
-    if (!country) {
-      Alert.alert("Missing details", "Please select your store's country.");
+    if (markets.length === 0) {
+      Alert.alert("Missing details", "Please select at least one market you serve.");
       return;
     }
 
@@ -79,16 +91,21 @@ export default function SetupStoreScreen() {
         await vendorService.createVendorProfile({
           storeName: storeName.trim(),
           description: description.trim() || undefined,
-          country: country || undefined,
+          markets,
           city: city || undefined,
         });
         await checkAuth();
       } else {
         try {
+          // Editing an existing vendor's PRIMARY market here (secondary
+          // markets are managed on the dedicated "Markets you serve" screen
+          // in the vendor profile, via /vendors/me/markets) — country stays
+          // a single value for this update path, matching the backend's
+          // PATCH /vendors/me contract.
           await vendorService.updateMyProfile({
             storeName: storeName.trim(),
             description: description.trim() || undefined,
-            country: country || undefined,
+            country: primaryCountry || undefined,
             city: city || undefined,
           });
         } catch (err) {
@@ -100,7 +117,7 @@ export default function SetupStoreScreen() {
           await vendorService.createVendorProfile({
             storeName: storeName.trim(),
             description: description.trim() || undefined,
-            country: country || undefined,
+            markets,
             city: city || undefined,
           });
           await checkAuth();
@@ -150,28 +167,43 @@ export default function SetupStoreScreen() {
               />
             </View>
 
-            <View style={styles.row}>
-              <View style={styles.halfField}>
-                <FieldLabel>Country:</FieldLabel>
-                <SelectBox
-                  value={country}
-                  options={COUNTRY_NAMES}
-                  onChange={setCountry}
-                  title="Select country"
-                  placeholder="Select country"
-                />
+            <View style={styles.fieldGroup}>
+              <FieldLabel>Markets you serve:</FieldLabel>
+              <Text style={styles.marketsHint}>
+                Select every approved market you sell in. The first one you pick is your primary market and currency.
+              </Text>
+              <View style={styles.marketsGrid}>
+                {COUNTRIES.map((c) => {
+                  const selected = markets.includes(c.name);
+                  return (
+                    <TouchableOpacity
+                      key={c.code}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      activeOpacity={0.78}
+                      onPress={() => toggleMarket(c.name)}
+                      style={[styles.marketChip, selected && styles.marketChipSelected]}
+                    >
+                      <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
+                        {selected ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
+                      </View>
+                      <Text style={[styles.marketChipText, selected && styles.marketChipTextSelected]}>{c.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-              <View style={styles.halfField}>
-                <FieldLabel>City:</FieldLabel>
-                <SelectBox
-                  value={city}
-                  options={cityOptions}
-                  onChange={setCity}
-                  title="Select city"
-                  placeholder={cityOptions.length ? "Select city" : "-"}
-                  disabled={cityOptions.length === 0}
-                />
-              </View>
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <FieldLabel>City:</FieldLabel>
+              <SelectBox
+                value={city}
+                options={cityOptions}
+                onChange={setCity}
+                title="Select city"
+                placeholder={cityOptions.length ? "Select city" : "Pick a market first"}
+                disabled={cityOptions.length === 0}
+              />
             </View>
 
             <View style={styles.fieldGroup}>
@@ -225,6 +257,51 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: "row", gap: 12, marginBottom: 16 },
   halfField: { flex: 1 },
+  marketsHint: {
+    color: "#858585",
+    fontFamily: "Outfit-Regular",
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  marketsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  marketChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: "#F4F4F4",
+    borderWidth: 1,
+    borderColor: "#F4F4F4",
+  },
+  marketChipSelected: {
+    backgroundColor: "rgba(7,107,81,0.08)",
+    borderColor: "#076B51",
+  },
+  marketChipText: {
+    color: "#858585",
+    fontFamily: "Outfit-Regular",
+    fontSize: 13,
+  },
+  marketChipTextSelected: {
+    color: "#076B51",
+    fontFamily: "Outfit-SemiBold",
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: "#B8B8B8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxSelected: {
+    backgroundColor: "#076B51",
+    borderColor: "#076B51",
+  },
   description: {
     minHeight: 160,
     borderRadius: 12,

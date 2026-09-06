@@ -21,6 +21,7 @@ import {
   type MarketConfig,
   type OrganiserProfile,
 } from "../../services/communityBuyService";
+import { countryDisplayName } from "../../utils/countries";
 
 const STATUS_LABEL: Record<Campaign["status"], string> = {
   DRAFT: "Draft",
@@ -126,7 +127,7 @@ export default function CommunityBuyOrganiserScreen() {
                 {markets.map((m) => (
                   <TouchableOpacity key={m.countryCode} disabled={applying === m.countryCode} onPress={() => void handleApply(m.countryCode)} activeOpacity={0.85}>
                     <FloatingCard style={styles.applyRow}>
-                      <Text style={styles.applyRowText}>Apply for {m.countryCode}</Text>
+                      <Text style={styles.applyRowText}>Apply for {countryDisplayName(m.countryCode)}</Text>
                       {applying === m.countryCode ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="chevron-forward" size={16} color="#8AA194" />}
                     </FloatingCard>
                   </TouchableOpacity>
@@ -141,7 +142,7 @@ export default function CommunityBuyOrganiserScreen() {
               <IconAvatar icon="time-outline" tone="warning" size={52} />
               <Text style={styles.introTitle}>Application under review</Text>
               <Text style={styles.introBody}>
-                Your organiser application for {profile.country} is being verified. You'll be notified once you can create a campaign.
+                Your organiser application for {countryDisplayName(profile.country)} is being verified. You'll be notified once you can create a campaign.
               </Text>
             </FloatingCard>
           </View>

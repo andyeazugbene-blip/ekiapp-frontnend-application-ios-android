@@ -16,6 +16,7 @@ import { goBackOrReplace } from "../../utils/navigation";
 import { ReportModal } from "../../components/ui/ReportModal";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { formatDisplayMoney } from "../../utils/currency";
+import { countryDisplayName } from "../../utils/countries";
 
 export default function VendorDetailScreen() {
   const router = useRouter();
@@ -150,7 +151,7 @@ export default function VendorDetailScreen() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Store info</Text>
           <Text style={styles.storeDesc}>
-            {vendor.description?.trim() || `Authentic African foodstuff from ${vendor.city}, ${vendor.country}.`}
+            {vendor.description?.trim() || `Authentic African foodstuff from ${vendor.city}, ${countryDisplayName(vendor.country)}.`}
           </Text>
 
           {vendor.verificationStatus === "verified" ? (

@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { vendorService } from "../../services/vendorService";
+import { countryDisplayName } from "../../utils/countries";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -322,7 +323,7 @@ export default function VendorsScreen() {
           <View style={styles.metricDivider} />
           <View style={styles.metricItem}>
             <Ionicons name="location-outline" size={14} color="#858585" />
-            <Text style={styles.metricValue} numberOfLines={1}>{vendor.country || vendor.city || "—"}</Text>
+            <Text style={styles.metricValue} numberOfLines={1}>{vendor.country ? countryDisplayName(vendor.country) : vendor.city || "—"}</Text>
             <Text style={styles.metricLabel}>Location</Text>
           </View>
         </View>

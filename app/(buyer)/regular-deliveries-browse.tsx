@@ -15,6 +15,7 @@ import {
 } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, type MarketConfig } from "../../services/communityBuyService";
 import { regularDeliveriesService, FREQUENCY_LABELS, type PublicOfferSummary } from "../../services/regularDeliveriesService";
+import { countryDisplayName } from "../../utils/countries";
 
 /**
  * Real public discovery for Regular Delivery offers (architecture gap
@@ -65,7 +66,7 @@ export default function RegularDeliveriesBrowseScreen() {
             </TouchableOpacity>
             {markets.map((m) => (
               <TouchableOpacity key={m.countryCode} onPress={() => setCountryFilter(m.countryCode)} activeOpacity={0.85} style={[styles.chip, countryFilter === m.countryCode && styles.chipActive]}>
-                <Text style={[styles.chipText, countryFilter === m.countryCode && styles.chipTextActive]}>{m.countryCode}</Text>
+                <Text style={[styles.chipText, countryFilter === m.countryCode && styles.chipTextActive]}>{countryDisplayName(m.countryCode)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>

@@ -131,7 +131,46 @@ export const vendorsAPI = {
   async inviteVendor(email: string): Promise<{ email: string }> {
     return apiClient.post<{ email: string }>("/admin/vendors/invite", { email });
   },
+
+  // ─── Markets — the additive multi-market layer. Vendor.country/currency
+  // (above) stay the primary market; these are the vendor's other approved
+  // markets, each independently resolving its own currency. ──────────────
+
+  async getVendorMarkets(vendorId: string): Promise<VendorMarket[]> {
+    const res = await apiClient.get<{ markets: any[] }>(`/admin/vendors/${vendorId}/markets`);
+    return (res.markets ?? []).map(normalizeVendorMarket);
+  },
+
+  async addVendorMarket(vendorId: string, market: string, reason?: string): Promise<VendorMarket> {
+    const res = await apiClient.post<{ market: any }>(`/admin/vendors/${vendorId}/markets`, { market, reason });
+    return normalizeVendorMarket(res.market);
+  },
+
+  async setVendorMarketEnabled(vendorId: string, marketCode: string, enabled: boolean, reason?: string): Promise<VendorMarket> {
+    const res = await apiClient.patch<{ market: any }>(`/admin/vendors/${vendorId}/markets/${marketCode}`, { enabled, reason });
+    return normalizeVendorMarket(res.market);
+  },
+
+  async removeVendorMarket(vendorId: string, marketCode: string): Promise<void> {
+    await apiClient.delete(`/admin/vendors/${vendorId}/markets/${marketCode}`);
+  },
 };
+
+export interface VendorMarket {
+  marketCode: string;
+  countryName: string;
+  currency: string;
+  enabled: boolean;
+}
+
+function normalizeVendorMarket(raw: any): VendorMarket {
+  return {
+    marketCode: String(raw?.marketCode ?? ""),
+    countryName: String(raw?.countryName ?? ""),
+    currency: String(raw?.currency ?? ""),
+    enabled: raw?.enabled !== false,
+  };
+}
 
 export interface VendorStats {
   total: number;

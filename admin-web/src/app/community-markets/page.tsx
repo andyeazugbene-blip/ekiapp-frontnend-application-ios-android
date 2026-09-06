@@ -13,6 +13,7 @@ import {
   type MarketPaymentMode,
   type SupplierReleasePolicy,
 } from "@/lib/services/communityBuy.api";
+import { countryDisplayName } from "@/lib/countries";
 
 const FLAGS: { key: keyof MarketConfig; label: string; note: string }[] = [
   { key: "communityBuyEnabled", label: "Community Buy", note: "Campaigns can be created and published in this market." },
@@ -157,7 +158,7 @@ function MarketCard({ market, onUpdated }: { market: MarketConfig; onUpdated: (m
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-black">
-          {market.countryCode} <span className="text-base font-semibold text-slate-400">· {market.currency}</span>
+          {countryDisplayName(market.countryCode)} <span className="text-base font-semibold text-slate-400">· {market.currency}</span>
         </h2>
         <div className="flex flex-wrap gap-2">
           {market.communityBuyEnabled ? <Badge tone="green">Community Buy on</Badge> : <Badge tone="gray">Community Buy off</Badge>}

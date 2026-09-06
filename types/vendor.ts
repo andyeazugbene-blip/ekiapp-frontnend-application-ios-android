@@ -76,6 +76,8 @@ export interface VendorDashboardData {
     maxOrders: number | null;
     renewalDate: string | null;
   };
+  /** Every market this vendor operates in, primary flagged — never combine more than one market's figures into a single total. */
+  markets?: { marketCode: string; countryName: string; currency: string; enabled: boolean; isPrimary: boolean }[];
 }
 
 export type VendorAnalyticsRange = "today" | "7d" | "month" | "30d" | "all";

@@ -200,6 +200,12 @@ export default function VendorSettingsScreen() {
             onPress={() => router.push("/(vendor)/edit-store-profile" as any)}
           />
           <SettingRow
+            icon="earth-outline"
+            label="Markets You Serve"
+            description="Add or remove the approved markets your store operates in"
+            onPress={() => router.push("/(vendor)/markets" as any)}
+          />
+          <SettingRow
             icon="shield-checkmark-outline"
             label="Verification Documents"
             description="Upload or review your ID and business verification steps"

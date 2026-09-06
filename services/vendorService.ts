@@ -181,6 +181,8 @@ export const vendorService = {
     contactPhone?: string;
     country?: string;
     city?: string;
+    /** "Markets you serve" multi-select — markets[0] becomes the primary country/currency. */
+    markets?: string[];
   }): Promise<{ vendor: VendorSummary; token: string }> {
     const response = await apiClient.post<{ vendor: any; token: string }>("/api/vendors", input);
     await tokenStorage.setToken(response.token);
@@ -471,4 +473,42 @@ export const vendorService = {
       verificationFailureReason: string | null;
     }>("/api/vendors/me/verification/stripe-status");
   },
+
+  // ─── Markets you serve — the multi-market layer. Vendor.country/currency
+  // stay the primary market; these are the additional approved markets. ──
+
+  async getMyMarkets(): Promise<VendorMarket[]> {
+    const response = await apiClient.get<{ markets: any[] }>("/api/vendors/me/markets");
+    return (response.markets ?? []).map(normalizeVendorMarket);
+  },
+
+  async addMyMarket(market: string): Promise<VendorMarket> {
+    const response = await apiClient.post<{ market: any }>("/api/vendors/me/markets", { market });
+    return normalizeVendorMarket(response.market);
+  },
+
+  async setMyMarketEnabled(marketCode: string, enabled: boolean): Promise<VendorMarket> {
+    const response = await apiClient.patch<{ market: any }>(`/api/vendors/me/markets/${marketCode}`, { enabled });
+    return normalizeVendorMarket(response.market);
+  },
+
+  async removeMyMarket(marketCode: string): Promise<void> {
+    await apiClient.delete<{ message: string }>(`/api/vendors/me/markets/${marketCode}`);
+  },
 };
+
+export interface VendorMarket {
+  marketCode: string;
+  countryName: string;
+  currency: string;
+  enabled: boolean;
+}
+
+function normalizeVendorMarket(raw: any): VendorMarket {
+  return {
+    marketCode: toText(raw?.marketCode),
+    countryName: toText(raw?.countryName),
+    currency: toText(raw?.currency),
+    enabled: raw?.enabled !== false,
+  };
+}

@@ -20,24 +20,26 @@
  */
 
 export interface CountryEntry {
+  code: string;
   name: string;
   cities: string[];
 }
 
 export const COUNTRIES: CountryEntry[] = [
-  { name: "United Kingdom", cities: ["London", "Manchester", "Birmingham", "Leeds", "Liverpool", "Glasgow", "Edinburgh", "Bristol"] },
-  { name: "United States", cities: ["New York", "Los Angeles", "Chicago", "Houston", "Atlanta", "Dallas", "Miami", "Boston", "Seattle"] },
-  { name: "Canada", cities: ["Toronto", "Montreal", "Vancouver", "Calgary", "Ottawa", "Edmonton"] },
-  { name: "France", cities: ["Paris", "Marseille", "Lyon", "Toulouse", "Nice", "Bordeaux"] },
-  { name: "Spain", cities: ["Madrid", "Barcelona", "Valencia", "Seville"] },
-  { name: "Portugal", cities: ["Lisbon", "Porto"] },
-  { name: "Switzerland", cities: ["Zurich", "Geneva", "Basel", "Bern", "Lausanne"] },
-  { name: "Belgium", cities: ["Brussels", "Antwerp", "Ghent"] },
-  { name: "Italy", cities: ["Rome", "Milan", "Naples", "Turin", "Florence", "Bologna"] },
-  { name: "Croatia", cities: ["Zagreb", "Split", "Rijeka", "Osijek"] },
+  { code: "GB", name: "United Kingdom", cities: ["London", "Manchester", "Birmingham", "Leeds", "Liverpool", "Glasgow", "Edinburgh", "Bristol"] },
+  { code: "US", name: "United States", cities: ["New York", "Los Angeles", "Chicago", "Houston", "Atlanta", "Dallas", "Miami", "Boston", "Seattle"] },
+  { code: "CA", name: "Canada", cities: ["Toronto", "Montreal", "Vancouver", "Calgary", "Ottawa", "Edmonton"] },
+  { code: "FR", name: "France", cities: ["Paris", "Marseille", "Lyon", "Toulouse", "Nice", "Bordeaux"] },
+  { code: "ES", name: "Spain", cities: ["Madrid", "Barcelona", "Valencia", "Seville"] },
+  { code: "PT", name: "Portugal", cities: ["Lisbon", "Porto"] },
+  { code: "CH", name: "Switzerland", cities: ["Zurich", "Geneva", "Basel", "Bern", "Lausanne"] },
+  { code: "BE", name: "Belgium", cities: ["Brussels", "Antwerp", "Ghent"] },
+  { code: "IT", name: "Italy", cities: ["Rome", "Milan", "Naples", "Turin", "Florence", "Bologna"] },
+  { code: "HR", name: "Croatia", cities: ["Zagreb", "Split", "Rijeka", "Osijek"] },
 ];
 
 export const COUNTRY_NAMES: string[] = COUNTRIES.map((c) => c.name);
+export const COUNTRY_CODES: string[] = COUNTRIES.map((c) => c.code);
 
 export function getCitiesForCountry(country: string | null | undefined): string[] {
   if (!country) return [];
@@ -49,4 +51,43 @@ export function getCitiesForCountry(country: string | null | undefined): string[
 export function isApprovedLaunchCountry(country: string | null | undefined): boolean {
   if (!country) return false;
   return COUNTRY_NAMES.some((name) => name.toLowerCase() === country.trim().toLowerCase());
+}
+
+/**
+ * The single authoritative country-name resolver for this app. Accepts a
+ * full name ("United Kingdom"), a common alias ("UK"), or an ISO code
+ * ("GB", "gb") — always returns the canonical full name, never a raw code.
+ * This is what MarketConfig.countryCode-driven UI (Community Buy market
+ * pickers, campaign cards, organiser/supplier views) must call before
+ * rendering a market — never interpolate `m.countryCode` directly into
+ * user-facing text.
+ */
+const ALIAS_TO_NAME: Record<string, string> = { uk: "United Kingdom", usa: "United States" };
+
+export function countryDisplayName(value: string | null | undefined): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+  const lower = trimmed.toLowerCase();
+  const byCode = COUNTRIES.find((c) => c.code.toLowerCase() === lower);
+  if (byCode) return byCode.name;
+  const byName = COUNTRIES.find((c) => c.name.toLowerCase() === lower);
+  if (byName) return byName.name;
+  if (ALIAS_TO_NAME[lower]) return ALIAS_TO_NAME[lower];
+  // Unrecognized (e.g. a legacy/grandfathered non-launch-market value) —
+  // return the original rather than fabricating a name, so real data is
+  // never hidden, but it's never a bare 2-letter code from this path either
+  // unless the raw value itself already was one we don't recognize.
+  return trimmed;
+}
+
+/** ISO code for a launch-market country name/alias, or null if not one of the 10. */
+export function countryCodeForName(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const lower = value.trim().toLowerCase();
+  const byName = COUNTRIES.find((c) => c.name.toLowerCase() === lower);
+  if (byName) return byName.code;
+  if (lower === "uk") return "GB";
+  if (lower === "usa") return "US";
+  const byCode = COUNTRIES.find((c) => c.code.toLowerCase() === lower);
+  return byCode?.code ?? null;
 }

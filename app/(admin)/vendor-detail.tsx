@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { vendorService } from "../../services/vendorService";
+import { countryDisplayName } from "../../utils/countries";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -334,7 +335,7 @@ export default function VendorDetailScreen() {
                 </View>
               ) : (
                 <Text style={styles.metaText}>
-                  {[vendor.city, vendor.country].filter(Boolean).join(", ") || "No location"}
+                  {[vendor.city, vendor.country ? countryDisplayName(vendor.country) : null].filter(Boolean).join(", ") || "No location"}
                 </Text>
               )}
             </View>
@@ -508,7 +509,7 @@ export default function VendorDetailScreen() {
                 <ContactTile icon="person" label="Owner" value={vendor.user?.name} color="#076B51" />
                 <ContactTile icon="mail" label="Email" value={vendor.user?.email || vendor.contactEmail} color="#2196F3" />
                 <ContactTile icon="call" label="Phone" value={vendor.contactPhone} color="#7B1FA2" />
-                <ContactTile icon="location" label="Location" value={[vendor.city, vendor.country].filter(Boolean).join(", ")} color="#F57C00" />
+                <ContactTile icon="location" label="Location" value={[vendor.city, vendor.country ? countryDisplayName(vendor.country) : null].filter(Boolean).join(", ")} color="#F57C00" />
               </View>
             </View>
 

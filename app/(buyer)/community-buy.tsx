@@ -16,6 +16,7 @@ import {
   premiumStyles,
 } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, type Campaign, type MarketConfig } from "../../services/communityBuyService";
+import { countryDisplayName } from "../../utils/countries";
 
 function daysLeft(deadline: string): string {
   const ms = new Date(deadline).getTime() - Date.now();
@@ -76,7 +77,7 @@ export default function CommunityBuyDiscoveryScreen() {
             </TouchableOpacity>
             {markets.map((m) => (
               <TouchableOpacity key={m.countryCode} onPress={() => setCountryFilter(m.countryCode)} activeOpacity={0.85} style={[styles.chip, countryFilter === m.countryCode && styles.chipActive]}>
-                <Text style={[styles.chipText, countryFilter === m.countryCode && styles.chipTextActive]}>{m.countryCode}</Text>
+                <Text style={[styles.chipText, countryFilter === m.countryCode && styles.chipTextActive]}>{countryDisplayName(m.countryCode)}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -109,7 +110,7 @@ export default function CommunityBuyDiscoveryScreen() {
                 <FloatingCard style={{ gap: 10 }}>
                   <View style={styles.cardTop}>
                     <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
-                    <View style={styles.countryPill}><Text style={styles.countryPillText}>{c.country}</Text></View>
+                    <View style={styles.countryPill}><Text style={styles.countryPillText}>{countryDisplayName(c.country)}</Text></View>
                   </View>
                   <Text style={styles.cardVendor}>{c.supplier?.vendor?.storeName ?? "Community Buy"}</Text>
                   <RangeProgressBar value={c.confirmedShares} min={c.minimumShares} goal={c.goalShares} max={c.maximumShares} />
