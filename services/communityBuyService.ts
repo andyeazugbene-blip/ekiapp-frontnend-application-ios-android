@@ -167,6 +167,8 @@ export interface Campaign {
   confirmedShares: number;
   fundingOutcome: FundingOutcome;
   supplierCommitted: boolean;
+  supplierDeclinedAt?: string | null;
+  supplierDeclineReason?: string | null;
   rescueEndsAt?: string | null;
   extensionCount: number;
   paidTotal?: number;
@@ -536,6 +538,18 @@ export const communityBuyService = {
   /** Doc screens 115-117 — required before the organiser can submit the campaign for admin review. */
   async confirmSupplierCommitment(campaignId: string): Promise<Campaign> {
     const res = await apiClient.post<{ campaign: Campaign }>(`/api/supplier/campaigns/${campaignId}/supplier-commitment`, {});
+    return res.campaign;
+  },
+
+  /** Real decline capability (client spec, Screen CB67) — does not change campaign status; the organiser must reassign a new supplier via reassignSupplier() below. */
+  async declineSupplierCommitment(campaignId: string, reason?: string): Promise<Campaign> {
+    const res = await apiClient.post<{ campaign: Campaign }>(`/api/supplier/campaigns/${campaignId}/decline`, { reason });
+    return res.campaign;
+  },
+
+  /** Organiser-side companion to decline — only valid pre-commitment, while a campaign is still in draft. */
+  async reassignSupplier(campaignId: string, supplierId: string): Promise<Campaign> {
+    const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${campaignId}/supplier`, { supplierId });
     return res.campaign;
   },
 

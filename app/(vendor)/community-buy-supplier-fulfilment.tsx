@@ -246,9 +246,9 @@ export default function CommunityBuySupplierFulfilmentScreen() {
             </FloatingCard>
           ) : null}
 
-          {payment ? (
-            <View>
-              <Text style={styles.section}>Your payment</Text>
+          <View>
+            <Text style={styles.section}>Your payment</Text>
+            {payment ? (
               <FloatingCard style={{ gap: 8 }}>
                 <View style={styles.paymentRow}>
                   <Text style={styles.paymentLabel}>Status</Text>
@@ -260,8 +260,12 @@ export default function CommunityBuySupplierFulfilmentScreen() {
                 </View>
                 {payment.holdReason ? <Text style={styles.holdReason}>{payment.holdReason}</Text> : null}
               </FloatingCard>
-            </View>
-          ) : null}
+            ) : (
+              <FloatingCard>
+                <Text style={styles.paymentPlaceholder}>Payment details will appear here once available — Eki processes your payment after fulfilment is confirmed.</Text>
+              </FloatingCard>
+            )}
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -292,4 +296,5 @@ const styles = StyleSheet.create({
   paymentLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72" },
   paymentValue: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
   holdReason: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#D6552F" },
+  paymentPlaceholder: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#8AA194", lineHeight: 17 },
 });

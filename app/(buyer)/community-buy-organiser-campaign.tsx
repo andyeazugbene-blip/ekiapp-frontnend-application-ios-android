@@ -83,6 +83,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [paymentMethods, setPaymentMethods] = useState<BuyerPaymentMethod[]>([]);
   const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
   const [addingCard, setAddingCard] = useState(false);
+  const [reassigning, setReassigning] = useState(false);
   const [showExtensionForm, setShowExtensionForm] = useState(false);
   const [extensionDeadline, setExtensionDeadline] = useState("");
   const [extensionReason, setExtensionReason] = useState("");
@@ -132,6 +133,11 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         }
         if (UPDATE_POSTABLE_STATUSES.includes(existing.status)) {
           setUpdates(await communityBuyService.getCampaignUpdates(id).catch(() => []));
+        }
+        // Necessary companion to supplier decline — without a way to pick a
+        // different supplier, a decline would be a dead end for the organiser.
+        if (existing.supplierDeclinedAt) {
+          setSuppliers(await communityBuyService.listVerifiedSuppliers(existing.country).catch(() => []));
         }
       } else {
         const profile = await communityBuyService.getMyOrganiserProfile();
@@ -222,6 +228,20 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       Alert.alert("Couldn't save", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleReassignSupplier = async (newSupplierId: string) => {
+    if (!campaign || reassigning) return;
+    setReassigning(true);
+    try {
+      const updated = await communityBuyService.reassignSupplier(campaign.id, newSupplierId);
+      setCampaign(updated);
+      setSupplierId(updated.supplierId);
+    } catch (err) {
+      Alert.alert("Couldn't reassign supplier", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setReassigning(false);
     }
   };
 
@@ -638,6 +658,34 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               </View>
             ) : null}
 
+            {isEdit && campaign?.supplierDeclinedAt ? (
+              <View>
+                <Text style={styles.sectionOutside}>Choose a new supplier</Text>
+                <FloatingCard style={{ gap: 10 }}>
+                  <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
+                    <Ionicons name="close-circle-outline" size={18} color="#D6552F" />
+                    <Text style={styles.noticeText}>
+                      The supplier declined this campaign{campaign.supplierDeclineReason ? `: ${campaign.supplierDeclineReason}` : ""}. Choose a different supplier to continue.
+                    </Text>
+                  </View>
+                  {suppliers.length === 0 ? (
+                    <Text style={styles.emptyText}>No other verified suppliers in {countryDisplayName(country)} yet.</Text>
+                  ) : (
+                    <View style={{ gap: 8 }}>
+                      {suppliers.filter((s) => s.id !== campaign.supplierId).map((s) => (
+                        <TouchableOpacity key={s.id} onPress={() => void handleReassignSupplier(s.id)} disabled={reassigning} activeOpacity={0.85}>
+                          <FloatingCard style={styles.optionRow}>
+                            {reassigning ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="radio-button-off" size={18} color="#8AA194" />}
+                            <Text style={styles.optionText}>{s.vendor?.storeName ?? "Supplier"}</Text>
+                          </FloatingCard>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </FloatingCard>
+              </View>
+            ) : null}
+
             {isEdit && participants.length > 0 ? (
               <View>
                 <Text style={styles.sectionOutside}>Participants ({participants.length})</Text>
@@ -712,7 +760,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     {submitting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Submit for review</Text>}
                   </TouchableOpacity>
                 </View>
-              ) : (
+              ) : campaign.supplierDeclinedAt ? null : (
                 <FloatingCard style={styles.noticeCard}>
                   <Ionicons name="hourglass-outline" size={18} color="#B48A00" />
                   <Text style={styles.noticeText}>Waiting for the supplier to accept this campaign before it can be submitted for review.</Text>
