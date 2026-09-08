@@ -25,7 +25,7 @@ import {
   type SubscriptionFrequency,
 } from "../../services/regularDeliveriesService";
 
-const ALL_FREQUENCIES: SubscriptionFrequency[] = ["WEEKLY", "BIWEEKLY", "MONTHLY"];
+const ALL_FREQUENCIES: SubscriptionFrequency[] = ["WEEKLY", "BIWEEKLY", "EVERY_4_WEEKS", "MONTHLY"];
 const ALL_FULFILMENT_METHODS: OfferFulfilmentMethod[] = ["DELIVERY", "COLLECTION"];
 const ALL_SUBSTITUTION_MODES: OfferSubstitutionMode[] = ["NO_SUBSTITUTION", "ASK_BUYER", "ALLOW_SIMILAR"];
 
@@ -110,7 +110,7 @@ export default function VendorRegularDeliveryOfferEditScreen() {
     });
   };
 
-  const handleSave = async () => {
+  const handleSave = async (publishAfter: boolean) => {
     if (!title.trim()) {
       Alert.alert("Title required", "Give this offer a name.");
       return;
@@ -169,12 +169,15 @@ export default function VendorRegularDeliveryOfferEditScreen() {
         discountPercent: useDiscount ? parsedDiscount : (isEdit ? null : undefined),
         maxPriceIncreaseApprovalBps: parsedMaxIncreaseBps ?? (isEdit ? null : undefined),
       };
-      const offer = offerId
+      let offer = offerId
         ? await regularDeliveriesService.updateOffer(offerId, input)
         : await regularDeliveriesService.createOffer(input);
+      if (publishAfter && !offer.isActive) {
+        offer = await regularDeliveriesService.publishOffer(offer.id);
+      }
       setOfferId(offer.id);
       setIsActive(offer.isActive);
-      Alert.alert("Saved", isEdit ? "Offer updated." : "Offer created as a draft. Publish it when ready.");
+      Alert.alert("Saved", offer.isActive ? "Offer created and published." : "Offer saved as a draft. Publish it when ready.");
       if (!isEdit) router.replace({ pathname: "/(vendor)/regular-delivery-offer-edit", params: { id: offer.id } } as any);
     } catch (err) {
       Alert.alert("Couldn't save offer", err instanceof Error ? err.message : "Please try again.");
@@ -216,13 +219,11 @@ export default function VendorRegularDeliveryOfferEditScreen() {
     }
   };
 
-  const handleTogglePublish = async () => {
+  const handleUnpublish = async () => {
     if (!offerId) return;
     setPublishing(true);
     try {
-      const offer = isActive
-        ? await regularDeliveriesService.unpublishOffer(offerId)
-        : await regularDeliveriesService.publishOffer(offerId);
+      const offer = await regularDeliveriesService.unpublishOffer(offerId);
       setIsActive(offer.isActive);
     } catch (err) {
       Alert.alert("Couldn't update offer", err instanceof Error ? err.message : "Please try again.");
@@ -367,15 +368,17 @@ export default function VendorRegularDeliveryOfferEditScreen() {
               )}
             </View>
 
-            <PrimaryButton label={isEdit ? "Save changes" : "Create offer"} onPress={() => void handleSave()} loading={saving} />
-
-            {offerId ? (
-              <OutlineButton
-                label={isActive ? "Unpublish" : "Publish this offer"}
-                onPress={() => void handleTogglePublish()}
-                loading={publishing}
-              />
-            ) : null}
+            {isActive ? (
+              <>
+                <PrimaryButton label="Save changes" onPress={() => void handleSave(false)} loading={saving} />
+                <OutlineButton label="Unpublish" onPress={() => void handleUnpublish()} loading={publishing} />
+              </>
+            ) : (
+              <>
+                <PrimaryButton label={isEdit ? "Update and publish offer" : "Create and publish offer"} onPress={() => void handleSave(true)} loading={saving} />
+                <OutlineButton label="Save as draft" onPress={() => void handleSave(false)} loading={saving} />
+              </>
+            )}
           </View>
         </ScrollView>
       )}

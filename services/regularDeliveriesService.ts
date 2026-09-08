@@ -6,7 +6,7 @@
  */
 import { apiClient } from "./api";
 
-export type SubscriptionFrequency = "WEEKLY" | "BIWEEKLY" | "MONTHLY";
+export type SubscriptionFrequency = "WEEKLY" | "BIWEEKLY" | "EVERY_4_WEEKS" | "MONTHLY";
 
 export type BuyerSubscriptionStatus = "ACTIVE" | "PAUSED" | "PAYMENT_ATTENTION" | "CANCELLED";
 
@@ -39,6 +39,7 @@ export type RenewalStatus =
 export const FREQUENCY_LABELS: Record<SubscriptionFrequency, string> = {
   WEEKLY: "Weekly",
   BIWEEKLY: "Every 2 weeks",
+  EVERY_4_WEEKS: "Every 4 weeks",
   MONTHLY: "Monthly",
 };
 
