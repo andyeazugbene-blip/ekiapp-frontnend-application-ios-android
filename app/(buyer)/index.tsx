@@ -21,6 +21,8 @@ import { rewardService, type Reward } from "../../services/rewardService";
 import { giftCardService, type GiftCard } from "../../services/giftCardService";
 import { campaignService, campaignColors, type Campaign } from "../../services/campaignService";
 import { marketingService } from "../../services/marketingService";
+import { communityBuyService, type Campaign as CommunityBuyCampaign } from "../../services/communityBuyService";
+import { FloatingCard, RangeProgressBar } from "../../components/shared/PremiumBlocks";
 import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
@@ -30,6 +32,13 @@ import { type VendorSummary } from "../../types/vendor";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { vendorService } from "../../services/vendorService";
 import { formatDisplayMoney } from "../../utils/currency";
+
+function communityBuyDaysLeft(deadline: string): string {
+  const ms = new Date(deadline).getTime() - Date.now();
+  if (ms <= 0) return "Closing";
+  const days = Math.ceil(ms / (24 * 60 * 60 * 1000));
+  return days === 1 ? "1 day left" : `${days} days left`;
+}
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const DEAL_CARD_WIDTH = Math.min(SCREEN_WIDTH - 96, 280);
@@ -119,6 +128,34 @@ export default function BuyerHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeDealIndex, setActiveDealIndex] = useState(0);
   const [vendorDealsCount, setVendorDealsCount] = useState(0);
+  const [communityBuyEnabled, setCommunityBuyEnabled] = useState(false);
+  const [communityBuyCampaigns, setCommunityBuyCampaigns] = useState<CommunityBuyCampaign[]>([]);
+
+  const loadCommunityBuy = useCallback(async () => {
+    if (!deliveryCountry) {
+      setCommunityBuyEnabled(false);
+      setCommunityBuyCampaigns([]);
+      return;
+    }
+    try {
+      const markets = await communityBuyService.listMarketConfigs();
+      const market = markets.find((m) => m.countryCode === deliveryCountry);
+      const enabled = Boolean(market?.communityBuyEnabled);
+      setCommunityBuyEnabled(enabled);
+      if (enabled) {
+        const liveCampaigns = await communityBuyService.listLiveCampaigns(deliveryCountry).catch(() => [] as CommunityBuyCampaign[]);
+        setCommunityBuyCampaigns(liveCampaigns.slice(0, 3));
+      } else {
+        setCommunityBuyCampaigns([]);
+      }
+    } catch {
+      // Market config is genuinely unavailable (not just "no campaigns") —
+      // stay hidden rather than guess. Never expose an active-looking entry
+      // for a market Community Buy hasn't actually been enabled in.
+      setCommunityBuyEnabled(false);
+      setCommunityBuyCampaigns([]);
+    }
+  }, [deliveryCountry]);
 
   const loadCampaigns = useCallback(async () => {
     setCampaignsLoading(true);
@@ -153,7 +190,8 @@ export default function BuyerHomeScreen() {
       setLoading(false);
     }
     void loadCampaigns();
-  }, [loadCampaigns]);
+    void loadCommunityBuy();
+  }, [loadCampaigns, loadCommunityBuy]);
 
   // Skips redundant refetch when returning to Home within 30s of the last
   // load — see hooks/useFocusRefresh.ts.
@@ -489,6 +527,45 @@ export default function BuyerHomeScreen() {
           </View>
         ) : null}
 
+        {communityBuyEnabled ? (
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitleInline}>Community Buy</Text>
+                <Text style={styles.communityBuySubtitle}>Bulk-buy together, unlock better prices</Text>
+              </View>
+              <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy" as any)} activeOpacity={0.8}>
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
+            {communityBuyCampaigns.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.communityBuyScroll}>
+                {communityBuyCampaigns.map((c) => (
+                  <TouchableOpacity
+                    key={c.id}
+                    activeOpacity={0.85}
+                    onPress={() => router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: c.id } } as any)}
+                  >
+                    <FloatingCard style={styles.communityBuyCard}>
+                      <Text style={styles.communityBuyCardTitle} numberOfLines={1}>{c.title}</Text>
+                      <Text style={styles.communityBuyCardVendor} numberOfLines={1}>{c.supplier?.vendor?.storeName ?? "Community Buy"}</Text>
+                      <RangeProgressBar value={c.confirmedShares} min={c.minimumShares} goal={c.goalShares} max={c.maximumShares} />
+                      <Text style={styles.communityBuyCardMeta}>{communityBuyDaysLeft(c.deadline)}</Text>
+                    </FloatingCard>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <TouchableOpacity activeOpacity={0.85} onPress={() => router.push("/(buyer)/community-buy" as any)}>
+                <FloatingCard style={{ gap: 4 }}>
+                  <Text style={styles.communityBuyCardTitle}>No live campaigns right now</Text>
+                  <Text style={styles.communityBuyCardVendor}>Check back soon, or browse Community Buy to see what's coming up.</Text>
+                </FloatingCard>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : null}
+
         {vendors.length > 0 ? (
           <View style={styles.supportSection}>
             <View style={styles.supportHeader}>
@@ -656,6 +733,35 @@ const styles = StyleSheet.create({
     color: "#076B51",
     fontSize: 13,
     fontFamily: "Manrope-Bold",
+  },
+  communityBuySubtitle: {
+    fontSize: 12,
+    fontFamily: "Outfit-Regular",
+    color: "#6A7B72",
+    marginTop: 2,
+  },
+  communityBuyScroll: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  communityBuyCard: {
+    width: Math.min(SCREEN_WIDTH - 64, 240),
+    gap: 8,
+  },
+  communityBuyCardTitle: {
+    fontSize: 14,
+    fontFamily: "Manrope-Bold",
+    color: "#151E1B",
+  },
+  communityBuyCardVendor: {
+    fontSize: 12,
+    fontFamily: "Outfit-Regular",
+    color: "#6A7B72",
+  },
+  communityBuyCardMeta: {
+    fontSize: 12,
+    fontFamily: "Outfit-Medium",
+    color: "#076B51",
   },
   vendorDealsBanner: {
     flexDirection: "row",

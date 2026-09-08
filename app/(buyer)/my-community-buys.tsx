@@ -12,48 +12,30 @@ import {
   FloatingCard,
   LoadingBlock,
   PremiumHeader,
+  RangeProgressBar,
   StatusPill,
   premiumStyles,
-  type Tone,
 } from "../../components/shared/PremiumBlocks";
-import { communityBuyService, type ContributionStatus, type MyCommunityBuy } from "../../services/communityBuyService";
-
-// Client mandate (2026-09): accurate states only — never show "Payment
-// successful" when only a payment method has been saved.
-const PLEDGE_TONE: Partial<Record<ContributionStatus, Tone>> = {
-  PLEDGED: "info",
-  PAYMENT_PROCESSING: "info",
-  PAID: "success",
-  CHARGE_FAILED: "error",
-  CANCELLED: "neutral",
-};
-
-const PLEDGE_LABEL: Partial<Record<ContributionStatus, string>> = {
-  PLEDGED: "Payment method saved — awaiting outcome",
-  PAYMENT_PROCESSING: "Payment pending",
-  PAID: "Payment confirmed",
-  CHARGE_FAILED: "Payment failed",
-  CANCELLED: "Pledge cancelled",
-};
-
-const REFUND_TONE: Record<NonNullable<MyCommunityBuy["refundStatus"]>, Tone> = {
-  REFUND_PENDING: "warning",
-  REFUND_PROCESSING: "warning",
-  REFUNDED: "success",
-  REFUND_FAILED: "error",
-};
-
-const REFUND_LABEL: Record<NonNullable<MyCommunityBuy["refundStatus"]>, string> = {
-  REFUND_PENDING: "Refund started",
-  REFUND_PROCESSING: "Refund in progress",
-  REFUNDED: "Refund completed",
-  REFUND_FAILED: "Refund needs attention",
-};
+import {
+  communityBuyService,
+  CAMPAIGN_STATUS_LABELS,
+  CAMPAIGN_STATUS_TONE,
+  CONTRIBUTION_STATUS_LABELS,
+  CONTRIBUTION_STATUS_TONE,
+  type MyCommunityBuy,
+} from "../../services/communityBuyService";
 
 function formatDate(value: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
+function daysLeft(deadline: string): string {
+  const ms = new Date(deadline).getTime() - Date.now();
+  if (ms <= 0) return "Closing";
+  const days = Math.ceil(ms / (24 * 60 * 60 * 1000));
+  return days === 1 ? "1 day left" : `${days} days left`;
 }
 
 export default function MyCommunityBuysScreen() {
@@ -111,18 +93,38 @@ export default function MyCommunityBuysScreen() {
                 <FloatingCard style={{ gap: 8 }}>
                   <View style={styles.cardTop}>
                     <Text style={styles.cardTitle} numberOfLines={1}>{item.campaign.title}</Text>
-                    {item.refundStatus ? (
-                      <StatusPill label={REFUND_LABEL[item.refundStatus]} tone={REFUND_TONE[item.refundStatus]} />
-                    ) : PLEDGE_LABEL[item.latestContribution.status] ? (
-                      <StatusPill label={PLEDGE_LABEL[item.latestContribution.status]!} tone={PLEDGE_TONE[item.latestContribution.status] ?? "neutral"} />
-                    ) : null}
+                    <StatusPill label={CAMPAIGN_STATUS_LABELS[item.campaign.status]} tone={CAMPAIGN_STATUS_TONE[item.campaign.status]} />
                   </View>
                   <Text style={styles.cardVendor}>{item.campaign.supplier?.vendor?.storeName ?? "Community Buy"}</Text>
+
+                  {item.refundStatus ? (
+                    <StatusPill label={CONTRIBUTION_STATUS_LABELS[item.refundStatus]} tone={CONTRIBUTION_STATUS_TONE[item.refundStatus]} />
+                  ) : null}
+
+                  {item.campaign.status === "LIVE" || item.campaign.status === "RESCUE_WINDOW" || item.campaign.status === "PAUSED" ? (
+                    <>
+                      <RangeProgressBar
+                        value={item.campaign.confirmedShares}
+                        min={item.campaign.minimumShares}
+                        goal={item.campaign.goalShares}
+                        max={item.campaign.maximumShares}
+                      />
+                      <Text style={styles.cardMetaText}>
+                        {item.campaign.confirmedShares} of {item.campaign.maximumShares} slots filled
+                        {item.campaign.status === "RESCUE_WINDOW" && item.campaign.rescueEndsAt
+                          ? ` · Completion period ends ${formatDate(item.campaign.rescueEndsAt)}`
+                          : ` · ${daysLeft(item.campaign.deadline)}`}
+                      </Text>
+                    </>
+                  ) : null}
+
                   <View style={styles.cardMetaRow}>
                     <Text style={styles.cardMetaText}>
                       {item.totalPaid > 0
                         ? `${item.totalQuantity} share${item.totalQuantity === 1 ? "" : "s"} · ${formatDisplayMoney(item.totalPaid / 100, item.campaign.currency, selectedCurrency)} charged`
-                        : `${formatDisplayMoney(item.totalPledged / 100, item.campaign.currency, selectedCurrency)} pledged — not charged yet`}
+                        : !item.refundStatus
+                          ? CONTRIBUTION_STATUS_LABELS[item.latestContribution.status]
+                          : `${formatDisplayMoney(item.totalPledged / 100, item.campaign.currency, selectedCurrency)} pledged — not charged`}
                     </Text>
                     <Text style={styles.cardMetaText}>{formatDate(item.campaign.deadline)}</Text>
                   </View>

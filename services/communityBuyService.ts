@@ -31,6 +31,45 @@ export type CampaignStatus =
 
 export type FundingOutcome = "PENDING" | "GOAL_REACHED" | "MINIMUM_REACHED" | "BELOW_MINIMUM";
 
+export type StatusTone = "success" | "warning" | "error" | "info" | "neutral";
+
+/** Central status-presentation mapping — every participant screen must read from here, never `.replace("_", " ")` on the raw enum. */
+export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
+  DRAFT: "Draft",
+  UNDER_REVIEW: "Under review",
+  CHANGES_REQUIRED: "Changes requested",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  LIVE: "Live",
+  PAUSED: "Paused",
+  RESCUE_WINDOW: "Completion period",
+  SUCCEEDED: "Succeeded",
+  FAILED: "Did not reach minimum",
+  REFUNDING: "Refunding",
+  FULFILLING: "Proceeding",
+  COMPLETED: "Completed",
+  FINANCIALLY_CLOSED: "Closed",
+  CANCELLED: "Ended",
+};
+
+export const CAMPAIGN_STATUS_TONE: Record<CampaignStatus, StatusTone> = {
+  DRAFT: "neutral",
+  UNDER_REVIEW: "neutral",
+  CHANGES_REQUIRED: "warning",
+  APPROVED: "info",
+  REJECTED: "error",
+  LIVE: "success",
+  PAUSED: "warning",
+  RESCUE_WINDOW: "warning",
+  SUCCEEDED: "success",
+  FAILED: "warning",
+  REFUNDING: "warning",
+  FULFILLING: "success",
+  COMPLETED: "success",
+  FINANCIALLY_CLOSED: "neutral",
+  CANCELLED: "error",
+};
+
 // PLEDGE_THEN_CHARGE model (client mandate 2026-09): a pledge saves a
 // payment method and reserves a share, but captures nothing. Charging only
 // happens once the campaign succeeds — see PLEDGED / CHARGE_FAILED below.
@@ -47,6 +86,36 @@ export type ContributionStatus =
   | "REFUNDED"
   | "REFUND_FAILED"
   | "CANCELLED";
+
+// Client mandate (2026-09): accurate states only — never show "Payment
+// successful" when only a payment method has been saved (PLEDGED).
+export const CONTRIBUTION_STATUS_LABELS: Record<ContributionStatus, string> = {
+  INITIATED: "Starting your pledge",
+  PLEDGED: "Payment method saved — awaiting outcome",
+  PAYMENT_PROCESSING: "Payment pending",
+  PAID: "Payment confirmed",
+  PAYMENT_FAILED: "Payment failed",
+  CHARGE_FAILED: "Payment failed",
+  REFUND_PENDING: "Refund started",
+  REFUND_PROCESSING: "Refund in progress",
+  REFUNDED: "Refund completed",
+  REFUND_FAILED: "Refund needs attention",
+  CANCELLED: "Pledge cancelled",
+};
+
+export const CONTRIBUTION_STATUS_TONE: Record<ContributionStatus, StatusTone> = {
+  INITIATED: "neutral",
+  PLEDGED: "info",
+  PAYMENT_PROCESSING: "info",
+  PAID: "success",
+  PAYMENT_FAILED: "error",
+  CHARGE_FAILED: "error",
+  REFUND_PENDING: "warning",
+  REFUND_PROCESSING: "warning",
+  REFUNDED: "success",
+  REFUND_FAILED: "error",
+  CANCELLED: "neutral",
+};
 
 export type ExtensionRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
 
@@ -125,6 +194,11 @@ export interface MyCommunityBuy {
     fundingOutcome: FundingOutcome;
     currency: string;
     deadline: string;
+    minimumShares: number;
+    goalShares: number;
+    maximumShares: number;
+    confirmedShares: number;
+    rescueEndsAt?: string | null;
     supplier?: { vendor?: { storeName: string } };
   };
   totalQuantity: number;
@@ -170,6 +244,21 @@ export type FulfilmentStatus =
   | "COMPLETED";
 
 export type FulfilmentMethod = "DELIVERY" | "COLLECTION";
+
+export const FULFILMENT_METHOD_LABELS: Record<FulfilmentMethod, string> = {
+  DELIVERY: "Delivery",
+  COLLECTION: "Collection",
+};
+
+export const FULFILMENT_STATUS_LABELS: Record<FulfilmentStatus, string> = {
+  AWAITING_INVENTORY_CONFIRMATION: "Awaiting supplier confirmation",
+  INVENTORY_CONFIRMED: "Stock confirmed",
+  PACKING: "Being packed",
+  READY_FOR_DISPATCH_OR_COLLECTION: "Ready",
+  DISPATCHED: "Dispatched",
+  COLLECTED: "Collected",
+  COMPLETED: "Completed",
+};
 
 export interface CampaignFulfilment {
   campaignId: string;
@@ -274,6 +363,12 @@ export const communityBuyService = {
   async getCampaign(id: string): Promise<Campaign> {
     const res = await apiClient.get<{ campaign: Campaign }>(`/api/community-buy/campaigns/${id}`, { skipAuth: true });
     return res.campaign;
+  },
+
+  /** Read-only — there is no participant-facing fulfilment CHOICE, only the organiser/supplier-set plan. Null until a plan exists (normal before a campaign succeeds). */
+  async getCampaignFulfilment(id: string): Promise<CampaignFulfilment | null> {
+    const res = await apiClient.get<{ fulfilment: CampaignFulfilment | null }>(`/api/community-buy/campaigns/${id}/fulfilment`, { skipAuth: true });
+    return res.fulfilment ?? null;
   },
 
   // ─── Participant ─────────────────────────────────────────────────────────
