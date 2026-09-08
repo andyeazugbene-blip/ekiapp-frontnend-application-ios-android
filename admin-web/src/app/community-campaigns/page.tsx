@@ -139,7 +139,14 @@ export default function CommunityCampaignsPage() {
                         rows={2}
                       />
                       <div className="mt-4 flex flex-wrap gap-3">
-                        <Button disabled={busyId === c.id} onClick={() => void runAction(c.id, () => communityBuyAdminAPI.approveCampaign(c.id))}>Approve</Button>
+                        <Button
+                          disabled={busyId === c.id}
+                          onClick={() => {
+                            if (confirm("Approve this campaign? It will go live and become visible to buyers.")) void runAction(c.id, () => communityBuyAdminAPI.approveCampaign(c.id));
+                          }}
+                        >
+                          Approve
+                        </Button>
                         <Button
                           variant="secondary"
                           disabled={busyId === c.id || !notesById[c.id]?.trim()}
@@ -181,14 +188,21 @@ export default function CommunityCampaignsPage() {
                         <p>Organiser: <span className="font-semibold text-[#101820]">{c.organiser?.user?.name ?? "Unknown"}</span></p>
                         <p>Confirmed shares: <span className="font-semibold text-[#101820]">{c.confirmedShares} of {c.maximumShares} (minimum {c.minimumShares})</span></p>
                         <p>Funding outcome: <span className="font-semibold text-[#101820]">{c.fundingOutcome}</span></p>
+                        <p>Target value: <span className="font-semibold text-[#101820]">{centsToUnit(c.targetAmount).toFixed(2)} {c.currency}</span></p>
+                        <p>Extensions used: <span className="font-semibold text-[#101820]">{c.extensionCount} of 1</span></p>
+                        {c.paidTotal != null ? <p>Paid total: <span className="font-semibold text-[#101820]">{centsToUnit(c.paidTotal).toFixed(2)} {c.currency}</span></p> : null}
+                        {c.status === "RESCUE_WINDOW" && c.rescueEndsAt ? <p>Rescue window ends: <span className="font-semibold text-[#101820]">{new Date(c.rescueEndsAt).toLocaleString()}</span></p> : null}
                       </div>
+                      {c.reviewNotes ? <p className="mt-2 text-sm text-slate-500">Review notes: <span className="text-slate-700">{c.reviewNotes}</span></p> : null}
                       {c.status === "LIVE" || c.status === "PAUSED" ? (
                         <div className="mt-4 border-t border-slate-100 pt-4">
                           {c.status === "LIVE" ? (
                             <Button
                               variant="danger"
                               disabled={busyId === c.id}
-                              onClick={() => void runAction(c.id, () => communityBuyAdminAPI.pauseCampaign(c.id))}
+                              onClick={() => {
+                                if (confirm("Pause new contributions for this campaign? Existing participants keep their pledge; no new contributions will be accepted until resumed.")) void runAction(c.id, () => communityBuyAdminAPI.pauseCampaign(c.id));
+                              }}
                             >
                               Pause new contributions
                             </Button>
@@ -196,7 +210,9 @@ export default function CommunityCampaignsPage() {
                             <Button
                               variant="secondary"
                               disabled={busyId === c.id}
-                              onClick={() => void runAction(c.id, () => communityBuyAdminAPI.resumeCampaign(c.id))}
+                              onClick={() => {
+                                if (confirm("Resume contributions for this campaign?")) void runAction(c.id, () => communityBuyAdminAPI.resumeCampaign(c.id));
+                              }}
                             >
                               Resume contributions
                             </Button>
@@ -232,7 +248,9 @@ export default function CommunityCampaignsPage() {
                       <div className="mt-4 flex flex-wrap gap-3">
                         <Button
                           disabled={busyId === req.id || !req.supplierReconfirmed || !req.priceUnchangedConfirmed}
-                          onClick={() => void runExtensionAction(req.id, () => communityBuyAdminAPI.approveExtension(req.id))}
+                          onClick={() => {
+                            if (confirm(`Approve this extension? The campaign deadline will move to ${new Date(req.requestedDeadline).toLocaleString()}.`)) void runExtensionAction(req.id, () => communityBuyAdminAPI.approveExtension(req.id));
+                          }}
                         >
                           Approve extension
                         </Button>
@@ -274,7 +292,9 @@ export default function CommunityCampaignsPage() {
                         <div className="mt-4 flex flex-wrap items-center gap-3">
                           <Button
                             disabled={busyId === p.id}
-                            onClick={() => void runPaymentAction(p.id, () => communityBuyAdminAPI.releaseSupplierPayment(p.campaignId))}
+                            onClick={() => {
+                              if (confirm(`Release ${centsToUnit(p.amount).toFixed(2)} ${p.currency} to the supplier? This cannot be undone.`)) void runPaymentAction(p.id, () => communityBuyAdminAPI.releaseSupplierPayment(p.campaignId));
+                            }}
                           >
                             Approve release
                           </Button>
@@ -287,7 +307,9 @@ export default function CommunityCampaignsPage() {
                           <Button
                             variant="secondary"
                             disabled={busyId === p.id || !holdReasonById[p.id]?.trim()}
-                            onClick={() => void runPaymentAction(p.id, () => communityBuyAdminAPI.holdSupplierPayment(p.campaignId, holdReasonById[p.id]!.trim()))}
+                            onClick={() => {
+                              if (confirm("Place this supplier payment on hold?")) void runPaymentAction(p.id, () => communityBuyAdminAPI.holdSupplierPayment(p.campaignId, holdReasonById[p.id]!.trim()));
+                            }}
                           >
                             Place on hold
                           </Button>

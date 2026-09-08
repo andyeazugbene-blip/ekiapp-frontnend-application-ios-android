@@ -33,11 +33,13 @@ export interface AutomationRun {
   type: AutomationType;
   vendorId?: string | null;
   recipientUserId: string;
-  status: "ELIGIBILITY_CHECK" | "SENT" | "FAILED";
+  recipient?: { name: string | null; email: string } | null;
+  status: "QUEUED" | "ELIGIBILITY_CHECK" | "SCHEDULED" | "SENT" | "SUPPRESSED" | "FAILED" | "CANCELLED";
   dedupeKey: string;
   data?: Record<string, unknown>;
   sentAt?: string | null;
   failureReason?: string | null;
+  suppressedReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -94,6 +96,32 @@ export const AUTOMATION_LABELS: Record<AutomationType, string> = {
   CAMPAIGN_MILESTONE: "Campaign milestone",
   CAMPAIGN_DEADLINE: "Campaign deadline",
   CAMPAIGN_REFUND_UPDATE: "Campaign refund update",
+};
+
+/**
+ * Central status-presentation mapping for AutomationRun — every screen
+ * showing a run's status must read from here, never derive its own label
+ * via a ternary chain (that's how SUPPRESSED silently fell through as
+ * "Checking eligibility" for every vendor before this existed).
+ */
+export const AUTOMATION_RUN_STATUS_LABELS: Record<AutomationRun["status"], string> = {
+  QUEUED: "Checking eligibility",
+  ELIGIBILITY_CHECK: "Checking eligibility",
+  SCHEDULED: "Scheduled",
+  SENT: "Sent",
+  SUPPRESSED: "Not sent",
+  FAILED: "Failed",
+  CANCELLED: "Cancelled",
+};
+
+export const AUTOMATION_RUN_STATUS_TONE: Record<AutomationRun["status"], "success" | "warning" | "error" | "info" | "neutral"> = {
+  QUEUED: "neutral",
+  ELIGIBILITY_CHECK: "neutral",
+  SCHEDULED: "neutral",
+  SENT: "success",
+  SUPPRESSED: "warning",
+  FAILED: "error",
+  CANCELLED: "neutral",
 };
 
 interface AutomationListResponse {

@@ -42,6 +42,7 @@ export default function CommunityVerificationPage() {
   useEffect(() => { void load(); }, []);
 
   const verifyOrganiser = async (id: string) => {
+    if (!confirm("Verify this organiser? They will be able to create and publish Community Buy campaigns.")) return;
     setBusyId(id);
     try {
       await communityBuyAdminAPI.verifyOrganiser(id);
@@ -54,6 +55,7 @@ export default function CommunityVerificationPage() {
   };
 
   const verifySupplier = async (id: string) => {
+    if (!confirm("Verify this supplier? They will be able to accept Community Buy campaign invitations.")) return;
     setBusyId(id);
     try {
       await communityBuyAdminAPI.verifySupplier(id);
@@ -68,6 +70,7 @@ export default function CommunityVerificationPage() {
   const restrictOrganiser = async (id: string) => {
     const reason = restrictReasonById[id]?.trim();
     if (!reason) return;
+    if (!confirm("Restrict this organiser from taking on new campaigns? Existing live campaigns are unaffected.")) return;
     setBusyId(id);
     try {
       await communityBuyAdminAPI.restrictOrganiser(id, reason);
@@ -81,6 +84,7 @@ export default function CommunityVerificationPage() {
   };
 
   const unrestrictOrganiser = async (id: string) => {
+    if (!confirm("Lift this organiser's restriction? They will be able to take on new campaigns again.")) return;
     setBusyId(id);
     try {
       await communityBuyAdminAPI.unrestrictOrganiser(id);
@@ -95,6 +99,7 @@ export default function CommunityVerificationPage() {
   const restrictSupplier = async (id: string) => {
     const reason = restrictReasonById[id]?.trim();
     if (!reason) return;
+    if (!confirm("Restrict this supplier from taking on new campaigns? Existing live campaigns are unaffected.")) return;
     setBusyId(id);
     try {
       await communityBuyAdminAPI.restrictSupplier(id, reason);
@@ -108,6 +113,7 @@ export default function CommunityVerificationPage() {
   };
 
   const unrestrictSupplier = async (id: string) => {
+    if (!confirm("Lift this supplier's restriction? They will be able to take on new campaigns again.")) return;
     setBusyId(id);
     try {
       await communityBuyAdminAPI.unrestrictSupplier(id);

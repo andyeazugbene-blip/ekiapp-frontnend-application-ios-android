@@ -10,6 +10,21 @@ export type SubscriptionFrequency = "WEEKLY" | "BIWEEKLY" | "MONTHLY";
 
 export type BuyerSubscriptionStatus = "ACTIVE" | "PAUSED" | "PAYMENT_ATTENTION" | "CANCELLED";
 
+/** Central status-presentation mapping — every screen showing a buyer subscription status must read from here, never from `.replace("_", " ")` on the raw enum. */
+export const BUYER_SUBSCRIPTION_STATUS_LABELS: Record<BuyerSubscriptionStatus, string> = {
+  ACTIVE: "Active",
+  PAUSED: "Paused",
+  PAYMENT_ATTENTION: "Needs attention",
+  CANCELLED: "Cancelled",
+};
+
+export const BUYER_SUBSCRIPTION_STATUS_TONE: Record<BuyerSubscriptionStatus, "success" | "warning" | "error" | "neutral"> = {
+  ACTIVE: "success",
+  PAUSED: "warning",
+  PAYMENT_ATTENTION: "error",
+  CANCELLED: "neutral",
+};
+
 export type RenewalStatus =
   | "SCHEDULED"
   | "AWAITING_STOCK"

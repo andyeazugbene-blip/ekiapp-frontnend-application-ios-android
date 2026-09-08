@@ -182,7 +182,10 @@ function MarketCard({ market, onUpdated }: { market: MarketConfig; onUpdated: (m
             <Toggle
               checked={Boolean(market[flag.key])}
               disabled={busyKey === `flag:${String(flag.key)}`}
-              onChange={(value) => void toggle(flag.key, value)}
+              onChange={(value) => {
+                const action = value ? "Turn on" : "Turn off";
+                if (confirm(`${action} "${flag.label}" for ${countryDisplayName(market.countryCode)}? ${flag.note}`)) void toggle(flag.key, value);
+              }}
             />
           </div>
         ))}

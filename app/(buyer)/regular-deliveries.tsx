@@ -14,29 +14,15 @@ import {
   PremiumHeader,
   StatusPill,
   premiumStyles,
-  type Tone,
 } from "../../components/shared/PremiumBlocks";
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
+  BUYER_SUBSCRIPTION_STATUS_LABELS,
+  BUYER_SUBSCRIPTION_STATUS_TONE,
   type BuyerSubscription,
-  type BuyerSubscriptionStatus,
   type ReorderSuggestion,
 } from "../../services/regularDeliveriesService";
-
-const STATUS_TONE: Record<BuyerSubscriptionStatus, Tone> = {
-  ACTIVE: "success",
-  PAUSED: "warning",
-  PAYMENT_ATTENTION: "error",
-  CANCELLED: "neutral",
-};
-
-const STATUS_LABEL: Record<BuyerSubscriptionStatus, string> = {
-  ACTIVE: "Active",
-  PAUSED: "Paused",
-  PAYMENT_ATTENTION: "Needs attention",
-  CANCELLED: "Cancelled",
-};
 
 function formatDate(value?: string | null): string {
   if (!value) return "—";
@@ -136,7 +122,7 @@ export default function RegularDeliveriesScreen() {
                     <FloatingCard>
                       <View style={styles.cardTop}>
                         <Text style={styles.cardTitle} numberOfLines={1}>{sub.offer?.title ?? "Regular Delivery"}</Text>
-                        <StatusPill label={STATUS_LABEL[sub.status]} tone={STATUS_TONE[sub.status]} />
+                        <StatusPill label={BUYER_SUBSCRIPTION_STATUS_LABELS[sub.status]} tone={BUYER_SUBSCRIPTION_STATUS_TONE[sub.status]} />
                       </View>
                       <Text style={styles.cardVendor}>{sub.offer?.vendor?.storeName ?? "Vendor"}</Text>
                       <View style={styles.cardMetaRow}>

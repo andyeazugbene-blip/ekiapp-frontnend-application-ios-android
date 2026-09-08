@@ -17,6 +17,8 @@ import {
 import {
   automationService,
   AUTOMATION_LABELS,
+  AUTOMATION_RUN_STATUS_LABELS,
+  AUTOMATION_RUN_STATUS_TONE,
   VENDOR_AUTOMATION_TYPES,
   type AutomationRun,
   type AutomationType,
@@ -98,18 +100,18 @@ export default function AutomationActivityScreen() {
                 {filtered.map((run) => (
                   <FloatingCard key={run.id} style={styles.activityCard}>
                     <IconAvatar
-                      icon={run.status === "FAILED" ? "close" : run.status === "SENT" ? "checkmark" : "time-outline"}
-                      tone={run.status === "SENT" ? "success" : run.status === "FAILED" ? "error" : "neutral"}
+                      icon={run.status === "FAILED" ? "close" : run.status === "SENT" ? "checkmark" : run.status === "SUPPRESSED" ? "remove-circle-outline" : "time-outline"}
+                      tone={AUTOMATION_RUN_STATUS_TONE[run.status]}
                       size={38}
                     />
                     <View style={styles.activityCopy}>
                       <Text style={styles.activityTitle}>{AUTOMATION_LABELS[run.type] ?? run.type}</Text>
+                      <Text style={styles.activityRecipient}>{run.recipient?.name || run.recipient?.email || "Unknown recipient"}</Text>
                       <View style={{ marginTop: 4 }}>
-                        <StatusPill
-                          label={run.status === "SENT" ? "Sent" : run.status === "FAILED" ? (run.failureReason ?? "Failed") : "Checking eligibility"}
-                          tone={run.status === "SENT" ? "success" : run.status === "FAILED" ? "error" : "neutral"}
-                        />
+                        <StatusPill label={AUTOMATION_RUN_STATUS_LABELS[run.status]} tone={AUTOMATION_RUN_STATUS_TONE[run.status]} />
                       </View>
+                      {run.status === "FAILED" && run.failureReason ? <Text style={styles.activityReason}>{run.failureReason}</Text> : null}
+                      {run.status === "SUPPRESSED" && run.suppressedReason ? <Text style={styles.activityReason}>{run.suppressedReason}</Text> : null}
                       <Text style={styles.activityMeta}>{formatRelative(run.sentAt ?? run.createdAt)}</Text>
                     </View>
                   </FloatingCard>
@@ -132,5 +134,7 @@ const styles = StyleSheet.create({
   activityCard: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   activityCopy: { flex: 1 },
   activityTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  activityRecipient: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#516A60", marginTop: 2 },
+  activityReason: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8A6D1D", marginTop: 4 },
   activityMeta: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 4 },
 });

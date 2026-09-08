@@ -17,6 +17,8 @@ import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
   RENEWAL_STATUS_LABELS,
+  BUYER_SUBSCRIPTION_STATUS_LABELS,
+  BUYER_SUBSCRIPTION_STATUS_TONE,
   type BuyerSubscription,
   type Renewal,
 } from "../../services/regularDeliveriesService";
@@ -200,8 +202,8 @@ export default function RegularDeliveryDetailScreen() {
             <FloatingCard>
               <View style={styles.summaryTopRow}>
                 <StatusPill
-                  label={sub.status.replace("_", " ")}
-                  tone={isActive ? "success" : isPaused ? "warning" : sub.status === "PAYMENT_ATTENTION" ? "error" : "neutral"}
+                  label={BUYER_SUBSCRIPTION_STATUS_LABELS[sub.status]}
+                  tone={BUYER_SUBSCRIPTION_STATUS_TONE[sub.status]}
                 />
                 <Text style={styles.summaryFrequency}>{FREQUENCY_LABELS[sub.frequency]}</Text>
               </View>

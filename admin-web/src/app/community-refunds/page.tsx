@@ -39,6 +39,7 @@ export default function CommunityRefundsPage() {
   useEffect(() => { void load(); }, []);
 
   const recheck = async (id: string) => {
+    if (!confirm("Recheck this refund with the payment provider? This re-attempts the refund if it hasn't completed yet.")) return;
     setBusyId(id);
     try {
       const updated = await communityBuyAdminAPI.requeryRefund(id);
@@ -51,6 +52,7 @@ export default function CommunityRefundsPage() {
   };
 
   const escalate = async (id: string) => {
+    if (!confirm("Escalate this refund? A support case will be opened.")) return;
     setBusyId(id);
     try {
       await communityBuyAdminAPI.escalateRefund(id);

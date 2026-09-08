@@ -505,7 +505,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
             ) : campaign?.status === "FAILED" ? (
               <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
                 <Ionicons name="time-outline" size={18} color="#B48A00" />
-                <Text style={styles.outcomeHint}>This campaign did not reach its minimum requirement. No supplier order will be created. Eki is creating an individual refund record for every eligible confirmed contribution.</Text>
+                <Text style={styles.outcomeHint}>This campaign did not reach its minimum requirement. No supplier order will be created — no participant was ever charged, so there is nothing to refund. Any saved pledges have been cancelled.</Text>
               </FloatingCard>
             ) : campaign?.status === "CANCELLED" ? (
               <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>

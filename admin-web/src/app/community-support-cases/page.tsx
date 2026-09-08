@@ -140,7 +140,9 @@ export default function CommunitySupportCasesPage() {
                               variant="secondary"
                               className="mt-2"
                               disabled={busyId === c.id}
-                              onClick={() => void applyUpdate(c.id, { internalNotes: draftNotes[c.id] ?? c.internalNotes ?? "" })}
+                              onClick={() => {
+                                if (confirm("Save this internal note? It is never shown to the reporter.")) void applyUpdate(c.id, { internalNotes: draftNotes[c.id] ?? c.internalNotes ?? "" });
+                              }}
                             >
                               Save note
                             </Button>
@@ -157,7 +159,9 @@ export default function CommunitySupportCasesPage() {
                               variant="secondary"
                               className="mt-2"
                               disabled={busyId === c.id}
-                              onClick={() => void applyUpdate(c.id, { customerVisibleResponse: draftResponse[c.id] ?? c.customerVisibleResponse ?? "" })}
+                              onClick={() => {
+                                if (confirm("Send this response to the reporter? It will be visible to them and cannot be unsent.")) void applyUpdate(c.id, { customerVisibleResponse: draftResponse[c.id] ?? c.customerVisibleResponse ?? "" });
+                              }}
                             >
                               Send response
                             </Button>
@@ -170,7 +174,10 @@ export default function CommunitySupportCasesPage() {
                             className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
                             value={c.status}
                             disabled={busyId === c.id}
-                            onChange={(e) => void applyUpdate(c.id, { status: e.target.value as SupportCaseStatus })}
+                            onChange={(e) => {
+                              const next = e.target.value as SupportCaseStatus;
+                              if (confirm(`Change this case's status to "${next.replace("_", " ")}"?`)) void applyUpdate(c.id, { status: next });
+                            }}
                           >
                             {STATUS_OPTIONS.map((s) => (
                               <option key={s} value={s}>{s.replace("_", " ")}</option>
@@ -179,7 +186,9 @@ export default function CommunitySupportCasesPage() {
                           <Button
                             variant={c.escalated ? "secondary" : "danger"}
                             disabled={busyId === c.id}
-                            onClick={() => void applyUpdate(c.id, { escalated: !c.escalated })}
+                            onClick={() => {
+                              if (confirm(c.escalated ? "Un-escalate this case?" : "Escalate this case?")) void applyUpdate(c.id, { escalated: !c.escalated });
+                            }}
                           >
                             {c.escalated ? "Un-escalate" : "Escalate"}
                           </Button>
