@@ -637,7 +637,7 @@ export default function VendorDashboardScreen() {
                     icon="megaphone-outline"
                     label="Community Buy — Organize a campaign"
                     tone="light"
-                    onPress={() => navigate("/(buyer)/community-buy-organiser")}
+                    onPress={() => router.push({ pathname: "/(buyer)/community-buy-organiser", params: { from: "vendor" } } as any)}
                   />
                 </>
               )}

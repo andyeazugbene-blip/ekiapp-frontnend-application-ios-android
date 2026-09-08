@@ -140,6 +140,13 @@ export interface MarketConfig {
   organiserApplicationsEnabled: boolean;
   supplierApplicationsEnabled: boolean;
   regularDeliveriesEnabled: boolean;
+  // Eki's real, admin-configured processing fee (basis points, e.g. 500 =
+  // 5%) — taken from the supplier's payout at release time, never an extra
+  // charge to the organiser or participant. organiserFeeBps is a separate,
+  // currently-unapplied field (confirmed: no code path deducts it anywhere)
+  // — do not present it as an active charge.
+  communityBuyFeeBps?: number | null;
+  organiserFeeBps?: number | null;
 }
 
 export interface Campaign {
@@ -323,6 +330,8 @@ export interface OrganiserProfile {
   country: string;
   isVerified: boolean;
   verifiedAt?: string | null;
+  isRestricted?: boolean;
+  restrictedReason?: string | null;
   createdAt: string;
 }
 

@@ -18,8 +18,11 @@ import {
   StatusPill,
   premiumStyles,
 } from "../../components/shared/PremiumBlocks";
+import { DatePickerField } from "../../components/shared/DatePickerField";
 import {
   communityBuyService,
+  CAMPAIGN_STATUS_LABELS,
+  CAMPAIGN_STATUS_TONE,
   type Campaign,
   type CampaignFulfilment,
   type CampaignParticipant,
@@ -94,6 +97,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [updateTitleInput, setUpdateTitleInput] = useState("");
   const [updateMessageInput, setUpdateMessageInput] = useState("");
   const [postingUpdate, setPostingUpdate] = useState(false);
+  const [marketConfig, setMarketConfig] = useState<MarketConfig | null>(null);
   const { selectedCurrency } = useCurrencyStore();
 
   const load = useCallback(async () => {
@@ -106,6 +110,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         setCountry(existing.country);
         setCurrency(existing.currency);
         setSupplierId(existing.supplierId);
+        communityBuyService.getMarketConfig(existing.country).then(setMarketConfig).catch(() => undefined);
         setTitle(existing.title);
         setDescription(existing.description ?? "");
         setMinimumShares(String(existing.minimumShares ?? ""));
@@ -135,6 +140,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         const markets = await communityBuyService.listMarketConfigs().catch(() => [] as MarketConfig[]);
         const market = markets.find((m) => (countryCodeForName(m.countryCode) ?? m.countryCode) === (countryCodeForName(profile.country) ?? profile.country));
         setCurrency(market?.currency ?? "GBP");
+        setMarketConfig(market ?? null);
         const supplierList = await communityBuyService.listVerifiedSuppliers(profile.country);
         setSuppliers(supplierList);
       }
@@ -420,7 +426,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <Text style={styles.noticeText}>{campaign.reviewNotes}</Text>
               </FloatingCard>
             ) : null}
-            {campaign ? <StatusPill label={campaign.status.replace("_", " ")} tone={campaign.status === "LIVE" || campaign.status === "SUCCEEDED" || campaign.status === "COMPLETED" || campaign.status === "FULFILLING" ? "success" : campaign.status === "RESCUE_WINDOW" || campaign.status === "FAILED" || campaign.status === "REFUNDING" ? "warning" : campaign.status === "REJECTED" || campaign.status === "CANCELLED" ? "error" : "neutral"} /> : null}
+            {campaign ? <StatusPill label={CAMPAIGN_STATUS_LABELS[campaign.status]} tone={CAMPAIGN_STATUS_TONE[campaign.status]} /> : null}
 
             {campaign?.status === "RESCUE_WINDOW" ? (
               <FloatingCard style={{ gap: 10 }}>
@@ -464,8 +470,12 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
                 {showExtensionForm ? (
                   <View style={styles.extensionForm}>
-                    <Text style={styles.label}>Requested new deadline (YYYY-MM-DD)</Text>
-                    <TextInput style={styles.input} placeholder="2026-12-31" placeholderTextColor="#8AA194" value={extensionDeadline} onChangeText={setExtensionDeadline} />
+                    <DatePickerField
+                      label="Requested new deadline"
+                      value={extensionDeadline}
+                      onChange={setExtensionDeadline}
+                      minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
+                    />
                     <Text style={styles.label}>Reason for extension</Text>
                     <TextInput style={[styles.input, styles.inputMultiline]} placeholder="Explain why this campaign should remain open" placeholderTextColor="#8AA194" value={extensionReason} onChangeText={setExtensionReason} multiline />
                     <TouchableOpacity onPress={() => setSupplierReconfirmed((v) => !v)} activeOpacity={0.85} style={styles.checkboxRow}>
@@ -512,6 +522,14 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <Ionicons name="return-down-back-outline" size={18} color="#6A7B72" />
                 <Text style={styles.outcomeHint}>This campaign was ended. Contributions are being refunded.</Text>
               </FloatingCard>
+            ) : campaign?.status === "LIVE" ? (
+              <TouchableOpacity onPress={() => router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: campaign.id } } as any)} activeOpacity={0.85}>
+                <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                  <Ionicons name="add-circle-outline" size={18} color="#076B51" />
+                  <Text style={styles.outcomeHint}>Want to help this along? You can pledge shares yourself anytime through the normal campaign page — the same way any participant would.</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
+                </FloatingCard>
+              </TouchableOpacity>
             ) : null}
 
             {refundProgress && refundProgress.total > 0 ? (
@@ -534,23 +552,40 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <TextInput style={[styles.input, styles.inputMultiline]} editable={!isLocked} placeholder="What is this campaign for?" placeholderTextColor="#8AA194" value={description} onChangeText={setDescription} multiline />
               </View>
 
-              <View>
-                <Text style={styles.label}>Minimum shares required</Text>
-                <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="3" placeholderTextColor="#8AA194" keyboardType="number-pad" value={minimumShares} onChangeText={setMinimumShares} />
-                <Text style={styles.fieldHint}>The campaign can proceed when this minimum is reached.</Text>
+              <View style={styles.thresholdGroup}>
+                <View style={styles.thresholdRow}>
+                  <View style={[styles.thresholdDot, { backgroundColor: "#D6552F" }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Minimum shares required</Text>
+                    <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="3" placeholderTextColor="#8AA194" keyboardType="number-pad" value={minimumShares} onChangeText={setMinimumShares} />
+                    <Text style={styles.fieldHint}>Below this, the campaign does not proceed.</Text>
+                  </View>
+                </View>
+                <View style={styles.thresholdRow}>
+                  <View style={[styles.thresholdDot, { backgroundColor: "#B48A00" }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Campaign goal</Text>
+                    <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#8AA194" keyboardType="number-pad" value={goalShares} onChangeText={setGoalShares} />
+                    <Text style={styles.fieldHint}>A milestone, not a requirement — the campaign proceeds at the minimum even if the goal isn't reached.</Text>
+                  </View>
+                </View>
+                <View style={styles.thresholdRow}>
+                  <View style={[styles.thresholdDot, { backgroundColor: "#076B51" }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Maximum capacity</Text>
+                    <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#8AA194" keyboardType="number-pad" value={maximumShares} onChangeText={setMaximumShares} />
+                    <Text style={styles.fieldHint}>Contributions stop being accepted once this is reached. Never required for success.</Text>
+                  </View>
+                </View>
               </View>
 
-              <View>
-                <Text style={styles.label}>Campaign goal</Text>
-                <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#8AA194" keyboardType="number-pad" value={goalShares} onChangeText={setGoalShares} />
-                <Text style={styles.fieldHint}>This is the number of shares you would ideally like to fill.</Text>
-              </View>
-
-              <View>
-                <Text style={styles.label}>Maximum capacity</Text>
-                <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#8AA194" keyboardType="number-pad" value={maximumShares} onChangeText={setMaximumShares} />
-                <Text style={styles.fieldHint}>Contributions will close when this number is reached.</Text>
-              </View>
+              <FloatingCard style={styles.outcomeExplainerCard}>
+                <Text style={styles.outcomeExplainerTitle}>What happens at the deadline</Text>
+                <Text style={styles.outcomeExplainerText}>• Confirmed shares reach the goal → the campaign proceeds, goal reached.</Text>
+                <Text style={styles.outcomeExplainerText}>• Confirmed shares reach the minimum but not the goal → the campaign still proceeds.</Text>
+                <Text style={styles.outcomeExplainerText}>• Confirmed shares are below the minimum → a completion period opens (typically 48 hours) for you to close the gap by topping up yourself or inviting more people, or to request one admin-approved extension.</Text>
+                <Text style={styles.outcomeExplainerText}>• If the completion period ends still below the minimum → the campaign fails. No participant was ever charged, so nothing needs refunding.</Text>
+              </FloatingCard>
 
               <View>
                 <Text style={styles.label}>Price per share ({currency})</Text>
@@ -558,11 +593,29 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <Text style={styles.fieldHint}>The price per share cannot change after the first confirmed contribution.</Text>
               </View>
 
-              <View>
-                <Text style={styles.label}>Deadline (YYYY-MM-DD)</Text>
-                <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="2026-12-31" placeholderTextColor="#8AA194" value={deadline} onChangeText={setDeadline} />
-                {isLiveLike ? <Text style={styles.fieldHint}>Financial terms are locked once a campaign is live. Only the title and description can be changed.</Text> : null}
-              </View>
+              {marketConfig?.communityBuyFeeBps != null ? (
+                <FloatingCard style={styles.feeCard}>
+                  <Text style={styles.label}>Eki's processing fee</Text>
+                  <Text style={styles.feeValue}>{(marketConfig.communityBuyFeeBps / 100).toFixed(2)}%</Text>
+                  <Text style={styles.fieldHint}>
+                    Taken from the supplier's payment when this campaign succeeds — never an extra charge to you or your participants.
+                    {pricePerShare && Number(pricePerShare) > 0 && minimumShares ? ` At the minimum (${minimumShares} shares), the supplier would receive approximately ${formatDisplayMoney((Math.round(Number(pricePerShare) * 100) * (Math.round(Number(minimumShares)) || 0) * (10000 - marketConfig.communityBuyFeeBps)) / 10000 / 100, currency, selectedCurrency)} after Eki's fee.` : ""}
+                  </Text>
+                </FloatingCard>
+              ) : (
+                <FloatingCard style={styles.feeCard}>
+                  <Text style={styles.fieldHint}>Eki's processing fee for this market hasn't been configured yet. It's taken from the supplier's payment on success — never an extra charge to you or your participants.</Text>
+                </FloatingCard>
+              )}
+
+              <DatePickerField
+                label="Deadline"
+                value={deadline}
+                onChange={setDeadline}
+                disabled={financialFieldsLocked}
+                minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
+                hint={isLiveLike ? "Financial terms are locked once a campaign is live. Only the title and description can be changed." : "Contributions stop being accepted after this date."}
+              />
             </FloatingCard>
 
             {!isEdit ? (
@@ -643,9 +696,22 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
             {campaign && ["DRAFT", "CHANGES_REQUIRED"].includes(campaign.status) ? (
               campaign.supplierCommitted ? (
-                <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.85} style={styles.secondaryBtn}>
-                  {submitting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Submit for review</Text>}
-                </TouchableOpacity>
+                <View style={{ gap: 12 }}>
+                  <View>
+                    <Text style={styles.sectionOutside}>Review before you submit</Text>
+                    <FloatingCard style={{ gap: 8 }}>
+                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Supplier</Text><Text style={styles.previewValue}>{suppliers.find((s) => s.id === supplierId)?.vendor?.storeName ?? "Confirmed supplier"}</Text></View>
+                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Participant price</Text><Text style={styles.previewValue}>{formatDisplayMoney(Number(pricePerShare) || 0, currency, selectedCurrency)} / share</Text></View>
+                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Minimum / goal / maximum</Text><Text style={styles.previewValue}>{minimumShares || "—"} / {goalShares || "—"} / {maximumShares || "—"}</Text></View>
+                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Deadline</Text><Text style={styles.previewValue}>{deadline || "—"}</Text></View>
+                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Eki's fee</Text><Text style={styles.previewValue}>{marketConfig?.communityBuyFeeBps != null ? `${(marketConfig.communityBuyFeeBps / 100).toFixed(2)}%` : "Not yet configured"}</Text></View>
+                      <Text style={styles.outcomeHint}>Once submitted, an admin reviews this campaign. If changes are needed, you'll see the exact reason and can resubmit.</Text>
+                    </FloatingCard>
+                  </View>
+                  <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.85} style={styles.secondaryBtn}>
+                    {submitting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Submit for review</Text>}
+                  </TouchableOpacity>
+                </View>
               ) : (
                 <FloatingCard style={styles.noticeCard}>
                   <Ionicons name="hourglass-outline" size={18} color="#B48A00" />
@@ -668,6 +734,16 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
 const styles = StyleSheet.create({
   headerIconBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
+  thresholdGroup: { gap: 14 },
+  thresholdRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
+  thresholdDot: { width: 10, height: 10, borderRadius: 5, marginTop: 6 },
+  outcomeExplainerCard: { gap: 4, backgroundColor: "#F4F6F5" },
+  outcomeExplainerTitle: { fontSize: 12, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 2 },
+  outcomeExplainerText: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#4A5A52", lineHeight: 16 },
+  feeCard: { gap: 4 },
+  feeValue: { fontSize: 18, fontFamily: "Manrope-ExtraBold", color: "#151E1B" },
+  previewRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  previewValue: { flex: 1, fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#151E1B", textAlign: "right" },
   noticeCard: { flexDirection: "row", gap: 8, backgroundColor: "rgba(255,197,0,0.14)" },
   noticeText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#151E1B", lineHeight: 17 },
   outcomeTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#151E1B" },
