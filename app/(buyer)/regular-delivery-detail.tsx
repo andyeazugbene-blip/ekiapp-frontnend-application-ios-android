@@ -19,6 +19,8 @@ import {
   RENEWAL_STATUS_LABELS,
   BUYER_SUBSCRIPTION_STATUS_LABELS,
   BUYER_SUBSCRIPTION_STATUS_TONE,
+  FULFILMENT_METHOD_LABELS,
+  SUBSTITUTION_MODE_LABELS,
   type BuyerSubscription,
   type Renewal,
 } from "../../services/regularDeliveriesService";
@@ -134,6 +136,7 @@ export default function RegularDeliveryDetailScreen() {
   const latestRenewal = sub?.renewals?.[0];
   const needsPriceApproval = latestRenewal?.status === "AWAITING_PRICE_APPROVAL";
   const needsPaymentRetry = latestRenewal?.status === "PAYMENT_FAILED";
+  const isAwaitingStock = latestRenewal?.status === "AWAITING_STOCK";
 
   return (
     <View style={premiumStyles.page}>
@@ -199,6 +202,20 @@ export default function RegularDeliveryDetailScreen() {
               </FloatingCard>
             ) : null}
 
+            {isAwaitingStock ? (
+              <FloatingCard style={styles.alertCardNeutral}>
+                <View style={styles.alertRow}>
+                  <Ionicons name="cube-outline" size={18} color="#516A60" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.alertTitle}>Confirming stock for your next delivery</Text>
+                    <Text style={styles.alertBody}>
+                      {sub.offer?.vendor?.storeName ?? "Your vendor"} is confirming they have everything in stock for your next renewal. No payment is taken until that's confirmed — you don't need to do anything right now.
+                    </Text>
+                  </View>
+                </View>
+              </FloatingCard>
+            ) : null}
+
             <FloatingCard>
               <View style={styles.summaryTopRow}>
                 <StatusPill
@@ -210,6 +227,25 @@ export default function RegularDeliveryDetailScreen() {
               <Text style={styles.nextRenewalLabel}>Next renewal</Text>
               <Text style={styles.nextRenewalValue}>{isPaused ? "Paused" : formatDate(sub.nextRenewalAt)}</Text>
             </FloatingCard>
+
+            {sub.offer ? (
+              <View>
+                <Text style={styles.sectionTitle}>Delivery details</Text>
+                <FloatingCard style={{ gap: 10 }}>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Fulfilment</Text>
+                    <Text style={styles.detailValue}>{FULFILMENT_METHOD_LABELS[sub.offer.fulfilmentMethod]}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Substitutions</Text>
+                    <Text style={styles.detailValue}>{SUBSTITUTION_MODE_LABELS[sub.offer.substitutionMode]}</Text>
+                  </View>
+                  {sub.offer.substitutionMode === "ALLOW_SIMILAR" && sub.offer.substitutionPolicy ? (
+                    <Text style={styles.detailNote}>{sub.offer.substitutionPolicy}</Text>
+                  ) : null}
+                </FloatingCard>
+              </View>
+            ) : null}
 
             <View>
               <View style={styles.sectionTitleRow}>
@@ -355,6 +391,7 @@ function ActionButton({
 const styles = StyleSheet.create({
   alertCardWarning: { backgroundColor: "#FFFBEF" },
   alertCardError: { backgroundColor: "#FFF6F3" },
+  alertCardNeutral: { backgroundColor: "#F4F6F5" },
   alertRow: { flexDirection: "row", gap: 10 },
   alertTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
   alertBody: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: 2, lineHeight: 17 },
@@ -368,6 +405,10 @@ const styles = StyleSheet.create({
   nextRenewalLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 14 },
   nextRenewalValue: { fontSize: 20, fontFamily: "Manrope-ExtraBold", color: "#151E1B", marginTop: 2, textTransform: "capitalize" },
   sectionTitle: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 10 },
+  detailRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  detailLabel: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  detailValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  detailNote: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", lineHeight: 16 },
   sectionTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   editLink: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#076B51", marginBottom: 10 },
   editQuantityRow: { flexDirection: "row", alignItems: "center", gap: 8 },
