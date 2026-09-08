@@ -210,8 +210,13 @@ export default function RootLayout() {
           const campaignId = data.campaignId as string | undefined;
           if (!campaignId) {
             router.push(`/(buyer)/community-buy`);
-          } else if (event === "approved" || event === "changes_requested" || event === "rejected") {
+          } else if (event === "approved" || event === "changes_requested" || event === "rejected" || event === "supplier_accepted" || event === "inventory_confirmed") {
             router.push(`/(buyer)/community-buy-organiser-campaign?id=${campaignId}`);
+          } else if (event === "supplier_invited") {
+            // Supplier-facing, not organiser/participant — the supplier's
+            // assigned-campaigns screen (vendor route group), not the
+            // buyer-side campaign detail this event has nothing to do with.
+            router.push(`/(vendor)/community-buy-supplier`);
           } else {
             router.push(`/(buyer)/community-buy-campaign?id=${campaignId}`);
           }
