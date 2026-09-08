@@ -15,12 +15,20 @@ import {
 } from "../../components/shared/PremiumBlocks";
 import {
   automationService,
+  AUTOMATION_CATEGORY,
+  AUTOMATION_CATEGORY_LABELS,
   AUTOMATION_EXPLAINER,
   AUTOMATION_LABELS,
+  AUTOMATION_RUN_STATUS_LABELS,
+  AUTOMATION_RUN_STATUS_TONE,
+  MANAGED_BY_EKI_TYPES,
+  type AutomationCategory,
   type AutomationRun,
   type AutomationType,
   type VendorAutomation,
 } from "../../services/automationService";
+
+const CATEGORY_ORDER: AutomationCategory[] = ["GROW_SALES", "CUSTOMER_EXPERIENCE", "REGULAR_DELIVERY"];
 import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { pushTokenService, type PushPermissionStatus } from "../../services/notificationService";
 
@@ -109,14 +117,15 @@ export default function AutomationCenterScreen() {
     }
   };
 
-  const enabledCount = automations.filter((a) => a.enabled).length;
+  const toggleable = automations.filter((a) => !MANAGED_BY_EKI_TYPES.includes(a.type));
+  const enabledCount = toggleable.filter((a) => a.enabled).length;
   const recentFailures = activity.filter((r) => r.status === "FAILED").length;
 
   return (
     <View style={premiumStyles.page}>
       <PremiumHeader
         title="Automation Center"
-        subtitle={loading ? undefined : `${enabledCount} of ${automations.length} automations active`}
+        subtitle={loading ? undefined : `${enabledCount} of ${toggleable.length} automations active`}
         onBack={() => goBackOrReplace(router, "/(vendor)" as any)}
       />
 
@@ -144,37 +153,50 @@ export default function AutomationCenterScreen() {
               </View>
             ) : null}
 
-            <View style={[premiumStyles.block, { gap: 10 }]}>
-              {automations.map((a) => {
-                return (
-                  <TouchableOpacity
-                    key={a.type}
-                    activeOpacity={0.85}
-                    onPress={() => router.push({ pathname: "/(vendor)/automation-detail", params: { type: a.type } } as any)}
-                  >
-                    <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
-                      <View style={styles.automationRow}>
-                        <IconAvatar icon={ICON_FOR_TYPE[a.type] ?? "flash-outline"} tone={a.enabled ? "success" : "neutral"} />
-                        <View style={styles.automationCopy}>
-                          <Text style={styles.automationTitle}>{AUTOMATION_LABELS[a.type] ?? a.type}</Text>
-                          <Text style={styles.automationBody} numberOfLines={2}>{AUTOMATION_EXPLAINER[a.type] ?? "Details for this automation are being prepared."}</Text>
-                        </View>
-                        {togglingType === a.type ? (
-                          <ActivityIndicator size="small" color="#076B51" />
-                        ) : (
-                          <Switch
-                            value={a.enabled}
-                            onValueChange={(value) => void handleToggle(a.type, value)}
-                            trackColor={{ true: "#85C5AE" }}
-                            thumbColor={a.enabled ? "#076B51" : "#F4F4F4"}
-                          />
-                        )}
-                      </View>
-                    </FloatingCard>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            {CATEGORY_ORDER.map((category) => {
+              const inCategory = automations.filter((a) => AUTOMATION_CATEGORY[a.type] === category);
+              if (inCategory.length === 0) return null;
+              return (
+                <View key={category} style={[premiumStyles.block, { gap: 10 }]}>
+                  <Text style={styles.categoryTitle}>{AUTOMATION_CATEGORY_LABELS[category]}</Text>
+                  {inCategory.map((a) => {
+                    const isManaged = MANAGED_BY_EKI_TYPES.includes(a.type);
+                    return (
+                      <TouchableOpacity
+                        key={a.type}
+                        activeOpacity={0.85}
+                        onPress={() => router.push({ pathname: "/(vendor)/automation-detail", params: { type: a.type } } as any)}
+                      >
+                        <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
+                          <View style={styles.automationRow}>
+                            <IconAvatar icon={ICON_FOR_TYPE[a.type] ?? "flash-outline"} tone={isManaged ? "info" : a.enabled ? "success" : "neutral"} />
+                            <View style={styles.automationCopy}>
+                              <Text style={styles.automationTitle}>{AUTOMATION_LABELS[a.type] ?? a.type}</Text>
+                              <Text style={styles.automationBody} numberOfLines={2}>{AUTOMATION_EXPLAINER[a.type] ?? "Details for this automation are being prepared."}</Text>
+                            </View>
+                            {isManaged ? (
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                <StatusPill label="Managed by Eki" tone="info" />
+                                <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
+                              </View>
+                            ) : togglingType === a.type ? (
+                              <ActivityIndicator size="small" color="#076B51" />
+                            ) : (
+                              <Switch
+                                value={a.enabled}
+                                onValueChange={(value) => void handleToggle(a.type, value)}
+                                trackColor={{ true: "#85C5AE" }}
+                                thumbColor={a.enabled ? "#076B51" : "#F4F4F4"}
+                              />
+                            )}
+                          </View>
+                        </FloatingCard>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              );
+            })}
 
             <View style={premiumStyles.block}>
               <View style={styles.sectionRow}>
@@ -202,14 +224,14 @@ export default function AutomationCenterScreen() {
                     <TouchableOpacity key={run.id} activeOpacity={0.85} onPress={() => setSelectedRun(run)}>
                       <FloatingCard style={styles.activityCard}>
                         <IconAvatar
-                          icon={run.status === "FAILED" ? "close" : run.status === "SENT" ? "checkmark" : "time-outline"}
-                          tone={run.status === "SENT" ? "success" : run.status === "FAILED" ? "error" : "neutral"}
+                          icon={run.status === "FAILED" ? "close" : run.status === "SENT" ? "checkmark" : run.status === "SUPPRESSED" ? "remove-circle-outline" : "time-outline"}
+                          tone={AUTOMATION_RUN_STATUS_TONE[run.status]}
                           size={38}
                         />
                         <View style={styles.activityCopy}>
                           <Text style={styles.activityTitle}>{AUTOMATION_LABELS[run.type] ?? run.type}</Text>
                           <Text style={styles.activityMeta} numberOfLines={1}>
-                            {run.status === "SENT" ? "Sent" : run.status === "FAILED" ? (run.failureReason ?? "Failed") : "Checking eligibility"}
+                            {AUTOMATION_RUN_STATUS_LABELS[run.status]}
                             {" · "}
                             {formatRelative(run.sentAt ?? run.createdAt)}
                           </Text>
@@ -237,15 +259,23 @@ export default function AutomationCenterScreen() {
                   </TouchableOpacity>
                 </View>
                 <StatusPill
-                  label={`${selectedRun.status === "SENT" ? "Sent" : selectedRun.status === "FAILED" ? "Failed" : "Checking eligibility"} · ${formatRelative(selectedRun.sentAt ?? selectedRun.createdAt)}`}
-                  tone={selectedRun.status === "SENT" ? "success" : selectedRun.status === "FAILED" ? "error" : "neutral"}
+                  label={`${AUTOMATION_RUN_STATUS_LABELS[selectedRun.status]} · ${formatRelative(selectedRun.sentAt ?? selectedRun.createdAt)}`}
+                  tone={AUTOMATION_RUN_STATUS_TONE[selectedRun.status]}
                 />
+                <Text style={styles.modalDetailLabel}>Sent to</Text>
+                <Text style={styles.modalDetailText}>{selectedRun.recipient?.name || selectedRun.recipient?.email || "Unknown recipient"}</Text>
                 <Text style={styles.modalDetailLabel}>Order / sales detail</Text>
                 <Text style={styles.modalDetailText}>{describeRun(selectedRun)}</Text>
                 {selectedRun.status === "FAILED" && selectedRun.failureReason ? (
                   <>
                     <Text style={styles.modalDetailLabel}>Why it failed</Text>
                     <Text style={[styles.modalDetailText, { color: "#D6552F" }]}>{selectedRun.failureReason}</Text>
+                  </>
+                ) : null}
+                {selectedRun.status === "SUPPRESSED" && selectedRun.suppressedReason ? (
+                  <>
+                    <Text style={styles.modalDetailLabel}>Why it wasn't sent</Text>
+                    <Text style={[styles.modalDetailText, { color: "#8A6D1D" }]}>{selectedRun.suppressedReason}</Text>
                   </>
                 ) : null}
                 <Text style={styles.modalHint}>
@@ -261,6 +291,7 @@ export default function AutomationCenterScreen() {
 }
 
 const styles = StyleSheet.create({
+  categoryTitle: { fontSize: 13, fontFamily: "Manrope-ExtraBold", color: "#8AA194", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 },
   sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
   sectionTitle: { fontSize: 18, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
   automationRow: { flexDirection: "row", alignItems: "center", padding: 14, gap: 12 },

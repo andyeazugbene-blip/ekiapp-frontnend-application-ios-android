@@ -65,6 +65,46 @@ export const VENDOR_AUTOMATION_TYPES: AutomationType[] = [
   "PRICE_APPROVAL_REMINDER",
 ];
 
+export type AutomationCategory = "GROW_SALES" | "CUSTOMER_EXPERIENCE" | "REGULAR_DELIVERY";
+
+export const AUTOMATION_CATEGORY_LABELS: Record<AutomationCategory, string> = {
+  GROW_SALES: "Grow sales",
+  CUSTOMER_EXPERIENCE: "Customer experience",
+  REGULAR_DELIVERY: "Regular Delivery subscriptions",
+};
+
+// Client spec's exact category assignment (Automation Centre requirements
+// doc, "2. Automation Modules"). Two named modules from that doc — Reorder
+// Reminders and Checkout Payment Follow-Up — have no backend implementation
+// yet and are intentionally absent from VENDOR_AUTOMATION_TYPES above; do
+// not add them here until they exist server-side.
+export const AUTOMATION_CATEGORY: Record<AutomationType, AutomationCategory | undefined> = {
+  FIRST_SALE: "GROW_SALES",
+  CART_RECOVERY: "GROW_SALES",
+  BUYER_WIN_BACK: "GROW_SALES",
+  BUYER_REFERRAL: "GROW_SALES",
+  REVIEW_REQUEST: "CUSTOMER_EXPERIENCE",
+  LOW_STOCK_ALERT: "CUSTOMER_EXPERIENCE",
+  PAYMENT_RECOVERY: "REGULAR_DELIVERY",
+  RENEWAL_REMINDER: "REGULAR_DELIVERY",
+  PRICE_APPROVAL_REMINDER: "REGULAR_DELIVERY",
+  CAMPAIGN_MILESTONE: undefined,
+  CAMPAIGN_DEADLINE: undefined,
+  CAMPAIGN_REFUND_UPDATE: undefined,
+};
+
+/**
+ * The client spec requires these three to display "chevrons only (no
+ * toggles)" — they are mandatory operational messages, never optional
+ * marketing. This also matches reality: the backend sends
+ * PAYMENT_RECOVERY/RENEWAL_REMINDER/PRICE_APPROVAL_REMINDER for Regular
+ * Delivery renewals via a direct notification call that does not check the
+ * vendor's automation toggle, so a toggle here would be non-functional —
+ * showing one at all previously misrepresented vendor control that doesn't
+ * exist.
+ */
+export const MANAGED_BY_EKI_TYPES: AutomationType[] = ["PAYMENT_RECOVERY", "RENEWAL_REMINDER", "PRICE_APPROVAL_REMINDER"];
+
 // Human-facing explainer for each vendor-toggleable automation, used
 // anywhere a.description (the raw backend message template, containing
 // literal {{name}}/{{store_name}}/etc. placeholders meant for interpolation

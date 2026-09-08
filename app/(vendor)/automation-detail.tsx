@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
@@ -17,6 +17,7 @@ import {
   AUTOMATION_EXPLAINER,
   AUTOMATION_LABELS,
   CONFIGURABLE_AUTOMATION_TYPES,
+  MANAGED_BY_EKI_TYPES,
   VENDOR_AUTOMATION_TYPES,
   type AutomationType,
   type VendorAutomation,
@@ -93,9 +94,8 @@ export default function AutomationDetailScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
   React.useEffect(() => { load(); }, [load]);
 
-  const handleToggle = async () => {
+  const applyToggle = async (nextEnabled: boolean) => {
     if (!automation) return;
-    const nextEnabled = !automation.enabled;
     setAutomation({ ...automation, enabled: nextEnabled });
     setToggling(true);
     try {
@@ -105,6 +105,24 @@ export default function AutomationDetailScreen() {
     } finally {
       setToggling(false);
     }
+  };
+
+  const handleToggle = () => {
+    if (!automation) return;
+    const nextEnabled = !automation.enabled;
+    if (!nextEnabled) {
+      const label = AUTOMATION_LABELS[automation.type] ?? automation.type;
+      Alert.alert(
+        `Turn off ${label}?`,
+        "This automation will stop sending until you turn it back on.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Turn off", style: "destructive", onPress: () => void applyToggle(false) },
+        ],
+      );
+      return;
+    }
+    void applyToggle(true);
   };
 
   const handleConfigOption = async (key: string, value: number) => {
@@ -124,6 +142,7 @@ export default function AutomationDetailScreen() {
 
   const preset = automationType ? CONFIG_PRESETS[automationType] : undefined;
   const isConfigurable = automationType ? CONFIGURABLE_AUTOMATION_TYPES.includes(automationType) && preset : false;
+  const isManaged = automationType ? MANAGED_BY_EKI_TYPES.includes(automationType) : false;
 
   return (
     <View style={premiumStyles.page}>
@@ -147,22 +166,28 @@ export default function AutomationDetailScreen() {
           <View style={[premiumStyles.block, { gap: 16 }]}>
             <FloatingCard style={{ gap: 14 }}>
               <View style={styles.headRow}>
-                <IconAvatar icon={ICON_FOR_TYPE[automationType] ?? "flash-outline"} tone={automation.enabled ? "success" : "neutral"} size={52} />
+                <IconAvatar icon={ICON_FOR_TYPE[automationType] ?? "flash-outline"} tone={isManaged ? "info" : automation.enabled ? "success" : "neutral"} size={52} />
                 <View style={{ flex: 1 }}>
-                  <StatusPill label={automation.enabled ? "Active" : "Not active"} tone={automation.enabled ? "success" : "neutral"} />
+                  <StatusPill label={isManaged ? "Managed by Eki" : automation.enabled ? "Active" : "Not active"} tone={isManaged ? "info" : automation.enabled ? "success" : "neutral"} />
                 </View>
               </View>
               <Text style={styles.explainer}>{AUTOMATION_EXPLAINER[automationType] ?? "Details for this automation are being prepared."}</Text>
 
-              <TouchableOpacity onPress={() => void handleToggle()} disabled={toggling} activeOpacity={0.88} style={[styles.toggleBtn, automation.enabled && styles.toggleBtnActive]}>
-                {toggling ? (
-                  <ActivityIndicator color={automation.enabled ? "#FFFFFF" : "#076B51"} size="small" />
-                ) : (
-                  <Text style={[styles.toggleBtnText, automation.enabled && styles.toggleBtnTextActive]}>
-                    {automation.enabled ? "Deactivate" : "Activate automation"}
-                  </Text>
-                )}
-              </TouchableOpacity>
+              {isManaged ? (
+                <Text style={styles.managedNote}>
+                  This is a mandatory operational message, not optional marketing — it can't be turned off. Eki sends it automatically to keep your buyers informed about their Regular Delivery.
+                </Text>
+              ) : (
+                <TouchableOpacity onPress={handleToggle} disabled={toggling} activeOpacity={0.88} style={[styles.toggleBtn, automation.enabled && styles.toggleBtnActive]}>
+                  {toggling ? (
+                    <ActivityIndicator color={automation.enabled ? "#FFFFFF" : "#076B51"} size="small" />
+                  ) : (
+                    <Text style={[styles.toggleBtnText, automation.enabled && styles.toggleBtnTextActive]}>
+                      {automation.enabled ? "Deactivate" : "Activate automation"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </FloatingCard>
 
             {isConfigurable && preset ? (
@@ -208,6 +233,7 @@ export default function AutomationDetailScreen() {
 const styles = StyleSheet.create({
   headRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   explainer: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#4A5A52", lineHeight: 19 },
+  managedNote: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#516A60", lineHeight: 17, backgroundColor: "#F0F3F1", borderRadius: 12, padding: 12 },
   toggleBtn: { minHeight: 50, borderRadius: 16, borderWidth: 1.5, borderColor: "#076B51", backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   toggleBtnActive: { backgroundColor: "#076B51" },
   toggleBtnText: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#076B51" },
