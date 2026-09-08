@@ -221,24 +221,36 @@ export default function RegularDeliveryDetailScreen() {
                 ) : null}
               </View>
               <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
-                {sub.items.map((item, index) => (
-                  <View key={item.id} style={[styles.itemRow, index > 0 && styles.itemRowBorder]}>
-                    <Text style={styles.itemTitle} numberOfLines={1}>{item.product.title}</Text>
-                    {editingItems ? (
-                      <View style={styles.editQuantityRow}>
-                        <TouchableOpacity onPress={() => changeDraftQuantity(item.productId, -1)} activeOpacity={0.85} style={styles.editStepperBtn}>
-                          <Ionicons name="remove" size={14} color="#076B51" />
-                        </TouchableOpacity>
-                        <Text style={styles.editQuantityValue}>{draftQuantities[item.productId] ?? item.quantity}</Text>
-                        <TouchableOpacity onPress={() => changeDraftQuantity(item.productId, 1)} activeOpacity={0.85} style={styles.editStepperBtn}>
-                          <Ionicons name="add" size={14} color="#076B51" />
-                        </TouchableOpacity>
+                {sub.items.map((item, index) => {
+                  const offerProduct = sub.offer?.products?.find((p) => p.productId === item.productId);
+                  const isItemPaused = Boolean(offerProduct?.pausedAt);
+                  return (
+                    <View key={item.id} style={[styles.itemRow, index > 0 && styles.itemRowBorder]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.itemTitle} numberOfLines={1}>{item.product.title}</Text>
+                        {isItemPaused ? (
+                          <Text style={styles.itemPausedNote}>
+                            Excluded from your next renewal{offerProduct?.pauseReason ? ` — ${offerProduct.pauseReason}` : ""}
+                            {offerProduct?.pauseExpectedReturnAt ? `. Expected back ${formatDate(offerProduct.pauseExpectedReturnAt)}` : ""}
+                          </Text>
+                        ) : null}
                       </View>
-                    ) : (
-                      <Text style={styles.itemMeta}>x{item.quantity} · {formatDisplayMoney(item.product.priceInCents / 100, item.product.currency, selectedCurrency)}</Text>
-                    )}
-                  </View>
-                ))}
+                      {editingItems ? (
+                        <View style={styles.editQuantityRow}>
+                          <TouchableOpacity onPress={() => changeDraftQuantity(item.productId, -1)} activeOpacity={0.85} style={styles.editStepperBtn}>
+                            <Ionicons name="remove" size={14} color="#076B51" />
+                          </TouchableOpacity>
+                          <Text style={styles.editQuantityValue}>{draftQuantities[item.productId] ?? item.quantity}</Text>
+                          <TouchableOpacity onPress={() => changeDraftQuantity(item.productId, 1)} activeOpacity={0.85} style={styles.editStepperBtn}>
+                            <Ionicons name="add" size={14} color="#076B51" />
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <Text style={styles.itemMeta}>x{item.quantity} · {formatDisplayMoney(item.product.priceInCents / 100, item.product.currency, selectedCurrency)}</Text>
+                      )}
+                    </View>
+                  );
+                })}
               </FloatingCard>
               {editingItems ? (
                 <View style={{ marginTop: 10 }}>
@@ -372,6 +384,7 @@ const styles = StyleSheet.create({
   itemRowBorder: { borderTopWidth: 1, borderTopColor: "#F0F0F0" },
   itemTitle: { flex: 1, fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
   itemMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  itemPausedNote: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#B48A00", marginTop: 2 },
   actionsGrid: { flexDirection: "row", gap: 10 },
   actionButton: { alignItems: "center", gap: 6, paddingVertical: 6 },
   actionButtonText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#076B51" },

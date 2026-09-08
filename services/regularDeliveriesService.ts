@@ -72,6 +72,7 @@ export interface OfferProduct {
   product: { id: string; title: string; priceInCents: number; currency: string; imageUrl?: string | null };
   pausedAt?: string | null;
   pauseReason?: string | null;
+  pauseExpectedReturnAt?: string | null;
 }
 
 export type OfferFulfilmentMethod = "DELIVERY" | "COLLECTION";
