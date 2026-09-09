@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Button, Card, ErrorPanel, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
+import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader, TextLink } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { communityBuyAdminAPI, type AdminCampaignRefund } from "@/lib/services/communityBuy.api";
@@ -18,21 +18,29 @@ function tone(status: AdminCampaignRefund["status"]): "green" | "amber" | "red" 
   return "amber";
 }
 
+const REFUND_STATUS_LABEL: Record<AdminCampaignRefund["status"], string> = {
+  REFUND_PENDING: "Pending", REFUND_PROCESSING: "Processing", REFUNDED: "Refunded", REFUND_FAILED: "Failed",
+};
+
 export default function CommunityRefundsPage() {
   const [items, setItems] = useState<AdminCampaignRefund[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [escalatedIds, setEscalatedIds] = useState<Set<string>>(new Set());
+  const [escalationNoteById, setEscalationNoteById] = useState<Record<string, string>>({});
 
-  const load = async () => {
+  const load = async (bypassCache = false) => {
     try {
-      setLoading(true);
+      bypassCache ? setRefreshing(true) : setLoading(true);
       setError("");
-      setItems(await communityBuyAdminAPI.getRefunds());
+      setItems(await communityBuyAdminAPI.getRefunds(bypassCache ? { bypassCache: true } : undefined));
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to load refunds");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -52,10 +60,11 @@ export default function CommunityRefundsPage() {
   };
 
   const escalate = async (id: string) => {
-    if (!confirm("Escalate this refund? A support case will be opened.")) return;
+    if (!confirm("Escalate this refund? A support case will be opened for the affected participant.")) return;
     setBusyId(id);
     try {
-      await communityBuyAdminAPI.escalateRefund(id);
+      await communityBuyAdminAPI.escalateRefund(id, escalationNoteById[id]?.trim() || undefined);
+      setEscalatedIds((prev) => new Set(prev).add(id));
       alert("Escalated — a support case has been opened for this refund.");
     } catch (err) {
       alert(err instanceof APIError ? err.message : "Failed to escalate refund");
@@ -73,7 +82,11 @@ export default function CommunityRefundsPage() {
       <AdminLayout>
         {loading ? <LoadingPanel label="Loading refunds..." /> : (
           <div className="space-y-8">
-            <PageHeader title="Community Buy refunds" subtitle="Every refund record created when a campaign fails to reach its target." />
+            <PageHeader
+              title="Community Buy refunds"
+              subtitle="Every refund record created when a campaign fails to reach its target."
+              actions={<Button variant="ghost" disabled={refreshing} onClick={() => void load(true)}><Icon name="refresh" className="h-4 w-4" />{refreshing ? "Refreshing..." : "Refresh"}</Button>}
+            />
             {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
 
             <div className="grid gap-6 md:grid-cols-3">
@@ -102,16 +115,33 @@ export default function CommunityRefundsPage() {
                     <tbody>
                       {items.map((r) => (
                         <tr key={r.id} className="border-b border-slate-100">
-                          <td className="py-3 font-semibold text-[#101820]">{r.contribution.campaign.title} <span className="text-slate-400">({countryDisplayName(r.contribution.campaign.country)})</span></td>
+                          <td className="py-3 font-semibold text-[#101820]">
+                            {r.contribution.campaign.title} <span className="text-slate-400">({countryDisplayName(r.contribution.campaign.country)})</span>
+                            <div><TextLink href={`/activity-logs?entityId=${r.id}`}>Audit history</TextLink></div>
+                          </td>
                           <td className="py-3 text-slate-600">{r.contribution.participant.user.name} <span className="text-slate-400">({r.contribution.participant.user.email})</span></td>
                           <td className="py-3 font-semibold">{centsToUnit(r.amount).toFixed(2)} {r.currency}</td>
-                          <td className="py-3"><Badge tone={tone(r.status)}>{r.status.replace(/_/g, " ")}</Badge>{r.failureReason ? <p className="mt-1 text-xs text-red-500">{r.failureReason}</p> : null}</td>
+                          <td className="py-3">
+                            <Badge tone={tone(r.status)}>{REFUND_STATUS_LABEL[r.status]}</Badge>
+                            {escalatedIds.has(r.id) ? <Badge tone="blue">Escalated</Badge> : null}
+                            {r.failureReason ? <p className="mt-1 text-xs text-red-500">{r.failureReason}</p> : null}
+                          </td>
                           <td className="py-3 text-slate-500">{new Date(r.createdAt).toLocaleString()}</td>
                           <td className="py-3">
                             {r.status !== "REFUNDED" ? (
-                              <div className="flex gap-2">
-                                <Button variant="ghost" disabled={busyId === r.id} onClick={() => void recheck(r.id)}>Recheck</Button>
-                                <Button variant="ghost" disabled={busyId === r.id} onClick={() => void escalate(r.id)}>Escalate</Button>
+                              <div className="flex flex-col items-start gap-2">
+                                <div className="flex gap-2">
+                                  <Button variant="ghost" disabled={busyId === r.id} onClick={() => void recheck(r.id)}>Recheck</Button>
+                                  <Button variant="ghost" disabled={busyId === r.id || escalatedIds.has(r.id)} onClick={() => void escalate(r.id)}>Escalate</Button>
+                                </div>
+                                {!escalatedIds.has(r.id) ? (
+                                  <input
+                                    placeholder="Escalation note (optional)"
+                                    value={escalationNoteById[r.id] ?? ""}
+                                    onChange={(e) => setEscalationNoteById((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                                    className="w-56 rounded-lg border border-slate-200 p-1.5 text-xs"
+                                  />
+                                ) : null}
                               </div>
                             ) : null}
                           </td>

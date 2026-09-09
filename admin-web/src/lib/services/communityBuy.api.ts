@@ -219,13 +219,47 @@ export interface AdminCampaignRefund {
   };
 }
 
+export type ContributionStatus =
+  | "INITIATED" | "PAYMENT_PROCESSING" | "PAID" | "PAYMENT_FAILED"
+  | "PLEDGED" | "CHARGE_FAILED" | "REFUND_PENDING" | "REFUND_PROCESSING" | "REFUNDED" | "REFUND_FAILED" | "CANCELLED";
+
+export interface AdminContribution {
+  id: string;
+  participant: { userId: string; name: string; email: string };
+  quantity: number;
+  amount: number;
+  currency: string;
+  status: ContributionStatus;
+  isOrganiserTopUp: boolean;
+  stripePaymentIntentId: string | null;
+  refund: { status: string; amount: number; failureReason: string | null } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Response when a supplier-payment release requires a second admin's sign-off (four-eyes) instead of executing immediately. */
+export interface PendingApprovalResponse {
+  pendingApproval: { id: string; status: string };
+  message: string;
+}
+
+export type ReleaseSupplierPaymentResult = { payment: AdminSupplierPayment } | PendingApprovalResponse;
+
+export function isPendingApproval(result: ReleaseSupplierPaymentResult): result is PendingApprovalResponse {
+  return "pendingApproval" in result;
+}
+
+export interface ReadOptions {
+  bypassCache?: boolean;
+}
+
 export const communityBuyAdminAPI = {
-  async getCampaignsForReview(): Promise<AdminCampaign[]> {
-    const res = await apiClient.get<{ items?: AdminCampaign[] }>("/admin/community-campaigns/review");
+  async getCampaignsForReview(opts?: ReadOptions): Promise<AdminCampaign[]> {
+    const res = await apiClient.get<{ items?: AdminCampaign[] }>("/admin/community-campaigns/review", opts);
     return res.items ?? [];
   },
-  async getRecentlyClosedCampaigns(): Promise<AdminCampaign[]> {
-    const res = await apiClient.get<{ items?: AdminCampaign[] }>("/admin/community-campaigns/closed");
+  async getRecentlyClosedCampaigns(opts?: ReadOptions): Promise<AdminCampaign[]> {
+    const res = await apiClient.get<{ items?: AdminCampaign[] }>("/admin/community-campaigns/closed", opts);
     return res.items ?? [];
   },
   async approveCampaign(id: string): Promise<AdminCampaign> {
@@ -248,17 +282,27 @@ export const communityBuyAdminAPI = {
     const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/resume`, {});
     return res.campaign;
   },
+  /** Phase 9 — only reachable pre-charge (DRAFT..RESCUE_WINDOW); the backend 409s for anything past that. */
+  async cancelCampaign(id: string, reason: string): Promise<AdminCampaign> {
+    const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/cancel`, { reason });
+    return res.campaign;
+  },
+  /** Phase 9 (REQ-CB-A-004) — every contribution/pledge for a campaign, with participant identity, regardless of status. */
+  async getCampaignContributions(campaignId: string, opts?: ReadOptions): Promise<AdminContribution[]> {
+    const res = await apiClient.get<{ items?: AdminContribution[] }>(`/admin/community-campaigns/${campaignId}/contributions`, opts);
+    return res.items ?? [];
+  },
 
-  async getPendingOrganisers(): Promise<PendingOrganiser[]> {
-    const res = await apiClient.get<{ items?: PendingOrganiser[] }>("/admin/community-buy/organisers/pending");
+  async getPendingOrganisers(opts?: ReadOptions): Promise<PendingOrganiser[]> {
+    const res = await apiClient.get<{ items?: PendingOrganiser[] }>("/admin/community-buy/organisers/pending", opts);
     return res.items ?? [];
   },
   async verifyOrganiser(id: string): Promise<PendingOrganiser> {
     const res = await apiClient.post<{ profile: PendingOrganiser }>(`/admin/community-buy/organisers/${id}/verify`, {});
     return res.profile;
   },
-  async getPendingSuppliers(): Promise<PendingSupplier[]> {
-    const res = await apiClient.get<{ items?: PendingSupplier[] }>("/admin/community-buy/suppliers/pending");
+  async getPendingSuppliers(opts?: ReadOptions): Promise<PendingSupplier[]> {
+    const res = await apiClient.get<{ items?: PendingSupplier[] }>("/admin/community-buy/suppliers/pending", opts);
     return res.items ?? [];
   },
   async verifySupplier(id: string): Promise<PendingSupplier> {
@@ -266,8 +310,8 @@ export const communityBuyAdminAPI = {
     return res.profile;
   },
 
-  async getMarketConfigs(): Promise<MarketConfig[]> {
-    const res = await apiClient.get<{ items?: MarketConfig[] }>("/admin/community-buy/markets");
+  async getMarketConfigs(opts?: ReadOptions): Promise<MarketConfig[]> {
+    const res = await apiClient.get<{ items?: MarketConfig[] }>("/admin/community-buy/markets", opts);
     return res.items ?? [];
   },
   async updateMarketConfig(countryCode: string, data: MarketConfigUpdate): Promise<MarketConfig> {
@@ -275,8 +319,8 @@ export const communityBuyAdminAPI = {
     return res.config;
   },
 
-  async getRefunds(): Promise<AdminCampaignRefund[]> {
-    const res = await apiClient.get<{ items?: AdminCampaignRefund[] }>("/admin/community-buy/refunds");
+  async getRefunds(opts?: ReadOptions): Promise<AdminCampaignRefund[]> {
+    const res = await apiClient.get<{ items?: AdminCampaignRefund[] }>("/admin/community-buy/refunds", opts);
     return res.items ?? [];
   },
   async requeryRefund(id: string): Promise<AdminCampaignRefund> {
@@ -289,8 +333,8 @@ export const communityBuyAdminAPI = {
   },
 
   // ─── Rescue-window extension requests — doc §8/§Screen 127 ─────────────
-  async getExtensionRequests(): Promise<AdminExtensionRequest[]> {
-    const res = await apiClient.get<{ items?: AdminExtensionRequest[] }>("/admin/community-buy/extension-requests");
+  async getExtensionRequests(opts?: ReadOptions): Promise<AdminExtensionRequest[]> {
+    const res = await apiClient.get<{ items?: AdminExtensionRequest[] }>("/admin/community-buy/extension-requests", opts);
     return res.items ?? [];
   },
   async approveExtension(id: string): Promise<AdminExtensionRequest> {
@@ -303,13 +347,18 @@ export const communityBuyAdminAPI = {
   },
 
   // ─── Supplier payments — doc §Screen 131 ────────────────────────────────
-  async getSupplierPayments(): Promise<AdminSupplierPayment[]> {
-    const res = await apiClient.get<{ items?: AdminSupplierPayment[] }>("/admin/community-buy/supplier-payments");
+  async getSupplierPayments(opts?: ReadOptions): Promise<AdminSupplierPayment[]> {
+    const res = await apiClient.get<{ items?: AdminSupplierPayment[] }>("/admin/community-buy/supplier-payments", opts);
     return res.items ?? [];
   },
-  async releaseSupplierPayment(campaignId: string): Promise<AdminSupplierPayment> {
-    const res = await apiClient.post<{ payment: AdminSupplierPayment }>(`/admin/community-campaigns/${campaignId}/supplier-payment/release`, {});
-    return res.payment;
+  /**
+   * Returns the released payment directly, OR — when a four-eyes
+   * AdminApprovalRule is configured for this action — a 202 response
+   * describing the pending approval instead. Callers must check
+   * isPendingApproval() before assuming the payment was actually released.
+   */
+  async releaseSupplierPayment(campaignId: string): Promise<ReleaseSupplierPaymentResult> {
+    return apiClient.post<ReleaseSupplierPaymentResult>(`/admin/community-campaigns/${campaignId}/supplier-payment/release`, {});
   },
   async holdSupplierPayment(campaignId: string, reason: string): Promise<AdminSupplierPayment> {
     const res = await apiClient.post<{ payment: AdminSupplierPayment }>(`/admin/community-campaigns/${campaignId}/supplier-payment/hold`, { reason });
@@ -317,7 +366,7 @@ export const communityBuyAdminAPI = {
   },
 
   /** Real cross-campaign/cross-supplier aggregate — every number comes from actual CampaignSupplierPayment rows, never mixed across currencies. */
-  async getSupplierPaymentAggregate(filters?: { from?: string; to?: string; status?: SupplierPaymentStatus; supplierId?: string; campaignId?: string }): Promise<SupplierPaymentAggregate> {
+  async getSupplierPaymentAggregate(filters?: { from?: string; to?: string; status?: SupplierPaymentStatus; supplierId?: string; campaignId?: string }, opts?: ReadOptions): Promise<SupplierPaymentAggregate> {
     const query = new URLSearchParams();
     if (filters?.from) query.set("from", filters.from);
     if (filters?.to) query.set("to", filters.to);
@@ -325,12 +374,12 @@ export const communityBuyAdminAPI = {
     if (filters?.supplierId) query.set("supplierId", filters.supplierId);
     if (filters?.campaignId) query.set("campaignId", filters.campaignId);
     const suffix = query.toString() ? `?${query.toString()}` : "";
-    return apiClient.get<SupplierPaymentAggregate>(`/admin/community-buy/supplier-payments/aggregate${suffix}`);
+    return apiClient.get<SupplierPaymentAggregate>(`/admin/community-buy/supplier-payments/aggregate${suffix}`, opts);
   },
 
   // ─── Risk controls — restrict/unrestrict without revoking verification ──
-  async getVerifiedOrganisers(): Promise<PendingOrganiser[]> {
-    const res = await apiClient.get<{ items?: PendingOrganiser[] }>("/admin/community-buy/organisers");
+  async getVerifiedOrganisers(opts?: ReadOptions): Promise<PendingOrganiser[]> {
+    const res = await apiClient.get<{ items?: PendingOrganiser[] }>("/admin/community-buy/organisers", opts);
     return res.items ?? [];
   },
   async restrictOrganiser(id: string, reason: string): Promise<PendingOrganiser> {
@@ -341,8 +390,8 @@ export const communityBuyAdminAPI = {
     const res = await apiClient.post<{ profile: PendingOrganiser }>(`/admin/community-buy/organisers/${id}/unrestrict`, {});
     return res.profile;
   },
-  async getVerifiedSuppliers(): Promise<PendingSupplier[]> {
-    const res = await apiClient.get<{ items?: PendingSupplier[] }>("/admin/community-buy/suppliers");
+  async getVerifiedSuppliers(opts?: ReadOptions): Promise<PendingSupplier[]> {
+    const res = await apiClient.get<{ items?: PendingSupplier[] }>("/admin/community-buy/suppliers", opts);
     return res.items ?? [];
   },
   async restrictSupplier(id: string, reason: string): Promise<PendingSupplier> {
@@ -355,18 +404,18 @@ export const communityBuyAdminAPI = {
   },
 
   // ─── Financial ledger (read-only) — doc §12 ────────────────────────────
-  async getLedgerSummary(): Promise<LedgerSummaryRow[]> {
-    const res = await apiClient.get<{ items?: LedgerSummaryRow[] }>("/admin/community-buy/ledger");
+  async getLedgerSummary(opts?: ReadOptions): Promise<LedgerSummaryRow[]> {
+    const res = await apiClient.get<{ items?: LedgerSummaryRow[] }>("/admin/community-buy/ledger", opts);
     return res.items ?? [];
   },
-  async getCampaignLedger(campaignId: string): Promise<CampaignLedger> {
-    return apiClient.get<CampaignLedger>(`/admin/community-campaigns/${campaignId}/ledger`);
+  async getCampaignLedger(campaignId: string, opts?: ReadOptions): Promise<CampaignLedger> {
+    return apiClient.get<CampaignLedger>(`/admin/community-campaigns/${campaignId}/ledger`, opts);
   },
 
   // ─── Support cases — doc Phase 9 ───────────────────────────────────────
-  async getSupportCases(status?: SupportCaseStatus): Promise<AdminSupportCase[]> {
+  async getSupportCases(status?: SupportCaseStatus, opts?: ReadOptions): Promise<AdminSupportCase[]> {
     const qs = status ? `?status=${encodeURIComponent(status)}` : "";
-    const res = await apiClient.get<{ items?: AdminSupportCase[] }>(`/admin/community-buy/support-cases${qs}`);
+    const res = await apiClient.get<{ items?: AdminSupportCase[] }>(`/admin/community-buy/support-cases${qs}`, opts);
     return res.items ?? [];
   },
   async getSupportCase(id: string): Promise<AdminSupportCase> {

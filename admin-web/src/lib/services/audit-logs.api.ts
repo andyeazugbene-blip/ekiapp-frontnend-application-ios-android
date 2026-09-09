@@ -9,6 +9,9 @@ function normalizeAuditLog(raw: any): AuditLogEntry {
     entityType: raw.entityType,
     entityId: raw.entityId ?? null,
     metadata: raw.metadata ?? null,
+    beforeState: raw.beforeState ?? null,
+    afterState: raw.afterState ?? null,
+    reason: raw.reason ?? null,
     createdAt: raw.createdAt,
     actor: raw.actor
       ? {
@@ -22,12 +25,13 @@ function normalizeAuditLog(raw: any): AuditLogEntry {
 }
 
 export const auditLogsAPI = {
-  async getLogs(params?: { action?: string; entityType?: string; actorId?: string }): Promise<AuditLogEntry[]> {
+  async getLogs(params?: { action?: string; entityType?: string; entityId?: string; actorId?: string }): Promise<AuditLogEntry[]> {
     const query = new URLSearchParams({ limit: "100" });
     if (params?.action) query.set("action", params.action);
     if (params?.entityType) query.set("entityType", params.entityType);
+    if (params?.entityId) query.set("entityId", params.entityId);
     if (params?.actorId) query.set("actorId", params.actorId);
-    const response = await apiClient.get<any>(`/admin/audit-logs?${query.toString()}`);
+    const response = await apiClient.get<any>(`/admin/audit-logs?${query.toString()}`, { bypassCache: true });
     return (response.items ?? []).map(normalizeAuditLog);
   },
 };

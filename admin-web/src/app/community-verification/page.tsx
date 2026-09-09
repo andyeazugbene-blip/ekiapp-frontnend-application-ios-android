@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Button, Card, ErrorPanel, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
+import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { communityBuyAdminAPI, type PendingOrganiser, type PendingSupplier } from "@/lib/services/communityBuy.api";
@@ -14,19 +14,21 @@ export default function CommunityVerificationPage() {
   const [verifiedOrganisers, setVerifiedOrganisers] = useState<PendingOrganiser[]>([]);
   const [verifiedSuppliers, setVerifiedSuppliers] = useState<PendingSupplier[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [restrictReasonById, setRestrictReasonById] = useState<Record<string, string>>({});
 
-  const load = async () => {
+  const load = async (bypassCache = false) => {
     try {
-      setLoading(true);
+      bypassCache ? setRefreshing(true) : setLoading(true);
       setError("");
+      const opts = bypassCache ? { bypassCache: true } : undefined;
       const [organiserList, supplierList, verifiedOrganiserList, verifiedSupplierList] = await Promise.all([
-        communityBuyAdminAPI.getPendingOrganisers(),
-        communityBuyAdminAPI.getPendingSuppliers(),
-        communityBuyAdminAPI.getVerifiedOrganisers(),
-        communityBuyAdminAPI.getVerifiedSuppliers(),
+        communityBuyAdminAPI.getPendingOrganisers(opts),
+        communityBuyAdminAPI.getPendingSuppliers(opts),
+        communityBuyAdminAPI.getVerifiedOrganisers(opts),
+        communityBuyAdminAPI.getVerifiedSuppliers(opts),
       ]);
       setOrganisers(organiserList);
       setSuppliers(supplierList);
@@ -36,6 +38,7 @@ export default function CommunityVerificationPage() {
       setError(err instanceof APIError ? err.message : "Failed to load pending applications");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -130,7 +133,11 @@ export default function CommunityVerificationPage() {
       <AdminLayout>
         {loading ? <LoadingPanel label="Loading applications..." /> : (
           <div className="space-y-8">
-            <PageHeader title="Organiser & supplier verification" subtitle="Community Buy roles are granted independently of buyer/vendor status — verify each application here." />
+            <PageHeader
+              title="Organiser & supplier verification"
+              subtitle="Community Buy roles are granted independently of buyer/vendor status — verify each application here."
+              actions={<Button variant="ghost" disabled={refreshing} onClick={() => void load(true)}><Icon name="refresh" className="h-4 w-4" />{refreshing ? "Refreshing..." : "Refresh"}</Button>}
+            />
             {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -150,6 +157,7 @@ export default function CommunityVerificationPage() {
                         <div>
                           <p className="text-sm font-bold text-[#101820]">{o.user?.name ?? "Unknown"}</p>
                           <p className="text-xs text-slate-500">{o.user?.email} · <Badge tone="gray">{countryDisplayName(o.country)}</Badge></p>
+                          <p className="mt-1 text-xs text-slate-400">Applied {new Date(o.createdAt).toLocaleDateString()}</p>
                         </div>
                         <Button disabled={busyId === o.id} onClick={() => void verifyOrganiser(o.id)}>Verify</Button>
                       </div>
@@ -172,6 +180,7 @@ export default function CommunityVerificationPage() {
                             <Badge tone={s.vendor?.verificationStatus === "VERIFIED" ? "green" : "amber"}>{s.vendor?.verificationStatus ?? "UNKNOWN"}</Badge>
                             {" "}· <Badge tone="gray">{countryDisplayName(s.country)}</Badge>
                           </p>
+                          <p className="mt-1 text-xs text-slate-400">Applied {new Date(s.createdAt).toLocaleDateString()}</p>
                         </div>
                         <Button disabled={busyId === s.id} onClick={() => void verifySupplier(s.id)}>Verify</Button>
                       </div>

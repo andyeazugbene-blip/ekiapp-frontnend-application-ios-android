@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
-import { Card, ErrorPanel, LoadingPanel } from "@/components/AdminUI";
+import { Button, Card, ErrorPanel, Icon, LoadingPanel, TextLink } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { communityBuyAdminAPI, SupplierPaymentAggregate, SupplierPaymentStatus } from "@/lib/services/communityBuy.api";
@@ -15,6 +15,10 @@ const STATUS_OPTIONS: { value: SupplierPaymentStatus | ""; label: string }[] = [
   { value: "ON_HOLD", label: "Held" },
   { value: "FAILED", label: "Failed" },
 ];
+
+const CAMPAIGN_STATUS_LABEL: Record<SupplierPaymentStatus, string> = {
+  NOT_RELEASED: "Not released", PROCESSING: "Processing", PAID: "Paid", ON_HOLD: "On hold", FAILED: "Failed",
+};
 
 function money(amountMinor: number, currency: string): string {
   return `${currency} ${(amountMinor / 100).toLocaleString("en-GB", { minimumFractionDigits: 2 })}`;
@@ -43,19 +47,22 @@ export default function CommunitySupplierPaymentsPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
-  const loadData = useCallback(async () => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadData = useCallback(async (bypassCache = false) => {
     try {
-      setLoading(true);
+      bypassCache ? setRefreshing(true) : setLoading(true);
       setError("");
       setData(await communityBuyAdminAPI.getSupplierPaymentAggregate({
         status: status || undefined,
         from: from || undefined,
         to: to || undefined,
-      }));
+      }, bypassCache ? { bypassCache: true } : undefined));
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to load supplier payment totals");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [status, from, to]);
 
@@ -65,9 +72,12 @@ export default function CommunitySupplierPaymentsPage() {
     <ProtectedRoute>
       <AdminLayout>
         <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-[#101820]">Supplier Payments — Aggregate</h1>
-            <p className="text-[13px] text-slate-400">Real totals from actual supplier payment records. Currencies are never combined.</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-[#101820]">Supplier Payments — Aggregate</h1>
+              <p className="text-[13px] text-slate-400">Real totals from actual supplier payment records. Currencies are never combined.</p>
+            </div>
+            <Button variant="ghost" disabled={refreshing} onClick={() => void loadData(true)}><Icon name="refresh" className="h-4 w-4" />{refreshing ? "Refreshing..." : "Refresh"}</Button>
           </div>
 
           <Card>
@@ -100,10 +110,11 @@ export default function CommunitySupplierPaymentsPage() {
               {data.totalsByCurrency.map((c) => (
                 <Card key={c.currency}>
                   <h2 className="text-base font-black text-[#101820]">{c.currency} totals ({c.count} payment{c.count === 1 ? "" : "s"})</h2>
-                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-6">
                     <StatCard label="Total" value={money(c.totalAmount, c.currency)} />
                     <StatCard label="Released" value={money(c.totalReleased, c.currency)} />
                     <StatCard label="Pending" value={money(c.totalPending, c.currency)} />
+                    <StatCard label="Processing" value={money(c.totalProcessing, c.currency)} />
                     <StatCard label="Held" value={money(c.totalHeld, c.currency)} />
                     <StatCard label="Failed" value={money(c.totalFailed, c.currency)} />
                   </div>
@@ -153,9 +164,12 @@ export default function CommunitySupplierPaymentsPage() {
                     <tbody>
                       {data.byCampaign.map((c) => (
                         <tr key={c.campaignId} className="border-b border-slate-50">
-                          <td className="px-3 py-2 font-medium text-slate-700">{c.campaignTitle}</td>
+                          <td className="px-3 py-2 font-medium text-slate-700">
+                            {c.campaignTitle}
+                            <div><TextLink href={`/activity-logs?entityId=${c.campaignId}`}>Audit history</TextLink></div>
+                          </td>
                           <td className="px-3 py-2 text-slate-700">{money(c.amount, c.currency)}</td>
-                          <td className="px-3 py-2 text-slate-500">{c.status.replace(/_/g, " ")}</td>
+                          <td className="px-3 py-2 text-slate-500">{CAMPAIGN_STATUS_LABEL[c.status]}</td>
                           <td className="px-3 py-2 text-slate-500">{c.releasedAt ? new Date(c.releasedAt).toLocaleDateString("en-GB") : "—"}</td>
                         </tr>
                       ))}

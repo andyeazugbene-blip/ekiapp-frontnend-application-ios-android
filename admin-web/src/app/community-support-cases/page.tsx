@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
+import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader, TextLink } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import {
@@ -19,6 +19,10 @@ const STATUS_TONE: Record<SupportCaseStatus, "green" | "amber" | "red" | "blue" 
   CLOSED: "gray",
 };
 
+const STATUS_LABEL: Record<SupportCaseStatus, string> = {
+  OPEN: "Open", IN_PROGRESS: "In progress", ESCALATED: "Escalated", RESOLVED: "Resolved", CLOSED: "Closed",
+};
+
 const CASE_TYPE_LABEL: Record<string, string> = {
   PAYMENT_ISSUE: "Payment issue",
   REFUND_ISSUE: "Refund issue",
@@ -33,6 +37,7 @@ const STATUS_OPTIONS: SupportCaseStatus[] = ["OPEN", "IN_PROGRESS", "ESCALATED",
 export default function CommunitySupportCasesPage() {
   const [cases, setCases] = useState<AdminSupportCase[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<SupportCaseStatus | "ALL">("ALL");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -40,15 +45,16 @@ export default function CommunitySupportCasesPage() {
   const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
   const [draftResponse, setDraftResponse] = useState<Record<string, string>>({});
 
-  const load = async () => {
+  const load = async (bypassCache = false) => {
     try {
-      setLoading(true);
+      bypassCache ? setRefreshing(true) : setLoading(true);
       setError("");
-      setCases(await communityBuyAdminAPI.getSupportCases(filter === "ALL" ? undefined : filter));
+      setCases(await communityBuyAdminAPI.getSupportCases(filter === "ALL" ? undefined : filter, bypassCache ? { bypassCache: true } : undefined));
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Could not load support cases.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -76,6 +82,7 @@ export default function CommunitySupportCasesPage() {
           <PageHeader
             title="Community Buy Support Cases"
             subtitle="Reports from organisers, suppliers, and participants about a specific campaign. Internal notes stay admin-only; the customer response is what the reporter sees."
+            actions={<Button variant="ghost" disabled={refreshing} onClick={() => void load(true)}><Icon name="refresh" className="h-4 w-4" />{refreshing ? "Refreshing..." : "Refresh"}</Button>}
           />
 
           <div className="flex flex-wrap gap-2">
@@ -85,7 +92,7 @@ export default function CommunitySupportCasesPage() {
                 onClick={() => setFilter(s)}
                 className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${filter === s ? "bg-[#096B4A] text-white" : "bg-slate-100 text-slate-600"}`}
               >
-                {s === "ALL" ? "All" : s.replace("_", " ")}
+                {s === "ALL" ? "All" : STATUS_LABEL[s]}
               </button>
             ))}
           </div>
@@ -115,7 +122,7 @@ export default function CommunitySupportCasesPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge tone={STATUS_TONE[c.status]}>{c.status.replace("_", " ")}</Badge>
+                        <Badge tone={STATUS_TONE[c.status]}>{STATUS_LABEL[c.status]}</Badge>
                         <Button variant="ghost" onClick={() => setExpandedId(expanded ? null : c.id)}>{expanded ? "Hide" : "Manage"}</Button>
                       </div>
                     </div>
@@ -126,6 +133,23 @@ export default function CommunitySupportCasesPage() {
                           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Reporter&apos;s description</p>
                           <p className="mt-1 text-sm text-slate-700">{c.description}</p>
                         </div>
+
+                        {c.evidenceUrls.length > 0 ? (
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Evidence attached by the reporter</p>
+                            <div className="mt-1 flex flex-wrap gap-3">
+                              {c.evidenceUrls.map((url, i) => (
+                                <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[#096B4A] hover:underline">
+                                  Attachment {i + 1}
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <p className="text-xs text-slate-400">
+                          Last updated {new Date(c.updatedAt).toLocaleString()} · <TextLink href={`/activity-logs?entityId=${c.id}`}>Audit history</TextLink>
+                        </p>
 
                         <div className="grid gap-4 md:grid-cols-2">
                           <div>
@@ -176,11 +200,11 @@ export default function CommunitySupportCasesPage() {
                             disabled={busyId === c.id}
                             onChange={(e) => {
                               const next = e.target.value as SupportCaseStatus;
-                              if (confirm(`Change this case's status to "${next.replace("_", " ")}"?`)) void applyUpdate(c.id, { status: next });
+                              if (confirm(`Change this case's status to "${STATUS_LABEL[next]}"?`)) void applyUpdate(c.id, { status: next });
                             }}
                           >
                             {STATUS_OPTIONS.map((s) => (
-                              <option key={s} value={s}>{s.replace("_", " ")}</option>
+                              <option key={s} value={s}>{STATUS_LABEL[s]}</option>
                             ))}
                           </select>
                           <Button

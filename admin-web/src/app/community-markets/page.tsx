@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
+import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import {
@@ -313,11 +313,18 @@ function MarketCard({ market, onUpdated }: { market: MarketConfig; onUpdated: (m
 
           {saveError ? <p className="text-sm font-semibold text-red-600">{saveError}</p> : null}
           <div className="flex items-center gap-3">
-            <Button variant="primary" disabled={saving} onClick={() => void saveDraft()}>
+            <Button
+              variant="primary"
+              disabled={saving}
+              onClick={() => {
+                if (confirm(`Save this configuration for ${countryDisplayName(market.countryCode)}? This changes real payment mode, fee, and legal settings for the market.`)) void saveDraft();
+              }}
+            >
               {saving ? "Saving..." : "Save configuration"}
             </Button>
             {saved ? <span className="text-sm font-semibold text-[#096B4A]">Saved.</span> : null}
           </div>
+          <p className="text-xs text-slate-400">Last updated {new Date(market.updatedAt).toLocaleString()}</p>
         </div>
       ) : null}
     </Card>
@@ -327,17 +334,19 @@ function MarketCard({ market, onUpdated }: { market: MarketConfig; onUpdated: (m
 export default function CommunityMarketsPage() {
   const [markets, setMarkets] = useState<MarketConfig[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  const load = async () => {
+  const load = async (bypassCache = false) => {
     try {
-      setLoading(true);
+      bypassCache ? setRefreshing(true) : setLoading(true);
       setError("");
-      setMarkets(await communityBuyAdminAPI.getMarketConfigs());
+      setMarkets(await communityBuyAdminAPI.getMarketConfigs(bypassCache ? { bypassCache: true } : undefined));
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to load market configuration");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -361,6 +370,7 @@ export default function CommunityMarketsPage() {
             <PageHeader
               title="Market configuration"
               subtitle="Country-by-country feature, payment, and legal controls. All flags default off — the mobile app never hardcodes availability, it reads this configuration. Africa is intentionally not listed for the current launch."
+              actions={<Button variant="ghost" disabled={refreshing} onClick={() => void load(true)}><Icon name="refresh" className="h-4 w-4" />{refreshing ? "Refreshing..." : "Refresh"}</Button>}
             />
             {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
 

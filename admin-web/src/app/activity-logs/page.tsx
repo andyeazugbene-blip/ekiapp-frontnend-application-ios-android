@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
+import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { auditLogsAPI } from "@/lib/services/audit-logs.api";
@@ -31,21 +32,35 @@ function actionTone(action: string): "green" | "amber" | "red" | "blue" | "gray"
 }
 
 export default function ActivityLogsPage() {
+  return (
+    <Suspense fallback={<AdminLayout><LoadingPanel label="Loading activity..." /></AdminLayout>}>
+      <ActivityLogsContent />
+    </Suspense>
+  );
+}
+
+function ActivityLogsContent() {
+  const searchParams = useSearchParams();
+  const linkedEntityId = searchParams.get("entityId");
+  const linkedEntityType = searchParams.get("entityType");
+
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [entityTypeFilter, setEntityTypeFilter] = useState<string | "ALL">("ALL");
+  const [entityTypeFilter, setEntityTypeFilter] = useState<string | "ALL">(linkedEntityType ?? "ALL");
+  const [entityIdFilter, setEntityIdFilter] = useState(linkedEntityId ?? "");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     void load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entityIdFilter]);
 
   async function load() {
     setLoading(true);
     setError("");
     try {
-      setLogs(await auditLogsAPI.getLogs());
+      setLogs(await auditLogsAPI.getLogs(entityIdFilter.trim() ? { entityId: entityIdFilter.trim() } : undefined));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load activity logs.");
     } finally {
@@ -63,9 +78,24 @@ export default function ActivityLogsPage() {
           <PageHeader
             title="Audit Log"
             subtitle="Every administrator action — actor, reason, and the status change it made. Audit records cannot be edited after submission."
+            actions={<Button variant="ghost" onClick={() => void load()}><Icon name="refresh" className="h-4 w-4" />Refresh</Button>}
           />
 
           {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              placeholder="Filter by entity ID (e.g. a campaign ID)"
+              value={entityIdFilter}
+              onChange={(e) => setEntityIdFilter(e.target.value)}
+              className="w-72 rounded-xl border border-slate-200 p-2 text-sm"
+            />
+            {entityIdFilter ? (
+              <button onClick={() => setEntityIdFilter("")} className="text-sm font-semibold text-slate-500 underline">
+                Clear
+              </button>
+            ) : null}
+          </div>
 
           {entityTypes.length > 0 ? (
             <div className="flex flex-wrap gap-2">
@@ -91,15 +121,19 @@ export default function ActivityLogsPage() {
             <LoadingPanel label="Loading activity..." />
           ) : filtered.length === 0 ? (
             <Card className="py-12 text-center">
-              <p className="text-base font-semibold text-slate-700">No activity{entityTypeFilter !== "ALL" ? ` for ${entityTypeFilter}` : ""}.</p>
+              <p className="text-base font-semibold text-slate-700">
+                No activity{entityTypeFilter !== "ALL" ? ` for ${entityTypeFilter}` : ""}{entityIdFilter ? ` for entity ${entityIdFilter}` : ""}.
+              </p>
             </Card>
           ) : (
             <div className="space-y-3">
               {filtered.map((log) => {
                 const expanded = expandedId === log.id;
                 const metadata = (log.metadata && typeof log.metadata === "object" ? log.metadata : {}) as Record<string, unknown>;
-                const reason = typeof metadata.reason === "string" ? metadata.reason : undefined;
-                const otherEntries = Object.entries(metadata).filter(([k]) => k !== "reason");
+                const otherEntries = Object.entries(metadata);
+                const before = log.beforeState && typeof log.beforeState === "object" ? (log.beforeState as Record<string, unknown>) : null;
+                const after = log.afterState && typeof log.afterState === "object" ? (log.afterState as Record<string, unknown>) : null;
+                const hasDetails = otherEntries.length > 0 || before || after;
 
                 return (
                   <Card key={log.id}>
@@ -112,24 +146,44 @@ export default function ActivityLogsPage() {
                         <p className="mt-1 text-sm font-semibold text-[#101820]">
                           {log.actor?.name ?? log.actorId} <span className="font-normal text-slate-500">({log.actor?.email ?? "unknown actor"})</span>
                         </p>
-                        {reason ? <p className="mt-1 text-sm text-slate-700">Reason: {reason}</p> : null}
+                        {log.reason ? <p className="mt-1 text-sm text-slate-700">Reason: {log.reason}</p> : null}
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
                         <p className="text-xs text-slate-400">{new Date(log.createdAt).toLocaleString()}</p>
-                        {otherEntries.length > 0 ? (
+                        {hasDetails ? (
                           <Button variant="ghost" onClick={() => setExpandedId(expanded ? null : log.id)}>{expanded ? "Hide" : "Details"}</Button>
                         ) : null}
                       </div>
                     </div>
 
-                    {expanded && otherEntries.length > 0 ? (
-                      <div className="mt-4 grid gap-2 border-t border-slate-100 pt-4 sm:grid-cols-2">
-                        {otherEntries.map(([key, value]) => (
-                          <div key={key} className="flex justify-between gap-3 text-sm">
-                            <span className="text-slate-400">{humanizeKey(key)}</span>
-                            <span className="font-medium text-[#101820]">{formatMetadataValue(value)}</span>
+                    {expanded && hasDetails ? (
+                      <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+                        {before || after ? (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {before ? (
+                              <div>
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Previous state</p>
+                                <p className="mt-1 text-sm text-slate-700">{formatMetadataValue(before)}</p>
+                              </div>
+                            ) : null}
+                            {after ? (
+                              <div>
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">New state</p>
+                                <p className="mt-1 text-sm text-slate-700">{formatMetadataValue(after)}</p>
+                              </div>
+                            ) : null}
                           </div>
-                        ))}
+                        ) : null}
+                        {otherEntries.length > 0 ? (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {otherEntries.map(([key, value]) => (
+                              <div key={key} className="flex justify-between gap-3 text-sm">
+                                <span className="text-slate-400">{humanizeKey(key)}</span>
+                                <span className="font-medium text-[#101820]">{formatMetadataValue(value)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                   </Card>

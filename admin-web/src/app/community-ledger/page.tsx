@@ -2,10 +2,10 @@
 
 import { Fragment, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Button, Card, downloadCsv, ErrorPanel, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
+import { Badge, Button, Card, downloadCsv, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader, TextLink } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
-import { communityBuyAdminAPI, type CampaignLedger, type LedgerSummaryRow } from "@/lib/services/communityBuy.api";
+import { communityBuyAdminAPI, type CampaignLedger, type CampaignStatus, type FundingOutcome, type LedgerSummaryRow } from "@/lib/services/communityBuy.api";
 
 function centsToUnit(value: unknown): number {
   return typeof value === "number" ? value / 100 : 0;
@@ -15,23 +15,43 @@ function money(valueMinor: number, currency: string): string {
   return `${centsToUnit(valueMinor).toFixed(2)} ${currency}`;
 }
 
+const STATUS_LABEL: Record<CampaignStatus, string> = {
+  DRAFT: "Draft", UNDER_REVIEW: "Under review", CHANGES_REQUIRED: "Changes requested", APPROVED: "Approved",
+  REJECTED: "Rejected", LIVE: "Live", PAUSED: "Paused", RESCUE_WINDOW: "Needs more participants",
+  SUCCEEDED: "Succeeded", FAILED: "Did not reach minimum", REFUNDING: "Refunding", FULFILLING: "Proceeding",
+  COMPLETED: "Completed", FINANCIALLY_CLOSED: "Financially closed", CANCELLED: "Ended",
+};
+const STATUS_TONE: Record<CampaignStatus, "green" | "amber" | "red" | "blue" | "gray"> = {
+  DRAFT: "gray", UNDER_REVIEW: "amber", CHANGES_REQUIRED: "amber", APPROVED: "blue", REJECTED: "red",
+  LIVE: "blue", PAUSED: "gray", RESCUE_WINDOW: "amber", SUCCEEDED: "green", FAILED: "amber",
+  REFUNDING: "amber", FULFILLING: "blue", COMPLETED: "green", FINANCIALLY_CLOSED: "gray", CANCELLED: "red",
+};
+const FUNDING_OUTCOME_LABEL: Record<FundingOutcome, string> = {
+  PENDING: "Not yet decided", GOAL_REACHED: "Goal reached", MINIMUM_REACHED: "Minimum reached", BELOW_MINIMUM: "Below minimum",
+};
+const ENTRY_TYPE_LABEL: Record<string, string> = {
+  CONTRIBUTION: "Contribution", REFUND: "Refund", SUPPLIER_PAYMENT: "Supplier payment",
+};
+
 export default function CommunityLedgerPage() {
   const [rows, setRows] = useState<LedgerSummaryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<CampaignLedger | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const load = async () => {
+  const load = async (bypassCache = false) => {
     try {
-      setLoading(true);
+      bypassCache ? setRefreshing(true) : setLoading(true);
       setError("");
-      setRows(await communityBuyAdminAPI.getLedgerSummary());
+      setRows(await communityBuyAdminAPI.getLedgerSummary(bypassCache ? { bypassCache: true } : undefined));
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Could not load the ledger.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -86,9 +106,12 @@ export default function CommunityLedgerPage() {
             title="Community Buy Financial Ledger"
             subtitle="A read-only reconciliation of money that has actually moved through Community Buy — contributions received, refunds issued, and supplier payments released. Eki holds no custody of these funds; Stripe settles every row shown here."
             actions={
-              <Button variant="secondary" onClick={exportCsv} disabled={rows.length === 0}>
-                Export CSV
-              </Button>
+              <>
+                <Button variant="ghost" disabled={refreshing} onClick={() => void load(true)}><Icon name="refresh" className="h-4 w-4" />{refreshing ? "Refreshing..." : "Refresh"}</Button>
+                <Button variant="secondary" onClick={exportCsv} disabled={rows.length === 0}>
+                  Export CSV
+                </Button>
+              </>
             }
           />
 
@@ -117,6 +140,7 @@ export default function CommunityLedgerPage() {
                     <thead>
                       <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                         <th className="px-4 py-3">Campaign</th>
+                        <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">Contributions</th>
                         <th className="px-4 py-3">Contributed</th>
                         <th className="px-4 py-3">Refunded</th>
@@ -129,7 +153,14 @@ export default function CommunityLedgerPage() {
                       {rows.map((r) => (
                         <Fragment key={r.campaignId}>
                           <tr className="text-sm text-slate-700">
-                            <td className="px-4 py-3 font-semibold text-[#101820]">{r.title}</td>
+                            <td className="px-4 py-3 font-semibold text-[#101820]">
+                              {r.title}
+                              <div><TextLink href={`/activity-logs?entityId=${r.campaignId}`}>Audit history</TextLink></div>
+                            </td>
+                            <td className="px-4 py-3">
+                              {r.status ? <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge> : <span className="text-slate-400">—</span>}
+                              {r.fundingOutcome && r.fundingOutcome !== "PENDING" ? <p className="mt-1 text-xs text-slate-400">{FUNDING_OUTCOME_LABEL[r.fundingOutcome]}</p> : null}
+                            </td>
                             <td className="px-4 py-3">{r.contributionCount}</td>
                             <td className="px-4 py-3">{money(r.totalContributed, r.currency)}</td>
                             <td className="px-4 py-3">{money(r.totalRefunded, r.currency)}</td>
@@ -143,7 +174,7 @@ export default function CommunityLedgerPage() {
                           </tr>
                           {expandedId === r.campaignId ? (
                             <tr>
-                              <td colSpan={7} className="bg-slate-50 px-4 py-4">
+                              <td colSpan={8} className="bg-slate-50 px-4 py-4">
                                 {detailLoading ? (
                                   <p className="text-sm text-slate-500">Loading entries...</p>
                                 ) : detail && detail.campaign.id === r.campaignId ? (
@@ -155,6 +186,7 @@ export default function CommunityLedgerPage() {
                                         <li key={e.id} className="flex items-center justify-between text-sm">
                                           <span className="flex items-center gap-3">
                                             <Badge tone={e.direction === "CREDIT" ? "green" : "amber"}>{e.direction === "CREDIT" ? "Credit" : "Debit"}</Badge>
+                                            <Badge tone="gray">{ENTRY_TYPE_LABEL[e.type] ?? e.type}</Badge>
                                             <span className="text-slate-700">{e.description}</span>
                                             <span className="text-xs text-slate-400">{new Date(e.occurredAt).toLocaleString()}</span>
                                           </span>

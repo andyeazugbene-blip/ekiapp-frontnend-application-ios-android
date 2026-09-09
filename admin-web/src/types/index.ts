@@ -362,6 +362,9 @@ export interface AuditLogEntry {
   entityType: string;
   entityId?: string | null;
   metadata?: unknown;
+  beforeState?: unknown;
+  afterState?: unknown;
+  reason?: string | null;
   createdAt: string;
   actor?: {
     id: string;
