@@ -257,13 +257,15 @@ export interface AdminPayoutRequest {
   payoutMethodId: string;
   amount: number;
   currency: string;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "PAID";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "PROCESSING" | "ON_HOLD" | "PAID";
   notes?: string | null;
   rejectionReason?: string | null;
   approvedById?: string | null;
   approvedAt?: string | null;
   paidById?: string | null;
   paidAt?: string | null;
+  stripeTransferId?: string | null;
+  holdReason?: string | null;
   createdAt: string;
   payoutMethod?: {
     type: string;

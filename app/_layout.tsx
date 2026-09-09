@@ -139,7 +139,19 @@ export default function RootLayout() {
         const router = require("expo-router").router;
         const type = data.type as string | undefined;
 
-        if (type === "order_status" || type === "new_order") {
+        if (
+          type === "order_status" || type === "new_order" ||
+          // P0 fix: these previously had no frontend branch at all (dead
+          // taps) — buyer_order_shipped/delivered and vendor_first_order
+          // all resolve to the same order-detail/track-order destination
+          // this branch already computes correctly per-role; only
+          // buyer_order_confirmed is defensive (see stripe.service.ts —
+          // it is not currently ever sent as a push/in-app notification,
+          // only logged for the admin Communications page, but is routed
+          // here too in case that ever changes).
+          type === "buyer_order_shipped" || type === "buyer_order_delivered" ||
+          type === "buyer_order_confirmed" || type === "vendor_first_order"
+        ) {
           if (data.orderId) {
             // Determine vendor vs buyer based on current role
             const role = useAuthStore.getState().user?.role;
@@ -235,6 +247,12 @@ export default function RootLayout() {
           } else if (role === "vendor") {
             router.push(`/(vendor)/automation-center`);
           }
+        } else if (type === "vendor_verification_approved") {
+          // P0 fix: previously unrecognized — dead tap. Static destination,
+          // no id needed (a vendor has exactly one verification status).
+          router.push(`/(vendor-verification)/approved`);
+        } else if (type === "vendor_verification_rejected") {
+          router.push(`/(vendor-verification)/rejected`);
         } else if (type === "admin_broadcast") {
           // Default: no specific deep link for broadcasts
         }

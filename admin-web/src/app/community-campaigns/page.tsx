@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader, TextLink } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { APIError } from "@/lib/api";
+import { API2FARequiredError, APIError } from "@/lib/api";
 import {
   communityBuyAdminAPI, isPendingApproval,
   type AdminCampaign, type AdminContribution, type AdminExtensionRequest, type AdminSupplierPayment,
@@ -58,6 +58,12 @@ export default function CommunityCampaignsPage() {
   const [contributionsById, setContributionsById] = useState<Record<string, AdminContribution[]>>({});
   const [expandedContributionsId, setExpandedContributionsId] = useState<string | null>(null);
   const [contributionsLoadingId, setContributionsLoadingId] = useState<string | null>(null);
+  // P0-4: both release and hold require 2FA server-side (require2fa) — this
+  // page previously had no way to collect a code at all, so a 2FA-enabled
+  // admin's release/hold click just 403'd with no recovery. Mirrors the
+  // exact modal pattern already working on payout-requests/page.tsx.
+  const [pendingPaymentAction, setPendingPaymentAction] = useState<{ payment: AdminSupplierPayment; kind: "release" | "hold"; reason?: string } | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
 
   const load = async (bypassCache = false) => {
     try {
@@ -126,34 +132,52 @@ export default function CommunityCampaignsPage() {
     }
   };
 
-  const runPaymentAction = async (id: string, action: () => Promise<AdminSupplierPayment>) => {
-    setBusyId(id);
+  // Release is handled separately because a
+  // four-eyes AdminApprovalRule can turn this into a 202 "pending a second
+  // admin's approval" response instead of an actual release — that must be
+  // shown as its own outcome, never mistaken for a completed release. It
+  // also requires 2FA server-side: a missing/invalid code throws
+  // API2FARequiredError, at which point we prompt for one rather than
+  // failing outright — the code is held only in local component state for
+  // the duration of this one retry, never persisted.
+  const runReleaseAction = async (payment: AdminSupplierPayment, code?: string) => {
+    setBusyId(payment.id);
     try {
-      await action();
+      const result = await communityBuyAdminAPI.releaseSupplierPayment(payment.campaignId, code);
+      if (isPendingApproval(result)) {
+        // A second, different admin must decide this — the first admin must
+        // never be left thinking the money already moved.
+        alert(result.message);
+      } else {
+        alert("Payment released.");
+      }
+      setPendingPaymentAction(null);
+      setTwoFactorCode("");
       await load();
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Action failed");
+      if (err instanceof API2FARequiredError) {
+        setPendingPaymentAction({ payment, kind: "release" });
+      } else {
+        alert(err instanceof APIError ? err.message : "Action failed");
+      }
     } finally {
       setBusyId(null);
     }
   };
 
-  // Release is handled separately from runPaymentAction because a
-  // four-eyes AdminApprovalRule can turn this into a 202 "pending a second
-  // admin's approval" response instead of an actual release — that must be
-  // shown as its own outcome, never mistaken for a completed release.
-  const runReleaseAction = async (id: string, campaignId: string) => {
-    setBusyId(id);
+  const runHoldAction = async (payment: AdminSupplierPayment, reason: string, code?: string) => {
+    setBusyId(payment.id);
     try {
-      const result = await communityBuyAdminAPI.releaseSupplierPayment(campaignId);
-      if (isPendingApproval(result)) {
-        alert(result.message);
-      } else {
-        alert("Payment released.");
-      }
+      await communityBuyAdminAPI.holdSupplierPayment(payment.campaignId, reason, code);
+      setPendingPaymentAction(null);
+      setTwoFactorCode("");
       await load();
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Action failed");
+      if (err instanceof API2FARequiredError) {
+        setPendingPaymentAction({ payment, kind: "hold", reason });
+      } else {
+        alert(err instanceof APIError ? err.message : "Action failed");
+      }
     } finally {
       setBusyId(null);
     }
@@ -434,7 +458,7 @@ export default function CommunityCampaignsPage() {
                           <Button
                             disabled={busyId === p.id}
                             onClick={() => {
-                              if (confirm(`Release ${centsToUnit(p.amount).toFixed(2)} ${p.currency} to the supplier? This cannot be undone. Large releases may require a second admin's approval before funds actually move.`)) void runReleaseAction(p.id, p.campaignId);
+                              if (confirm(`Release ${centsToUnit(p.amount).toFixed(2)} ${p.currency} to the supplier? This cannot be undone. Large releases may require a second admin's approval before funds actually move.`)) void runReleaseAction(p);
                             }}
                           >
                             Approve release
@@ -449,7 +473,7 @@ export default function CommunityCampaignsPage() {
                             variant="secondary"
                             disabled={busyId === p.id || !holdReasonById[p.id]?.trim()}
                             onClick={() => {
-                              if (confirm("Place this supplier payment on hold?")) void runPaymentAction(p.id, () => communityBuyAdminAPI.holdSupplierPayment(p.campaignId, holdReasonById[p.id]!.trim()));
+                              if (confirm("Place this supplier payment on hold?")) void runHoldAction(p, holdReasonById[p.id]!.trim());
                             }}
                           >
                             Place on hold
@@ -463,6 +487,47 @@ export default function CommunityCampaignsPage() {
             </Card>
           </div>
         )}
+
+        {/* 2FA modal — release/hold both require it server-side (require2fa).
+            Never claim the payment is released here: submitting just retries
+            the same action with the code; the real outcome (paid, or
+            pending a second admin's approval) is reported after that call
+            returns, exactly as the no-2FA path already does. */}
+        {pendingPaymentAction ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+            <Card className="w-full max-w-md">
+              <h3 className="text-xl font-black text-[#101820]">Enter 2FA code</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                {pendingPaymentAction.kind === "release"
+                  ? <>Confirm the release of <span className="font-bold">{centsToUnit(pendingPaymentAction.payment.amount).toFixed(2)} {pendingPaymentAction.payment.currency}</span> to the supplier.</>
+                  : "Confirm placing this supplier payment on hold."}
+              </p>
+              <input
+                autoFocus
+                inputMode="numeric"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value)}
+                placeholder="6-digit code"
+                className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none"
+              />
+              <div className="mt-4 flex gap-3">
+                <Button
+                  disabled={busyId === pendingPaymentAction.payment.id || !twoFactorCode.trim()}
+                  onClick={() => {
+                    if (pendingPaymentAction.kind === "release") void runReleaseAction(pendingPaymentAction.payment, twoFactorCode.trim());
+                    else void runHoldAction(pendingPaymentAction.payment, pendingPaymentAction.reason ?? "", twoFactorCode.trim());
+                  }}
+                  className="flex-1"
+                >
+                  Confirm
+                </Button>
+                <Button variant="ghost" className="flex-1" onClick={() => { setPendingPaymentAction(null); setTwoFactorCode(""); }}>
+                  Cancel
+                </Button>
+              </div>
+            </Card>
+          </div>
+        ) : null}
       </AdminLayout>
     </ProtectedRoute>
   );

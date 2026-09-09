@@ -357,11 +357,11 @@ export const communityBuyAdminAPI = {
    * describing the pending approval instead. Callers must check
    * isPendingApproval() before assuming the payment was actually released.
    */
-  async releaseSupplierPayment(campaignId: string): Promise<ReleaseSupplierPaymentResult> {
-    return apiClient.post<ReleaseSupplierPaymentResult>(`/admin/community-campaigns/${campaignId}/supplier-payment/release`, {});
+  async releaseSupplierPayment(campaignId: string, twoFactorCode?: string): Promise<ReleaseSupplierPaymentResult> {
+    return apiClient.post<ReleaseSupplierPaymentResult>(`/admin/community-campaigns/${campaignId}/supplier-payment/release`, {}, { twoFactorCode });
   },
-  async holdSupplierPayment(campaignId: string, reason: string): Promise<AdminSupplierPayment> {
-    const res = await apiClient.post<{ payment: AdminSupplierPayment }>(`/admin/community-campaigns/${campaignId}/supplier-payment/hold`, { reason });
+  async holdSupplierPayment(campaignId: string, reason: string, twoFactorCode?: string): Promise<AdminSupplierPayment> {
+    const res = await apiClient.post<{ payment: AdminSupplierPayment }>(`/admin/community-campaigns/${campaignId}/supplier-payment/hold`, { reason }, { twoFactorCode });
     return res.payment;
   },
 

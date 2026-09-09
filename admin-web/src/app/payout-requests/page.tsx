@@ -11,7 +11,7 @@ import { payoutRequestsAPI } from "@/lib/services/payout-requests.api";
 import { vendorsAPI } from "@/lib/services/vendors.api";
 import { AdminPayoutRequest, Vendor } from "@/types";
 
-type TabKey = "pending" | "approved" | "paid" | "rejected";
+type TabKey = "pending" | "approved" | "attention" | "paid" | "rejected";
 
 function StatCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
@@ -75,9 +75,6 @@ export default function PayoutRequestsPage() {
     finally { setBusyId(null); }
   };
 
-  // PayoutRequestStatus has no FAILED value (PENDING/APPROVED/REJECTED/PAID
-  // only) — there is no such thing as a "failed" payout request today, so
-  // that tab/stat is removed rather than showing a permanently-fake 0.
   // Payout requests can be in different currencies per vendor — summing raw
   // amounts and labelling the total with one fixed currency would silently
   // misrepresent the real total. Convert each item into the selected display
@@ -88,6 +85,12 @@ export default function PayoutRequestsPage() {
     const approved = items.filter(i => i.status === "APPROVED");
     const paid = items.filter(i => i.status === "PAID");
     const rejected = items.filter(i => i.status === "REJECTED");
+    // ON_HOLD (a Stripe transfer failed or couldn't be confirmed) and a
+    // still-PROCESSING request (interrupted mid-transfer, e.g. by a crash)
+    // both need an admin to look at them and retry — see
+    // payoutsService.adminMarkPaid's P0 fix. Never silently mixed into
+    // "approved" (that would hide a stuck payout as if nothing were wrong).
+    const attention = items.filter(i => i.status === "ON_HOLD" || i.status === "PROCESSING");
     const sumIn = (list: AdminPayoutRequest[]) => list.reduce((s, i) => s + convertMoney(i.amount, i.currency, selectedCurrency), 0);
     return {
       pendingAmount: sumIn(pending),
@@ -95,6 +98,7 @@ export default function PayoutRequestsPage() {
       approvedToday: sumIn(approved),
       paidToday: sumIn(paid),
       rejected: rejected.length,
+      attention: attention.length,
     };
   }, [items, selectedCurrency]);
 
@@ -102,6 +106,7 @@ export default function PayoutRequestsPage() {
     let list = items;
     if (activeTab === "pending") list = list.filter(i => i.status === "PENDING");
     else if (activeTab === "approved") list = list.filter(i => i.status === "APPROVED");
+    else if (activeTab === "attention") list = list.filter(i => i.status === "ON_HOLD" || i.status === "PROCESSING");
     else if (activeTab === "paid") list = list.filter(i => i.status === "PAID");
     else if (activeTab === "rejected") list = list.filter(i => i.status === "REJECTED");
     if (searchQuery) {
@@ -120,6 +125,7 @@ export default function PayoutRequestsPage() {
   const tabs: { key: TabKey; label: string }[] = [
     { key: "pending", label: `Pending (${items.filter(i => i.status === "PENDING").length})` },
     { key: "approved", label: "Approved" },
+    { key: "attention", label: `Needs attention${stats.attention > 0 ? ` (${stats.attention})` : ""}` },
     { key: "paid", label: "Paid" },
     { key: "rejected", label: "Rejected" },
   ];
@@ -151,10 +157,11 @@ export default function PayoutRequestsPage() {
             {error && <ErrorPanel message={error} onRetry={() => void loadData()} />}
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
               <StatCard label="Pending" value={formatDisplayMoney(stats.pendingAmount, selectedCurrency, selectedCurrency)} color="text-emerald-600" />
               <StatCard label="Count" value={stats.count} color="text-blue-500" />
               <StatCard label="Approved Today" value={formatDisplayMoney(stats.approvedToday, selectedCurrency, selectedCurrency)} color="text-emerald-600" />
+              <StatCard label="Needs Attention" value={stats.attention} color={stats.attention > 0 ? "text-red-500" : "text-slate-400"} />
               <StatCard label="Paid Today" value={formatDisplayMoney(stats.paidToday, selectedCurrency, selectedCurrency)} color="text-emerald-600" />
               <StatCard label="Rejected" value={stats.rejected} color="text-red-500" />
             </div>
@@ -192,7 +199,12 @@ export default function PayoutRequestsPage() {
                       {pagedItems.map((item) => (
                         <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                           <td className="px-4 py-3.5 text-[12px] font-medium text-slate-700" title={item.id}>PAY-{item.id.slice(-8).toUpperCase()}</td>
-                          <td className="px-4 py-3.5 text-[12px] text-slate-700">{vendorMap.get(item.vendorId) ?? "Unknown"}</td>
+                          <td className="px-4 py-3.5 text-[12px] text-slate-700">
+                            {vendorMap.get(item.vendorId) ?? "Unknown"}
+                            {item.status === "ON_HOLD" && item.holdReason ? (
+                              <p className="mt-0.5 max-w-[220px] text-[11px] text-red-500" title={item.holdReason}>{item.holdReason}</p>
+                            ) : null}
+                          </td>
                           <td className="px-4 py-3.5 text-[12px] font-medium text-slate-800">{fmtAmt(item.amount, item.currency)}</td>
                           <td className="px-4 py-3.5 text-[12px] text-slate-600">{item.payoutMethod?.type === "BANK_TRANSFER" ? "Bank Transfer" : item.payoutMethod?.details?.provider === "stripe" ? "Stripe Payout" : "Bank Transfer"}</td>
                           <td className="px-4 py-3.5 text-[12px] text-slate-600">{item.payoutMethod?.details?.country ?? "—"}</td>
@@ -208,6 +220,17 @@ export default function PayoutRequestsPage() {
                               )}
                               {item.status === "APPROVED" && (
                                 <button disabled={busyId === item.id} onClick={() => void handleMarkPaid(item)} className="rounded-lg bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-blue-600 hover:bg-blue-100 transition disabled:opacity-50">Mark Paid</button>
+                              )}
+                              {(item.status === "ON_HOLD" || item.status === "PROCESSING") && (
+                                <button
+                                  disabled={busyId === item.id}
+                                  onClick={() => {
+                                    if (confirm(`Retry the transfer for this payout? A real duplicate transfer cannot be created — the same provider request is safely replayed.`)) void handleMarkPaid(item);
+                                  }}
+                                  className="rounded-lg bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-600 hover:bg-amber-100 transition disabled:opacity-50"
+                                >
+                                  Retry transfer
+                                </button>
                               )}
                               {(item.status === "PAID" || item.status === "REJECTED") && (
                                 <span className="text-[11px] text-slate-300">—</span>
@@ -274,7 +297,14 @@ export default function PayoutRequestsPage() {
 function PayoutStatusBadge({ status }: { status: string }) {
   if (status === "PENDING") return <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600">Pending</span>;
   if (status === "APPROVED") return <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600">Approved</span>;
+  // A real Stripe transfer is in flight (or was interrupted mid-flight,
+  // e.g. by a server restart) — never PAID until confirmed. See the
+  // "Needs attention" tab, not a terminal state.
+  if (status === "PROCESSING") return <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-600">Processing</span>;
+  // Transfer failed or couldn't be confirmed — safe to retry (same
+  // idempotency key), never silently retried automatically.
+  if (status === "ON_HOLD") return <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-500">Needs attention</span>;
   if (status === "PAID") return <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600">Paid</span>;
   if (status === "REJECTED") return <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-500">Rejected</span>;
-  return <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-500">Failed</span>;
+  return <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">{status}</span>;
 }
