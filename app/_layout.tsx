@@ -190,9 +190,20 @@ export default function RootLayout() {
           const conversationId = data.conversationId as string | undefined;
           const base = role === "vendor" || role === "admin" ? "/(vendor)/messages" : "/(buyer)/messages";
           router.push(conversationId ? `${base}?conversationId=${conversationId}` : base);
-        } else if (type === "earnings_released" || type === "payout_approved") {
+        } else if (type === "earnings_released") {
           const role = useAuthStore.getState().user?.role;
           router.push(role === "vendor" || role === "admin" ? `/(vendor)/earnings` : `/(buyer)`);
+        } else if (
+          // NAV-04 fix: these previously had no frontend branch at all (dead
+          // taps) — payouts.service.ts now sets data.type on all 4 payout
+          // lifecycle notifications. The payout-history list (not a
+          // per-payout detail screen, which doesn't exist) is the correct
+          // destination — it already renders each request's live status.
+          type === "payout_requested" || type === "payout_approved" ||
+          type === "payout_rejected" || type === "payout_paid"
+        ) {
+          const role = useAuthStore.getState().user?.role;
+          router.push(role === "vendor" || role === "admin" ? `/(vendor)/payout-history` : `/(buyer)`);
         } else if (type === "subscription_update") {
           const role = useAuthStore.getState().user?.role;
           const event = data.event as string | undefined;
