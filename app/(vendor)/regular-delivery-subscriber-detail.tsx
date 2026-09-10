@@ -17,6 +17,7 @@ import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
   RENEWAL_STATUS_LABELS,
+  BUYER_SUBSCRIPTION_STATUS_LABELS,
   type BuyerSubscription,
 } from "../../services/regularDeliveriesService";
 
@@ -69,7 +70,7 @@ export default function VendorSubscriberDetailScreen() {
               <Text style={styles.buyerName}>{subscription.buyer?.name ?? "Buyer"}</Text>
               {subscription.buyer?.email ? <Text style={styles.buyerEmail}>{subscription.buyer.email}</Text> : null}
               <View style={styles.metaRow}>
-                <StatusPill label={subscription.status.replace("_", " ")} tone={subscription.status === "ACTIVE" ? "success" : "neutral"} />
+                <StatusPill label={BUYER_SUBSCRIPTION_STATUS_LABELS[subscription.status]} tone={subscription.status === "ACTIVE" ? "success" : "neutral"} />
                 <Text style={styles.metaText}>Next renewal {formatDate(subscription.nextRenewalAt)}</Text>
               </View>
             </FloatingCard>

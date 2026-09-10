@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Card, ErrorPanel, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
+import { Badge, Button, Card, ErrorPanel, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { subscriptionExceptionsAPI, type SubscriptionException } from "@/lib/services/regularDeliveries.api";
@@ -25,6 +25,8 @@ export default function SubscriptionExceptionsPage() {
   const [items, setItems] = useState<SubscriptionException[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [retryError, setRetryError] = useState("");
 
   const load = async () => {
     try {
@@ -39,6 +41,23 @@ export default function SubscriptionExceptionsPage() {
   };
 
   useEffect(() => { void load(); }, []);
+
+  // RD-08 (retry-payment slice only) — re-attempts the same idempotent
+  // charge attemptPayment() already uses for the buyer's own retry and the
+  // cron sweep; a repeat click here can never produce a duplicate charge.
+  const handleRetryPayment = async (id: string) => {
+    if (!confirm("Retry payment for this renewal? The buyer's saved payment method will be charged again — a real duplicate charge cannot be created, the same provider request is safely replayed.")) return;
+    setRetryError("");
+    setRetryingId(id);
+    try {
+      await subscriptionExceptionsAPI.retryPayment(id);
+      await load();
+    } catch (err) {
+      setRetryError(err instanceof APIError ? err.message : "Failed to retry payment");
+    } finally {
+      setRetryingId(null);
+    }
+  };
 
   const priceApprovals = items.filter((i) => i.status === "AWAITING_PRICE_APPROVAL").length;
   const paymentFailures = items.filter((i) => i.status === "PAYMENT_FAILED").length;
@@ -60,6 +79,7 @@ export default function SubscriptionExceptionsPage() {
 
             <Card>
               <h2 className="text-2xl font-black">Exception queue</h2>
+              {retryError ? <ErrorPanel message={retryError} /> : null}
               {items.length === 0 ? (
                 <p className="mt-8 text-slate-500">No renewals need attention right now.</p>
               ) : (
@@ -78,6 +98,13 @@ export default function SubscriptionExceptionsPage() {
                           {item.failureReason ? <p className="text-red-600">{item.failureReason}</p> : null}
                         </div>
                       </div>
+                      {item.status === "PAYMENT_FAILED" ? (
+                        <div className="mt-4 flex justify-end">
+                          <Button variant="secondary" disabled={retryingId === item.id} onClick={() => void handleRetryPayment(item.id)}>
+                            {retryingId === item.id ? "Retrying…" : "Retry payment"}
+                          </Button>
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>

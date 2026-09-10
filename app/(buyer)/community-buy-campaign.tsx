@@ -19,6 +19,7 @@ import {
   CAMPAIGN_STATUS_LABELS,
   CAMPAIGN_STATUS_TONE,
   FULFILMENT_METHOD_LABELS,
+  FULFILMENT_STATUS_LABELS,
   type Campaign,
   type CampaignFulfilment,
   type CampaignUpdate,
@@ -336,12 +337,19 @@ export default function CommunityBuyCampaignScreen() {
 
           <View>
             <Text style={styles.section}>Fulfilment</Text>
-            <FloatingCard>
+            <FloatingCard style={{ gap: 6 }}>
               <Text style={styles.fulfilmentText}>
                 {fulfilment?.method
                   ? `This campaign fulfils by: ${FULFILMENT_METHOD_LABELS[fulfilment.method]}.`
                   : "The fulfilment method will be confirmed by the organiser once this campaign succeeds."}
               </Text>
+              {/* REQ-CB-P-008 fix: fulfilment.status (the actual progress
+                  step) was fetched but never rendered — only fulfilment.method
+                  was shown, leaving a static "updates will be shared" line
+                  as the only signal of real post-success progress. */}
+              {fulfilment?.status ? (
+                <Text style={styles.fulfilmentStatusText}>Status: {FULFILMENT_STATUS_LABELS[fulfilment.status]}</Text>
+              ) : null}
             </FloatingCard>
           </View>
 
@@ -419,4 +427,5 @@ const styles = StyleSheet.create({
   howItWorksRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 },
   howItWorksText: { flex: 1, fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
   fulfilmentText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#4A5A52" },
+  fulfilmentStatusText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
 });

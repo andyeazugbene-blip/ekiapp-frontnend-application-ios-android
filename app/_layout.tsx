@@ -231,9 +231,23 @@ export default function RootLayout() {
         } else if (type === "community_campaign_update") {
           const event = data.event as string | undefined;
           const campaignId = data.campaignId as string | undefined;
+          // NAV-08 fix: admin_cancelled/cancelled/rescue_opened/
+          // extension_approved/succeeded/failed/fulfilment_update all fire
+          // under the SAME event name to both the organiser and every
+          // participant (an organiser is just a buyer-role account, so role
+          // can't disambiguate) — community-campaigns.service.ts and
+          // campaign-fulfilment.service.ts now tag the organiser's own copy
+          // with data.audience:"organiser"; participants get no such field
+          // and correctly fall through to the participant screen below.
+          // supplier_declined has no participant-side call at all, so it's
+          // unambiguous by event name alone, same as the 5 pre-existing ones.
           if (!campaignId) {
             router.push(`/(buyer)/community-buy`);
-          } else if (event === "approved" || event === "changes_requested" || event === "rejected" || event === "supplier_accepted" || event === "inventory_confirmed") {
+          } else if (
+            event === "approved" || event === "changes_requested" || event === "rejected" ||
+            event === "supplier_accepted" || event === "inventory_confirmed" ||
+            event === "supplier_declined" || data.audience === "organiser"
+          ) {
             router.push(`/(buyer)/community-buy-organiser-campaign?id=${campaignId}`);
           } else if (event === "supplier_invited") {
             // Supplier-facing, not organiser/participant — the supplier's
@@ -245,6 +259,7 @@ export default function RootLayout() {
           }
         } else if (typeof type === "string" && type.startsWith("automation_")) {
           const role = useAuthStore.getState().user?.role;
+          const campaignId = data.campaignId as string | undefined;
           if (type === "automation_cart_recovery") {
             router.push(`/(buyer)/cart`);
           } else if (type === "automation_review_request") {
@@ -255,9 +270,36 @@ export default function RootLayout() {
             router.push(`/(buyer)/regular-deliveries`);
           } else if (type === "automation_payment_recovery") {
             router.push(`/(buyer)/orders`);
+          } else if (type === "automation_campaign_deadline") {
+            // NAV-10 fix: previously a dead tap for buyers, with no id even
+            // if a branch existed — community-campaigns.service.ts now
+            // includes campaignId in this automation's data payload.
+            router.push(campaignId ? `/(buyer)/community-buy-campaign?id=${campaignId}` : `/(buyer)/community-buy`);
+          } else if (type === "automation_buyer_win_back") {
+            // NAV-10 fix: no entity id applies here (a general "come back"
+            // nudge, not tied to one order/product) — Home is the correct,
+            // static destination, same pattern as vendor_verification_approved.
+            router.push(`/(buyer)`);
           } else if (role === "vendor") {
             router.push(`/(vendor)/automation-center`);
+          } else {
+            // NAV-10 fix: previously a silent no-op for any buyer-recipient
+            // automation type with no matching branch above — including
+            // automation_campaign_milestone/automation_campaign_refund_update,
+            // which can no longer even fire (NOTIF-DUP-01, P1-1, removed
+            // their only trigger) but are kept here as a safety net rather
+            // than assumed permanently unreachable.
+            router.push(`/(buyer)`);
           }
+        } else if (type === "support_case_response") {
+          // NOTIF-08 fix: previously no notification was ever sent for this
+          // event at all. No per-case detail screen exists — the real,
+          // already-supported destination is the support-cases list
+          // filtered to this campaign (community-buy-campaign.tsx already
+          // navigates here with campaignId the same way for a self-service
+          // "report issue" tap).
+          const campaignId = data.campaignId as string | undefined;
+          router.push(campaignId ? `/(buyer)/community-buy-support-cases?campaignId=${campaignId}` : `/(buyer)/community-buy-support-cases`);
         } else if (type === "vendor_verification_approved") {
           // P0 fix: previously unrecognized — dead tap. Static destination,
           // no id needed (a vendor has exactly one verification status).

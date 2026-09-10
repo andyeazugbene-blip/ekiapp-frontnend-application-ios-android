@@ -635,18 +635,29 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <Text style={styles.outcomeHint}>This campaign was ended. Contributions are being refunded.</Text>
               </FloatingCard>
             ) : campaign?.status === "LIVE" ? (
-              <TouchableOpacity
-                onPress={() => router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: campaign.id } } as any)}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel="Pledge shares yourself through the normal campaign page"
-              >
-                <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-                  <Ionicons name="add-circle-outline" size={18} color="#076B51" />
-                  <Text style={styles.outcomeHint}>Want to help this along? You can pledge shares yourself anytime through the normal campaign page — the same way any participant would.</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
+              <>
+                {/* CBO-13 fix: a healthy LIVE campaign previously had no
+                    progress visualization at all — RangeProgressBar only
+                    ever appeared once a campaign was already in
+                    RESCUE_WINDOW crisis, exactly backwards from useful. */}
+                <FloatingCard style={{ gap: 10 }}>
+                  <Text style={styles.outcomeTitle}>Live progress</Text>
+                  <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares} goal={campaign.goalShares} max={campaign.maximumShares} />
+                  <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Confirmed shares</Text><Text style={styles.outcomeValue}>{campaign.confirmedShares} of {campaign.goalShares} goal</Text></View>
                 </FloatingCard>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: campaign.id } } as any)}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel="Pledge shares yourself through the normal campaign page"
+                >
+                  <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                    <Ionicons name="add-circle-outline" size={18} color="#076B51" />
+                    <Text style={styles.outcomeHint}>Want to help this along? You can pledge shares yourself anytime through the normal campaign page — the same way any participant would.</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
+                  </FloatingCard>
+                </TouchableOpacity>
+              </>
             ) : null}
 
             {refundProgress && refundProgress.total > 0 ? (

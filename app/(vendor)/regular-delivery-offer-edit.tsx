@@ -15,6 +15,7 @@ import {
   StatusPill,
   premiumStyles,
 } from "../../components/shared/PremiumBlocks";
+import { DatePickerField } from "../../components/shared/DatePickerField";
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
@@ -52,6 +53,13 @@ export default function VendorRegularDeliveryOfferEditScreen() {
   const [maxPriceIncreasePercent, setMaxPriceIncreasePercent] = useState("");
   const [pausedProductIds, setPausedProductIds] = useState<Set<string>>(new Set());
   const [pausingProductId, setPausingProductId] = useState<string | null>(null);
+  // RD-10 fix: backend/buyer-side display already fully support a pause
+  // reason + expected-return date — this vendor-facing trigger previously
+  // collected neither, via a plain Alert.alert confirm with no room for
+  // input. Only PAUSE needs these; resuming stays a single tap.
+  const [pauseSheetProduct, setPauseSheetProduct] = useState<{ id: string; name: string } | null>(null);
+  const [pauseReason, setPauseReason] = useState("");
+  const [pauseExpectedReturnAt, setPauseExpectedReturnAt] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -193,14 +201,20 @@ export default function VendorRegularDeliveryOfferEditScreen() {
       void runProductPauseToggle(productId, () => regularDeliveriesService.resumeOfferProduct(offerId, productId));
       return;
     }
-    Alert.alert(
-      "Pause this product?",
-      `${productName} won't be included in any subscriber's next renewal until you resume it. Affected buyers will be notified.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Pause product", style: "destructive", onPress: () => void runProductPauseToggle(productId, () => regularDeliveriesService.pauseOfferProduct(offerId, productId)) },
-      ],
+    setPauseReason("");
+    setPauseExpectedReturnAt(null);
+    setPauseSheetProduct({ id: productId, name: productName });
+  };
+
+  const confirmPauseProduct = async () => {
+    if (!offerId || !pauseSheetProduct) return;
+    const { id: productId } = pauseSheetProduct;
+    await runProductPauseToggle(productId, () =>
+      regularDeliveriesService.pauseOfferProduct(offerId, productId, pauseReason.trim() || undefined, pauseExpectedReturnAt ?? undefined),
     );
+    setPauseSheetProduct(null);
+    setPauseReason("");
+    setPauseExpectedReturnAt(null);
   };
 
   const runProductPauseToggle = async (productId: string, action: () => Promise<unknown>) => {
@@ -367,6 +381,38 @@ export default function VendorRegularDeliveryOfferEditScreen() {
                 </FloatingCard>
               )}
             </View>
+
+            {pauseSheetProduct ? (
+              <FloatingCard style={{ gap: 14 }}>
+                <Text style={styles.sectionTitle}>Pause &ldquo;{pauseSheetProduct.name}&rdquo;?</Text>
+                <Text style={styles.fieldHint}>It won&apos;t be included in any subscriber&apos;s next renewal until you resume it. Affected buyers will be notified.</Text>
+                <View>
+                  <Text style={styles.label}>Reason (optional, shown to buyers)</Text>
+                  <TextInput
+                    style={[styles.input, styles.inputMultiline]}
+                    value={pauseReason}
+                    onChangeText={setPauseReason}
+                    placeholder="e.g. Temporarily out of stock"
+                    placeholderTextColor="#8AA194"
+                    multiline
+                  />
+                </View>
+                <DatePickerField
+                  label="Expected return date (optional)"
+                  value={pauseExpectedReturnAt}
+                  onChange={setPauseExpectedReturnAt}
+                  minimumDate={new Date()}
+                  placeholder="Choose a date, or leave blank"
+                />
+                <OutlineButton label="Cancel" onPress={() => setPauseSheetProduct(null)} disabled={pausingProductId === pauseSheetProduct.id} />
+                <PrimaryButton
+                  label="Pause product"
+                  onPress={() => void confirmPauseProduct()}
+                  loading={pausingProductId === pauseSheetProduct.id}
+                  disabled={pausingProductId === pauseSheetProduct.id}
+                />
+              </FloatingCard>
+            ) : null}
 
             {isActive ? (
               <>

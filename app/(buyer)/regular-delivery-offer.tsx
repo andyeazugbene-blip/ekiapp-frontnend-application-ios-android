@@ -18,6 +18,8 @@ import {
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
+  FULFILMENT_METHOD_LABELS,
+  SUBSTITUTION_MODE_LABELS,
   type BuyerPaymentMethod,
   type SubscriptionFrequency,
   type SubscriptionOffer,
@@ -202,6 +204,28 @@ export default function RegularDeliveryOfferScreen() {
               {offer.description ? <Text style={styles.offerDescription}>{offer.description}</Text> : null}
             </FloatingCard>
 
+            {/* RD-04 fix: this data was already loaded on `offer` — the
+                post-subscribe detail screen already renders it, this
+                pre-subscribe screen never did, so a buyer committed to a
+                subscription without seeing fulfilment method or
+                substitution policy first. */}
+            <View>
+              <Text style={styles.sectionTitle}>Delivery details</Text>
+              <FloatingCard style={{ gap: 10 }}>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Fulfilment</Text>
+                  <Text style={styles.detailValue}>{FULFILMENT_METHOD_LABELS[offer.fulfilmentMethod]}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Substitutions</Text>
+                  <Text style={styles.detailValue}>{SUBSTITUTION_MODE_LABELS[offer.substitutionMode]}</Text>
+                </View>
+                {offer.substitutionMode === "ALLOW_SIMILAR" && offer.substitutionPolicy ? (
+                  <Text style={styles.detailNote}>{offer.substitutionPolicy}</Text>
+                ) : null}
+              </FloatingCard>
+            </View>
+
             <View>
               <Text style={styles.sectionTitle}>Products</Text>
               <View style={{ gap: 8 }}>
@@ -321,6 +345,10 @@ const styles = StyleSheet.create({
   offerTitle: { fontSize: 19, fontFamily: "Manrope-ExtraBold", color: "#151E1B" },
   offerDescription: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: 8, lineHeight: 18 },
   sectionTitle: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 10 },
+  detailRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  detailLabel: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  detailValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  detailNote: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", lineHeight: 16 },
   productRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   productRowMuted: { opacity: 0.55 },
   checkbox: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: "#076B51", backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },

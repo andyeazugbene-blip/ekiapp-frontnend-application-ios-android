@@ -123,6 +123,44 @@ export const AUTOMATION_EXPLAINER: Partial<Record<AutomationType, string>> = {
   PRICE_APPROVAL_REMINDER: "Eki reminds buyers when a price change on their Regular Delivery needs their approval.",
 };
 
+/**
+ * AUTO-05 fix: only a one-sentence purpose blurb (AUTOMATION_EXPLAINER)
+ * existed before — the real mechanism/thresholds each detector actually
+ * uses (automation.detectors.ts, backend) were never surfaced, so a vendor
+ * had no way to predict when or why a run would fire. Every value here is
+ * the real one the backend enforces today, not an approximation — for the
+ * 2 vendor-configurable types, pass the vendor's current config so the
+ * text reflects what they've actually set, not just the system default.
+ */
+export function getAutomationEligibilityDetail(type: AutomationType, config?: Record<string, number> | null): string | undefined {
+  switch (type) {
+    case "FIRST_SALE":
+      return "Runs weekly for a verified store with at least one active product and zero completed sales so far.";
+    case "CART_RECOVERY": {
+      const hours = config?.reminderHours ?? 2;
+      return `Runs once an item has sat in a buyer's cart for at least ${hours} hour${hours === 1 ? "" : "s"} without checkout.`;
+    }
+    case "BUYER_WIN_BACK": {
+      const days = config?.inactivityDays ?? 45;
+      return `Runs for a buyer who has ordered from you before but not again in the last ${days} days.`;
+    }
+    case "REVIEW_REQUEST":
+      return "Runs for an order delivered between 1 and 14 days ago that the buyer hasn't reviewed yet.";
+    case "LOW_STOCK_ALERT":
+      return "Runs when an active product's stock falls to 5 units or fewer.";
+    case "BUYER_REFERRAL":
+      return "Runs once the referred buyer's account is at least 3 days old and their first order has been paid and completed.";
+    case "PAYMENT_RECOVERY":
+      return "Runs when a payment fails and the order is still unpaid 24 hours later.";
+    case "RENEWAL_REMINDER":
+      return "Runs 1–3 days before a Regular Delivery subscriber's next renewal charge.";
+    case "PRICE_APPROVAL_REMINDER":
+      return "Runs when a renewal's price increase exceeds the buyer's approval limit and needs their decision.";
+    default:
+      return undefined;
+  }
+}
+
 export const AUTOMATION_LABELS: Record<AutomationType, string> = {
   FIRST_SALE: "First sale nudge",
   CART_RECOVERY: "Cart recovery",

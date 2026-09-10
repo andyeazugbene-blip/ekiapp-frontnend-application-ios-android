@@ -17,6 +17,7 @@ import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
   VENDOR_RENEWAL_STATUS_LABELS as RENEWAL_STATUS_LABELS,
+  BUYER_SUBSCRIPTION_STATUS_LABELS,
   type BuyerSubscription,
   type Renewal,
   type SubscriptionOffer,
@@ -193,7 +194,7 @@ export default function VendorRegularDeliveriesScreen() {
                         <Text style={styles.cardTitle}>{s.buyer?.name ?? "Buyer"}</Text>
                         <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
                       </View>
-                      <Text style={styles.cardMeta}>{FREQUENCY_LABELS[s.frequency]} · {s.status.replace("_", " ")} · Next {formatDate(s.nextRenewalAt)}</Text>
+                      <Text style={styles.cardMeta}>{FREQUENCY_LABELS[s.frequency]} · {BUYER_SUBSCRIPTION_STATUS_LABELS[s.status]} · Next {formatDate(s.nextRenewalAt)}</Text>
                     </FloatingCard>
                   </TouchableOpacity>
                 ))

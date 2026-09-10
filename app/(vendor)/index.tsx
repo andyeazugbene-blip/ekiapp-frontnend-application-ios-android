@@ -78,6 +78,7 @@ interface AggregatedDashboard {
   pendingRenewals: Renewal[];
   supplierProfile: SupplierProfile | null;
   communityBuyEnabled: boolean;
+  regularDeliveriesEnabled: boolean;
 }
 
 /**
@@ -121,6 +122,7 @@ export default function VendorDashboardScreen() {
     pendingRenewals: [],
     supplierProfile: null,
     communityBuyEnabled: false,
+    regularDeliveriesEnabled: false,
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -182,6 +184,11 @@ export default function VendorDashboardScreen() {
         // doc: "do not show Community Buy in unsupported markets"), not
         // just the primary one. Defaults to hidden on any failure.
         communityBuyEnabled: asArray<{ type?: string }>(data?.marketing_tools).some((t) => t.type === "community_buy"),
+        // MKT-03 fix: the backend already computes a correctly market-gated
+        // "regular_deliveries" entry here too (mirrors community_buy
+        // exactly) — this row just never checked it, unlike the adjacent
+        // Community Buy row on the same screen.
+        regularDeliveriesEnabled: asArray<{ type?: string }>(data?.marketing_tools).some((t) => t.type === "regular_deliveries"),
       });
     } finally {
       setLoading(false);
@@ -204,7 +211,7 @@ export default function VendorDashboardScreen() {
   const navigate = (path: string) => router.push(path as any);
 
   // ── Live-derived values (no hardcoded numbers) ─────────────────────────
-  const { profile, data, subscription, limits, products, orders, buyers, zones, unreadMessages, verificationSubmitted, pendingRenewals, supplierProfile, communityBuyEnabled } = agg;
+  const { profile, data, subscription, limits, products, orders, buyers, zones, unreadMessages, verificationSubmitted, pendingRenewals, supplierProfile, communityBuyEnabled, regularDeliveriesEnabled } = agg;
 
   const storeName =
     asText(profile?.storeName).trim() || asText(data?.storeName).trim() || asText(user?.name, "your store") || "your store";
@@ -614,13 +621,20 @@ export default function VendorDashboardScreen() {
                 tone="light"
                 onPress={() => navigate("/(vendor)/automation-center")}
               />
-              <FoodRow
-                icon="repeat-outline"
-                label="Regular Deliveries"
-                badge={pendingRenewals.length > 0 ? pendingRenewals.length : undefined}
-                tone="light"
-                onPress={() => navigate("/(vendor)/regular-deliveries")}
-              />
+              {/* MKT-03 fix: this row rendered unconditionally regardless
+                  of market gating, unlike the identically-gated Community
+                  Buy row right below it — a vendor in a market with
+                  Regular Deliveries disabled could still build/publish a
+                  "dead" offer catalog with no warning. */}
+              {regularDeliveriesEnabled && (
+                <FoodRow
+                  icon="repeat-outline"
+                  label="Regular Deliveries"
+                  badge={pendingRenewals.length > 0 ? pendingRenewals.length : undefined}
+                  tone="light"
+                  onPress={() => navigate("/(vendor)/regular-deliveries")}
+                />
+              )}
               {/* Backend-authoritative market gate — never shown by default
                   (communityBuyEnabled starts false); a market with Community
                   Buy off must show no CTA into it at all, per the

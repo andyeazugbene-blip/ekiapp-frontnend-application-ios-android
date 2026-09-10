@@ -191,6 +191,12 @@ export interface PublicOfferSummary {
   description?: string | null;
   frequencies: SubscriptionFrequency[];
   fulfilmentMethod: OfferFulfilmentMethod;
+  // RD-04 fix: the backend's getPublic() already returns these (a bare
+  // Prisma findUnique with no select) — they just weren't declared here,
+  // so the pre-subscribe screen had no typed way to read data it already
+  // had, unlike the post-subscribe detail screen which renders both.
+  substitutionMode: OfferSubstitutionMode;
+  substitutionPolicy?: string | null;
   discountPercent?: number | null;
   vendor: { id: string; storeName: string; avatar?: string | null; country?: string | null; city?: string | null };
   products: { productId: string; product: { id: string; title: string; priceInCents: number; currency: string; images: string[]; stock: number } }[];
@@ -354,8 +360,12 @@ export const regularDeliveriesService = {
     return res.offer;
   },
 
-  async pauseOfferProduct(offerId: string, productId: string, reason?: string): Promise<OfferProduct> {
-    const res = await apiClient.post<{ product: OfferProduct }>(`/api/subscription-offers/${offerId}/products/${productId}/pause`, { reason });
+  // RD-10 fix: the backend already fully supported expectedReturnAt
+  // (regular-deliveries.controller.ts's pauseSubscriptionOfferProduct
+  // already parses it) — only this frontend method had no parameter for
+  // it, so there was no way to send one even once the UI collected it.
+  async pauseOfferProduct(offerId: string, productId: string, reason?: string, expectedReturnAt?: string): Promise<OfferProduct> {
+    const res = await apiClient.post<{ product: OfferProduct }>(`/api/subscription-offers/${offerId}/products/${productId}/pause`, { reason, expectedReturnAt });
     return res.product;
   },
 

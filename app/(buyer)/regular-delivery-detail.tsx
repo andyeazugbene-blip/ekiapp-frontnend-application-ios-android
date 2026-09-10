@@ -13,6 +13,7 @@ import {
   StatusPill,
   premiumStyles,
 } from "../../components/shared/PremiumBlocks";
+import { DatePickerField } from "../../components/shared/DatePickerField";
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
@@ -45,6 +46,12 @@ export default function RegularDeliveryDetailScreen() {
   const [draftQuantities, setDraftQuantities] = useState<Record<string, number>>({});
   const [savingItems, setSavingItems] = useState(false);
   const [itemsError, setItemsError] = useState("");
+  // RD-05 fix (resume-date slice only — frequency-edit is a separate,
+  // client-decision-blocked item, not touched here): the backend and
+  // frontend service already fully supported an optional resumeAt on
+  // pause(); only the UI never collected one.
+  const [showPauseSheet, setShowPauseSheet] = useState(false);
+  const [pauseResumeDate, setPauseResumeDate] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -122,6 +129,13 @@ export default function RegularDeliveryDetailScreen() {
     } finally {
       setSavingItems(false);
     }
+  };
+
+  const confirmPause = async () => {
+    if (!sub) return;
+    await runAction("pause", () => regularDeliveriesService.pauseSubscription(sub.id, pauseResumeDate ?? undefined));
+    setShowPauseSheet(false);
+    setPauseResumeDate(null);
   };
 
   const confirmCancel = () => {
@@ -307,7 +321,7 @@ export default function RegularDeliveryDetailScreen() {
             <View style={styles.actionsGrid}>
               {isActive ? (
                 <>
-                  <ActionButton icon="pause-outline" label="Pause" busy={actionBusy === "pause"} onPress={() => void runAction("pause", () => regularDeliveriesService.pauseSubscription(sub.id))} />
+                  <ActionButton icon="pause-outline" label="Pause" busy={actionBusy === "pause"} onPress={() => setShowPauseSheet(true)} />
                   <ActionButton icon="play-skip-forward-outline" label="Skip next" busy={actionBusy === "skip"} onPress={() => void runAction("skip", () => regularDeliveriesService.skipNextRenewal(sub.id))} />
                 </>
               ) : isPaused ? (
@@ -317,6 +331,37 @@ export default function RegularDeliveryDetailScreen() {
                 <ActionButton icon="close-circle-outline" label="Cancel" tone="danger" busy={actionBusy === "cancel"} onPress={confirmCancel} />
               ) : null}
             </View>
+
+            {showPauseSheet ? (
+              <FloatingCard style={{ gap: 14 }}>
+                <Text style={styles.sectionTitle}>Pause this delivery</Text>
+                <DatePickerField
+                  label="Resume on (optional)"
+                  value={pauseResumeDate}
+                  onChange={setPauseResumeDate}
+                  minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
+                  placeholder="Choose a date, or leave blank"
+                  hint="Leave blank to pause indefinitely — you can resume manually any time."
+                />
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <TouchableOpacity
+                    onPress={() => { setShowPauseSheet(false); setPauseResumeDate(null); }}
+                    disabled={actionBusy === "pause"}
+                    activeOpacity={0.85}
+                    style={styles.editCancelBtn}
+                  >
+                    <Text style={styles.editCancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => void confirmPause()} disabled={actionBusy === "pause"} activeOpacity={0.85} style={styles.editSaveBtn}>
+                    {actionBusy === "pause" ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.editSaveBtnText}>{pauseResumeDate ? "Pause until this date" : "Pause indefinitely"}</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </FloatingCard>
+            ) : null}
 
             <View>
               <Text style={styles.sectionTitle}>Renewal history</Text>

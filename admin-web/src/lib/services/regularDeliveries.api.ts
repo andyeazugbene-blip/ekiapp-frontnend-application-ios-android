@@ -19,4 +19,10 @@ export const subscriptionExceptionsAPI = {
     const res = await apiClient.get<{ items?: SubscriptionException[] }>("/admin/subscription-exceptions");
     return res.items ?? [];
   },
+
+  /** RD-08 (retry-payment slice only) — re-attempts the same idempotent charge path a buyer's own retry or the cron sweep would use. */
+  async retryPayment(id: string): Promise<SubscriptionException> {
+    const res = await apiClient.post<{ renewal: SubscriptionException }>(`/admin/subscription-exceptions/${id}/retry-payment`, {});
+    return res.renewal;
+  },
 };

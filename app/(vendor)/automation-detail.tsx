@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
@@ -19,6 +19,7 @@ import {
   CONFIGURABLE_AUTOMATION_TYPES,
   MANAGED_BY_EKI_TYPES,
   VENDOR_AUTOMATION_TYPES,
+  getAutomationEligibilityDetail,
   type AutomationType,
   type VendorAutomation,
 } from "../../services/automationService";
@@ -60,6 +61,12 @@ export default function AutomationDetailScreen() {
   const [error, setError] = useState("");
   const [toggling, setToggling] = useState(false);
   const [savingConfigKey, setSavingConfigKey] = useState<string | null>(null);
+  // AUTO-04 fix: the backend already accepts any numeric value >= 1
+  // (automation.controller.ts) — only this UI restricted vendors to 3
+  // hardcoded chip presets, with no way to pick the system default or
+  // anything else.
+  const [customConfigValue, setCustomConfigValue] = useState("");
+  const [customConfigError, setCustomConfigError] = useState("");
 
   const load = useCallback(async () => {
     // A missing/invalid route param is a navigation problem, not a network
@@ -140,6 +147,17 @@ export default function AutomationDetailScreen() {
     }
   };
 
+  const handleCustomConfigSubmit = async (key: string) => {
+    const parsed = Number(customConfigValue);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      setCustomConfigError("Enter a whole number of at least 1.");
+      return;
+    }
+    setCustomConfigError("");
+    await handleConfigOption(key, parsed);
+    setCustomConfigValue("");
+  };
+
   const preset = automationType ? CONFIG_PRESETS[automationType] : undefined;
   const isConfigurable = automationType ? CONFIGURABLE_AUTOMATION_TYPES.includes(automationType) && preset : false;
   const isManaged = automationType ? MANAGED_BY_EKI_TYPES.includes(automationType) : false;
@@ -172,6 +190,16 @@ export default function AutomationDetailScreen() {
                 </View>
               </View>
               <Text style={styles.explainer}>{AUTOMATION_EXPLAINER[automationType] ?? "Details for this automation are being prepared."}</Text>
+
+              {/* AUTO-05 fix: real, current thresholds — not just a
+                  one-sentence purpose blurb — so a vendor can predict when
+                  this actually fires. */}
+              {isValidType && getAutomationEligibilityDetail(automationType, automation.config) ? (
+                <View style={styles.eligibilityBlock}>
+                  <Text style={styles.eligibilityLabel}>How this decides</Text>
+                  <Text style={styles.eligibilityText}>{getAutomationEligibilityDetail(automationType, automation.config)}</Text>
+                </View>
+              ) : null}
 
               {isManaged ? (
                 <Text style={styles.managedNote}>
@@ -223,6 +251,30 @@ export default function AutomationDetailScreen() {
                     })}
                     {savingConfigKey === preset.key ? <ActivityIndicator size="small" color="#076B51" /> : null}
                   </View>
+                  <View style={styles.customConfigRow}>
+                    <TextInput
+                      style={styles.customConfigInput}
+                      value={customConfigValue}
+                      onChangeText={(text) => { setCustomConfigValue(text); setCustomConfigError(""); }}
+                      placeholder={`Custom ${preset.unit}`}
+                      placeholderTextColor="#8AA194"
+                      keyboardType="number-pad"
+                      editable={savingConfigKey !== preset.key}
+                      accessibilityLabel={`Custom ${preset.label.toLowerCase()} value`}
+                    />
+                    <TouchableOpacity
+                      onPress={() => void handleCustomConfigSubmit(preset.key)}
+                      disabled={savingConfigKey === preset.key || customConfigValue.trim().length === 0}
+                      activeOpacity={0.85}
+                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                      style={[styles.customConfigBtn, (savingConfigKey === preset.key || customConfigValue.trim().length === 0) && styles.customConfigBtnDisabled]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Set custom value"
+                    >
+                      <Text style={styles.customConfigBtnText}>Set</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {customConfigError ? <Text style={styles.customConfigErrorText}>{customConfigError}</Text> : null}
                 </FloatingCard>
               </View>
             ) : null}
@@ -249,6 +301,9 @@ export default function AutomationDetailScreen() {
 const styles = StyleSheet.create({
   headRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   explainer: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#4A5A52", lineHeight: 19 },
+  eligibilityBlock: { backgroundColor: "#F0F3F1", borderRadius: 12, padding: 12, gap: 4 },
+  eligibilityLabel: { fontSize: 11, fontFamily: "Manrope-ExtraBold", color: "#076B51", textTransform: "uppercase", letterSpacing: 0.4 },
+  eligibilityText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#516A60", lineHeight: 17 },
   managedNote: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#516A60", lineHeight: 17, backgroundColor: "#F0F3F1", borderRadius: 12, padding: 12 },
   toggleBtn: { minHeight: 50, borderRadius: 16, borderWidth: 1.5, borderColor: "#076B51", backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   toggleBtnActive: { backgroundColor: "#076B51" },
@@ -260,6 +315,12 @@ const styles = StyleSheet.create({
   configChipActive: { backgroundColor: "#076B51" },
   configChipText: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#6A7B72" },
   configChipTextActive: { color: "#FFFFFF" },
+  customConfigRow: { flexDirection: "row", gap: 8, alignItems: "center", marginTop: 12 },
+  customConfigInput: { flex: 1, height: 38, borderRadius: 19, backgroundColor: "#F0F3F1", paddingHorizontal: 16, fontSize: 13, fontFamily: "Outfit-Regular", color: "#151E1B" },
+  customConfigBtn: { paddingHorizontal: 16, height: 38, borderRadius: 19, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  customConfigBtnDisabled: { opacity: 0.5 },
+  customConfigBtnText: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  customConfigErrorText: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#D6552F", marginTop: 6 },
   activityLinkRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   activityLinkText: { flex: 1, fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
 });
