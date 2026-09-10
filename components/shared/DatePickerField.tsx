@@ -71,7 +71,15 @@ export function DatePickerField({
   return (
     <View>
       <Text style={styles.label}>{label}</Text>
-      <TouchableOpacity onPress={openPicker} disabled={disabled} activeOpacity={0.85} style={[styles.field, disabled && styles.fieldDisabled]}>
+      <TouchableOpacity
+        onPress={openPicker}
+        disabled={disabled}
+        activeOpacity={0.85}
+        style={[styles.field, disabled && styles.fieldDisabled]}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}${validSelected ? `, ${displayText}` : ""}`}
+        accessibilityState={{ disabled }}
+      >
         <Ionicons name="calendar-outline" size={18} color="#076B51" />
         <Text style={[styles.fieldText, !validSelected && styles.fieldPlaceholder]}>{displayText}</Text>
       </TouchableOpacity>
@@ -81,11 +89,21 @@ export function DatePickerField({
         <View style={styles.scrim}>
           <View style={styles.sheet}>
             <View style={styles.headerRow}>
-              <TouchableOpacity onPress={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} style={styles.navBtn}>
+              <TouchableOpacity
+                onPress={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
+                style={styles.navBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Previous month"
+              >
                 <Ionicons name="chevron-back" size={18} color="#076B51" />
               </TouchableOpacity>
               <Text style={styles.monthLabel}>{MONTH_NAMES[cursor.getMonth()]} {cursor.getFullYear()}</Text>
-              <TouchableOpacity onPress={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} style={styles.navBtn}>
+              <TouchableOpacity
+                onPress={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
+                style={styles.navBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Next month"
+              >
                 <Ionicons name="chevron-forward" size={18} color="#076B51" />
               </TouchableOpacity>
             </View>
@@ -100,7 +118,7 @@ export function DatePickerField({
               {cells.map((cellDate, index) => {
                 if (!cellDate) return <View key={`blank-${index}`} style={styles.cell} />;
                 const isPast = min ? startOfDay(cellDate) < min : false;
-                const isSelected = validSelected && toIsoDate(cellDate) === toIsoDate(validSelected);
+                const isSelected = Boolean(validSelected && toIsoDate(cellDate) === toIsoDate(validSelected));
                 return (
                   <TouchableOpacity
                     key={cellDate.toISOString()}
@@ -110,6 +128,9 @@ export function DatePickerField({
                       setOpen(false);
                     }}
                     style={[styles.cell, styles.dayCell, isSelected && styles.dayCellSelected]}
+                    accessibilityRole="button"
+                    accessibilityLabel={cellDate.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}
+                    accessibilityState={{ disabled: isPast, selected: isSelected }}
                   >
                     <Text style={[styles.dayText, isPast && styles.dayTextDisabled, isSelected && styles.dayTextSelected]}>{cellDate.getDate()}</Text>
                   </TouchableOpacity>
@@ -117,7 +138,12 @@ export function DatePickerField({
               })}
             </View>
 
-            <TouchableOpacity onPress={() => setOpen(false)} style={styles.closeBtn}>
+            <TouchableOpacity
+              onPress={() => setOpen(false)}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
               <Text style={styles.closeBtnText}>Cancel</Text>
             </TouchableOpacity>
           </View>

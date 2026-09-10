@@ -58,7 +58,13 @@ export default function CommunityBuyContributionConfirmedScreen() {
         <PremiumHeader title="Pledge confirmed" />
         <View style={premiumStyles.block}>
           <ErrorState message={error || "Something went wrong loading your pledge."} onRetry={() => void load()} />
-          <TouchableOpacity onPress={goToDashboard} activeOpacity={0.85} style={[styles.primaryBtn, { marginTop: 14 }]}>
+          <TouchableOpacity
+            onPress={goToDashboard}
+            activeOpacity={0.85}
+            style={[styles.primaryBtn, { marginTop: 14 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Go to my Community Buys"
+          >
             <Text style={styles.primaryBtnText}>Go to my Community Buys</Text>
           </TouchableOpacity>
         </View>
@@ -89,10 +95,22 @@ export default function CommunityBuyContributionConfirmedScreen() {
             <Text style={styles.infoText}>Track this campaign's progress and your pledge status any time from My Community Buys.</Text>
           </FloatingCard>
 
-          <TouchableOpacity onPress={goToDashboard} activeOpacity={0.88} style={styles.primaryBtn}>
+          <TouchableOpacity
+            onPress={goToDashboard}
+            activeOpacity={0.88}
+            style={styles.primaryBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Go to my Community Buys"
+          >
             <Text style={styles.primaryBtnText}>Go to my Community Buys</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={goToCampaign} activeOpacity={0.85} style={styles.secondaryBtn}>
+          <TouchableOpacity
+            onPress={goToCampaign}
+            activeOpacity={0.85}
+            style={styles.secondaryBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Back to campaign"
+          >
             <Text style={styles.secondaryBtnText}>Back to campaign</Text>
           </TouchableOpacity>
         </View>

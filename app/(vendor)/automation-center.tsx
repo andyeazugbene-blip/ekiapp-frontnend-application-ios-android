@@ -140,7 +140,13 @@ export default function AutomationCenterScreen() {
           <>
             {notifStatus && notifStatus !== "granted" && notifStatus !== "unsupported" ? (
               <View style={premiumStyles.block}>
-                <TouchableOpacity onPress={() => router.push("/(vendor)/notification-permission" as any)} activeOpacity={0.85}>
+                <TouchableOpacity
+                  onPress={() => router.push("/(vendor)/notification-permission" as any)}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel="Turn on notifications"
+                  accessibilityHint="Opens notification permission settings"
+                >
                   <FloatingCard style={styles.notifBanner}>
                     <IconAvatar icon="notifications-outline" tone="warning" size={40} />
                     <View style={{ flex: 1 }}>
@@ -166,6 +172,8 @@ export default function AutomationCenterScreen() {
                         key={a.type}
                         activeOpacity={0.85}
                         onPress={() => router.push({ pathname: "/(vendor)/automation-detail", params: { type: a.type } } as any)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${AUTOMATION_LABELS[a.type] ?? a.type}, ${isManaged ? "managed by Eki" : a.enabled ? "active" : "not active"}`}
                       >
                         <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
                           <View style={styles.automationRow}>
@@ -187,6 +195,8 @@ export default function AutomationCenterScreen() {
                                 onValueChange={(value) => void handleToggle(a.type, value)}
                                 trackColor={{ true: "#85C5AE" }}
                                 thumbColor={a.enabled ? "#076B51" : "#F4F4F4"}
+                                accessibilityRole="switch"
+                                accessibilityLabel={`${AUTOMATION_LABELS[a.type] ?? a.type} toggle`}
                               />
                             )}
                           </View>
@@ -205,7 +215,13 @@ export default function AutomationCenterScreen() {
               </View>
 
               {activity.length > 0 ? (
-                <TouchableOpacity onPress={() => router.push("/(vendor)/automation-activity" as any)} activeOpacity={0.85} style={{ marginBottom: 10 }}>
+                <TouchableOpacity
+                  onPress={() => router.push("/(vendor)/automation-activity" as any)}
+                  activeOpacity={0.85}
+                  style={{ marginBottom: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="View all automation activity"
+                >
                   <Text style={styles.viewAllLink}>View all automation activity</Text>
                 </TouchableOpacity>
               ) : null}
@@ -221,7 +237,13 @@ export default function AutomationCenterScreen() {
               ) : (
                 <View style={{ gap: 8 }}>
                   {activity.slice(0, 5).map((run) => (
-                    <TouchableOpacity key={run.id} activeOpacity={0.85} onPress={() => setSelectedRun(run)}>
+                    <TouchableOpacity
+                      key={run.id}
+                      activeOpacity={0.85}
+                      onPress={() => setSelectedRun(run)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${AUTOMATION_LABELS[run.type] ?? run.type}, ${AUTOMATION_RUN_STATUS_LABELS[run.status]}`}
+                    >
                       <FloatingCard style={styles.activityCard}>
                         <IconAvatar
                           icon={run.status === "FAILED" ? "close" : run.status === "SENT" ? "checkmark" : run.status === "SUPPRESSED" ? "remove-circle-outline" : "time-outline"}
@@ -254,7 +276,13 @@ export default function AutomationCenterScreen() {
               <>
                 <View style={styles.modalHeaderRow}>
                   <Text style={styles.modalTitle}>{AUTOMATION_LABELS[selectedRun.type] ?? selectedRun.type}</Text>
-                  <TouchableOpacity onPress={() => setSelectedRun(null)} style={styles.modalClose}>
+                  <TouchableOpacity
+                    onPress={() => setSelectedRun(null)}
+                    style={styles.modalClose}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close"
+                  >
                     <Ionicons name="close" size={18} color="#282828" />
                   </TouchableOpacity>
                 </View>

@@ -155,7 +155,14 @@ export default function CommunityBuyCampaignScreen() {
         subtitle={`Supplied by ${campaign.supplier?.vendor?.storeName ?? "a verified supplier"}`}
         onBack={() => goBackOrReplace(router, "/(buyer)/community-buy" as any)}
         right={
-          <TouchableOpacity onPress={() => void handleShare()} activeOpacity={0.85} style={styles.headerIconBtn}>
+          <TouchableOpacity
+            onPress={() => void handleShare()}
+            activeOpacity={0.85}
+            style={styles.headerIconBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Share this campaign"
+          >
             <Ionicons name="share-social-outline" size={18} color="#FFFFFF" />
           </TouchableOpacity>
         }
@@ -247,7 +254,13 @@ export default function CommunityBuyCampaignScreen() {
                   <Ionicons name="checkmark-circle-outline" size={20} color="#076B51" />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.outcomeText}>Payment confirmed — this campaign succeeded, and your saved card was charged {formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)} for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"}.</Text>
-                    <TouchableOpacity onPress={() => setShowReceipt((v) => !v)} activeOpacity={0.85}>
+                    <TouchableOpacity
+                      onPress={() => setShowReceipt((v) => !v)}
+                      activeOpacity={0.85}
+                      accessibilityRole="button"
+                      accessibilityLabel={showReceipt ? "Hide receipt" : "View receipt"}
+                      accessibilityState={{ expanded: showReceipt }}
+                    >
                       <Text style={styles.receiptToggle}>{showReceipt ? "Hide receipt" : "View receipt"}</Text>
                     </TouchableOpacity>
                     {showReceipt ? (
@@ -277,7 +290,15 @@ export default function CommunityBuyCampaignScreen() {
                   <Ionicons name="alert-circle-outline" size={20} color="#B48A00" />
                   <View style={{ flex: 1, gap: 8 }}>
                     <Text style={styles.outcomeText}>Payment failed — we couldn't collect payment for your pledge. Retry now or update your card to keep your place.</Text>
-                    <TouchableOpacity onPress={() => void handleRetryCharge()} disabled={retrying} activeOpacity={0.88} style={[styles.primaryBtn, retrying && { opacity: 0.7 }]}>
+                    <TouchableOpacity
+                      onPress={() => void handleRetryCharge()}
+                      disabled={retrying}
+                      activeOpacity={0.88}
+                      style={[styles.primaryBtn, retrying && { opacity: 0.7 }]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Retry payment"
+                      accessibilityState={{ busy: retrying, disabled: retrying }}
+                    >
                       {retrying ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Retry payment</Text>}
                     </TouchableOpacity>
                   </View>
@@ -292,6 +313,8 @@ export default function CommunityBuyCampaignScreen() {
                   onPress={() => router.push({ pathname: "/(buyer)/community-buy-quantity", params: { id: campaign.id } } as any)}
                   activeOpacity={0.88}
                   style={styles.primaryBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Choose your quantity"
                 >
                   <Text style={styles.primaryBtnText}>Choose your quantity</Text>
                 </TouchableOpacity>
@@ -299,7 +322,13 @@ export default function CommunityBuyCampaignScreen() {
             </>
           ) : null}
 
-          <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy-how-it-works" as any)} activeOpacity={0.85} style={styles.howItWorksRow}>
+          <TouchableOpacity
+            onPress={() => router.push("/(buyer)/community-buy-how-it-works" as any)}
+            activeOpacity={0.85}
+            style={styles.howItWorksRow}
+            accessibilityRole="button"
+            accessibilityLabel="How this campaign works"
+          >
             <Ionicons name="help-circle-outline" size={18} color="#076B51" />
             <Text style={styles.howItWorksText}>How this campaign works</Text>
             <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
@@ -342,6 +371,8 @@ export default function CommunityBuyCampaignScreen() {
             onPress={() => router.push({ pathname: "/(buyer)/community-buy-support-cases", params: { campaignId: campaign.id, campaignTitle: campaign.title } } as any)}
             activeOpacity={0.85}
             style={styles.reportIssueRow}
+            accessibilityRole="button"
+            accessibilityLabel="Report an issue with this campaign"
           >
             <Ionicons name="flag-outline" size={16} color="#6A7B72" />
             <Text style={styles.reportIssueText}>Report an issue with this campaign</Text>

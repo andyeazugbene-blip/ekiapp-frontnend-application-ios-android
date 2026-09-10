@@ -80,11 +80,26 @@ export default function AutomationActivityScreen() {
           <View style={[premiumStyles.block, { gap: 14 }]}>
             {typesPresent.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                <TouchableOpacity onPress={() => setFilter("ALL")} activeOpacity={0.85} style={[styles.chip, filter === "ALL" && styles.chipActive]}>
+                <TouchableOpacity
+                  onPress={() => setFilter("ALL")}
+                  activeOpacity={0.85}
+                  style={[styles.chip, filter === "ALL" && styles.chipActive]}
+                  accessibilityRole="button"
+                  accessibilityLabel="All"
+                  accessibilityState={{ selected: filter === "ALL" }}
+                >
                   <Text style={[styles.chipText, filter === "ALL" && styles.chipTextActive]}>All</Text>
                 </TouchableOpacity>
                 {typesPresent.map((t) => (
-                  <TouchableOpacity key={t} onPress={() => setFilter(t)} activeOpacity={0.85} style={[styles.chip, filter === t && styles.chipActive]}>
+                  <TouchableOpacity
+                    key={t}
+                    onPress={() => setFilter(t)}
+                    activeOpacity={0.85}
+                    style={[styles.chip, filter === t && styles.chipActive]}
+                    accessibilityRole="button"
+                    accessibilityLabel={AUTOMATION_LABELS[t]}
+                    accessibilityState={{ selected: filter === t }}
+                  >
                     <Text style={[styles.chipText, filter === t && styles.chipTextActive]}>{AUTOMATION_LABELS[t]}</Text>
                   </TouchableOpacity>
                 ))}

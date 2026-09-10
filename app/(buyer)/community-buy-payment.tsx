@@ -127,14 +127,29 @@ export default function CommunityBuyPaymentScreen() {
           <FloatingCard style={{ gap: 10 }}>
             <View style={{ gap: 8 }}>
               {paymentMethods.map((m) => (
-                <TouchableOpacity key={m.id} onPress={() => setPaymentMethodId(m.id)} activeOpacity={0.85}>
+                <TouchableOpacity
+                  key={m.id}
+                  onPress={() => setPaymentMethodId(m.id)}
+                  activeOpacity={0.85}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${(m.brand ?? "Card").toUpperCase()} ending ${m.last4}`}
+                  accessibilityState={{ selected: paymentMethodId === m.id }}
+                >
                   <FloatingCard style={[styles.optionRow, paymentMethodId === m.id && styles.optionRowActive]}>
                     <Ionicons name={paymentMethodId === m.id ? "radio-button-on" : "radio-button-off"} size={18} color={paymentMethodId === m.id ? "#076B51" : "#C7D2CB"} />
                     <Text style={styles.optionTitle}>{(m.brand ?? "Card").toUpperCase()} •••• {m.last4}</Text>
                   </FloatingCard>
                 </TouchableOpacity>
               ))}
-              <TouchableOpacity onPress={() => void handleAddCard()} disabled={addingCard} activeOpacity={0.85} style={styles.addRow}>
+              <TouchableOpacity
+                onPress={() => void handleAddCard()}
+                disabled={addingCard}
+                activeOpacity={0.85}
+                style={styles.addRow}
+                accessibilityRole="button"
+                accessibilityLabel="Add a card"
+                accessibilityState={{ busy: addingCard, disabled: addingCard }}
+              >
                 {addingCard ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="card-outline" size={18} color="#076B51" />}
                 <Text style={styles.addRowText}>{addingCard ? "Saving card..." : "Add a card"}</Text>
               </TouchableOpacity>

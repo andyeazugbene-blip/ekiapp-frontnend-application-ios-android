@@ -175,7 +175,15 @@ export default function VendorCommunityBuySupplierScreen() {
             ) : (
               <View style={{ gap: 8 }}>
                 {markets.map((m) => (
-                  <TouchableOpacity key={m.countryCode} disabled={applying === m.countryCode} onPress={() => void handleApply(m.countryCode)} activeOpacity={0.85}>
+                  <TouchableOpacity
+                    key={m.countryCode}
+                    disabled={applying === m.countryCode}
+                    onPress={() => void handleApply(m.countryCode)}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Apply for ${countryDisplayName(m.countryCode)}`}
+                    accessibilityState={{ busy: applying === m.countryCode, disabled: applying === m.countryCode }}
+                  >
                     <FloatingCard style={styles.applyRow}>
                       <Text style={styles.applyRowText}>Apply for {countryDisplayName(m.countryCode)}</Text>
                       {applying === m.countryCode ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="chevron-forward" size={16} color="#8AA194" />}
@@ -230,6 +238,9 @@ export default function VendorCommunityBuySupplierScreen() {
                               disabled={committing === c.id || declining === c.id}
                               activeOpacity={0.88}
                               style={[styles.acceptBtn, { flex: 1, marginTop: 0 }]}
+                              accessibilityRole="button"
+                              accessibilityLabel="Accept"
+                              accessibilityState={{ busy: committing === c.id, disabled: committing === c.id || declining === c.id }}
                             >
                               {committing === c.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.acceptBtnText}>Accept</Text>}
                             </TouchableOpacity>
@@ -238,6 +249,9 @@ export default function VendorCommunityBuySupplierScreen() {
                               disabled={committing === c.id || declining === c.id}
                               activeOpacity={0.88}
                               style={styles.declineBtn}
+                              accessibilityRole="button"
+                              accessibilityLabel="Decline"
+                              accessibilityState={{ disabled: committing === c.id || declining === c.id, expanded: showDeclineFormId === c.id }}
                             >
                               <Text style={styles.declineBtnText}>Decline</Text>
                             </TouchableOpacity>
@@ -251,6 +265,7 @@ export default function VendorCommunityBuySupplierScreen() {
                                 value={declineReasonById[c.id] ?? ""}
                                 onChangeText={(text) => setDeclineReasonById((prev) => ({ ...prev, [c.id]: text }))}
                                 multiline
+                                accessibilityLabel="Reason for declining"
                               />
                               <Text style={styles.hint}>The organiser will be notified and will need to choose a different supplier.</Text>
                               <TouchableOpacity
@@ -263,6 +278,9 @@ export default function VendorCommunityBuySupplierScreen() {
                                 disabled={declining === c.id}
                                 activeOpacity={0.88}
                                 style={styles.declineConfirmBtn}
+                                accessibilityRole="button"
+                                accessibilityLabel="Confirm decline"
+                                accessibilityState={{ busy: declining === c.id, disabled: declining === c.id }}
                               >
                                 {declining === c.id ? <ActivityIndicator size="small" color="#D6552F" /> : <Text style={styles.declineBtnText}>Confirm decline</Text>}
                               </TouchableOpacity>
@@ -286,6 +304,8 @@ export default function VendorCommunityBuySupplierScreen() {
                           onPress={() => router.push({ pathname: "/(vendor)/community-buy-supplier-fulfilment", params: { id: c.id } } as any)}
                           activeOpacity={0.88}
                           style={styles.acceptBtn}
+                          accessibilityRole="button"
+                          accessibilityLabel="Manage fulfilment"
                         >
                           <Text style={styles.acceptBtnText}>Manage fulfilment</Text>
                         </TouchableOpacity>
@@ -293,7 +313,13 @@ export default function VendorCommunityBuySupplierScreen() {
 
                       {canPostUpdate ? (
                         <View style={{ marginTop: 4 }}>
-                          <TouchableOpacity onPress={() => setShowUpdateFormId(showUpdateFormId === c.id ? null : c.id)} activeOpacity={0.85}>
+                          <TouchableOpacity
+                            onPress={() => setShowUpdateFormId(showUpdateFormId === c.id ? null : c.id)}
+                            activeOpacity={0.85}
+                            accessibilityRole="button"
+                            accessibilityLabel={showUpdateFormId === c.id ? "Cancel" : "Post an update to participants"}
+                            accessibilityState={{ expanded: showUpdateFormId === c.id }}
+                          >
                             <Text style={styles.linkText}>{showUpdateFormId === c.id ? "Cancel" : "Post an update to participants"}</Text>
                           </TouchableOpacity>
                           {showUpdateFormId === c.id ? (
@@ -305,6 +331,7 @@ export default function VendorCommunityBuySupplierScreen() {
                                 value={updateTitleById[c.id] ?? ""}
                                 onChangeText={(text) => setUpdateTitleById((prev) => ({ ...prev, [c.id]: text }))}
                                 maxLength={140}
+                                accessibilityLabel="Update title"
                               />
                               <TextInput
                                 style={[styles.input, styles.inputMultiline]}
@@ -314,9 +341,18 @@ export default function VendorCommunityBuySupplierScreen() {
                                 onChangeText={(text) => setUpdateMessageById((prev) => ({ ...prev, [c.id]: text }))}
                                 multiline
                                 maxLength={2000}
+                                accessibilityLabel="Update message"
                               />
                               <Text style={styles.hint}>Every participant is notified.</Text>
-                              <TouchableOpacity onPress={() => void handlePostUpdate(c.id)} disabled={postingUpdate === c.id} activeOpacity={0.88} style={styles.acceptBtn}>
+                              <TouchableOpacity
+                                onPress={() => void handlePostUpdate(c.id)}
+                                disabled={postingUpdate === c.id}
+                                activeOpacity={0.88}
+                                style={styles.acceptBtn}
+                                accessibilityRole="button"
+                                accessibilityLabel="Post update"
+                                accessibilityState={{ busy: postingUpdate === c.id, disabled: postingUpdate === c.id }}
+                              >
                                 {postingUpdate === c.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.acceptBtnText}>Post update</Text>}
                               </TouchableOpacity>
                             </View>

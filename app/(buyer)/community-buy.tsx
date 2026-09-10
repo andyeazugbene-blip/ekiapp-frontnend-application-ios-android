@@ -61,10 +61,24 @@ export default function CommunityBuyDiscoveryScreen() {
         onBack={() => goBackOrReplace(router, "/(buyer)/profile" as any)}
         right={
           <View style={{ flexDirection: "row", gap: 8 }}>
-            <TouchableOpacity onPress={() => router.push("/(buyer)/my-community-buys" as any)} activeOpacity={0.85} style={styles.headerIconBtn}>
+            <TouchableOpacity
+              onPress={() => router.push("/(buyer)/my-community-buys" as any)}
+              activeOpacity={0.85}
+              style={styles.headerIconBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="My Community Buys"
+            >
               <Ionicons name="receipt-outline" size={18} color="#FFFFFF" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy-organiser" as any)} activeOpacity={0.85} style={styles.headerIconBtn}>
+            <TouchableOpacity
+              onPress={() => router.push("/(buyer)/community-buy-organiser" as any)}
+              activeOpacity={0.85}
+              style={styles.headerIconBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Organise a campaign"
+            >
               <Ionicons name="megaphone-outline" size={18} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
@@ -72,11 +86,26 @@ export default function CommunityBuyDiscoveryScreen() {
       >
         {markets.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-            <TouchableOpacity onPress={() => setCountryFilter(null)} activeOpacity={0.85} style={[styles.chip, !countryFilter && styles.chipActive]}>
+            <TouchableOpacity
+              onPress={() => setCountryFilter(null)}
+              activeOpacity={0.85}
+              style={[styles.chip, !countryFilter && styles.chipActive]}
+              accessibilityRole="button"
+              accessibilityLabel="All markets"
+              accessibilityState={{ selected: !countryFilter }}
+            >
               <Text style={[styles.chipText, !countryFilter && styles.chipTextActive]}>All markets</Text>
             </TouchableOpacity>
             {markets.map((m) => (
-              <TouchableOpacity key={m.countryCode} onPress={() => setCountryFilter(m.countryCode)} activeOpacity={0.85} style={[styles.chip, countryFilter === m.countryCode && styles.chipActive]}>
+              <TouchableOpacity
+                key={m.countryCode}
+                onPress={() => setCountryFilter(m.countryCode)}
+                activeOpacity={0.85}
+                style={[styles.chip, countryFilter === m.countryCode && styles.chipActive]}
+                accessibilityRole="button"
+                accessibilityLabel={countryDisplayName(m.countryCode)}
+                accessibilityState={{ selected: countryFilter === m.countryCode }}
+              >
                 <Text style={[styles.chipText, countryFilter === m.countryCode && styles.chipTextActive]}>{countryDisplayName(m.countryCode)}</Text>
               </TouchableOpacity>
             ))}
@@ -106,6 +135,8 @@ export default function CommunityBuyDiscoveryScreen() {
                 key={c.id}
                 activeOpacity={0.85}
                 onPress={() => router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: c.id } } as any)}
+                accessibilityRole="button"
+                accessibilityLabel={`${c.title}, ${countryDisplayName(c.country)}, ${daysLeft(c.deadline)}`}
               >
                 <FloatingCard style={{ gap: 10 }}>
                   <View style={styles.cardTop}>

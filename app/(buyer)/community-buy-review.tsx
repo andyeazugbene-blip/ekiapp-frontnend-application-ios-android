@@ -107,6 +107,8 @@ export default function CommunityBuyReviewScreen() {
             onPress={() => router.push({ pathname: "/(buyer)/community-buy-payment", params: { id: campaign.id, quantity: String(quantity) } } as any)}
             activeOpacity={0.88}
             style={styles.primaryBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Continue to payment"
           >
             <Text style={styles.primaryBtnText}>Continue to payment</Text>
           </TouchableOpacity>

@@ -76,6 +76,9 @@ export function PrimaryButton({
       disabled={isDisabled}
       activeOpacity={0.88}
       style={[btnStyles.primary, isDisabled && btnStyles.disabled, style]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
     >
       {loading ? (
         <ActivityIndicator color="#FFFFFF" size="small" />
@@ -114,6 +117,9 @@ export function OutlineButton({
       disabled={isDisabled}
       activeOpacity={0.88}
       style={[btnStyles.outline, { borderColor: color }, isDisabled && btnStyles.disabled, style]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
     >
       {loading ? (
         <ActivityIndicator color={color} size="small" />
@@ -257,7 +263,13 @@ export function PremiumHeader({
         <View style={styles.heroTopRow}>
           <View style={styles.heroTitleWrap}>
             {onBack ? (
-              <TouchableOpacity onPress={onBack} activeOpacity={0.82} style={styles.backButton}>
+              <TouchableOpacity
+                onPress={onBack}
+                activeOpacity={0.82}
+                style={styles.backButton}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+              >
                 <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             ) : null}

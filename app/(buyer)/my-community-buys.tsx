@@ -65,7 +65,14 @@ export default function MyCommunityBuysScreen() {
         title="My Community Buys"
         onBack={() => goBackOrReplace(router, "/(buyer)/community-buy" as any)}
         right={
-          <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy-support-cases" as any)} activeOpacity={0.85} style={styles.headerIconBtn}>
+          <TouchableOpacity
+            onPress={() => router.push("/(buyer)/community-buy-support-cases" as any)}
+            activeOpacity={0.85}
+            style={styles.headerIconBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Support cases"
+          >
             <Ionicons name="flag-outline" size={18} color="#FFFFFF" />
           </TouchableOpacity>
         }
@@ -89,6 +96,8 @@ export default function MyCommunityBuysScreen() {
                 key={item.campaign.id}
                 activeOpacity={0.85}
                 onPress={() => router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: item.campaign.id } } as any)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.campaign.title}, ${CAMPAIGN_STATUS_LABELS[item.campaign.status]}`}
               >
                 <FloatingCard style={{ gap: 8 }}>
                   <View style={styles.cardTop}>

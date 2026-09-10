@@ -89,7 +89,14 @@ export default function CommunityBuyQuantityScreen() {
             <Text style={styles.priceValue}>{formatDisplayMoney(campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text>
 
             <View style={styles.quantityRow}>
-              <TouchableOpacity onPress={() => setQuantity(String(Math.max(1, (Number(quantity) || 1) - 1)))} activeOpacity={0.85} style={styles.stepperBtn}>
+              <TouchableOpacity
+                onPress={() => setQuantity(String(Math.max(1, (Number(quantity) || 1) - 1)))}
+                activeOpacity={0.85}
+                style={styles.stepperBtn}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel="Decrease quantity"
+              >
                 <Ionicons name="remove" size={18} color="#076B51" />
               </TouchableOpacity>
               <TextInput
@@ -99,8 +106,16 @@ export default function CommunityBuyQuantityScreen() {
                 keyboardType="number-pad"
                 value={quantity}
                 onChangeText={setQuantity}
+                accessibilityLabel="Number of shares"
               />
-              <TouchableOpacity onPress={() => setQuantity(String(Math.min(remainingCapacity || 1, (Number(quantity) || 0) + 1)))} activeOpacity={0.85} style={styles.stepperBtn}>
+              <TouchableOpacity
+                onPress={() => setQuantity(String(Math.min(remainingCapacity || 1, (Number(quantity) || 0) + 1)))}
+                activeOpacity={0.85}
+                style={styles.stepperBtn}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel="Increase quantity"
+              >
                 <Ionicons name="add" size={18} color="#076B51" />
               </TouchableOpacity>
             </View>
@@ -139,7 +154,15 @@ export default function CommunityBuyQuantityScreen() {
             </FloatingCard>
           </View>
 
-          <TouchableOpacity onPress={goToReview} disabled={!quantityValid} activeOpacity={0.88} style={[styles.primaryBtn, !quantityValid && { opacity: 0.5 }]}>
+          <TouchableOpacity
+            onPress={goToReview}
+            disabled={!quantityValid}
+            activeOpacity={0.88}
+            style={[styles.primaryBtn, !quantityValid && { opacity: 0.5 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Continue to review"
+            accessibilityState={{ disabled: !quantityValid }}
+          >
             <Text style={styles.primaryBtnText}>Continue to review</Text>
           </TouchableOpacity>
         </View>

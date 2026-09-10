@@ -140,7 +140,15 @@ export default function CommunityBuyOrganiserScreen() {
             ) : (
               <View style={{ gap: 8 }}>
                 {markets.map((m) => (
-                  <TouchableOpacity key={m.countryCode} disabled={applying === m.countryCode} onPress={() => void handleApply(m.countryCode)} activeOpacity={0.85}>
+                  <TouchableOpacity
+                    key={m.countryCode}
+                    disabled={applying === m.countryCode}
+                    onPress={() => void handleApply(m.countryCode)}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Apply for ${countryDisplayName(m.countryCode)}`}
+                    accessibilityState={{ disabled: applying === m.countryCode, busy: applying === m.countryCode }}
+                  >
                     <FloatingCard style={styles.applyRow}>
                       <Text style={styles.applyRowText}>Apply for {countryDisplayName(m.countryCode)}</Text>
                       {applying === m.countryCode ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="chevron-forward" size={16} color="#8AA194" />}
@@ -187,6 +195,8 @@ export default function CommunityBuyOrganiserScreen() {
                     key={c.id}
                     activeOpacity={0.85}
                     onPress={() => router.push({ pathname: "/(buyer)/community-buy-organiser-campaign", params: { id: c.id } } as any)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${c.title}, ${CAMPAIGN_STATUS_LABELS[c.status]}`}
                   >
                     <FloatingCard style={{ gap: 4 }}>
                       <View style={styles.cardTop}>

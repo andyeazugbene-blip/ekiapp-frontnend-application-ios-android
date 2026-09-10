@@ -426,7 +426,14 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         onBack={() => goBackOrReplace(router, "/(buyer)/community-buy-organiser" as any)}
         right={
           isEdit && campaign?.status === "LIVE" ? (
-            <TouchableOpacity onPress={() => void handleShare()} activeOpacity={0.85} style={styles.headerIconBtn}>
+            <TouchableOpacity
+              onPress={() => void handleShare()}
+              activeOpacity={0.85}
+              style={styles.headerIconBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Share this campaign"
+            >
               <Ionicons name="share-social-outline" size={18} color="#FFFFFF" />
             </TouchableOpacity>
           ) : undefined
@@ -460,30 +467,77 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <Text style={styles.outcomeHint}>No charge now — your card is only charged if this campaign goes on to succeed.</Text>
                 <View style={{ gap: 8 }}>
                   {paymentMethods.map((m) => (
-                    <TouchableOpacity key={m.id} onPress={() => setPaymentMethodId(m.id)} activeOpacity={0.85}>
+                    <TouchableOpacity
+                      key={m.id}
+                      onPress={() => setPaymentMethodId(m.id)}
+                      activeOpacity={0.85}
+                      accessibilityRole="radio"
+                      accessibilityLabel={`${(m.brand ?? "Card").toUpperCase()} ending ${m.last4}`}
+                      accessibilityState={{ selected: paymentMethodId === m.id }}
+                    >
                       <FloatingCard style={[styles.optionRow, paymentMethodId === m.id && styles.optionRowActive]}>
                         <Ionicons name={paymentMethodId === m.id ? "radio-button-on" : "radio-button-off"} size={18} color={paymentMethodId === m.id ? "#076B51" : "#C7D2CB"} />
                         <Text style={styles.optionText}>{(m.brand ?? "Card").toUpperCase()} •••• {m.last4}</Text>
                       </FloatingCard>
                     </TouchableOpacity>
                   ))}
-                  <TouchableOpacity onPress={() => void handleAddCard()} disabled={addingCard} activeOpacity={0.85} style={styles.addRow}>
+                  <TouchableOpacity
+                    onPress={() => void handleAddCard()}
+                    disabled={addingCard}
+                    activeOpacity={0.85}
+                    style={styles.addRow}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add a card"
+                    accessibilityState={{ busy: addingCard, disabled: addingCard }}
+                  >
                     {addingCard ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="card-outline" size={18} color="#076B51" />}
                     <Text style={styles.addRowText}>{addingCard ? "Saving card..." : "Add a card"}</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={styles.quantityRow}>
-                  <TextInput style={styles.quantityInput} keyboardType="number-pad" value={topUpQuantity} onChangeText={setTopUpQuantity} placeholder="1" placeholderTextColor="#8AA194" />
-                  <TouchableOpacity onPress={handleTopUp} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.fulfilBtn}>
+                  <TextInput
+                    style={styles.quantityInput}
+                    keyboardType="number-pad"
+                    value={topUpQuantity}
+                    onChangeText={setTopUpQuantity}
+                    placeholder="1"
+                    placeholderTextColor="#8AA194"
+                    accessibilityLabel="Number of shares to pledge"
+                  />
+                  <TouchableOpacity
+                    onPress={handleTopUp}
+                    disabled={decisionBusy !== null}
+                    activeOpacity={0.88}
+                    style={styles.fulfilBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Pledge ${formatDisplayMoney((Math.round(Number(topUpQuantity)) || 0) * campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}`}
+                    accessibilityState={{ busy: decisionBusy === "top-up", disabled: decisionBusy !== null }}
+                  >
                     {decisionBusy === "top-up" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fulfilBtnText}>Pledge {formatDisplayMoney((Math.round(Number(topUpQuantity)) || 0) * campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text>}
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.decisionRow}>
-                  <TouchableOpacity onPress={() => setShowExtensionForm((v) => !v)} disabled={decisionBusy !== null || campaign.extensionCount >= 1} activeOpacity={0.88} style={[styles.secondaryBtn, { flex: 1, marginTop: 0 }]}>
+                  <TouchableOpacity
+                    onPress={() => setShowExtensionForm((v) => !v)}
+                    disabled={decisionBusy !== null || campaign.extensionCount >= 1}
+                    activeOpacity={0.88}
+                    style={[styles.secondaryBtn, { flex: 1, marginTop: 0 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={campaign.extensionCount >= 1 ? "Extension already used" : "Request extension"}
+                    accessibilityState={{ disabled: decisionBusy !== null || campaign.extensionCount >= 1, expanded: showExtensionForm }}
+                  >
                     <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request extension"}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={handleEndRescue} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.cancelBtn}>
+                  <TouchableOpacity
+                    onPress={handleEndRescue}
+                    disabled={decisionBusy !== null}
+                    activeOpacity={0.88}
+                    style={styles.cancelBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="End campaign"
+                    accessibilityState={{ busy: decisionBusy === "end", disabled: decisionBusy !== null }}
+                  >
                     {decisionBusy === "end" ? <ActivityIndicator size="small" color="#D6552F" /> : <Text style={styles.cancelBtnText}>End Campaign</Text>}
                   </TouchableOpacity>
                 </View>
@@ -497,17 +551,47 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                       minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
                     />
                     <Text style={styles.label}>Reason for extension</Text>
-                    <TextInput style={[styles.input, styles.inputMultiline]} placeholder="Explain why this campaign should remain open" placeholderTextColor="#8AA194" value={extensionReason} onChangeText={setExtensionReason} multiline />
-                    <TouchableOpacity onPress={() => setSupplierReconfirmed((v) => !v)} activeOpacity={0.85} style={styles.checkboxRow}>
+                    <TextInput
+                      style={[styles.input, styles.inputMultiline]}
+                      placeholder="Explain why this campaign should remain open"
+                      placeholderTextColor="#8AA194"
+                      value={extensionReason}
+                      onChangeText={setExtensionReason}
+                      multiline
+                      accessibilityLabel="Reason for extension"
+                    />
+                    <TouchableOpacity
+                      onPress={() => setSupplierReconfirmed((v) => !v)}
+                      activeOpacity={0.85}
+                      style={styles.checkboxRow}
+                      accessibilityRole="checkbox"
+                      accessibilityLabel="The supplier confirms the product, price and inventory remain available"
+                      accessibilityState={{ checked: supplierReconfirmed }}
+                    >
                       <Ionicons name={supplierReconfirmed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
                       <Text style={styles.checkboxText}>The supplier confirms the product, price and inventory remain available.</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setPriceUnchangedConfirmed((v) => !v)} activeOpacity={0.85} style={styles.checkboxRow}>
+                    <TouchableOpacity
+                      onPress={() => setPriceUnchangedConfirmed((v) => !v)}
+                      activeOpacity={0.85}
+                      style={styles.checkboxRow}
+                      accessibilityRole="checkbox"
+                      accessibilityLabel="The participant price is unchanged"
+                      accessibilityState={{ checked: priceUnchangedConfirmed }}
+                    >
                       <Ionicons name={priceUnchangedConfirmed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
                       <Text style={styles.checkboxText}>The participant price is unchanged.</Text>
                     </TouchableOpacity>
                     <Text style={styles.outcomeHint}>An extension is not automatic. Eki must approve it and notify every participant.</Text>
-                    <TouchableOpacity onPress={handleSubmitExtension} disabled={decisionBusy !== null} activeOpacity={0.88} style={styles.primaryBtnInline}>
+                    <TouchableOpacity
+                      onPress={handleSubmitExtension}
+                      disabled={decisionBusy !== null}
+                      activeOpacity={0.88}
+                      style={styles.primaryBtnInline}
+                      accessibilityRole="button"
+                      accessibilityLabel="Submit extension request"
+                      accessibilityState={{ busy: decisionBusy === "extension", disabled: decisionBusy !== null }}
+                    >
                       {decisionBusy === "extension" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Submit extension request</Text>}
                     </TouchableOpacity>
                   </View>
@@ -525,7 +609,15 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                   <>
                     <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Fulfilment status</Text><Text style={styles.outcomeValue}>{FULFILMENT_STEP_LABEL[fulfilment.status]}</Text></View>
                     {(fulfilment.status === "DISPATCHED" || fulfilment.status === "COLLECTED") ? (
-                      <TouchableOpacity onPress={() => void handleConfirmFulfilmentCompletion()} disabled={confirmingCompletion} activeOpacity={0.88} style={[styles.secondaryBtn, { marginTop: 4 }]}>
+                      <TouchableOpacity
+                        onPress={() => void handleConfirmFulfilmentCompletion()}
+                        disabled={confirmingCompletion}
+                        activeOpacity={0.88}
+                        style={[styles.secondaryBtn, { marginTop: 4 }]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Confirm receipt, mark as completed"
+                        accessibilityState={{ busy: confirmingCompletion, disabled: confirmingCompletion }}
+                      >
                         {confirmingCompletion ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Confirm receipt — mark as completed</Text>}
                       </TouchableOpacity>
                     ) : null}
@@ -543,7 +635,12 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <Text style={styles.outcomeHint}>This campaign was ended. Contributions are being refunded.</Text>
               </FloatingCard>
             ) : campaign?.status === "LIVE" ? (
-              <TouchableOpacity onPress={() => router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: campaign.id } } as any)} activeOpacity={0.85}>
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: campaign.id } } as any)}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Pledge shares yourself through the normal campaign page"
+              >
                 <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
                   <Ionicons name="add-circle-outline" size={18} color="#076B51" />
                   <Text style={styles.outcomeHint}>Want to help this along? You can pledge shares yourself anytime through the normal campaign page — the same way any participant would.</Text>
@@ -564,12 +661,12 @@ export default function CommunityBuyOrganiserCampaignScreen() {
             <FloatingCard style={{ gap: 12 }}>
               <View>
                 <Text style={styles.label}>Title</Text>
-                <TextInput style={styles.input} editable={!isLocked} placeholder="Campaign title" placeholderTextColor="#8AA194" value={title} onChangeText={setTitle} />
+                <TextInput style={styles.input} editable={!isLocked} placeholder="Campaign title" placeholderTextColor="#8AA194" value={title} onChangeText={setTitle} accessibilityLabel="Campaign title" />
               </View>
 
               <View>
                 <Text style={styles.label}>Description (optional)</Text>
-                <TextInput style={[styles.input, styles.inputMultiline]} editable={!isLocked} placeholder="What is this campaign for?" placeholderTextColor="#8AA194" value={description} onChangeText={setDescription} multiline />
+                <TextInput style={[styles.input, styles.inputMultiline]} editable={!isLocked} placeholder="What is this campaign for?" placeholderTextColor="#8AA194" value={description} onChangeText={setDescription} multiline accessibilityLabel="Description" />
               </View>
 
               <View style={styles.thresholdGroup}>
@@ -577,7 +674,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                   <View style={[styles.thresholdDot, { backgroundColor: "#D6552F" }]} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.label}>Minimum shares required</Text>
-                    <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="3" placeholderTextColor="#8AA194" keyboardType="number-pad" value={minimumShares} onChangeText={setMinimumShares} />
+                    <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="3" placeholderTextColor="#8AA194" keyboardType="number-pad" value={minimumShares} onChangeText={setMinimumShares} accessibilityLabel="Minimum shares required" />
                     <Text style={styles.fieldHint}>Below this, the campaign does not proceed.</Text>
                   </View>
                 </View>
@@ -585,7 +682,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                   <View style={[styles.thresholdDot, { backgroundColor: "#B48A00" }]} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.label}>Campaign goal</Text>
-                    <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#8AA194" keyboardType="number-pad" value={goalShares} onChangeText={setGoalShares} />
+                    <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#8AA194" keyboardType="number-pad" value={goalShares} onChangeText={setGoalShares} accessibilityLabel="Campaign goal" />
                     <Text style={styles.fieldHint}>A milestone, not a requirement — the campaign proceeds at the minimum even if the goal isn't reached.</Text>
                   </View>
                 </View>
@@ -593,7 +690,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                   <View style={[styles.thresholdDot, { backgroundColor: "#076B51" }]} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.label}>Maximum capacity</Text>
-                    <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#8AA194" keyboardType="number-pad" value={maximumShares} onChangeText={setMaximumShares} />
+                    <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="6" placeholderTextColor="#8AA194" keyboardType="number-pad" value={maximumShares} onChangeText={setMaximumShares} accessibilityLabel="Maximum capacity" />
                     <Text style={styles.fieldHint}>Contributions stop being accepted once this is reached. Never required for success.</Text>
                   </View>
                 </View>
@@ -609,7 +706,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
               <View>
                 <Text style={styles.label}>Price per share ({currency})</Text>
-                <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="0.00" placeholderTextColor="#8AA194" keyboardType="decimal-pad" value={pricePerShare} onChangeText={setPricePerShare} />
+                <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="0.00" placeholderTextColor="#8AA194" keyboardType="decimal-pad" value={pricePerShare} onChangeText={setPricePerShare} accessibilityLabel={`Price per share in ${currency}`} />
                 <Text style={styles.fieldHint}>The price per share cannot change after the first confirmed contribution.</Text>
               </View>
 
@@ -646,7 +743,14 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 ) : (
                   <View style={{ gap: 8 }}>
                     {suppliers.map((s) => (
-                      <TouchableOpacity key={s.id} onPress={() => setSupplierId(s.id)} activeOpacity={0.85}>
+                      <TouchableOpacity
+                        key={s.id}
+                        onPress={() => setSupplierId(s.id)}
+                        activeOpacity={0.85}
+                        accessibilityRole="radio"
+                        accessibilityLabel={s.vendor?.storeName ?? "Supplier"}
+                        accessibilityState={{ selected: supplierId === s.id }}
+                      >
                         <FloatingCard style={[styles.optionRow, supplierId === s.id && styles.optionRowActive]}>
                           <Ionicons name={supplierId === s.id ? "radio-button-on" : "radio-button-off"} size={18} color={supplierId === s.id ? "#076B51" : "#8AA194"} />
                           <Text style={styles.optionText}>{s.vendor?.storeName ?? "Supplier"}</Text>
@@ -673,7 +777,15 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                   ) : (
                     <View style={{ gap: 8 }}>
                       {suppliers.filter((s) => s.id !== campaign.supplierId).map((s) => (
-                        <TouchableOpacity key={s.id} onPress={() => void handleReassignSupplier(s.id)} disabled={reassigning} activeOpacity={0.85}>
+                        <TouchableOpacity
+                          key={s.id}
+                          onPress={() => void handleReassignSupplier(s.id)}
+                          disabled={reassigning}
+                          activeOpacity={0.85}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Reassign to ${s.vendor?.storeName ?? "Supplier"}`}
+                          accessibilityState={{ busy: reassigning, disabled: reassigning }}
+                        >
                           <FloatingCard style={styles.optionRow}>
                             {reassigning ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="radio-button-off" size={18} color="#8AA194" />}
                             <Text style={styles.optionText}>{s.vendor?.storeName ?? "Supplier"}</Text>
@@ -704,7 +816,13 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               <View style={{ gap: 10 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                   <Text style={styles.sectionOutside}>Campaign updates</Text>
-                  <TouchableOpacity onPress={() => setShowUpdateForm((v) => !v)} activeOpacity={0.85}>
+                  <TouchableOpacity
+                    onPress={() => setShowUpdateForm((v) => !v)}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={showUpdateForm ? "Cancel" : "Post an update"}
+                    accessibilityState={{ expanded: showUpdateForm }}
+                  >
                     <Text style={styles.linkText}>{showUpdateForm ? "Cancel" : "Post an update"}</Text>
                   </TouchableOpacity>
                 </View>
@@ -712,11 +830,19 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 {showUpdateForm ? (
                   <FloatingCard style={{ gap: 8 }}>
                     <Text style={styles.label}>Title</Text>
-                    <TextInput style={styles.input} placeholder="e.g. Shipping this week" placeholderTextColor="#8AA194" value={updateTitleInput} onChangeText={setUpdateTitleInput} maxLength={140} />
+                    <TextInput style={styles.input} placeholder="e.g. Shipping this week" placeholderTextColor="#8AA194" value={updateTitleInput} onChangeText={setUpdateTitleInput} maxLength={140} accessibilityLabel="Update title" />
                     <Text style={styles.label}>Message</Text>
-                    <TextInput style={[styles.input, styles.inputMultiline]} placeholder="What do participants need to know?" placeholderTextColor="#8AA194" value={updateMessageInput} onChangeText={setUpdateMessageInput} multiline maxLength={2000} />
+                    <TextInput style={[styles.input, styles.inputMultiline]} placeholder="What do participants need to know?" placeholderTextColor="#8AA194" value={updateMessageInput} onChangeText={setUpdateMessageInput} multiline maxLength={2000} accessibilityLabel="Update message" />
                     <Text style={styles.outcomeHint}>Every participant is notified. This is for messages only — it can never change price, minimum, goal or maximum.</Text>
-                    <TouchableOpacity onPress={() => void handlePostUpdate()} disabled={postingUpdate} activeOpacity={0.88} style={styles.primaryBtnInline}>
+                    <TouchableOpacity
+                      onPress={() => void handlePostUpdate()}
+                      disabled={postingUpdate}
+                      activeOpacity={0.88}
+                      style={styles.primaryBtnInline}
+                      accessibilityRole="button"
+                      accessibilityLabel="Post update"
+                      accessibilityState={{ busy: postingUpdate, disabled: postingUpdate }}
+                    >
                       {postingUpdate ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fulfilBtnText}>Post update</Text>}
                     </TouchableOpacity>
                   </FloatingCard>
@@ -756,7 +882,15 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                       <Text style={styles.outcomeHint}>Once submitted, an admin reviews this campaign. If changes are needed, you'll see the exact reason and can resubmit.</Text>
                     </FloatingCard>
                   </View>
-                  <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.85} style={styles.secondaryBtn}>
+                  <TouchableOpacity
+                    onPress={handleSubmit}
+                    disabled={submitting}
+                    activeOpacity={0.85}
+                    style={styles.secondaryBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Submit for review"
+                    accessibilityState={{ busy: submitting, disabled: submitting }}
+                  >
                     {submitting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Submit for review</Text>}
                   </TouchableOpacity>
                 </View>
@@ -769,7 +903,15 @@ export default function CommunityBuyOrganiserCampaignScreen() {
             ) : null}
 
             {campaign?.status === "APPROVED" ? (
-              <TouchableOpacity onPress={handlePublish} disabled={publishing} activeOpacity={0.85} style={styles.secondaryBtn}>
+              <TouchableOpacity
+                onPress={handlePublish}
+                disabled={publishing}
+                activeOpacity={0.85}
+                style={styles.secondaryBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Publish campaign"
+                accessibilityState={{ busy: publishing, disabled: publishing }}
+              >
                 {publishing ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Publish campaign</Text>}
               </TouchableOpacity>
             ) : null}

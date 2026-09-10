@@ -178,7 +178,14 @@ export default function AutomationDetailScreen() {
                   This is a mandatory operational message, not optional marketing — it can't be turned off. Eki sends it automatically to keep your buyers informed about their Regular Delivery.
                 </Text>
               ) : (
-                <TouchableOpacity onPress={handleToggle} disabled={toggling} activeOpacity={0.88} style={[styles.toggleBtn, automation.enabled && styles.toggleBtnActive]}>
+                <TouchableOpacity
+                  onPress={handleToggle}
+                  disabled={toggling}
+                  activeOpacity={0.88}
+                  style={[styles.toggleBtn, automation.enabled && styles.toggleBtnActive]}
+                  accessibilityRole="button"
+                  accessibilityLabel={automation.enabled ? "Deactivate automation" : "Activate automation"}
+                >
                   {toggling ? (
                     <ActivityIndicator color={automation.enabled ? "#FFFFFF" : "#076B51"} size="small" />
                   ) : (
@@ -204,7 +211,11 @@ export default function AutomationDetailScreen() {
                           onPress={() => void handleConfigOption(preset.key, value)}
                           disabled={savingConfigKey === preset.key}
                           activeOpacity={0.8}
+                          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                           style={[styles.configChip, selected && styles.configChipActive]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${value}${preset.unit}`}
+                          accessibilityState={{ selected }}
                         >
                           <Text style={[styles.configChipText, selected && styles.configChipTextActive]}>{value}{preset.unit}</Text>
                         </TouchableOpacity>
@@ -216,7 +227,12 @@ export default function AutomationDetailScreen() {
               </View>
             ) : null}
 
-            <TouchableOpacity onPress={() => router.push({ pathname: "/(vendor)/automation-activity", params: { type: automationType } } as any)} activeOpacity={0.85}>
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: "/(vendor)/automation-activity", params: { type: automationType } } as any)}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="View activity for this automation"
+            >
               <FloatingCard style={styles.activityLinkRow}>
                 <Ionicons name="pulse-outline" size={18} color="#076B51" />
                 <Text style={styles.activityLinkText}>View activity for this automation</Text>

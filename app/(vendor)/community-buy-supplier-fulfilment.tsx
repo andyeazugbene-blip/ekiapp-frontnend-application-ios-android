@@ -162,6 +162,9 @@ export default function CommunityBuySupplierFulfilmentScreen() {
                 disabled={busy !== null}
                 activeOpacity={0.88}
                 style={styles.primaryBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Confirm inventory"
+                accessibilityState={{ busy: busy === "inventory", disabled: busy !== null }}
               >
                 {busy === "inventory" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Confirm inventory</Text>}
               </TouchableOpacity>
@@ -173,10 +176,24 @@ export default function CommunityBuySupplierFulfilmentScreen() {
               <Text style={styles.section}>Fulfilment plan</Text>
               <FloatingCard style={{ gap: 10 }}>
                 <View style={styles.methodRow}>
-                  <TouchableOpacity onPress={() => setMethod("DELIVERY")} activeOpacity={0.85} style={[styles.methodChip, method === "DELIVERY" && styles.methodChipActive]}>
+                  <TouchableOpacity
+                    onPress={() => setMethod("DELIVERY")}
+                    activeOpacity={0.85}
+                    style={[styles.methodChip, method === "DELIVERY" && styles.methodChipActive]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Delivery"
+                    accessibilityState={{ selected: method === "DELIVERY" }}
+                  >
                     <Text style={[styles.methodChipText, method === "DELIVERY" && styles.methodChipTextActive]}>Delivery</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setMethod("COLLECTION")} activeOpacity={0.85} style={[styles.methodChip, method === "COLLECTION" && styles.methodChipActive]}>
+                  <TouchableOpacity
+                    onPress={() => setMethod("COLLECTION")}
+                    activeOpacity={0.85}
+                    style={[styles.methodChip, method === "COLLECTION" && styles.methodChipActive]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Collection"
+                    accessibilityState={{ selected: method === "COLLECTION" }}
+                  >
                     <Text style={[styles.methodChipText, method === "COLLECTION" && styles.methodChipTextActive]}>Collection</Text>
                   </TouchableOpacity>
                 </View>
@@ -187,12 +204,16 @@ export default function CommunityBuySupplierFulfilmentScreen() {
                   value={notes}
                   onChangeText={setNotes}
                   multiline
+                  accessibilityLabel="Notes for the organiser"
                 />
                 <TouchableOpacity
                   onPress={() => void runAction("plan", () => communityBuyService.setFulfilmentPlan(id, { method, notes: notes.trim() || undefined }))}
                   disabled={busy !== null}
                   activeOpacity={0.88}
                   style={styles.primaryBtnInline}
+                  accessibilityRole="button"
+                  accessibilityLabel="Save plan"
+                  accessibilityState={{ busy: busy === "plan", disabled: busy !== null }}
                 >
                   {busy === "plan" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Save plan</Text>}
                 </TouchableOpacity>
@@ -202,6 +223,9 @@ export default function CommunityBuySupplierFulfilmentScreen() {
                     disabled={busy !== null}
                     activeOpacity={0.88}
                     style={styles.secondaryBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Start packing"
+                    accessibilityState={{ busy: busy === "packing", disabled: busy !== null }}
                   >
                     {busy === "packing" ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Start packing</Text>}
                   </TouchableOpacity>
@@ -216,6 +240,9 @@ export default function CommunityBuySupplierFulfilmentScreen() {
               disabled={busy !== null}
               activeOpacity={0.88}
               style={styles.primaryBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Mark ready for ${fulfilment.method === "COLLECTION" ? "collection" : "dispatch"}`}
+              accessibilityState={{ busy: busy === "ready", disabled: busy !== null }}
             >
               {busy === "ready" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Mark ready for {fulfilment.method === "COLLECTION" ? "collection" : "dispatch"}</Text>}
             </TouchableOpacity>
@@ -232,6 +259,9 @@ export default function CommunityBuySupplierFulfilmentScreen() {
               disabled={busy !== null}
               activeOpacity={0.88}
               style={styles.primaryBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Mark ${fulfilment.method === "COLLECTION" ? "collected" : "dispatched"}`}
+              accessibilityState={{ busy: busy === "finish", disabled: busy !== null }}
             >
               {busy === "finish" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Mark {fulfilment.method === "COLLECTION" ? "collected" : "dispatched"}</Text>}
             </TouchableOpacity>

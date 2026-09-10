@@ -91,7 +91,14 @@ export default function CommunityBuySupportCasesScreen() {
             <FloatingCard style={{ gap: 10 }}>
               <View style={styles.formHeaderRow}>
                 <Text style={styles.formTitle}>Report an issue{campaignTitle ? ` — ${campaignTitle}` : ""}</Text>
-                <TouchableOpacity onPress={() => setShowForm((v) => !v)} activeOpacity={0.85}>
+                <TouchableOpacity
+                  onPress={() => setShowForm((v) => !v)}
+                  activeOpacity={0.85}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={showForm ? "Collapse report form" : "Expand report form"}
+                  accessibilityState={{ expanded: showForm }}
+                >
                   <Ionicons name={showForm ? "chevron-up" : "chevron-down"} size={18} color="#151E1B" />
                 </TouchableOpacity>
               </View>
@@ -100,7 +107,15 @@ export default function CommunityBuySupportCasesScreen() {
                   <Text style={styles.label}>Type</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeRow}>
                     {CASE_TYPES.map((t) => (
-                      <TouchableOpacity key={t} onPress={() => setCaseType(t)} activeOpacity={0.85} style={[styles.typeChip, caseType === t && styles.typeChipActive]}>
+                      <TouchableOpacity
+                        key={t}
+                        onPress={() => setCaseType(t)}
+                        activeOpacity={0.85}
+                        style={[styles.typeChip, caseType === t && styles.typeChipActive]}
+                        accessibilityRole="button"
+                        accessibilityLabel={SUPPORT_CASE_TYPE_LABELS[t]}
+                        accessibilityState={{ selected: caseType === t }}
+                      >
                         <Text style={[styles.typeChipText, caseType === t && styles.typeChipTextActive]}>{SUPPORT_CASE_TYPE_LABELS[t]}</Text>
                       </TouchableOpacity>
                     ))}
@@ -113,8 +128,17 @@ export default function CommunityBuySupportCasesScreen() {
                     value={description}
                     onChangeText={setDescription}
                     multiline
+                    accessibilityLabel="What happened"
                   />
-                  <TouchableOpacity onPress={() => void handleSubmit()} disabled={submitting} activeOpacity={0.88} style={styles.primaryBtn}>
+                  <TouchableOpacity
+                    onPress={() => void handleSubmit()}
+                    disabled={submitting}
+                    activeOpacity={0.88}
+                    style={styles.primaryBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Submit report"
+                    accessibilityState={{ busy: submitting, disabled: submitting }}
+                  >
                     {submitting ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Submit report</Text>}
                   </TouchableOpacity>
                 </>
@@ -134,7 +158,14 @@ export default function CommunityBuySupportCasesScreen() {
               {cases.map((c) => {
                 const isExpanded = expandedId === c.id;
                 return (
-                  <TouchableOpacity key={c.id} activeOpacity={0.85} onPress={() => setExpandedId(isExpanded ? null : c.id)}>
+                  <TouchableOpacity
+                    key={c.id}
+                    activeOpacity={0.85}
+                    onPress={() => setExpandedId(isExpanded ? null : c.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${c.campaign?.title ?? "Campaign"}, ${SUPPORT_CASE_TYPE_LABELS[c.caseType]}, ${SUPPORT_CASE_STATUS_LABELS[c.status]}`}
+                    accessibilityState={{ expanded: isExpanded }}
+                  >
                     <FloatingCard style={{ gap: 4 }}>
                       <View style={styles.cardTop}>
                         <Text style={styles.cardTitle} numberOfLines={1}>{c.campaign?.title ?? "Campaign"}</Text>
