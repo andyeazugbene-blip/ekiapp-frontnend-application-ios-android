@@ -374,6 +374,10 @@ export default function RootLayout() {
             <Stack.Screen name="(vendor-onboarding)" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="(vendor-verification)" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="store/[slug]" options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="product/[id]" />
+            <Stack.Screen name="order/[id]" />
+            <Stack.Screen name="chat/[id]" />
+            <Stack.Screen name="invite/[code]" />
           </Stack>
         </StripeProvider>
       </ErrorBoundary>
