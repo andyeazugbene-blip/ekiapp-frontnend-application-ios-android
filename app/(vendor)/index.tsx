@@ -614,24 +614,23 @@ export default function VendorDashboardScreen() {
 
             {/* ── Business Tools (Automation, Regular Deliveries, Community Buy) ── */}
             <Text style={styles.section}>Business Tools</Text>
-            <View style={styles.foodstuffList}>
-              <FoodRow
+            <View style={styles.toolsGrid}>
+              <ToolCard
                 icon="flash-outline"
                 label="Automation Center"
-                tone="light"
                 onPress={() => navigate("/(vendor)/automation-center")}
               />
-              {/* MKT-03 fix: this row rendered unconditionally regardless
+              {/* MKT-03 fix: this card rendered unconditionally regardless
                   of market gating, unlike the identically-gated Community
-                  Buy row right below it — a vendor in a market with
-                  Regular Deliveries disabled could still build/publish a
-                  "dead" offer catalog with no warning. */}
+                  Buy cards below it — a vendor in a market with Regular
+                  Deliveries disabled could still build/publish a "dead"
+                  offer catalog with no warning. */}
               {regularDeliveriesEnabled && (
-                <FoodRow
+                <ToolCard
                   icon="repeat-outline"
                   label="Regular Deliveries"
                   badge={pendingRenewals.length > 0 ? pendingRenewals.length : undefined}
-                  tone="light"
+                  filled
                   onPress={() => navigate("/(vendor)/regular-deliveries")}
                 />
               )}
@@ -641,16 +640,17 @@ export default function VendorDashboardScreen() {
                   architecture doc. */}
               {communityBuyEnabled && (
                 <>
-                  <FoodRow
+                  <ToolCard
                     icon="people-circle-outline"
-                    label={supplierProfile?.isVerified ? "Community Buy — Supply" : "Community Buy — become a supplier"}
-                    tone="light"
+                    eyebrow="Community Buy"
+                    label={supplierProfile?.isVerified ? "Supply" : "Become a supplier"}
+                    filled
                     onPress={() => navigate("/(vendor)/community-buy-supplier")}
                   />
-                  <FoodRow
+                  <ToolCard
                     icon="megaphone-outline"
-                    label="Community Buy — Organize a campaign"
-                    tone="light"
+                    eyebrow="Community Buy"
+                    label="Organize a campaign"
                     onPress={() => router.push({ pathname: "/(buyer)/community-buy-organiser", params: { from: "vendor" } } as any)}
                   />
                 </>
@@ -938,6 +938,47 @@ function FoodRow({
         </View>
       ) : null}
       <Ionicons name="chevron-forward" size={16} color={isDark ? "rgba(255,255,255,0.7)" : "#9AA3A0"} />
+    </TouchableOpacity>
+  );
+}
+
+function ToolCard({
+  icon,
+  label,
+  eyebrow,
+  badge,
+  filled,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  eyebrow?: string;
+  badge?: number;
+  filled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={[styles.toolCard, filled && styles.toolCardFilled]}
+      accessibilityRole="button"
+      accessibilityLabel={eyebrow ? `${eyebrow}, ${label}` : label}
+    >
+      <View style={styles.toolCardTop}>
+        <View style={[styles.toolIcon, filled && styles.toolIconFilled]}>
+          <Ionicons name={icon} size={18} color={filled ? "#FFFFFF" : "#076B51"} />
+        </View>
+        {badge ? (
+          <View style={filled ? styles.toolBadgeFilled : styles.toolBadge}>
+            <Text style={filled ? styles.toolBadgeTextFilled : styles.toolBadgeText}>{badge}</Text>
+          </View>
+        ) : null}
+      </View>
+      <View>
+        {eyebrow ? <Text style={[styles.toolEyebrow, filled && styles.toolEyebrowFilled]}>{eyebrow}</Text> : null}
+        <Text style={[styles.toolLabel, filled && styles.toolLabelFilled]}>{label}</Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -1239,6 +1280,20 @@ const styles = StyleSheet.create({
 
   // ── Foodstuff ────────────────────────────────────────────────────────
   foodstuffList: { gap: 8, marginBottom: 18 },
+  toolsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 18 },
+  toolCard: { width: "47%", minHeight: 110, borderRadius: 20, backgroundColor: "#FFFFFF", padding: 16, justifyContent: "space-between" },
+  toolCardFilled: { backgroundColor: "#076B51" },
+  toolCardTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  toolIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(7,107,81,0.08)", alignItems: "center", justifyContent: "center" },
+  toolIconFilled: { backgroundColor: "rgba(255,255,255,0.18)" },
+  toolEyebrow: { color: "#9AA3A0", fontSize: 10, fontFamily: "Manrope-ExtraBold", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 },
+  toolEyebrowFilled: { color: "rgba(255,255,255,0.7)" },
+  toolLabel: { color: "#151E1B", fontSize: 15, fontFamily: "Manrope-Bold" },
+  toolLabelFilled: { color: "#FFFFFF" },
+  toolBadge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: "#FFE5E5", alignItems: "center", justifyContent: "center" },
+  toolBadgeText: { color: "#D6552F", fontSize: 11, fontFamily: "Manrope-Bold" },
+  toolBadgeFilled: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: "rgba(255,255,255,0.25)", alignItems: "center", justifyContent: "center" },
+  toolBadgeTextFilled: { color: "#FFFFFF", fontSize: 11, fontFamily: "Manrope-Bold" },
   foodRow: { backgroundColor: "#FFFFFF", borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12 },
   foodRowDark: { backgroundColor: "#076B51" },
   foodIcon: { width: 30, height: 30, borderRadius: 10, backgroundColor: "rgba(7,107,81,0.08)", alignItems: "center", justifyContent: "center" },

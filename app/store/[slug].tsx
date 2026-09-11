@@ -18,6 +18,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import type { CheckoutIntent, ServerCartItem } from "../../services/cartService";
+import { goBackOrReplace } from "../../utils/navigation";
 import { authService } from "../../services/authService";
 import { orderService } from "../../services/orderService";
 import { productService } from "../../services/productService";
@@ -1088,6 +1089,18 @@ export default function PublicStoreScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topRibbon}>
+          {isPreview ? (
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={() => goBackOrReplace(router, "/(vendor)/share-store-link" as any)}
+              style={styles.topRibbonBack}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : null}
           <Text style={styles.topRibbonBrand}>eki.</Text>
           <Text style={styles.topRibbonCaption}>Auto-synced from Eki app</Text>
           <TouchableOpacity
@@ -1908,6 +1921,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
+  },
+  topRibbonBack: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
   topRibbonBrand: {
     color: "#FFFFFF",
