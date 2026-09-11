@@ -291,6 +291,13 @@ export default function RootLayout() {
             // than assumed permanently unreachable.
             router.push(`/(buyer)`);
           }
+        } else if (type === "regular_delivery_frequency_changed") {
+          // QA gate fix: buyerSubscriptionsService.changeFrequency()/
+          // adminChangeFrequency() (Final Client Decision 3) send this with
+          // a real subscriptionId, but no frontend branch existed at all —
+          // a dead tap on a just-shipped, client-approved feature.
+          const subscriptionId = data.subscriptionId as string | undefined;
+          router.push(subscriptionId ? `/(buyer)/regular-delivery-detail?id=${subscriptionId}` : `/(buyer)/regular-deliveries`);
         } else if (type === "support_case_response") {
           // NOTIF-08 fix: previously no notification was ever sent for this
           // event at all. No per-case detail screen exists — the real,
