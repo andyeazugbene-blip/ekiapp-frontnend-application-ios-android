@@ -14,6 +14,9 @@ export interface SubscriptionException {
     buyer?: { name: string; email: string };
   };
   items: { quantity: number; product: { title: string } }[];
+  escalated?: boolean;
+  escalatedAt?: string | null;
+  escalatedReason?: string | null;
 }
 
 export const subscriptionExceptionsAPI = {
@@ -83,5 +86,16 @@ export const subscriptionExceptionsAPI = {
    */
   async changeFrequency(subscriptionId: string, frequency: string, reason: string): Promise<void> {
     await apiClient.post(`/admin/subscriptions/${subscriptionId}/change-frequency`, { frequency, reason });
+  },
+
+  /**
+   * Escalate a stuck exception for higher-tier support attention — approved
+   * client requirement. Internal admin action, not buyer-facing (use the
+   * separate contact-buyer actions for that). Idempotent on the backend:
+   * escalating an already-escalated renewal is a safe no-op.
+   */
+  async escalate(renewalId: string, reason: string): Promise<SubscriptionException> {
+    const res = await apiClient.post<{ renewal: SubscriptionException }>(`/admin/renewals/${renewalId}/escalate`, { reason });
+    return res.renewal;
   },
 };

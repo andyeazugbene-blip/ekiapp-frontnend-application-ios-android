@@ -101,6 +101,20 @@ export default function SubscriptionExceptionsPage() {
     void withAction(`force-cancel-${subscriptionId}`, () => subscriptionExceptionsAPI.forceCancel(subscriptionId, reason, internalNote));
   };
 
+  const handleEscalate = (renewalId: string) => {
+    if (
+      !confirm(
+        "Escalate this case for higher-tier support review? " +
+          "This flags it internally for supervisor attention — it does NOT change the renewal's status, retry payment, or cancel anything, and does NOT notify the buyer (use Message buyer for that). " +
+          "Escalation cannot be undone from this screen.",
+      )
+    )
+      return;
+    const reason = window.prompt("Reason for escalating (required):");
+    if (!reason?.trim()) return;
+    void withAction(`escalate-${renewalId}`, () => subscriptionExceptionsAPI.escalate(renewalId, reason).then(() => {}));
+  };
+
   const priceApprovals = items.filter((i) => i.status === "AWAITING_PRICE_APPROVAL").length;
   const paymentFailures = items.filter((i) => i.status === "PAYMENT_FAILED").length;
   const stockWaits = items.filter((i) => i.status === "AWAITING_STOCK").length;
@@ -131,11 +145,16 @@ export default function SubscriptionExceptionsPage() {
                   {items.map((item) => (
                     <div key={item.id} className="rounded-2xl border border-slate-200 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <Badge tone={statusTone(item.status)}>{statusLabel(item.status)}</Badge>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge tone={statusTone(item.status)}>{statusLabel(item.status)}</Badge>
+                          {item.escalated ? <Badge tone="red">Escalated</Badge> : null}
+                        </div>
                         <span className="text-sm text-slate-500">{new Date(item.updatedAt).toLocaleString()}</span>
                       </div>
                       <div className="mt-4 grid gap-4 md:grid-cols-[0.3fr_1fr] md:items-start">
-                        <div className="space-y-2 text-sm text-slate-500"><p>Buyer:</p><p>Items:</p>{item.failureReason ? <p>Reason:</p> : null}</div>
+                        <div className="space-y-2 text-sm text-slate-500">
+                          <p>Buyer:</p><p>Items:</p>{item.failureReason ? <p>Reason:</p> : null}{item.escalated ? <p>Escalation:</p> : null}
+                        </div>
                         <div className="space-y-2 text-sm font-semibold text-[#101820]">
                           <p>{item.subscription.buyer?.name ?? "Unknown buyer"} ({item.subscription.buyer?.email ?? "—"})</p>
                           <p>
@@ -143,6 +162,12 @@ export default function SubscriptionExceptionsPage() {
                             {item.subtotalAmount ? ` — ${item.currency} ${centsToUnit(item.subtotalAmount).toFixed(2)}` : ""}
                           </p>
                           {item.failureReason ? <p className="text-red-600">{item.failureReason}</p> : null}
+                          {item.escalated ? (
+                            <p className="text-red-600">
+                              {item.escalatedReason ?? "Escalated for support review"}
+                              {item.escalatedAt ? ` — ${new Date(item.escalatedAt).toLocaleString()}` : ""}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
@@ -172,6 +197,9 @@ export default function SubscriptionExceptionsPage() {
                         </Button>
                         <Button variant="secondary" disabled={!!actionBusy} onClick={() => handleForceCancel(item.subscriptionId)}>
                           {actionBusy === `force-cancel-${item.subscriptionId}` ? "Cancelling…" : "Force cancel subscription"}
+                        </Button>
+                        <Button variant="secondary" disabled={!!actionBusy || item.escalated} onClick={() => handleEscalate(item.id)}>
+                          {item.escalated ? "Escalated" : actionBusy === `escalate-${item.id}` ? "Escalating…" : "Escalate case"}
                         </Button>
                       </div>
                     </div>
