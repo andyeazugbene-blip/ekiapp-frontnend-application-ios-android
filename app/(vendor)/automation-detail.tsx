@@ -56,7 +56,15 @@ export default function AutomationDetailScreen() {
   // a real network failure. Always resolve to a single string first.
   const type = Array.isArray(rawType) ? rawType[0] : rawType;
   const automationType = (type ?? "") as AutomationType;
-  const isValidType = VENDOR_AUTOMATION_TYPES.includes(automationType);
+  // Device QA fix: this previously only recognized the 8 vendor-TOGGLEABLE
+  // types, so tapping into any of the 3 Managed-by-Eki cards (Regular
+  // Delivery Payment Recovery / Renewal Reminders / Price Approval
+  // Reminders) from Automation Centre hit the "isn't a recognized
+  // automation" error path before ever reaching this same file's already-
+  // correct isManaged read-only rendering below. Not a backend issue —
+  // listVendorAutomations() already returns all 11 types correctly; this
+  // screen just refused to show 3 of them.
+  const isValidType = VENDOR_AUTOMATION_TYPES.includes(automationType) || MANAGED_BY_EKI_TYPES.includes(automationType);
 
   const [automation, setAutomation] = useState<VendorAutomation | null>(null);
   const [loading, setLoading] = useState(true);
