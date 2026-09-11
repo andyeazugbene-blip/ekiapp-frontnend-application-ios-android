@@ -10,6 +10,8 @@ export type AutomationType =
   | "REVIEW_REQUEST"
   | "LOW_STOCK_ALERT"
   | "BUYER_REFERRAL"
+  | "REORDER_REMINDER"
+  | "CHECKOUT_PAYMENT_FOLLOW_UP"
   | "PAYMENT_RECOVERY"
   | "RENEWAL_REMINDER"
   | "PRICE_APPROVAL_REMINDER"
@@ -19,7 +21,8 @@ export type AutomationType =
 
 export interface VendorAutomation {
   type: AutomationType;
-  enabled: boolean;
+  managedByEki?: boolean;
+  enabled?: boolean;
   description: string;
   config: Record<string, number> | null;
 }
@@ -50,75 +53,68 @@ export interface AutomationAdminSummary {
   recentFailures: AutomationRun[];
 }
 
-// Automations the vendor can see/toggle from the Automation Center — the
-// three campaign-flavored types (CAMPAIGN_*) are buyer-facing and never
-// vendor-toggleable, so they're intentionally excluded here.
+// Final Client Decision 4: The 8 vendor-controlled automations
+// (vendor can enable/disable these from the Automation Centre).
 export const VENDOR_AUTOMATION_TYPES: AutomationType[] = [
   "FIRST_SALE",
   "CART_RECOVERY",
   "BUYER_WIN_BACK",
+  "REORDER_REMINDER",
+  "CHECKOUT_PAYMENT_FOLLOW_UP",
+  "BUYER_REFERRAL",
   "REVIEW_REQUEST",
   "LOW_STOCK_ALERT",
-  "BUYER_REFERRAL",
-  "PAYMENT_RECOVERY",
-  "RENEWAL_REMINDER",
-  "PRICE_APPROVAL_REMINDER",
 ];
 
-export type AutomationCategory = "GROW_SALES" | "CUSTOMER_EXPERIENCE" | "REGULAR_DELIVERY";
+// Final Client Decision 4 — categories for the Automation Centre display.
+// 4 categories: Sales & Conversion, Customer Engagement, Store & Operations, Managed by Eki.
+export type AutomationCategory = "SALES_CONVERSION" | "CUSTOMER_ENGAGEMENT" | "STORE_OPERATIONS" | "MANAGED_BY_EKI";
 
 export const AUTOMATION_CATEGORY_LABELS: Record<AutomationCategory, string> = {
-  GROW_SALES: "Grow sales",
-  CUSTOMER_EXPERIENCE: "Customer experience",
-  REGULAR_DELIVERY: "Regular Delivery subscriptions",
+  SALES_CONVERSION: "Sales & conversion",
+  CUSTOMER_ENGAGEMENT: "Customer engagement",
+  STORE_OPERATIONS: "Store & operations",
+  MANAGED_BY_EKI: "Managed by Eki",
 };
 
-// Client spec's exact category assignment (Automation Centre requirements
-// doc, "2. Automation Modules"). Two named modules from that doc — Reorder
-// Reminders and Checkout Payment Follow-Up — have no backend implementation
-// yet and are intentionally absent from VENDOR_AUTOMATION_TYPES above; do
-// not add them here until they exist server-side.
+// Client spec's exact category assignment (Final Client Decision 4).
 export const AUTOMATION_CATEGORY: Record<AutomationType, AutomationCategory | undefined> = {
-  FIRST_SALE: "GROW_SALES",
-  CART_RECOVERY: "GROW_SALES",
-  BUYER_WIN_BACK: "GROW_SALES",
-  BUYER_REFERRAL: "GROW_SALES",
-  REVIEW_REQUEST: "CUSTOMER_EXPERIENCE",
-  LOW_STOCK_ALERT: "CUSTOMER_EXPERIENCE",
-  PAYMENT_RECOVERY: "REGULAR_DELIVERY",
-  RENEWAL_REMINDER: "REGULAR_DELIVERY",
-  PRICE_APPROVAL_REMINDER: "REGULAR_DELIVERY",
+  FIRST_SALE: "SALES_CONVERSION",
+  CART_RECOVERY: "SALES_CONVERSION",
+  CHECKOUT_PAYMENT_FOLLOW_UP: "SALES_CONVERSION",
+  BUYER_WIN_BACK: "CUSTOMER_ENGAGEMENT",
+  BUYER_REFERRAL: "CUSTOMER_ENGAGEMENT",
+  REVIEW_REQUEST: "CUSTOMER_ENGAGEMENT",
+  REORDER_REMINDER: "CUSTOMER_ENGAGEMENT",
+  LOW_STOCK_ALERT: "STORE_OPERATIONS",
+  PAYMENT_RECOVERY: "MANAGED_BY_EKI",
+  RENEWAL_REMINDER: "MANAGED_BY_EKI",
+  PRICE_APPROVAL_REMINDER: "MANAGED_BY_EKI",
   CAMPAIGN_MILESTONE: undefined,
   CAMPAIGN_DEADLINE: undefined,
   CAMPAIGN_REFUND_UPDATE: undefined,
 };
 
 /**
- * The client spec requires these three to display "chevrons only (no
- * toggles)" — they are mandatory operational messages, never optional
- * marketing. This also matches reality: the backend sends
- * PAYMENT_RECOVERY/RENEWAL_REMINDER/PRICE_APPROVAL_REMINDER for Regular
- * Delivery renewals via a direct notification call that does not check the
- * vendor's automation toggle, so a toggle here would be non-functional —
- * showing one at all previously misrepresented vendor control that doesn't
- * exist.
+ * The three Eki-managed types are shown in the Automation Centre with a
+ * "Managed by Eki" badge. No toggle is exposed — the backend rejects any
+ * vendor attempt to toggle these types.
  */
 export const MANAGED_BY_EKI_TYPES: AutomationType[] = ["PAYMENT_RECOVERY", "RENEWAL_REMINDER", "PRICE_APPROVAL_REMINDER"];
 
-// Human-facing explainer for each vendor-toggleable automation, used
-// anywhere a.description (the raw backend message template, containing
-// literal {{name}}/{{store_name}}/etc. placeholders meant for interpolation
-// at send time, not display) would otherwise leak unresolved to a vendor.
-// Only covers VENDOR_AUTOMATION_TYPES — CAMPAIGN_* types never reach vendor
-// screens.
+// Human-facing explainer for each automation, used anywhere the raw backend
+// message template (with {{name}}/{{store_name}} placeholders) would leak.
+// Covers all 11 automation modules (8 vendor-controlled + 3 Eki-managed).
 export const AUTOMATION_EXPLAINER: Partial<Record<AutomationType, string>> = {
   FIRST_SALE: "Eki guides new stores through completing their store, sharing their store link, creating an introductory offer, and following up with interested buyers — to help your store get its first completed order.",
   CART_RECOVERY: "Eki reminds eligible buyers when they leave foodstuff without completing payment.",
   BUYER_WIN_BACK: "Eki reconnects with buyers who have not ordered recently.",
+  REORDER_REMINDER: "Eki reminds buyers who received a delivery to consider reordering when their product is still available — sent once per delivered order, only when the product is in stock.",
+  CHECKOUT_PAYMENT_FOLLOW_UP: "Eki follows up with buyers when a checkout payment was not completed. A payment status check runs immediately before sending — if the payment has since gone through, no message is sent.",
   REVIEW_REQUEST: "Eki asks buyers to review a completed order.",
   LOW_STOCK_ALERT: "Eki lets you know when your foodstuff is running low so buyers aren't disappointed.",
   BUYER_REFERRAL: "Eki rewards buyers who introduce new customers to your store. A referral qualifies only after the new buyer's first order is paid and completed.",
-  PAYMENT_RECOVERY: "Eki follows up when a payment for an order or renewal fails, so you don't lose the sale.",
+  PAYMENT_RECOVERY: "Eki follows up when a Regular Delivery renewal payment fails, so subscribers don't lose their delivery.",
   RENEWAL_REMINDER: "Eki reminds Regular Delivery subscribers before their next renewal is charged.",
   PRICE_APPROVAL_REMINDER: "Eki reminds buyers when a price change on their Regular Delivery needs their approval.",
 };
@@ -150,8 +146,12 @@ export function getAutomationEligibilityDetail(type: AutomationType, config?: Re
       return "Runs when an active product's stock falls to 5 units or fewer.";
     case "BUYER_REFERRAL":
       return "Runs once the referred buyer's account is at least 3 days old and their first order has been paid and completed.";
+    case "REORDER_REMINDER":
+      return "Runs 1–14 days after a delivery for each product the buyer hasn't already reordered, while that product is still active and in stock.";
+    case "CHECKOUT_PAYMENT_FOLLOW_UP":
+      return "Runs for a checkout that has been pending for 2–48 hours. A live payment status check runs immediately before sending — no message is sent if the checkout has since succeeded.";
     case "PAYMENT_RECOVERY":
-      return "Runs when a payment fails and the order is still unpaid 24 hours later.";
+      return "Runs when a Regular Delivery renewal payment fails and the renewal is still unpaid.";
     case "RENEWAL_REMINDER":
       return "Runs 1–3 days before a Regular Delivery subscriber's next renewal charge.";
     case "PRICE_APPROVAL_REMINDER":
@@ -168,6 +168,8 @@ export const AUTOMATION_LABELS: Record<AutomationType, string> = {
   REVIEW_REQUEST: "Review request",
   LOW_STOCK_ALERT: "Low stock alert",
   BUYER_REFERRAL: "Buyer referral",
+  REORDER_REMINDER: "Reorder reminder",
+  CHECKOUT_PAYMENT_FOLLOW_UP: "Checkout payment follow-up",
   PAYMENT_RECOVERY: "Payment recovery",
   RENEWAL_REMINDER: "Renewal reminder",
   PRICE_APPROVAL_REMINDER: "Price approval reminder",

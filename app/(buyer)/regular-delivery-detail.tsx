@@ -24,6 +24,7 @@ import {
   SUBSTITUTION_MODE_LABELS,
   type BuyerSubscription,
   type Renewal,
+  type SubscriptionFrequency,
 } from "../../services/regularDeliveriesService";
 
 function formatDate(value?: string | null): string {
@@ -52,6 +53,11 @@ export default function RegularDeliveryDetailScreen() {
   // pause(); only the UI never collected one.
   const [showPauseSheet, setShowPauseSheet] = useState(false);
   const [pauseResumeDate, setPauseResumeDate] = useState<string | null>(null);
+  // Final Client Decision 3 — frequency editing.
+  const [showFrequencySheet, setShowFrequencySheet] = useState(false);
+  const [draftFrequency, setDraftFrequency] = useState<SubscriptionFrequency | null>(null);
+  const [savingFrequency, setSavingFrequency] = useState(false);
+  const [frequencyError, setFrequencyError] = useState("");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -143,6 +149,32 @@ export default function RegularDeliveryDetailScreen() {
       { text: "Keep it", style: "cancel" },
       { text: "Cancel delivery", style: "destructive", onPress: () => runAction("cancel", () => regularDeliveriesService.cancelSubscription(id)) },
     ]);
+  };
+
+  const openFrequencySheet = () => {
+    if (!sub) return;
+    setDraftFrequency(sub.frequency);
+    setFrequencyError("");
+    setShowFrequencySheet(true);
+  };
+
+  const saveFrequencyChange = async () => {
+    if (!sub || !draftFrequency) return;
+    if (draftFrequency === sub.frequency) {
+      setShowFrequencySheet(false);
+      return;
+    }
+    setSavingFrequency(true);
+    setFrequencyError("");
+    try {
+      const updated = await regularDeliveriesService.changeSubscriptionFrequency(sub.id, draftFrequency);
+      setSub(updated);
+      setShowFrequencySheet(false);
+    } catch (err) {
+      setFrequencyError(err instanceof Error ? err.message : "Couldn't change frequency. Please try again.");
+    } finally {
+      setSavingFrequency(false);
+    }
   };
 
   const isActive = sub?.status === "ACTIVE";
@@ -323,6 +355,7 @@ export default function RegularDeliveryDetailScreen() {
                 <>
                   <ActionButton icon="pause-outline" label="Pause" busy={actionBusy === "pause"} onPress={() => setShowPauseSheet(true)} />
                   <ActionButton icon="play-skip-forward-outline" label="Skip next" busy={actionBusy === "skip"} onPress={() => void runAction("skip", () => regularDeliveriesService.skipNextRenewal(sub.id))} />
+                  <ActionButton icon="repeat-outline" label="Change frequency" busy={false} onPress={openFrequencySheet} />
                 </>
               ) : isPaused ? (
                 <ActionButton icon="play-outline" label="Resume" busy={actionBusy === "resume"} onPress={() => void runAction("resume", () => regularDeliveriesService.resumeSubscription(sub.id))} />
@@ -331,6 +364,75 @@ export default function RegularDeliveryDetailScreen() {
                 <ActionButton icon="close-circle-outline" label="Cancel" tone="danger" busy={actionBusy === "cancel"} onPress={confirmCancel} />
               ) : null}
             </View>
+
+            {showFrequencySheet ? (
+              <FloatingCard style={{ gap: 14 }}>
+                <Text style={styles.sectionTitle}>Change delivery frequency</Text>
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", lineHeight: 17 }}>
+                  Your new frequency will apply to future unpaid renewals. Any renewal already being processed won't change.
+                </Text>
+                {(["WEEKLY", "BIWEEKLY", "EVERY_4_WEEKS", "MONTHLY"] as const).filter(
+                  (freq) => sub.offer?.frequencies?.includes(freq) ?? true
+                ).map((freq) => (
+                  <TouchableOpacity
+                    key={freq}
+                    activeOpacity={0.85}
+                    onPress={() => setDraftFrequency(freq)}
+                    style={{
+                      flexDirection: "row", alignItems: "center", gap: 10,
+                      paddingVertical: 12, paddingHorizontal: 14,
+                      borderRadius: 12,
+                      backgroundColor: draftFrequency === freq ? "#EBF5F0" : "#F7F9F8",
+                      borderWidth: 1.5,
+                      borderColor: draftFrequency === freq ? "#076B51" : "transparent",
+                    }}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: draftFrequency === freq }}
+                    accessibilityLabel={FREQUENCY_LABELS[freq]}
+                  >
+                    <View style={{
+                      width: 20, height: 20, borderRadius: 10,
+                      borderWidth: 2, borderColor: draftFrequency === freq ? "#076B51" : "#C7D2CB",
+                      alignItems: "center", justifyContent: "center",
+                    }}>
+                      {draftFrequency === freq ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#076B51" }} /> : null}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontFamily: "Manrope-Bold", color: "#151E1B" }}>{FREQUENCY_LABELS[freq]}</Text>
+                      {freq === sub.frequency ? (
+                        <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194" }}>Current frequency</Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+                {frequencyError ? <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: "#D6552F" }}>{frequencyError}</Text> : null}
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <TouchableOpacity
+                    onPress={() => { setShowFrequencySheet(false); setFrequencyError(""); }}
+                    disabled={savingFrequency}
+                    activeOpacity={0.85}
+                    style={[styles.editCancelBtn, { flex: 1 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel frequency change"
+                  >
+                    <Text style={styles.editCancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => void saveFrequencyChange()}
+                    disabled={savingFrequency || draftFrequency === sub.frequency}
+                    activeOpacity={0.85}
+                    style={[styles.editSaveBtn, { flex: 1, opacity: draftFrequency === sub.frequency ? 0.4 : 1 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Confirm frequency change"
+                  >
+                    {savingFrequency
+                      ? <ActivityIndicator size="small" color="#FFFFFF" />
+                      : <Text style={styles.editSaveBtnText}>Confirm</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              </FloatingCard>
+            ) : null}
 
             {showPauseSheet ? (
               <FloatingCard style={{ gap: 14 }}>

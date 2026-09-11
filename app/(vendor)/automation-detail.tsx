@@ -31,7 +31,9 @@ const ICON_FOR_TYPE: Record<AutomationType, React.ComponentProps<typeof Ionicons
   REVIEW_REQUEST: "star-outline",
   LOW_STOCK_ALERT: "alert-circle-outline",
   BUYER_REFERRAL: "gift-outline",
-  PAYMENT_RECOVERY: "card-outline",
+  REORDER_REMINDER: "refresh-circle-outline",
+  CHECKOUT_PAYMENT_FOLLOW_UP: "card-outline",
+  PAYMENT_RECOVERY: "wallet-outline",
   RENEWAL_REMINDER: "repeat-outline",
   PRICE_APPROVAL_REMINDER: "pricetag-outline",
   CAMPAIGN_MILESTONE: "flag-outline",
@@ -139,7 +141,7 @@ export default function AutomationDetailScreen() {
     setAutomation({ ...automation, config: nextConfig });
     setSavingConfigKey(key);
     try {
-      await automationService.setVendorAutomation(automation.type, automation.enabled, nextConfig);
+      await automationService.setVendorAutomation(automation.type, automation.enabled ?? false, nextConfig);
     } catch {
       setAutomation({ ...automation, config: prevConfig ?? null });
     } finally {

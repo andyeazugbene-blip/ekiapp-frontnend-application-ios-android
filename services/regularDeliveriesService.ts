@@ -284,6 +284,16 @@ export const regularDeliveriesService = {
     return res.subscription;
   },
 
+  /**
+   * Buyer changes their Regular Delivery frequency — Final Client Decision 3.
+   * New frequency applies only to future unpaid renewals.
+   * If the next renewal is already processing/paid, that renewal is unaffected.
+   */
+  async changeSubscriptionFrequency(id: string, frequency: SubscriptionFrequency): Promise<BuyerSubscription> {
+    const res = await apiClient.post<{ subscription: BuyerSubscription }>(`/api/buyer/subscriptions/${id}/change-frequency`, { frequency });
+    return res.subscription;
+  },
+
   async getReorderSuggestions(): Promise<ReorderSuggestion[]> {
     const res = await apiClient.get<Items<ReorderSuggestion>>("/api/buyer/subscriptions/reorder-suggestions");
     return res.items ?? [];

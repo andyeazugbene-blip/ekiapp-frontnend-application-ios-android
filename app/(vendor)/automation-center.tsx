@@ -28,7 +28,7 @@ import {
   type VendorAutomation,
 } from "../../services/automationService";
 
-const CATEGORY_ORDER: AutomationCategory[] = ["GROW_SALES", "CUSTOMER_EXPERIENCE", "REGULAR_DELIVERY"];
+const CATEGORY_ORDER: AutomationCategory[] = ["SALES_CONVERSION", "CUSTOMER_ENGAGEMENT", "STORE_OPERATIONS", "MANAGED_BY_EKI"];
 import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { pushTokenService, type PushPermissionStatus } from "../../services/notificationService";
 
@@ -48,7 +48,9 @@ const ICON_FOR_TYPE: Record<AutomationType, React.ComponentProps<typeof Ionicons
   REVIEW_REQUEST: "star-outline",
   LOW_STOCK_ALERT: "alert-circle-outline",
   BUYER_REFERRAL: "gift-outline",
-  PAYMENT_RECOVERY: "card-outline",
+  REORDER_REMINDER: "refresh-circle-outline",
+  CHECKOUT_PAYMENT_FOLLOW_UP: "card-outline",
+  PAYMENT_RECOVERY: "wallet-outline",
   RENEWAL_REMINDER: "repeat-outline",
   PRICE_APPROVAL_REMINDER: "pricetag-outline",
   CAMPAIGN_MILESTONE: "flag-outline",
@@ -117,8 +119,9 @@ export default function AutomationCenterScreen() {
     }
   };
 
-  const toggleable = automations.filter((a) => !MANAGED_BY_EKI_TYPES.includes(a.type));
-  const enabledCount = toggleable.filter((a) => a.enabled).length;
+  // Only count vendor-toggleable automations (managedByEki === false) for the subtitle.
+  const toggleable = automations.filter((a) => !a.managedByEki);
+  const enabledCount = toggleable.filter((a) => a.enabled === true).length;
   const recentFailures = activity.filter((r) => r.status === "FAILED").length;
 
   return (
@@ -191,7 +194,7 @@ export default function AutomationCenterScreen() {
                               <ActivityIndicator size="small" color="#076B51" />
                             ) : (
                               <Switch
-                                value={a.enabled}
+                                value={a.enabled === true}
                                 onValueChange={(value) => void handleToggle(a.type, value)}
                                 trackColor={{ true: "#85C5AE" }}
                                 thumbColor={a.enabled ? "#076B51" : "#F4F4F4"}

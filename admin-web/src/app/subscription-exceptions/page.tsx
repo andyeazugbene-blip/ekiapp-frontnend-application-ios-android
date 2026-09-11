@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
@@ -25,8 +25,9 @@ export default function SubscriptionExceptionsPage() {
   const [items, setItems] = useState<SubscriptionException[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [retryingId, setRetryingId] = useState<string | null>(null);
-  const [retryError, setRetryError] = useState("");
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
+  const [actionSuccess, setActionSuccess] = useState("");
 
   const load = async () => {
     try {
@@ -42,21 +43,62 @@ export default function SubscriptionExceptionsPage() {
 
   useEffect(() => { void load(); }, []);
 
-  // RD-08 (retry-payment slice only) — re-attempts the same idempotent
-  // charge attemptPayment() already uses for the buyer's own retry and the
-  // cron sweep; a repeat click here can never produce a duplicate charge.
-  const handleRetryPayment = async (id: string) => {
-    if (!confirm("Retry payment for this renewal? The buyer's saved payment method will be charged again — a real duplicate charge cannot be created, the same provider request is safely replayed.")) return;
-    setRetryError("");
-    setRetryingId(id);
+  const withAction = async (key: string, action: () => Promise<void>) => {
+    setActionBusy(key);
+    setActionError("");
+    setActionSuccess("");
     try {
-      await subscriptionExceptionsAPI.retryPayment(id);
+      await action();
+      setActionSuccess("Action completed.");
       await load();
     } catch (err) {
-      setRetryError(err instanceof APIError ? err.message : "Failed to retry payment");
+      setActionError(err instanceof APIError ? err.message : "Action failed. Please try again.");
     } finally {
-      setRetryingId(null);
+      setActionBusy(null);
     }
+  };
+
+  const handleRetryPayment = (renewalId: string) => {
+    if (!confirm("Retry payment? Idempotent — cannot produce duplicate charge.")) return;
+    void withAction(etry-, () => subscriptionExceptionsAPI.retryPayment(renewalId).then(() => {}));
+  };
+
+  const handleResendPriceChange = (renewalId: string) => {
+    if (!confirm("Resend the price approval notification to the buyer?")) return;
+    void withAction(esend-, () => subscriptionExceptionsAPI.resendPriceChangeNotification(renewalId));
+  };
+
+  const handleCancelPriceChange = (renewalId: string) => {
+    const reason = window.prompt("Reason for cancelling this price-change (required):");
+    if (!reason?.trim()) return;
+    void withAction(cancel-price-, () => subscriptionExceptionsAPI.cancelInvalidPriceChange(renewalId, reason));
+  };
+
+  const handleSkipRenewal = (renewalId: string) => {
+    const reason = window.prompt("Reason for skipping this renewal (required):");
+    if (!reason?.trim()) return;
+    void withAction(skip-, () => subscriptionExceptionsAPI.skipRenewal(renewalId, reason));
+  };
+
+  const handleContactBuyerFromRenewal = (renewalId: string) => {
+    const message = window.prompt("Message to send buyer via Eki support notification:");
+    if (!message?.trim()) return;
+    void withAction(contact-r-, () => subscriptionExceptionsAPI.contactBuyerFromRenewal(renewalId, message).then(() => {}));
+  };
+
+  const handleContactBuyerFromSubscription = (subscriptionId: string) => {
+    const message = window.prompt("Message to send buyer via Eki support notification:");
+    if (!message?.trim()) return;
+    void withAction(contact-s-, () => subscriptionExceptionsAPI.contactBuyerFromSubscription(subscriptionId, message).then(() => {}));
+  };
+
+  const handleForceCancel = (subscriptionId: string) => {
+    if (!confirm("FORCE CANCEL subscription? Exceptional only. Only future unpaid renewals cancelled — paid/dispatched orders never touched.")) return;
+    const reason = window.prompt("Reason (support / fraud / compliance / safety — required):");
+    if (!reason?.trim()) return;
+    const internalNote = window.prompt("Internal note for audit trail (required):");
+    if (!internalNote?.trim()) return;
+    void withAction(c-, () => subscriptionExceptionsAPI.forceCancel(subscriptionId, reason, internalNote));
   };
 
   const priceApprovals = items.filter((i) => i.status === "AWAITING_PRICE_APPROVAL").length;
@@ -70,6 +112,8 @@ export default function SubscriptionExceptionsPage() {
           <div className="space-y-8">
             <PageHeader title="Subscription exceptions" subtitle="Regular Delivery renewals that need attention — stuck payments, price approvals, and stock waits." />
             {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+            {actionError ? <ErrorPanel message={actionError} /> : null}
+            {actionSuccess ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{actionSuccess}</p> : null}
 
             <div className="grid gap-6 md:grid-cols-3">
               <MetricCard icon="warning" label="Payment failures" value={paymentFailures} tone={paymentFailures > 0 ? "red" : "green"} />
@@ -79,7 +123,7 @@ export default function SubscriptionExceptionsPage() {
 
             <Card>
               <h2 className="text-2xl font-black">Exception queue</h2>
-              {retryError ? <ErrorPanel message={retryError} /> : null}
+              <p className="mt-1 text-sm text-slate-500">All admin actions are audit-logged. Admin may never accept a price change on behalf of a buyer.</p>
               {items.length === 0 ? (
                 <p className="mt-8 text-slate-500">No renewals need attention right now.</p>
               ) : (
@@ -94,17 +138,39 @@ export default function SubscriptionExceptionsPage() {
                         <div className="space-y-2 text-sm text-slate-500"><p>Buyer:</p><p>Items:</p>{item.failureReason ? <p>Reason:</p> : null}</div>
                         <div className="space-y-2 text-sm font-semibold text-[#101820]">
                           <p>{item.subscription.buyer?.name ?? "Unknown buyer"} ({item.subscription.buyer?.email ?? "—"})</p>
-                          <p>{item.items.map((i) => `${i.product.title} x${i.quantity}`).join(", ")}{item.subtotalAmount ? ` — ${centsToUnit(item.subtotalAmount).toFixed(2)} ${item.currency}` : ""}</p>
+                          <p>{item.items.map((i) => ${i.product.title} x).join(", ")}{item.subtotalAmount ?  —   : ""}</p>
                           {item.failureReason ? <p className="text-red-600">{item.failureReason}</p> : null}
                         </div>
                       </div>
-                      {item.status === "PAYMENT_FAILED" ? (
-                        <div className="mt-4 flex justify-end">
-                          <Button variant="secondary" disabled={retryingId === item.id} onClick={() => void handleRetryPayment(item.id)}>
-                            {retryingId === item.id ? "Retrying…" : "Retry payment"}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {item.status === "PAYMENT_FAILED" ? (
+                          <Button variant="secondary" disabled={!!actionBusy} onClick={() => handleRetryPayment(item.id)}>
+                            {actionBusy === etry- ? "Retrying…" : "Retry payment"}
                           </Button>
-                        </div>
-                      ) : null}
+                        ) : null}
+                        {item.status === "AWAITING_PRICE_APPROVAL" ? (
+                          <>
+                            <Button variant="secondary" disabled={!!actionBusy} onClick={() => handleResendPriceChange(item.id)}>
+                              {actionBusy === esend- ? "Sending…" : "Resend price notification"}
+                            </Button>
+                            <Button variant="secondary" disabled={!!actionBusy} onClick={() => handleCancelPriceChange(item.id)}>
+                              {actionBusy === cancel-price- ? "Cancelling…" : "Cancel price change"}
+                            </Button>
+                          </>
+                        ) : null}
+                        <Button variant="secondary" disabled={!!actionBusy} onClick={() => handleSkipRenewal(item.id)}>
+                          {actionBusy === skip- ? "Skipping…" : "Skip renewal"}
+                        </Button>
+                        <Button variant="secondary" disabled={!!actionBusy} onClick={() => handleContactBuyerFromRenewal(item.id)}>
+                          {actionBusy === contact-r- ? "Sending…" : "Message buyer (renewal)"}
+                        </Button>
+                        <Button variant="secondary" disabled={!!actionBusy} onClick={() => handleContactBuyerFromSubscription(item.subscriptionId)}>
+                          {actionBusy === contact-s- ? "Sending…" : "Message buyer (subscription)"}
+                        </Button>
+                        <Button variant="secondary" disabled={!!actionBusy} onClick={() => handleForceCancel(item.subscriptionId)}>
+                          {actionBusy === c- ? "Cancelling…" : "Force cancel subscription"}
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
