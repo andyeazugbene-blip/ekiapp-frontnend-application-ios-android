@@ -30,3 +30,20 @@ credentials.json
 credentials/
 
 .vercel
+
+# Internal audit/planning artifacts — not part of client-facing source
+/FINAL_CLIENT_GAP_AUDIT.md
+/FINAL_CLIENT_REQUIREMENTS_STATUS.md
+/FINAL_MANUAL_QA_PLAN.md
+/P1_IMPLEMENTATION_PLAN.md
+/UX_REDESIGN_AUDIT.md
+/UX_REDESIGN_PLAN.md
+/CLIENT_REQUIREMENTS_MATRIX.md
+/CLIENT_TO_SCREEN_TRACEABILITY.md
+/FINAL_RELEASE_QA_REPORT.md
+/FINAL_RECORDING_SCRIPTS.md
+/docs/RELEASE_AUDIT_2026-06-08.md
+/docs/STORE_LAUNCH_CHECKLIST.md
+
+# Local Claude Code tooling — not required by the application
+.claude/
