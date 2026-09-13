@@ -566,6 +566,40 @@ export default function BuyerHomeScreen() {
           </View>
         ) : null}
 
+        {communityBuyEnabled ? (
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitleInline}>Suppliers</Text>
+                <Text style={styles.communityBuySubtitle}>Fulfil Community Buy campaigns as a verified Eki supplier</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                if (user?.hasVendor) {
+                  router.push("/(vendor)/community-buy-supplier" as any);
+                } else {
+                  Alert.alert(
+                    "Suppliers are verified Eki vendors",
+                    "To fulfil Community Buy campaigns as a supplier, you first need a verified Eki vendor store. Register as a vendor, then apply as a supplier from there.",
+                  );
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={user?.hasVendor ? "Open your supplier dashboard" : "Learn how to become a supplier"}
+            >
+              <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                <Ionicons name="cube-outline" size={20} color="#076B51" />
+                <Text style={[styles.communityBuyCardVendor, { flex: 1 }]}>
+                  {user?.hasVendor ? "Open your supplier dashboard — invitations, accepted campaigns, fulfilment" : "Suppliers fulfil bulk orders raised by Community Buy organisers. Requires a verified Eki vendor store."}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
+              </FloatingCard>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {vendors.length > 0 ? (
           <View style={styles.supportSection}>
             <View style={styles.supportHeader}>

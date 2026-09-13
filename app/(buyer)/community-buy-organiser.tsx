@@ -13,6 +13,7 @@ import {
   LoadingBlock,
   PremiumHeader,
   PrimaryButton,
+  RangeProgressBar,
   premiumStyles,
 } from "../../components/shared/PremiumBlocks";
 import {
@@ -23,6 +24,13 @@ import {
   type OrganiserProfile,
 } from "../../services/communityBuyService";
 import { countryDisplayName } from "../../utils/countries";
+
+function daysLeft(deadline: string): string {
+  const ms = new Date(deadline).getTime() - Date.now();
+  if (ms <= 0) return "Closing";
+  const days = Math.ceil(ms / (24 * 60 * 60 * 1000));
+  return days === 1 ? "1 day left" : `${days} days left`;
+}
 
 function ResponsibilityRow({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }) {
   return (
@@ -190,24 +198,50 @@ export default function CommunityBuyOrganiserScreen() {
               <Text style={styles.emptyText}>You haven't created a campaign yet.</Text>
             ) : (
               <View style={{ gap: 10 }}>
-                {campaigns.map((c) => (
-                  <TouchableOpacity
-                    key={c.id}
-                    activeOpacity={0.85}
-                    onPress={() => router.push({ pathname: "/(buyer)/community-buy-organiser-campaign", params: { id: c.id } } as any)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${c.title}, ${CAMPAIGN_STATUS_LABELS[c.status]}`}
-                  >
-                    <FloatingCard style={{ gap: 4 }}>
-                      <View style={styles.cardTop}>
-                        <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
-                        <Text style={styles.cardStatus}>{CAMPAIGN_STATUS_LABELS[c.status]}</Text>
-                      </View>
-                      <Text style={styles.cardMeta}>Target {formatDisplayMoney(c.targetAmount / 100, c.currency, selectedCurrency)}</Text>
-                      {c.reviewNotes && c.status === "CHANGES_REQUIRED" ? <Text style={styles.reviewNotes}>{c.reviewNotes}</Text> : null}
-                    </FloatingCard>
-                  </TouchableOpacity>
-                ))}
+                {campaigns.map((c) => {
+                  const isLiveLike = ["LIVE", "PAUSED", "RESCUE_WINDOW"].includes(c.status);
+                  const fulfilmentLabel = c.fulfilmentOwner === "SELF"
+                    ? "Self-fulfilled"
+                    : c.supplierCommitted
+                      ? "Supplier accepted"
+                      : c.supplierDeclinedAt
+                        ? "Supplier declined — reassign needed"
+                        : "Supplier invited — awaiting response";
+                  const nextAction = c.status === "DRAFT" || c.status === "CHANGES_REQUIRED"
+                    ? "Next: submit for review"
+                    : c.status === "APPROVED"
+                      ? "Next: publish to go live"
+                      : c.status === "UNDER_REVIEW"
+                        ? "Waiting on admin review"
+                        : isLiveLike
+                          ? daysLeft(c.deadline)
+                          : null;
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      activeOpacity={0.85}
+                      onPress={() => router.push({ pathname: "/(buyer)/community-buy-organiser-campaign", params: { id: c.id } } as any)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${c.title}, ${CAMPAIGN_STATUS_LABELS[c.status]}`}
+                    >
+                      <FloatingCard style={{ gap: 6 }}>
+                        <View style={styles.cardTop}>
+                          <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
+                          <Text style={styles.cardStatus}>{CAMPAIGN_STATUS_LABELS[c.status]}</Text>
+                        </View>
+                        {isLiveLike || c.status === "UNDER_REVIEW" || c.status === "APPROVED" ? (
+                          <RangeProgressBar value={c.confirmedShares} min={c.minimumShares} goal={c.goalShares} max={c.maximumShares} />
+                        ) : null}
+                        <Text style={styles.cardMeta}>
+                          {c.confirmedShares} of {c.goalShares} goal ({c.minimumShares} min, {c.maximumShares} max) · {c.participantCount ?? 0} participant{(c.participantCount ?? 0) === 1 ? "" : "s"} · {formatDisplayMoney((c.paidTotal ?? 0) / 100, c.currency, selectedCurrency)} raised
+                        </Text>
+                        <Text style={styles.cardMeta}>{fulfilmentLabel}</Text>
+                        {nextAction ? <Text style={styles.cardNextAction}>{nextAction}</Text> : null}
+                        {c.reviewNotes && c.status === "CHANGES_REQUIRED" ? <Text style={styles.reviewNotes}>{c.reviewNotes}</Text> : null}
+                      </FloatingCard>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -230,6 +264,7 @@ const styles = StyleSheet.create({
   cardTitle: { flex: 1, fontSize: 14, fontFamily: "Manrope-Bold", color: "#151E1B" },
   cardStatus: { fontSize: 11, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   cardMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  cardNextAction: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51", marginTop: 2 },
   reviewNotes: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#D6552F", marginTop: 4 },
   responsibilitiesTitle: { fontSize: 13, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
   responsibilityRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },

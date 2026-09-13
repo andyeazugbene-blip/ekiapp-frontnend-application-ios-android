@@ -12,6 +12,7 @@ import {
   IconAvatar,
   LoadingBlock,
   PremiumHeader,
+  RangeProgressBar,
   StatusPill,
   premiumStyles,
 } from "../../components/shared/PremiumBlocks";
@@ -228,6 +229,9 @@ export default function VendorCommunityBuySupplierScreen() {
                       <Text style={styles.cardMeta}>Organiser: {c.organiser?.user?.name ?? "Unknown"}</Text>
                       {c.description ? <Text style={styles.cardDescription}>{c.description}</Text> : null}
                       <Text style={styles.cardMeta}>Deadline: {formatDeadline(c.deadline)}</Text>
+                      {["LIVE", "PAUSED", "RESCUE_WINDOW", "UNDER_REVIEW", "APPROVED"].includes(c.status) ? (
+                        <RangeProgressBar value={c.confirmedShares} min={c.minimumShares} goal={c.goalShares} max={c.maximumShares} />
+                      ) : null}
                       <Text style={styles.cardMeta}>
                         {c.confirmedShares} of {c.maximumShares} shares · minimum {c.minimumShares} to proceed
                       </Text>
