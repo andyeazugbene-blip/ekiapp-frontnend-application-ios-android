@@ -205,16 +205,23 @@ export default function CommunityBuyOrganiserScreen() {
                     : c.supplierCommitted
                       ? "Supplier accepted"
                       : c.supplierDeclinedAt
-                        ? "Supplier declined — reassign needed"
+                        ? "Supplier declined — you can reassign"
                         : "Supplier invited — awaiting response";
+                  // Matches the client's exact example states — always a
+                  // concrete next action, never silent about what happens
+                  // next regardless of fulfilment mode or supplier state.
                   const nextAction = c.status === "DRAFT" || c.status === "CHANGES_REQUIRED"
-                    ? "Next: submit for review"
-                    : c.status === "APPROVED"
-                      ? "Next: publish to go live"
-                      : c.status === "UNDER_REVIEW"
-                        ? "Waiting on admin review"
+                    ? "Next: complete and submit campaign"
+                    : c.status === "UNDER_REVIEW"
+                      ? "Next: waiting for Eki review"
+                      : c.status === "APPROVED"
+                        ? "Next: publish campaign"
                         : isLiveLike
-                          ? daysLeft(c.deadline)
+                          ? c.fulfilmentOwner === "SELF"
+                            ? `Campaign is live · ${daysLeft(c.deadline)}`
+                            : c.supplierDeclinedAt
+                              ? "Campaign is live · choose another supplier"
+                              : `Campaign is live · ${daysLeft(c.deadline)}`
                           : null;
                   return (
                     <TouchableOpacity

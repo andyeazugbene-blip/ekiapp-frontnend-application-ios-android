@@ -15,6 +15,7 @@ import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useOnboardingStore } from "../../stores/onboardingStore";
 import { useAuthStore } from "../../stores/authStore";
+import { consumePendingIntent } from "../../stores/pendingIntent";
 import { vendorService } from "../../services/vendorService";
 import { COUNTRIES, getCitiesForCountry } from "../../utils/countries";
 import {
@@ -44,6 +45,13 @@ export default function SetupStoreScreen() {
   const [city, setCity] = useState<string>(vendorUser?.city || "");
   const [description, setDescription] = useState(storeDetails.description || vendorUser?.storeDescription || "");
   const [submitting, setSubmitting] = useState(false);
+  // Client correction: Hero's "Suppliers" card sends a brand-new user here
+  // (a Supplier still needs a real Eki vendor/store identity for payouts —
+  // that's the existing schema, not something invented for this screen) —
+  // read once so the copy below is honest about why they're here, and so
+  // completion skips the retail-only onboarding steps (delivery zones,
+  // first product) that a Community Buy supplier has no use for.
+  const [supplierIntent] = useState(() => consumePendingIntent() === "supplier");
 
   // markets[0] is whichever market was picked first — that's the primary
   // market/currency, matching exactly what the backend does with the same
@@ -123,7 +131,19 @@ export default function SetupStoreScreen() {
           await checkAuth();
         }
       }
-      router.push("/(vendor-onboarding)/business-info" as any);
+      if (supplierIntent) {
+        // (vendor)'s layout redirects role==="buyer"+hasVendor back to
+        // /(buyer) (see its own comment: only a real role switch, not just
+        // hasVendor becoming true, is allowed through) — an existing buyer
+        // who just created a store here needs the same explicit switch
+        // role-select.tsx already uses for this exact case.
+        if (useAuthStore.getState().user?.role === "buyer") {
+          await useAuthStore.getState().switchRole().catch(() => {});
+        }
+        router.replace("/(vendor)/community-buy-supplier" as any);
+      } else {
+        router.push("/(vendor-onboarding)/business-info" as any);
+      }
     } catch (err) {
       Alert.alert(
         "Could not save store",
@@ -143,8 +163,8 @@ export default function SetupStoreScreen() {
       >
         <OnboardingHeader
           activeSegments={1}
-          subtitle="This is how buyers will identify your store"
-          title="Set up your store"
+          subtitle={supplierIntent ? "Suppliers need a verified Eki store — this is how organisers and Eki will identify you" : "This is how buyers will identify your store"}
+          title={supplierIntent ? "Set up your supplier profile" : "Set up your store"}
         />
 
         <FormCard>
@@ -153,8 +173,8 @@ export default function SetupStoreScreen() {
             contentContainerStyle={styles.scrollBody}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.sectionTitle}>Store Setup</Text>
-            <Text style={styles.sectionSubtitle}>This is how buyers will identify your store</Text>
+            <Text style={styles.sectionTitle}>{supplierIntent ? "Supplier Profile Setup" : "Store Setup"}</Text>
+            <Text style={styles.sectionSubtitle}>{supplierIntent ? "Suppliers need a verified Eki store — this is how organisers and Eki will identify you" : "This is how buyers will identify your store"}</Text>
 
             <View style={styles.fieldGroup}>
               <FieldLabel>Store name</FieldLabel>

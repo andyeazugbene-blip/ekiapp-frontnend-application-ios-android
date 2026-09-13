@@ -27,6 +27,7 @@ import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
+import { setPendingIntent } from "../../stores/pendingIntent";
 import { type Product } from "../../types/product";
 import { type VendorSummary } from "../../types/vendor";
 import { RemoteImage } from "../../components/ui/RemoteImage";
@@ -580,10 +581,8 @@ export default function BuyerHomeScreen() {
                 if (user?.hasVendor) {
                   router.push("/(vendor)/community-buy-supplier" as any);
                 } else {
-                  Alert.alert(
-                    "Suppliers are verified Eki vendors",
-                    "To fulfil Community Buy campaigns as a supplier, you first need a verified Eki vendor store. Register as a vendor, then apply as a supplier from there.",
-                  );
+                  setPendingIntent("supplier");
+                  router.push("/(vendor-onboarding)/setup-store" as any);
                 }
               }}
               accessibilityRole="button"

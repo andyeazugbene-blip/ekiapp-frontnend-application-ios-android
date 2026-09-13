@@ -1,17 +1,23 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../stores/authStore";
+import { setPendingIntent } from "../../stores/pendingIntent";
 
-type Role = "vendor" | "buyer";
+// Client correction: Eki is four independent entry points, not a
+// vendor/buyer binary — "community_buy" and "supplier" are real product
+// modules a person can enter directly, never gated behind first becoming a
+// foodstuff vendor. "vendor"/"buyer" keep their exact original behavior.
+type Role = "vendor" | "buyer" | "community_buy" | "supplier";
 
 /**
- * "What do you want to do on Eki?" — exact match for screenshot 2.
- * Two selectable role cards (vendor / buyer) with continue button.
+ * "What do you want to do on Eki?" — Hero / role-selection screen.
+ * Four selectable cards: Foodstuffs (sell), Buyers (buy), Community Buy,
+ * Suppliers.
  */
 export default function RoleSelectScreen() {
   const router = useRouter();
@@ -20,6 +26,7 @@ export default function RoleSelectScreen() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
   const hasSeenOnboarding = useAuthStore((s) => s.hasSeenOnboarding);
+  const refParams = typeof ref === "string" && ref.trim() ? { ref } : {};
 
   const handleContinue = () => {
     // If already logged in, route directly based on selection
@@ -29,7 +36,7 @@ export default function RoleSelectScreen() {
           useAuthStore.getState().switchRole().then(() => {
             router.replace("/(vendor)" as any);
           }).catch(() => {
-            router.replace({ pathname: "/(auth)/welcome", params: { role: "vendor", ...(typeof ref === "string" && ref.trim() ? { ref } : {}) } } as any);
+            router.replace({ pathname: "/(auth)/welcome", params: { role: "vendor", ...refParams } } as any);
           });
           return;
         }
@@ -37,20 +44,54 @@ export default function RoleSelectScreen() {
         router.replace("/(vendor-onboarding)/setup-store" as any);
         return;
       }
-      // Buyer selected — route to buyer home
-      if (user.role !== "buyer") {
-        useAuthStore.getState().switchRole().then(() => {
-          router.replace("/(buyer)" as any);
-        }).catch(() => {
-          router.replace("/(buyer)" as any);
-        });
+      if (selected === "buyer") {
+        if (user.role !== "buyer") {
+          useAuthStore.getState().switchRole().then(() => {
+            router.replace("/(buyer)" as any);
+          }).catch(() => {
+            router.replace("/(buyer)" as any);
+          });
+          return;
+        }
+        router.replace("/(buyer)" as any);
         return;
       }
-      router.replace("/(buyer)" as any);
+      if (selected === "community_buy") {
+        // Community Buy organiser/participant needs no vendor role at
+        // all — (buyer)'s layout only requires authentication, so any
+        // logged-in user (buyer or vendor) can go straight there.
+        router.push("/(buyer)/community-buy" as any);
+        return;
+      }
+      // selected === "supplier"
+      if (user.hasVendor) {
+        router.push("/(vendor)/community-buy-supplier" as any);
+        return;
+      }
+      // Real architecture constraint, not invented: a Supplier is a
+      // verified Eki vendor (SupplierProfile ties to Vendor for payouts,
+      // per the existing schema) — so a brand-new user still needs a
+      // store identity. Framed as supplier setup, not retail-seller
+      // marketing, and skips straight into the real supplier application
+      // once the store exists (see setup-store.tsx).
+      setPendingIntent("supplier");
+      router.push("/(vendor-onboarding)/setup-store" as any);
       return;
     }
 
-    const sharedParams = { role: selected, ...(typeof ref === "string" && ref.trim() ? { ref } : {}) };
+    if (selected === "community_buy") {
+      // No vendor detour, no marketing splash — straight to account
+      // creation, landing directly on Community Buy afterward.
+      router.push({ pathname: "/(auth)/register", params: { role: "buyer", redirect: "/(buyer)/community-buy", ...refParams } });
+      return;
+    }
+    if (selected === "supplier") {
+      setPendingIntent("supplier");
+      router.push({ pathname: "/(auth)/register", params: { role: "vendor", ...refParams } });
+      return;
+    }
+
+    const sharedParams = { role: selected, ...refParams };
 
     if (!hasSeenOnboarding) {
       router.push({ pathname: "/(auth)/onboarding", params: sharedParams });
@@ -71,12 +112,12 @@ export default function RoleSelectScreen() {
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
-        <View style={styles.content}>
+        <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
           <Text style={styles.title}>What do you want{"\n"}to do on Eki?</Text>
 
           <RoleCard
             iconName="home-outline"
-            title="Sell Foodstuff"
+            title="Foodstuffs"
             subtitle="Start selling to buyers in UK, US,\nCanada and Europe"
             selected={selected === "vendor"}
             onPress={() => setSelected("vendor")}
@@ -84,12 +125,28 @@ export default function RoleSelectScreen() {
 
           <RoleCard
             iconName="bag-outline"
-            title="Buy Foodstuff"
+            title="Buyers"
             subtitle="Order authentic African foodstuff\nfrom trusted vendors"
             selected={selected === "buyer"}
             onPress={() => setSelected("buyer")}
           />
-        </View>
+
+          <RoleCard
+            iconName="people-outline"
+            title="Community Buy"
+            subtitle="Organise or join a bulk buy — no\nstore or vendor account required"
+            selected={selected === "community_buy"}
+            onPress={() => setSelected("community_buy")}
+          />
+
+          <RoleCard
+            iconName="cube-outline"
+            title="Suppliers"
+            subtitle="Fulfil Community Buy campaigns\nas a verified Eki supplier"
+            selected={selected === "supplier"}
+            onPress={() => setSelected("supplier")}
+          />
+        </ScrollView>
 
         <View style={styles.footer}>
           <TouchableOpacity activeOpacity={0.86} onPress={handleContinue} style={styles.cta}>
@@ -140,8 +197,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
   content: {
     flex: 1,
+  },
+  contentInner: {
     paddingHorizontal: 22,
     paddingTop: 20,
+    paddingBottom: 12,
   },
   title: {
     fontSize: 28,
