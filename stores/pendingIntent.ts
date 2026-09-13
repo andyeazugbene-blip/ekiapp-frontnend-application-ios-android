@@ -22,3 +22,14 @@ export function consumePendingIntent(): "supplier" | null {
   pendingIntent = null;
   return value;
 }
+
+/**
+ * Read-only peek, does NOT clear. register.tsx uses this to show
+ * supplier-framed copy during signup — the flag must survive past
+ * registration for setup-store.tsx's own consumePendingIntent() call
+ * later in the same chain (registration -> OTP -> setup-store), which is
+ * the actual one-shot consumer that skips the retail onboarding steps.
+ */
+export function peekPendingIntent(): "supplier" | null {
+  return pendingIntent;
+}

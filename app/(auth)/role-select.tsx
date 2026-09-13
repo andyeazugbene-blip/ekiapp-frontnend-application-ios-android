@@ -65,6 +65,24 @@ export default function RoleSelectScreen() {
       }
       // selected === "supplier"
       if (user.hasVendor) {
+        // Confirmed routing bug: (vendor)'s layout redirects role==="buyer"
+        // back to /(buyer) even when hasVendor is true (see its own
+        // comment — only a real role switch is allowed through, exactly
+        // the same case the vendor card above already handles). Pushing
+        // straight to /(vendor)/... without this silently bounced the
+        // user back to Buyer Home.
+        if (user.role === "buyer") {
+          useAuthStore.getState().switchRole().then(() => {
+            router.push("/(vendor)/community-buy-supplier" as any);
+          }).catch(() => {
+            // switchRole failed (e.g. network error) — pushing to
+            // (vendor)/... here would just hit the exact bounce-back this
+            // fix exists to prevent, since role is still "buyer". Land
+            // somewhere real instead of a silent dead end.
+            router.replace("/(buyer)" as any);
+          });
+          return;
+        }
         router.push("/(vendor)/community-buy-supplier" as any);
         return;
       }

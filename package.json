@@ -19,6 +19,7 @@
     "check:subscription-backend-contract": "node scripts/check-subscription-backend-contract.js",
     "check:automation-managed-types-viewable": "node scripts/check-automation-managed-types-viewable.js",
     "check:hero-four-entry-points": "node scripts/check-hero-four-entry-points.js",
+    "check:supplier-routing-and-copy": "node scripts/check-supplier-routing-and-copy.js",
     "check:domains": "node scripts/check-domain-links.js",
     "k6:smoke": "k6 run performance/k6/smoke.js",
     "k6:buyer": "k6 run performance/k6/buyer-flow.js",

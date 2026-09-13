@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useOnboardingStore } from "../../stores/onboardingStore";
 import { useAuthStore } from "../../stores/authStore";
+import { peekPendingIntent } from "../../stores/pendingIntent";
 import { authService } from "../../services/authService";
 import {
   FieldLabel,
@@ -36,6 +37,10 @@ export default function OtpScreen() {
   const router = useRouter();
   const { setOtpVerified } = useOnboardingStore();
   const { user } = useAuthStore();
+  // Same registration chain as register.tsx's supplier-intent fix — still
+  // peeking, not consuming, since setup-store.tsx is the actual one-shot
+  // consumer further down this same chain.
+  const [isSupplierIntent] = useState(() => peekPendingIntent() === "supplier");
 
   const contact = (user?.email ?? "").trim();
   const [code, setCode] = useState("");
@@ -113,7 +118,7 @@ export default function OtpScreen() {
 
       {/* Behind: ghost register form */}
       <View style={styles.backdrop} pointerEvents="none">
-        <OnboardingHeader activeSegments={0} title={"Create Your Vendor\nAccount"} />
+        <OnboardingHeader activeSegments={0} title={isSupplierIntent ? "Create Your Supplier\nAccount" : "Create Your Vendor\nAccount"} />
         <FormCard>
           <Text style={styles.ghostTitle}>Create Account</Text>
           <View style={styles.ghostField}>

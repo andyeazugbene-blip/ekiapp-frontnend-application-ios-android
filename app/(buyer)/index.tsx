@@ -579,7 +579,17 @@ export default function BuyerHomeScreen() {
               activeOpacity={0.85}
               onPress={() => {
                 if (user?.hasVendor) {
-                  router.push("/(vendor)/community-buy-supplier" as any);
+                  // (vendor)'s layout redirects role==="buyer" back to
+                  // /(buyer) even when hasVendor is true — same fix as
+                  // role-select.tsx's Suppliers card, and the same pattern
+                  // the existing vendor-switch flow already uses elsewhere.
+                  if (user.role === "buyer") {
+                    useAuthStore.getState().switchRole().then(() => {
+                      router.push("/(vendor)/community-buy-supplier" as any);
+                    }).catch(() => {});
+                  } else {
+                    router.push("/(vendor)/community-buy-supplier" as any);
+                  }
                 } else {
                   setPendingIntent("supplier");
                   router.push("/(vendor-onboarding)/setup-store" as any);
