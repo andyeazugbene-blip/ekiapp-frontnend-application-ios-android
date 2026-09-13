@@ -152,8 +152,11 @@ export interface MarketConfig {
 export interface Campaign {
   id: string;
   organiserId: string;
-  supplierId: string;
-  supplier?: { vendor?: { storeName: string } };
+  // Client-corrected flow: supplier is an optional fulfilment choice — null
+  // means the organiser is self-fulfilling.
+  fulfilmentOwner: "SELF" | "SUPPLIER";
+  supplierId: string | null;
+  supplier?: { vendor?: { storeName: string } } | null;
   organiser?: { user?: { name: string } };
   title: string;
   description?: string | null;
@@ -448,7 +451,8 @@ export const communityBuyService = {
   },
 
   async createCampaign(input: {
-    supplierId: string;
+    fulfilmentOwner: "SELF" | "SUPPLIER";
+    supplierId?: string;
     title: string;
     description?: string;
     country: string;

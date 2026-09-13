@@ -153,7 +153,7 @@ export default function CommunityBuyCampaignScreen() {
     <View style={premiumStyles.page}>
       <PremiumHeader
         title={campaign.title}
-        subtitle={`Supplied by ${campaign.supplier?.vendor?.storeName ?? "a verified supplier"}`}
+        subtitle={campaign.fulfilmentOwner === "SELF" ? "Organised and fulfilled by the organiser" : `Supplied by ${campaign.supplier?.vendor?.storeName ?? "a verified supplier"}`}
         onBack={() => goBackOrReplace(router, "/(buyer)/community-buy" as any)}
         right={
           <TouchableOpacity

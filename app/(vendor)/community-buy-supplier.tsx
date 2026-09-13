@@ -28,6 +28,11 @@ import { countryDisplayName } from "../../utils/countries";
 
 const UPDATE_POSTABLE_STATUSES = ["LIVE", "PAUSED", "RESCUE_WINDOW", "SUCCEEDED", "FAILED", "REFUNDING", "FULFILLING", "COMPLETED"];
 
+// Mirrors the backend's SUPPLIER_RESPONSE_STATUSES (community-campaigns.service.ts) —
+// client-corrected flow: a supplier can accept or decline at any point up
+// to the campaign closing out, not only while it's still in draft/review.
+const SUPPLIER_RESPONSE_STATUSES = ["DRAFT", "CHANGES_REQUIRED", "UNDER_REVIEW", "APPROVED", "LIVE", "PAUSED", "RESCUE_WINDOW"];
+
 function formatDeadline(value: string): string {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
@@ -212,7 +217,7 @@ export default function VendorCommunityBuySupplierScreen() {
             ) : (
               <View style={{ gap: 10 }}>
                 {campaigns.map((c) => {
-                  const pendingDecision = ["DRAFT", "CHANGES_REQUIRED"].includes(c.status) && !c.supplierCommitted && !c.supplierDeclinedAt;
+                  const pendingDecision = SUPPLIER_RESPONSE_STATUSES.includes(c.status) && !c.supplierCommitted && !c.supplierDeclinedAt;
                   const canPostUpdate = UPDATE_POSTABLE_STATUSES.includes(c.status);
                   return (
                     <FloatingCard key={c.id} style={{ gap: 6 }}>

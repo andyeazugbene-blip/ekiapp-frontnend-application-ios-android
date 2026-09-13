@@ -230,7 +230,11 @@ export default function CommunityCampaignsPage() {
                       {c.description ? <p className="mt-1 text-sm text-slate-600">{c.description}</p> : null}
                       <div className="mt-3 grid gap-1 text-sm text-slate-600 md:grid-cols-2">
                         <p>Organiser: <span className="font-semibold text-[#101820]">{c.organiser?.user?.name ?? "Unknown"} ({c.organiser?.user?.email ?? "—"})</span></p>
-                        <p>Supplier: <span className="font-semibold text-[#101820]">{c.supplier?.vendor?.storeName ?? "Unknown"} {c.supplierCommitted ? "✓ accepted" : "⏳ awaiting acceptance"}</span></p>
+                        <p>Fulfilment: <span className="font-semibold text-[#101820]">
+                          {c.fulfilmentOwner === "SELF"
+                            ? "Self-fulfilled (organiser)"
+                            : `${c.supplier?.vendor?.storeName ?? "Unknown"} — ${c.supplierCommitted ? "✓ accepted" : c.supplierDeclinedAt ? `✗ declined${c.supplierDeclineReason ? `: ${c.supplierDeclineReason}` : ""}` : "⏳ awaiting response (not a blocker — this campaign can still be approved and published)"}`}
+                        </span></p>
                         <p>Minimum / goal / maximum: <span className="font-semibold text-[#101820]">{c.minimumShares} / {c.goalShares} / {c.maximumShares} shares</span></p>
                         <p>Price per share: <span className="font-semibold text-[#101820]">{centsToUnit(c.pricePerShareMinor).toFixed(2)} {c.currency}</span></p>
                         <p>Deadline: <span className="font-semibold text-[#101820]">{new Date(c.deadline).toLocaleDateString()}</span></p>
@@ -290,7 +294,11 @@ export default function CommunityCampaignsPage() {
                       <h3 className="mt-3 text-base font-bold text-[#101820]">{c.title}</h3>
                       <div className="mt-2 grid gap-1 text-sm text-slate-600 md:grid-cols-3">
                         <p>Organiser: <span className="font-semibold text-[#101820]">{c.organiser?.user?.name ?? "Unknown"}</span></p>
-                        <p>Supplier: <span className="font-semibold text-[#101820]">{c.supplier?.vendor?.storeName ?? "Unknown"}</span></p>
+                        <p>Fulfilment: <span className="font-semibold text-[#101820]">
+                          {c.fulfilmentOwner === "SELF"
+                            ? "Self-fulfilled (organiser)"
+                            : `${c.supplier?.vendor?.storeName ?? "Unknown"}${c.supplierCommitted ? " ✓ accepted" : c.supplierDeclinedAt ? " ✗ declined" : " ⏳ pending"}`}
+                        </span></p>
                         <p>Confirmed shares: <span className="font-semibold text-[#101820]">{c.confirmedShares} of {c.maximumShares} (minimum {c.minimumShares}, goal {c.goalShares})</span></p>
                         <p>Price per share: <span className="font-semibold text-[#101820]">{centsToUnit(c.pricePerShareMinor).toFixed(2)} {c.currency}</span></p>
                         <p>Funding outcome: <span className="font-semibold text-[#101820]">{FUNDING_OUTCOME_LABEL[c.fundingOutcome]}</span></p>

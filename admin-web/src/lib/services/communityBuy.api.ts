@@ -20,7 +20,14 @@ export interface AdminCampaign {
   pricePerShareMinor: number;
   confirmedShares: number;
   fundingOutcome: FundingOutcome;
+  // Client-corrected flow: supplier is an optional fulfilment choice — a
+  // null supplier/supplierId means the organiser is self-fulfilling, not a
+  // data gap.
+  fulfilmentOwner: "SELF" | "SUPPLIER";
+  supplierId?: string | null;
   supplierCommitted: boolean;
+  supplierDeclinedAt?: string | null;
+  supplierDeclineReason?: string | null;
   rescueEndsAt?: string | null;
   extensionCount: number;
   paidTotal?: number | null;
@@ -29,7 +36,7 @@ export interface AdminCampaign {
   reviewNotes?: string | null;
   createdAt: string;
   organiser?: { user?: { name: string; email: string } };
-  supplier?: { vendor?: { storeName: string } };
+  supplier?: { vendor?: { storeName: string } } | null;
 }
 
 export type ExtensionRequestStatus = "PENDING" | "APPROVED" | "REJECTED";

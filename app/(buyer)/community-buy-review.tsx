@@ -74,7 +74,7 @@ export default function CommunityBuyReviewScreen() {
         <View style={[premiumStyles.block, { gap: 14 }]}>
           <FloatingCard style={{ gap: 10 }}>
             <View style={styles.row}><Text style={styles.label}>Campaign</Text><Text style={styles.value} numberOfLines={1}>{campaign.title}</Text></View>
-            <View style={styles.row}><Text style={styles.label}>Supplier</Text><Text style={styles.value} numberOfLines={1}>{campaign.supplier?.vendor?.storeName ?? "Verified supplier"}</Text></View>
+            <View style={styles.row}><Text style={styles.label}>Fulfilment</Text><Text style={styles.value} numberOfLines={1}>{campaign.fulfilmentOwner === "SELF" ? "Organiser" : (campaign.supplier?.vendor?.storeName ?? "Verified supplier")}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Market</Text><Text style={styles.value}>{countryDisplayName(campaign.country)}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Quantity</Text><Text style={styles.value}>{quantity} share{quantity === 1 ? "" : "s"}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Price per share</Text><Text style={styles.value}>{formatDisplayMoney(campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text></View>

@@ -66,6 +66,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [currency, setCurrency] = useState("GBP");
   const [suppliers, setSuppliers] = useState<(SupplierProfile & { vendor?: { storeName: string } })[]>([]);
   const [supplierId, setSupplierId] = useState<string | null>(null);
+  // Client-corrected flow: fulfilment is an explicit organiser choice, made
+  // once at creation. null before the organiser has picked either option.
+  const [fulfilmentOwner, setFulfilmentOwner] = useState<"SELF" | "SUPPLIER" | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -111,6 +114,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         setCountry(existing.country);
         setCurrency(existing.currency);
         setSupplierId(existing.supplierId);
+        setFulfilmentOwner(existing.fulfilmentOwner);
         communityBuyService.getMarketConfig(existing.country).then(setMarketConfig).catch(() => undefined);
         setTitle(existing.title);
         setDescription(existing.description ?? "");
@@ -209,9 +213,11 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         setCampaign(updated);
         Alert.alert("Saved", "Campaign updated.");
       } else {
-        if (!supplierId) return Alert.alert("Supplier required", "Choose a supplier for this campaign.");
+        if (!fulfilmentOwner) return Alert.alert("Fulfilment required", "Choose how this campaign will be fulfilled.");
+        if (fulfilmentOwner === "SUPPLIER" && !supplierId) return Alert.alert("Supplier required", "Choose a supplier for this campaign.");
         const created = await communityBuyService.createCampaign({
-          supplierId,
+          fulfilmentOwner,
+          ...(fulfilmentOwner === "SUPPLIER" ? { supplierId: supplierId! } : {}),
           title: title.trim(),
           description: description.trim() || undefined,
           country,
@@ -747,29 +753,61 @@ export default function CommunityBuyOrganiserCampaignScreen() {
             </FloatingCard>
 
             {!isEdit ? (
-              <View>
-                <Text style={styles.sectionOutside}>Supplier</Text>
-                {suppliers.length === 0 ? (
-                  <Text style={styles.emptyText}>No verified suppliers in {countryDisplayName(country)} yet.</Text>
-                ) : (
-                  <View style={{ gap: 8 }}>
-                    {suppliers.map((s) => (
-                      <TouchableOpacity
-                        key={s.id}
-                        onPress={() => setSupplierId(s.id)}
-                        activeOpacity={0.85}
-                        accessibilityRole="radio"
-                        accessibilityLabel={s.vendor?.storeName ?? "Supplier"}
-                        accessibilityState={{ selected: supplierId === s.id }}
-                      >
-                        <FloatingCard style={[styles.optionRow, supplierId === s.id && styles.optionRowActive]}>
-                          <Ionicons name={supplierId === s.id ? "radio-button-on" : "radio-button-off"} size={18} color={supplierId === s.id ? "#076B51" : "#8AA194"} />
-                          <Text style={styles.optionText}>{s.vendor?.storeName ?? "Supplier"}</Text>
-                        </FloatingCard>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
+              <View style={{ gap: 10 }}>
+                <Text style={styles.sectionOutside}>Fulfilment</Text>
+                <TouchableOpacity
+                  onPress={() => setFulfilmentOwner("SELF")}
+                  activeOpacity={0.85}
+                  accessibilityRole="radio"
+                  accessibilityLabel="I will handle this myself"
+                  accessibilityState={{ selected: fulfilmentOwner === "SELF" }}
+                >
+                  <FloatingCard style={[styles.optionRow, fulfilmentOwner === "SELF" && styles.optionRowActive]}>
+                    <Ionicons name={fulfilmentOwner === "SELF" ? "radio-button-on" : "radio-button-off"} size={18} color={fulfilmentOwner === "SELF" ? "#076B51" : "#8AA194"} />
+                    <Text style={styles.optionText}>I will handle this myself</Text>
+                  </FloatingCard>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setFulfilmentOwner("SUPPLIER")}
+                  activeOpacity={0.85}
+                  accessibilityRole="radio"
+                  accessibilityLabel="Choose a supplier"
+                  accessibilityState={{ selected: fulfilmentOwner === "SUPPLIER" }}
+                >
+                  <FloatingCard style={[styles.optionRow, fulfilmentOwner === "SUPPLIER" && styles.optionRowActive]}>
+                    <Ionicons name={fulfilmentOwner === "SUPPLIER" ? "radio-button-on" : "radio-button-off"} size={18} color={fulfilmentOwner === "SUPPLIER" ? "#076B51" : "#8AA194"} />
+                    <Text style={styles.optionText}>Choose a supplier</Text>
+                  </FloatingCard>
+                </TouchableOpacity>
+                <Text style={styles.fieldHint}>
+                  {fulfilmentOwner === "SELF"
+                    ? "You're responsible for getting shares to participants yourself."
+                    : "Optional — a supplier can accept or decline, but this campaign can still be submitted and go live either way."}
+                </Text>
+
+                {fulfilmentOwner === "SUPPLIER" ? (
+                  suppliers.length === 0 ? (
+                    <Text style={styles.emptyText}>No verified suppliers in {countryDisplayName(country)} yet.</Text>
+                  ) : (
+                    <View style={{ gap: 8 }}>
+                      {suppliers.map((s) => (
+                        <TouchableOpacity
+                          key={s.id}
+                          onPress={() => setSupplierId(s.id)}
+                          activeOpacity={0.85}
+                          accessibilityRole="radio"
+                          accessibilityLabel={s.vendor?.storeName ?? "Supplier"}
+                          accessibilityState={{ selected: supplierId === s.id }}
+                        >
+                          <FloatingCard style={[styles.optionRow, supplierId === s.id && styles.optionRowActive]}>
+                            <Ionicons name={supplierId === s.id ? "radio-button-on" : "radio-button-off"} size={18} color={supplierId === s.id ? "#076B51" : "#8AA194"} />
+                            <Text style={styles.optionText}>{s.vendor?.storeName ?? "Supplier"}</Text>
+                          </FloatingCard>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )
+                ) : null}
               </View>
             ) : null}
 
@@ -880,37 +918,44 @@ export default function CommunityBuyOrganiserCampaignScreen() {
             ) : null}
 
             {campaign && ["DRAFT", "CHANGES_REQUIRED"].includes(campaign.status) ? (
-              campaign.supplierCommitted ? (
-                <View style={{ gap: 12 }}>
-                  <View>
-                    <Text style={styles.sectionOutside}>Review before you submit</Text>
-                    <FloatingCard style={{ gap: 8 }}>
-                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Supplier</Text><Text style={styles.previewValue}>{suppliers.find((s) => s.id === supplierId)?.vendor?.storeName ?? "Confirmed supplier"}</Text></View>
-                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Participant price</Text><Text style={styles.previewValue}>{formatDisplayMoney(Number(pricePerShare) || 0, currency, selectedCurrency)} / share</Text></View>
-                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Minimum / goal / maximum</Text><Text style={styles.previewValue}>{minimumShares || "—"} / {goalShares || "—"} / {maximumShares || "—"}</Text></View>
-                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Deadline</Text><Text style={styles.previewValue}>{deadline || "—"}</Text></View>
-                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Eki's fee</Text><Text style={styles.previewValue}>{marketConfig?.communityBuyFeeBps != null ? `${(marketConfig.communityBuyFeeBps / 100).toFixed(2)}%` : "Not yet configured"}</Text></View>
-                      <Text style={styles.outcomeHint}>Once submitted, an admin reviews this campaign. If changes are needed, you'll see the exact reason and can resubmit.</Text>
-                    </FloatingCard>
-                  </View>
-                  <TouchableOpacity
-                    onPress={handleSubmit}
-                    disabled={submitting}
-                    activeOpacity={0.85}
-                    style={styles.secondaryBtn}
-                    accessibilityRole="button"
-                    accessibilityLabel="Submit for review"
-                    accessibilityState={{ busy: submitting, disabled: submitting }}
-                  >
-                    {submitting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Submit for review</Text>}
-                  </TouchableOpacity>
+              <View style={{ gap: 12 }}>
+                <View>
+                  <Text style={styles.sectionOutside}>Review before you submit</Text>
+                  <FloatingCard style={{ gap: 8 }}>
+                    <View style={styles.previewRow}>
+                      <Text style={styles.fieldHint}>Fulfilment</Text>
+                      <Text style={styles.previewValue}>
+                        {campaign.fulfilmentOwner === "SELF"
+                          ? "You (self-fulfilled)"
+                          : campaign.supplierCommitted
+                            ? (suppliers.find((s) => s.id === supplierId)?.vendor?.storeName ?? "Confirmed supplier")
+                            : campaign.supplierDeclinedAt
+                              ? "Supplier declined — choose a new one below, or submit as-is"
+                              : "Supplier invited — awaiting response"}
+                      </Text>
+                    </View>
+                    <View style={styles.previewRow}><Text style={styles.fieldHint}>Participant price</Text><Text style={styles.previewValue}>{formatDisplayMoney(Number(pricePerShare) || 0, currency, selectedCurrency)} / share</Text></View>
+                    <View style={styles.previewRow}><Text style={styles.fieldHint}>Minimum / goal / maximum</Text><Text style={styles.previewValue}>{minimumShares || "—"} / {goalShares || "—"} / {maximumShares || "—"}</Text></View>
+                    <View style={styles.previewRow}><Text style={styles.fieldHint}>Deadline</Text><Text style={styles.previewValue}>{deadline || "—"}</Text></View>
+                    <View style={styles.previewRow}><Text style={styles.fieldHint}>Eki's fee</Text><Text style={styles.previewValue}>{marketConfig?.communityBuyFeeBps != null ? `${(marketConfig.communityBuyFeeBps / 100).toFixed(2)}%` : "Not yet configured"}</Text></View>
+                    {campaign.fulfilmentOwner === "SUPPLIER" && !campaign.supplierCommitted ? (
+                      <Text style={styles.outcomeHint}>Your supplier hasn't responded yet — that's fine, you can submit for review now. They can still accept or decline later, even after this campaign goes live.</Text>
+                    ) : null}
+                    <Text style={styles.outcomeHint}>Once submitted, an admin reviews this campaign. If changes are needed, you'll see the exact reason and can resubmit.</Text>
+                  </FloatingCard>
                 </View>
-              ) : campaign.supplierDeclinedAt ? null : (
-                <FloatingCard style={styles.noticeCard}>
-                  <Ionicons name="hourglass-outline" size={18} color="#B48A00" />
-                  <Text style={styles.noticeText}>Waiting for the supplier to accept this campaign before it can be submitted for review.</Text>
-                </FloatingCard>
-              )
+                <TouchableOpacity
+                  onPress={handleSubmit}
+                  disabled={submitting}
+                  activeOpacity={0.85}
+                  style={styles.secondaryBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Submit for review"
+                  accessibilityState={{ busy: submitting, disabled: submitting }}
+                >
+                  {submitting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Submit for review</Text>}
+                </TouchableOpacity>
+              </View>
             ) : null}
 
             {campaign?.status === "APPROVED" ? (
