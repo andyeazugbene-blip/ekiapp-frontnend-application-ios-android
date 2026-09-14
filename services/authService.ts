@@ -21,6 +21,13 @@ function normalizeUser(user: any): any {
   if (user.role && typeof user.role === "string") {
     user.role = user.role.toLowerCase();
   }
+  // Community Buy Workstream 1: backend sends "BUY"/"SELL"/"SUPPLY" to
+  // match its enum convention — lowercased here to match this app's own
+  // lastRole/role casing convention. A preference only (see LastDestination
+  // doc comment in types/auth.ts) — never treated as an authority.
+  if (user.lastDestination && typeof user.lastDestination === "string") {
+    user.lastDestination = user.lastDestination.toLowerCase();
+  }
   return user;
 }
 

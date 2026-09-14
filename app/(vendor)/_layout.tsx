@@ -26,16 +26,14 @@ export default function VendorLayout() {
     return <Redirect href={{ pathname: "/(auth)/login", params: { role: "vendor" } }} />;
   }
 
-  // Buyer without a vendor profile cannot access vendor area
-  if (role === "buyer" && !hasVendor) {
-    return <Redirect href="/(buyer)" />;
-  }
-
-  // Buyer with a vendor profile will have already been switched by the
-  // login screen (switchRole called before navigation). If they somehow
-  // arrive here with role=buyer+hasVendor (deep link, stale state), we
-  // redirect them back to buyer instead of showing a broken layout.
-  if (role === "buyer" && hasVendor) {
+  // Community Buy Workstream 1: gate on capability (a real Vendor row),
+  // not on role — opening a store no longer flips role away from
+  // "buyer" (backend vendors.service.ts createVendor), so this used to
+  // bounce a buyer-with-a-store back to /(buyer) unless something had
+  // pre-emptively called switchRole() first (the exact bug patched
+  // earlier this session in role-select.tsx/(buyer)/index.tsx). No store
+  // at all is still the only real reason to keep someone out.
+  if (!hasVendor) {
     return <Redirect href="/(buyer)" />;
   }
 

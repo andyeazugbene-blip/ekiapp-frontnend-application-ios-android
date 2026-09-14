@@ -1,5 +1,27 @@
 export type UserRole = "buyer" | "vendor" | "admin";
 
+// Community Buy Workstream 1 (backend spec §3.2) — derived, server-computed
+// capabilities, added alongside (not replacing) role/hasVendor during the
+// dual-read migration. canSelfSupply is intentionally NOT tied to
+// canSupply: self-supply is an organiser sourcing goods for their OWN
+// campaign (no supplier/vendor relationship needed at all), while
+// canSupply is the marketplace-wide ability to accept OTHER organisers'
+// campaigns via an approved SupplierAccount.
+export interface AuthCapabilities {
+  canBuy: boolean;
+  canOrganise: boolean;
+  canSell: boolean;
+  canSupply: boolean;
+  canSelfSupply: boolean;
+  canReceiveSupplierPayouts: boolean;
+}
+
+// A preference, never an authority (backend spec §3.1) — the server's
+// value is a best-guess default; this app is free to override it locally
+// based on actual navigation (e.g. "community_buy", which the server has
+// no way to know), exactly as the existing lastRole field already does.
+export type LastDestination = "buy" | "sell" | "supply" | "community_buy";
+
 export interface User {
   id: string;
   name: string;
@@ -10,6 +32,8 @@ export interface User {
   avatar?: string;
   referralCode?: string;
   createdAt: string;
+  capabilities?: AuthCapabilities;
+  lastDestination?: LastDestination;
 }
 
 export interface BuyerProfile extends User {
