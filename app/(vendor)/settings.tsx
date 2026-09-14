@@ -315,7 +315,18 @@ export default function VendorSettingsScreen() {
             onPress={async () => {
               try {
                 await useAuthStore.getState().switchRole();
-                goBackOrReplace(router, "/(buyer)" as any);
+                // Global destination bounce (root cause): goBackOrReplace()
+                // prefers router.back() whenever navigation history exists —
+                // which it always does here, since Settings is only ever
+                // reached by pushing forward from inside (vendor). back()
+                // therefore just popped to whatever Vendor screen was open
+                // before Settings, silently discarding the "/(buyer)"
+                // fallback and making this button look like it did nothing
+                // (Community Buy and Supplier are unreachable from here for
+                // the same reason: both live behind first actually leaving
+                // Vendor). An explicit destination must always win over
+                // incidental back-history — replace(), not goBackOrReplace().
+                router.replace("/(buyer)" as any);
               } catch (err) {
                 Alert.alert("Error", err instanceof Error ? err.message : "Failed to switch role");
               }
