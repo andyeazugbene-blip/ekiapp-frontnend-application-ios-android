@@ -65,7 +65,9 @@ export default function CommunityBuyReviewScreen() {
     );
   }
 
-  const amount = quantity * campaign.pricePerShareMinor;
+  // Nullable on a draft, but this screen only ever shows a LIVE campaign —
+  // submit() (backend) guarantees these are set by then.
+  const amount = quantity * campaign.pricePerShareMinor!;
 
   return (
     <View style={premiumStyles.page}>
@@ -77,7 +79,7 @@ export default function CommunityBuyReviewScreen() {
             <View style={styles.row}><Text style={styles.label}>Fulfilment</Text><Text style={styles.value} numberOfLines={1}>{campaign.fulfilmentOwner === "SELF" ? "Organiser" : (campaign.supplier?.vendor?.storeName ?? "Verified supplier")}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Market</Text><Text style={styles.value}>{countryDisplayName(campaign.country)}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Quantity</Text><Text style={styles.value}>{quantity} share{quantity === 1 ? "" : "s"}</Text></View>
-            <View style={styles.row}><Text style={styles.label}>Price per share</Text><Text style={styles.value}>{formatDisplayMoney(campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text></View>
+            <View style={styles.row}><Text style={styles.label}>Price per share</Text><Text style={styles.value}>{formatDisplayMoney(campaign.pricePerShareMinor! / 100, campaign.currency, selectedCurrency)}</Text></View>
             <View style={[styles.row, styles.totalRow]}>
               <Text style={styles.totalLabel}>Amount if this campaign succeeds</Text>
               <Text style={styles.totalValue}>{formatDisplayMoney(amount / 100, campaign.currency, selectedCurrency)}</Text>
@@ -97,7 +99,7 @@ export default function CommunityBuyReviewScreen() {
             <Text style={styles.sectionTitle}>Important conditions</Text>
             <FloatingCard style={{ gap: 8 }}>
               <Text style={styles.bodyText}>• Your card is not charged now — only saved against this pledge.</Text>
-              <Text style={styles.bodyText}>• You are only charged {formatDisplayMoney(amount / 100, campaign.currency, selectedCurrency)} if this campaign reaches its minimum required quantity by {formatDeadline(campaign.deadline)}.</Text>
+              <Text style={styles.bodyText}>• You are only charged {formatDisplayMoney(amount / 100, campaign.currency, selectedCurrency)} if this campaign reaches its minimum required quantity by {formatDeadline(campaign.deadline!)}.</Text>
               <Text style={styles.bodyText}>• Reaching the goal is not required — the campaign proceeds at the minimum.</Text>
               <Text style={styles.bodyText}>• If the campaign fails, nothing is charged — there is nothing to refund.</Text>
             </FloatingCard>

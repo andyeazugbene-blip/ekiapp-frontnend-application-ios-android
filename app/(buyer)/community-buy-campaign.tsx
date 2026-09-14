@@ -144,10 +144,13 @@ export default function CommunityBuyCampaignScreen() {
     );
   }
 
+  // Community Buy Workstream 2: these fields are nullable on a DRAFT, but
+  // this screen only ever renders a campaign that reached LIVE or later —
+  // submit() (backend) guarantees all of these are set by then.
   const isLive = campaign.status === "LIVE";
-  const remaining = Math.max(0, campaign.minimumShares - campaign.confirmedShares);
-  const minimumReached = campaign.confirmedShares >= campaign.minimumShares;
-  const remainingCapacity = Math.max(0, campaign.maximumShares - campaign.confirmedShares);
+  const remaining = Math.max(0, campaign.minimumShares! - campaign.confirmedShares);
+  const minimumReached = campaign.confirmedShares >= campaign.minimumShares!;
+  const remainingCapacity = Math.max(0, campaign.maximumShares! - campaign.confirmedShares);
 
   return (
     <View style={premiumStyles.page}>
@@ -179,14 +182,14 @@ export default function CommunityBuyCampaignScreen() {
             {campaign.description ? <Text style={styles.description}>{campaign.description}</Text> : null}
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Price per share</Text>
-              <Text style={styles.infoValue}>{formatDisplayMoney(campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text>
+              <Text style={styles.infoValue}>{formatDisplayMoney(campaign.pricePerShareMinor! / 100, campaign.currency!, selectedCurrency)}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Organiser</Text>
               <Text style={styles.infoValue} numberOfLines={1}>{campaign.organiser?.user?.name ?? "Verified organiser"}</Text>
             </View>
 
-            <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares} goal={campaign.goalShares} max={campaign.maximumShares} />
+            <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares!} goal={campaign.goalShares!} max={campaign.maximumShares!} />
             <Text style={styles.progressMetaText}>{campaign.confirmedShares} of {campaign.maximumShares} slots filled</Text>
             {!minimumReached ? (
               <Text style={styles.progressMetaSub}>Only {remaining} more needed for this campaign to proceed.</Text>
@@ -194,7 +197,7 @@ export default function CommunityBuyCampaignScreen() {
               <Text style={[styles.progressMetaSub, { color: "#076B51" }]}>This campaign will now proceed. {remainingCapacity} additional slot{remainingCapacity === 1 ? "" : "s"} remain available.</Text>
             )}
             <View style={styles.progressMetaRow}>
-              <Text style={styles.progressMetaSub}>Closes {formatDeadline(campaign.deadline)}</Text>
+              <Text style={styles.progressMetaSub}>Closes {formatDeadline(campaign.deadline!)}</Text>
             </View>
           </FloatingCard>
 
@@ -268,7 +271,7 @@ export default function CommunityBuyCampaignScreen() {
                       <View style={styles.receiptCard}>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Campaign</Text><Text style={styles.receiptValue} numberOfLines={1}>{campaign.title}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Shares</Text><Text style={styles.receiptValue}>{contribution.quantity}</Text></View>
-                        <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Price per share</Text><Text style={styles.receiptValue}>{formatDisplayMoney(campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text></View>
+                        <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Price per share</Text><Text style={styles.receiptValue}>{formatDisplayMoney(campaign.pricePerShareMinor! / 100, campaign.currency!, selectedCurrency)}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Total charged</Text><Text style={styles.receiptValue}>{formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Date</Text><Text style={styles.receiptValue}>{formatDateTime(contribution.createdAt)}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Reference</Text><Text style={styles.receiptValue} numberOfLines={1}>{contribution.id}</Text></View>

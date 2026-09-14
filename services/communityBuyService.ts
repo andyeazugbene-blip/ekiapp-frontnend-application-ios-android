@@ -149,6 +149,29 @@ export interface MarketConfig {
   organiserFeeBps?: number | null;
 }
 
+export type CampaignDeliveryPreference = "COLLECTION" | "DELIVERY";
+
+/** Every field a wizard step can save — all optional except where createCampaign requires title+country. Mirrors the backend's CreateCampaignInput exactly (community-campaigns.service.ts). */
+export interface CampaignDraftInput {
+  title?: string;
+  country?: string;
+  fulfilmentOwner?: "SELF" | "SUPPLIER";
+  supplierId?: string;
+  description?: string;
+  currency?: string;
+  minimumShares?: number;
+  goalShares?: number;
+  maximumShares?: number;
+  pricePerShareMinor?: number;
+  deadline?: string;
+  rescueDurationMinutes?: number;
+  images?: string[];
+  unit?: string;
+  quantityPerOrder?: number;
+  qualityNotes?: string;
+  deliveryPreference?: CampaignDeliveryPreference;
+}
+
 export interface Campaign {
   id: string;
   organiserId: string;
@@ -160,13 +183,16 @@ export interface Campaign {
   organiser?: { user?: { name: string } };
   title: string;
   description?: string | null;
-  country: string;
-  currency: string;
+  // Community Buy Workstream 2: a draft may not have chosen these yet —
+  // null is a real "not decided", never a fabricated placeholder. submit()
+  // is the authoritative gate requiring all of these before review.
+  country: string | null;
+  currency: string | null;
   targetAmount: number;
-  minimumShares: number;
-  goalShares: number;
-  maximumShares: number;
-  pricePerShareMinor: number;
+  minimumShares: number | null;
+  goalShares: number | null;
+  maximumShares: number | null;
+  pricePerShareMinor: number | null;
   confirmedShares: number;
   fundingOutcome: FundingOutcome;
   supplierCommitted: boolean;
@@ -178,10 +204,17 @@ export interface Campaign {
   progressPct?: number;
   participantCount?: number;
   contributions?: { amount: number; quantity: number }[];
-  deadline: string;
+  deadline: string | null;
   status: CampaignStatus;
   reviewNotes?: string | null;
   createdAt: string;
+  // Product step (spec §7 step 1) — additive.
+  images: string[];
+  unit: string | null;
+  quantityPerOrder: number | null;
+  qualityNotes: string | null;
+  // Delivery step (spec §7 step 5) — organiser intent only, no address data.
+  deliveryPreference: CampaignDeliveryPreference;
 }
 
 export interface Contribution {
@@ -368,8 +401,11 @@ export const communityBuyService = {
   },
 
   // ─── Public discovery ────────────────────────────────────────────────────
-  async listLiveCampaigns(country?: string): Promise<Campaign[]> {
-    const qs = country ? `?country=${encodeURIComponent(country)}` : "";
+  async listLiveCampaigns(country?: string, q?: string): Promise<Campaign[]> {
+    const params = new URLSearchParams();
+    if (country) params.set("country", country);
+    if (q?.trim()) params.set("q", q.trim());
+    const qs = params.toString() ? `?${params.toString()}` : "";
     const res = await apiClient.get<Items<Campaign>>(`/api/community-buy/campaigns${qs}`, { skipAuth: true });
     return res.items ?? [];
   },
@@ -450,37 +486,27 @@ export const communityBuyService = {
     return res.items ?? [];
   },
 
-  async createCampaign(input: {
-    fulfilmentOwner: "SELF" | "SUPPLIER";
-    supplierId?: string;
-    title: string;
-    description?: string;
-    country: string;
-    currency: string;
-    minimumShares: number;
-    goalShares: number;
-    maximumShares: number;
-    pricePerShareMinor: number;
-    deadline: string;
-    rescueDurationMinutes?: number;
-  }): Promise<Campaign> {
+  // Community Buy Workstream 2: only title + country are required to start
+  // a draft — every other field is optional here and filled in
+  // incrementally via updateCampaign() as the wizard's steps are
+  // completed. submitCampaign() is the authoritative gate that requires
+  // the rest.
+  async createCampaign(input: CampaignDraftInput & { title: string; country: string }): Promise<Campaign> {
     const res = await apiClient.post<{ campaign: Campaign }>("/api/organiser/campaigns", input);
     return res.campaign;
   },
 
-  async updateCampaign(id: string, input: Partial<{
-    title: string;
-    description?: string;
-    minimumShares: number;
-    goalShares: number;
-    maximumShares: number;
-    pricePerShareMinor: number;
-    deadline: string;
-  }>): Promise<Campaign> {
+  async updateCampaign(id: string, input: Partial<CampaignDraftInput>): Promise<Campaign> {
     const res = await apiClient.patch<{ campaign: Campaign }>(`/api/organiser/campaigns/${id}`, input);
     return res.campaign;
   },
 
+  /**
+   * Throws ApiRequestError with `.code === "SUBMIT_REQUIREMENTS_NOT_MET"`
+   * and `.details === { missing: string[] }` when the draft isn't ready —
+   * the wizard's Review step reads that list directly rather than showing
+   * a generic error. The draft itself is never altered by a failed submit.
+   */
   async submitCampaign(id: string): Promise<Campaign> {
     const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${id}/submit`, {});
     return res.campaign;

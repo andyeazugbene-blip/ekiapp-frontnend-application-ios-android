@@ -38,12 +38,17 @@ interface RequestOptions {
 export class ApiRequestError extends Error {
   status: number;
   code?: string;
+  // Community Buy Workstream 2: backend structured errors (e.g.
+  // submit()'s { missing: string[] }) travel here — see
+  // shared/errors/app-error.ts's `details` field on the backend.
+  details?: unknown;
 
-  constructor(status: number, message: string, code?: string) {
+  constructor(status: number, message: string, code?: string, details?: unknown) {
     super(message);
     this.name = "ApiRequestError";
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -137,11 +142,13 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   if (!response.ok) {
     let errorMessage = "Something went wrong";
     let errorCode: string | undefined;
+    let errorDetails: unknown;
 
     try {
       const errorBody = await response.json();
       errorMessage = errorBody.message || errorBody.error || errorMessage;
       errorCode = errorBody.code;
+      errorDetails = errorBody.details ?? undefined;
     } catch {}
 
     const status = response.status;
@@ -174,7 +181,7 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
       }
 
       default:
-        throw new ApiRequestError(status, errorMessage, errorCode);
+        throw new ApiRequestError(status, errorMessage, errorCode, errorDetails);
     }
   }
 

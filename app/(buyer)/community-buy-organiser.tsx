@@ -218,10 +218,10 @@ export default function CommunityBuyOrganiserScreen() {
                         ? "Next: publish campaign"
                         : isLiveLike
                           ? c.fulfilmentOwner === "SELF"
-                            ? `Campaign is live · ${daysLeft(c.deadline)}`
+                            ? `Campaign is live · ${daysLeft(c.deadline!)}`
                             : c.supplierDeclinedAt
                               ? "Campaign is live · choose another supplier"
-                              : `Campaign is live · ${daysLeft(c.deadline)}`
+                              : `Campaign is live · ${daysLeft(c.deadline!)}`
                           : null;
                   return (
                     <TouchableOpacity
@@ -237,7 +237,7 @@ export default function CommunityBuyOrganiserScreen() {
                           <Text style={styles.cardStatus}>{CAMPAIGN_STATUS_LABELS[c.status]}</Text>
                         </View>
                         {isLiveLike || c.status === "UNDER_REVIEW" || c.status === "APPROVED" ? (
-                          <RangeProgressBar value={c.confirmedShares} min={c.minimumShares} goal={c.goalShares} max={c.maximumShares} />
+                          <RangeProgressBar value={c.confirmedShares} min={c.minimumShares!} goal={c.goalShares!} max={c.maximumShares!} />
                         ) : null}
                         <Text style={styles.cardMeta}>
                           {c.confirmedShares} of {c.goalShares} goal ({c.minimumShares} min, {c.maximumShares} max) · {c.participantCount ?? 0} participant{(c.participantCount ?? 0) === 1 ? "" : "s"} · {formatDisplayMoney((c.paidTotal ?? 0) / 100, c.currency, selectedCurrency)} raised

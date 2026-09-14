@@ -8,6 +8,7 @@ import { useCurrencyStore } from "../../stores/currencyStore";
 import { presentSetupIntent } from "../../services/stripePayment";
 import { countryCodeForName, countryDisplayName } from "../../utils/countries";
 import { regularDeliveriesService, type BuyerPaymentMethod } from "../../services/regularDeliveriesService";
+import { ApiRequestError } from "../../services/api/client";
 import {
   ErrorState,
   FloatingCard,
@@ -46,6 +47,26 @@ const FULFILMENT_STEP_LABEL: Record<CampaignFulfilment["status"], string> = {
   COMPLETED: "Completed",
 };
 
+// Community Buy Workstream 2 — mirrors the exact `missing` codes
+// submit() (backend, community-campaigns.service.ts) can return.
+const MISSING_FIELD_LABELS: Record<string, string> = {
+  organiser_profile: "Organiser application",
+  organiser_verification: "Organiser verification (pending admin review)",
+  organiser_restricted: "Organiser account is restricted",
+  country: "Market",
+  currency: "Currency",
+  deadline: "Deadline",
+  minimumShares: "Minimum shares",
+  goalShares: "Campaign goal",
+  maximumShares: "Maximum capacity",
+  pricePerShareMinor: "Price per share",
+  unit: "Unit",
+  quantityPerOrder: "Quantity per order",
+  supplierId: "Supplier",
+  supplier_eligibility: "Supplier is not currently eligible",
+  market_not_enabled: "Community Buy is not enabled in this market",
+};
+
 function formatDateTime(value?: string | null): string {
   if (!value) return "—";
   const d = new Date(value);
@@ -77,6 +98,19 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [maximumShares, setMaximumShares] = useState("");
   const [pricePerShare, setPricePerShare] = useState("");
   const [deadline, setDeadline] = useState("");
+  // Community Buy Workstream 2 — Product step (spec §7 step 1). One image
+  // URL per line — no media-upload pipeline exists yet, so this stores
+  // real URLs the organiser provides rather than fabricating an uploader.
+  const [imagesText, setImagesText] = useState("");
+  const [unit, setUnit] = useState("");
+  const [quantityPerOrder, setQuantityPerOrder] = useState("");
+  const [qualityNotes, setQualityNotes] = useState("");
+  // Delivery step (spec §7 step 5) — organiser intent only.
+  const [deliveryPreference, setDeliveryPreference] = useState<"COLLECTION" | "DELIVERY">("COLLECTION");
+  // A fresh organiser (no profile yet) must be able to pick a market for
+  // their very first draft — createCampaign() only needs title+country.
+  const [marketOptions, setMarketOptions] = useState<MarketConfig[]>([]);
+  const [submitMissing, setSubmitMissing] = useState<string[] | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -104,6 +138,17 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [marketConfig, setMarketConfig] = useState<MarketConfig | null>(null);
   const { selectedCurrency } = useCurrencyStore();
 
+  // Shared by the initial load and the country-picker's onPress — resolves
+  // currency/fee config/verified-supplier list for whichever market the
+  // organiser picks for a brand-new draft.
+  const applyCountrySelection = useCallback(async (selected: string, markets: MarketConfig[]) => {
+    setCountry(selected);
+    const market = markets.find((m) => (countryCodeForName(m.countryCode) ?? m.countryCode) === (countryCodeForName(selected) ?? selected));
+    setCurrency(market?.currency ?? "GBP");
+    setMarketConfig(market ?? null);
+    setSuppliers(await communityBuyService.listVerifiedSuppliers(selected).catch(() => []));
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -111,18 +156,28 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       if (id) {
         const existing = await communityBuyService.getCampaign(id);
         setCampaign(existing);
-        setCountry(existing.country);
-        setCurrency(existing.currency);
+        // Community Buy Workstream 2: these are nullable on a real,
+        // still-in-progress draft — "" is the honest "not chosen yet"
+        // state for a text field, not a fabricated value.
+        setCountry(existing.country ?? "");
+        setCurrency(existing.currency ?? "");
         setSupplierId(existing.supplierId);
         setFulfilmentOwner(existing.fulfilmentOwner);
-        communityBuyService.getMarketConfig(existing.country).then(setMarketConfig).catch(() => undefined);
+        if (existing.country) {
+          communityBuyService.getMarketConfig(existing.country).then(setMarketConfig).catch(() => undefined);
+        }
         setTitle(existing.title);
         setDescription(existing.description ?? "");
         setMinimumShares(String(existing.minimumShares ?? ""));
         setGoalShares(String(existing.goalShares ?? ""));
         setMaximumShares(String(existing.maximumShares ?? ""));
         setPricePerShare(existing.pricePerShareMinor ? String(existing.pricePerShareMinor / 100) : "");
-        setDeadline(existing.deadline.slice(0, 10));
+        setDeadline(existing.deadline ? existing.deadline.slice(0, 10) : "");
+        setImagesText((existing.images ?? []).join("\n"));
+        setUnit(existing.unit ?? "");
+        setQuantityPerOrder(existing.quantityPerOrder != null ? String(existing.quantityPerOrder) : "");
+        setQualityNotes(existing.qualityNotes ?? "");
+        setDeliveryPreference(existing.deliveryPreference ?? "COLLECTION");
         setParticipants(await communityBuyService.listCampaignParticipants(id).catch(() => []));
         if (existing.status === "RESCUE_WINDOW") {
           const methods = await regularDeliveriesService.listPaymentMethods().catch(() => [] as BuyerPaymentMethod[]);
@@ -140,19 +195,24 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         }
         // Necessary companion to supplier decline — without a way to pick a
         // different supplier, a decline would be a dead end for the organiser.
-        if (existing.supplierDeclinedAt) {
+        if (existing.supplierDeclinedAt && existing.country) {
           setSuppliers(await communityBuyService.listVerifiedSuppliers(existing.country).catch(() => []));
         }
       } else {
+        // Community Buy Workstream 2: organising is available to every
+        // authenticated user (canOrganise) — no verified-organiser block
+        // here anymore. getMyOrganiserProfile() returning null (no
+        // application yet) or isVerified:false are both fine; create()
+        // auto-creates the profile on first draft, and verification is
+        // only required later, at submit().
         const profile = await communityBuyService.getMyOrganiserProfile();
-        if (!profile?.isVerified) throw new Error("A verified organiser profile is required to create a campaign.");
-        setCountry(profile.country);
         const markets = await communityBuyService.listMarketConfigs().catch(() => [] as MarketConfig[]);
-        const market = markets.find((m) => (countryCodeForName(m.countryCode) ?? m.countryCode) === (countryCodeForName(profile.country) ?? profile.country));
-        setCurrency(market?.currency ?? "GBP");
-        setMarketConfig(market ?? null);
-        const supplierList = await communityBuyService.listVerifiedSuppliers(profile.country);
-        setSuppliers(supplierList);
+        const availableMarkets = markets.filter((m) => m.communityBuyEnabled);
+        setMarketOptions(availableMarkets);
+        const defaultCountry = profile?.country ?? "";
+        if (defaultCountry) {
+          await applyCountrySelection(defaultCountry, availableMarkets);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load this campaign.");
@@ -163,14 +223,23 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  // Community Buy Workstream 2: create()/update() only require title (+
+  // country at create) now — every other field is optional and saved
+  // incrementally, exactly matching what's actually filled in. The
+  // backend is the authoritative validator (it still checks pairs like
+  // "goal >= minimum" when both are provided); this function no longer
+  // duplicates that as a client-side blocking gate, since a genuinely
+  // partial draft must be saveable without the whole form being valid
+  // yet — submit() is where completeness is actually required.
   const handleSave = async () => {
     if (!title.trim()) return Alert.alert("Title required", "Give this campaign a name.");
+    if (!isEdit && !country) return Alert.alert("Market required", "Choose which market this campaign is in.");
 
     const isLiveLike = campaign ? ["LIVE", "PAUSED", "RESCUE_WINDOW"].includes(campaign.status) : false;
 
     // While live, only title/description are editable — financial terms
-    // are locked once contributions begin, so those fields aren't
-    // validated or sent at all in that case.
+    // are locked once contributions begin, so those fields aren't sent at
+    // all in that case.
     if (isLiveLike) {
       setSaving(true);
       try {
@@ -187,47 +256,34 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       return;
     }
 
-    const minVal = Math.round(Number(minimumShares));
-    const goalVal = Math.round(Number(goalShares));
-    const maxVal = Math.round(Number(maximumShares));
-    const priceVal = Number(pricePerShare);
-    if (!Number.isFinite(minVal) || minVal < 1) return Alert.alert("Minimum required", "Enter the minimum shares required to proceed.");
-    if (!Number.isFinite(goalVal) || goalVal < minVal) return Alert.alert("Goal required", "The campaign goal must be at least the minimum shares.");
-    if (!Number.isFinite(maxVal) || maxVal < goalVal) return Alert.alert("Maximum required", "Maximum capacity must be at least the campaign goal.");
-    if (!Number.isFinite(priceVal) || priceVal <= 0) return Alert.alert("Price required", "Enter a valid price per share.");
-    const deadlineDate = new Date(deadline);
-    if (Number.isNaN(deadlineDate.getTime()) || deadlineDate <= new Date()) return Alert.alert("Deadline required", "Enter a valid future date (YYYY-MM-DD).");
+    if (deadline.trim() && Number.isNaN(new Date(deadline).getTime())) {
+      return Alert.alert("Invalid date", "Enter a valid date (YYYY-MM-DD).");
+    }
+
+    const images = imagesText.split("\n").map((s) => s.trim()).filter(Boolean);
+    const sharedFields = {
+      description: description.trim() || undefined,
+      minimumShares: minimumShares.trim() ? Math.round(Number(minimumShares)) : undefined,
+      goalShares: goalShares.trim() ? Math.round(Number(goalShares)) : undefined,
+      maximumShares: maximumShares.trim() ? Math.round(Number(maximumShares)) : undefined,
+      pricePerShareMinor: pricePerShare.trim() ? Math.round(Number(pricePerShare) * 100) : undefined,
+      deadline: deadline.trim() ? new Date(deadline).toISOString() : undefined,
+      images,
+      unit: unit.trim() || undefined,
+      quantityPerOrder: quantityPerOrder.trim() ? Math.round(Number(quantityPerOrder)) : undefined,
+      qualityNotes: qualityNotes.trim() || undefined,
+      deliveryPreference,
+      ...(fulfilmentOwner ? { fulfilmentOwner, ...(fulfilmentOwner === "SUPPLIER" ? { supplierId: supplierId ?? undefined } : {}) } : {}),
+    };
 
     setSaving(true);
     try {
       if (isEdit && campaign) {
-        const updated = await communityBuyService.updateCampaign(campaign.id, {
-          title: title.trim(),
-          description: description.trim() || undefined,
-          minimumShares: minVal,
-          goalShares: goalVal,
-          maximumShares: maxVal,
-          pricePerShareMinor: Math.round(priceVal * 100),
-          deadline: deadlineDate.toISOString(),
-        });
+        const updated = await communityBuyService.updateCampaign(campaign.id, { title: title.trim(), ...sharedFields });
         setCampaign(updated);
         Alert.alert("Saved", "Campaign updated.");
       } else {
-        if (!fulfilmentOwner) return Alert.alert("Fulfilment required", "Choose how this campaign will be fulfilled.");
-        if (fulfilmentOwner === "SUPPLIER" && !supplierId) return Alert.alert("Supplier required", "Choose a supplier for this campaign.");
-        const created = await communityBuyService.createCampaign({
-          fulfilmentOwner,
-          ...(fulfilmentOwner === "SUPPLIER" ? { supplierId: supplierId! } : {}),
-          title: title.trim(),
-          description: description.trim() || undefined,
-          country,
-          currency,
-          minimumShares: minVal,
-          goalShares: goalVal,
-          maximumShares: maxVal,
-          pricePerShareMinor: Math.round(priceVal * 100),
-          deadline: deadlineDate.toISOString(),
-        });
+        const created = await communityBuyService.createCampaign({ title: title.trim(), country, currency: currency || undefined, ...sharedFields });
         router.replace({ pathname: "/(buyer)/community-buy-organiser-campaign", params: { id: created.id } } as any);
       }
     } catch (err) {
@@ -278,11 +334,21 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const handleSubmit = async () => {
     if (!campaign) return;
     setSubmitting(true);
+    setSubmitMissing(null);
     try {
       setCampaign(await communityBuyService.submitCampaign(campaign.id));
       Alert.alert("Submitted", "Your campaign was sent for admin review.");
     } catch (err) {
-      Alert.alert("Couldn't submit", err instanceof Error ? err.message : "Please try again.");
+      // Community Buy Workstream 2: submit() returns a structured list of
+      // exactly what's unmet — show that instead of a generic error so the
+      // organiser knows precisely what to fill in, not just that it failed.
+      const details = err instanceof ApiRequestError ? (err.details as { missing?: string[] } | undefined) : undefined;
+      if (err instanceof ApiRequestError && err.code === "SUBMIT_REQUIREMENTS_NOT_MET" && details?.missing?.length) {
+        setSubmitMissing(details.missing);
+        Alert.alert("Not ready to submit yet", `Still needed: ${details.missing.map((m) => MISSING_FIELD_LABELS[m] ?? m).join(", ")}`);
+      } else {
+        Alert.alert("Couldn't submit", err instanceof Error ? err.message : "Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -463,8 +529,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
             {campaign?.status === "RESCUE_WINDOW" ? (
               <FloatingCard style={{ gap: 10 }}>
-                <Text style={styles.outcomeTitle}>This campaign needs {Math.max(0, campaign.minimumShares - campaign.confirmedShares)} more participant{Math.max(0, campaign.minimumShares - campaign.confirmedShares) === 1 ? "" : "s"}</Text>
-                <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares} goal={campaign.goalShares} max={campaign.maximumShares} />
+                {/* RESCUE_WINDOW only follows submit()/publish(), which guarantee these are set. */}
+                <Text style={styles.outcomeTitle}>This campaign needs {Math.max(0, campaign.minimumShares! - campaign.confirmedShares)} more participant{Math.max(0, campaign.minimumShares! - campaign.confirmedShares) === 1 ? "" : "s"}</Text>
+                <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares!} goal={campaign.goalShares!} max={campaign.maximumShares!} />
                 <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Status</Text><Text style={styles.outcomeValue}>No supplier order has been created</Text></View>
                 <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Time remaining</Text><Text style={styles.outcomeValue}>{formatDateTime(campaign.rescueEndsAt)}</Text></View>
                 <Text style={styles.outcomeHint}>You have until then to complete one of these actions. Do not collect payment from participants outside Eki.</Text>
@@ -516,10 +583,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     activeOpacity={0.88}
                     style={styles.fulfilBtn}
                     accessibilityRole="button"
-                    accessibilityLabel={`Pledge ${formatDisplayMoney((Math.round(Number(topUpQuantity)) || 0) * campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}`}
+                    accessibilityLabel={`Pledge ${formatDisplayMoney((Math.round(Number(topUpQuantity)) || 0) * campaign.pricePerShareMinor! / 100, campaign.currency!, selectedCurrency)}`}
                     accessibilityState={{ busy: decisionBusy === "top-up", disabled: decisionBusy !== null }}
                   >
-                    {decisionBusy === "top-up" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fulfilBtnText}>Pledge {formatDisplayMoney((Math.round(Number(topUpQuantity)) || 0) * campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text>}
+                    {decisionBusy === "top-up" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fulfilBtnText}>Pledge {formatDisplayMoney((Math.round(Number(topUpQuantity)) || 0) * campaign.pricePerShareMinor! / 100, campaign.currency!, selectedCurrency)}</Text>}
                   </TouchableOpacity>
                 </View>
 
@@ -648,7 +715,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     RESCUE_WINDOW crisis, exactly backwards from useful. */}
                 <FloatingCard style={{ gap: 10 }}>
                   <Text style={styles.outcomeTitle}>Live progress</Text>
-                  <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares} goal={campaign.goalShares} max={campaign.maximumShares} />
+                  <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares!} goal={campaign.goalShares!} max={campaign.maximumShares!} />
                   <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Confirmed shares</Text><Text style={styles.outcomeValue}>{campaign.confirmedShares} of {campaign.goalShares} goal</Text></View>
                 </FloatingCard>
                 <TouchableOpacity
@@ -675,7 +742,35 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               </FloatingCard>
             ) : null}
 
+            {!isEdit ? (
+              <View>
+                <Text style={styles.sectionOutside}>Market</Text>
+                {marketOptions.length === 0 ? (
+                  <FloatingCard><Text style={styles.emptyText}>Community Buy isn't enabled in any market yet.</Text></FloatingCard>
+                ) : (
+                  <View style={{ gap: 8 }}>
+                    {marketOptions.map((m) => (
+                      <TouchableOpacity
+                        key={m.countryCode}
+                        onPress={() => void applyCountrySelection(m.countryCode, marketOptions)}
+                        activeOpacity={0.85}
+                        accessibilityRole="radio"
+                        accessibilityLabel={countryDisplayName(m.countryCode)}
+                        accessibilityState={{ selected: country === m.countryCode }}
+                      >
+                        <FloatingCard style={[styles.optionRow, country === m.countryCode && styles.optionRowActive]}>
+                          <Ionicons name={country === m.countryCode ? "radio-button-on" : "radio-button-off"} size={18} color={country === m.countryCode ? "#076B51" : "#8AA194"} />
+                          <Text style={styles.optionText}>{countryDisplayName(m.countryCode)}</Text>
+                        </FloatingCard>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : null}
+
             <FloatingCard style={{ gap: 12 }}>
+              <Text style={styles.sectionOutside}>Product</Text>
               <View>
                 <Text style={styles.label}>Title</Text>
                 <TextInput style={styles.input} editable={!isLocked} placeholder="Campaign title" placeholderTextColor="#8AA194" value={title} onChangeText={setTitle} accessibilityLabel="Campaign title" />
@@ -684,6 +779,27 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               <View>
                 <Text style={styles.label}>Description (optional)</Text>
                 <TextInput style={[styles.input, styles.inputMultiline]} editable={!isLocked} placeholder="What is this campaign for?" placeholderTextColor="#8AA194" value={description} onChangeText={setDescription} multiline accessibilityLabel="Description" />
+              </View>
+
+              <View>
+                <Text style={styles.label}>Images (optional — one URL per line)</Text>
+                <TextInput style={[styles.input, styles.inputMultiline]} editable={!isLocked} placeholder={"https://...\nhttps://..."} placeholderTextColor="#8AA194" value={imagesText} onChangeText={setImagesText} multiline autoCapitalize="none" accessibilityLabel="Image URLs, one per line" />
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Unit</Text>
+                  <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="e.g. bag, kg, box" placeholderTextColor="#8AA194" value={unit} onChangeText={setUnit} accessibilityLabel="Unit" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Quantity per order</Text>
+                  <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="1" placeholderTextColor="#8AA194" keyboardType="number-pad" value={quantityPerOrder} onChangeText={setQuantityPerOrder} accessibilityLabel="Quantity per order" />
+                </View>
+              </View>
+
+              <View>
+                <Text style={styles.label}>Quality / substitution notes (optional)</Text>
+                <TextInput style={[styles.input, styles.inputMultiline]} editable={!financialFieldsLocked} placeholder="e.g. brand may vary by availability" placeholderTextColor="#8AA194" value={qualityNotes} onChangeText={setQualityNotes} multiline accessibilityLabel="Quality or substitution notes" />
               </View>
 
               <View style={styles.thresholdGroup}>
@@ -751,6 +867,37 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 hint={isLiveLike ? "Financial terms are locked once a campaign is live. Only the title and description can be changed." : "Contributions stop being accepted after this date."}
               />
             </FloatingCard>
+
+            <View style={{ gap: 10 }}>
+              <Text style={styles.sectionOutside}>Delivery</Text>
+              <TouchableOpacity
+                onPress={() => setDeliveryPreference("COLLECTION")}
+                disabled={financialFieldsLocked}
+                activeOpacity={0.85}
+                accessibilityRole="radio"
+                accessibilityLabel="Collection point"
+                accessibilityState={{ selected: deliveryPreference === "COLLECTION" }}
+              >
+                <FloatingCard style={[styles.optionRow, deliveryPreference === "COLLECTION" && styles.optionRowActive]}>
+                  <Ionicons name={deliveryPreference === "COLLECTION" ? "radio-button-on" : "radio-button-off"} size={18} color={deliveryPreference === "COLLECTION" ? "#076B51" : "#8AA194"} />
+                  <Text style={styles.optionText}>Collection point (default)</Text>
+                </FloatingCard>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setDeliveryPreference("DELIVERY")}
+                disabled={financialFieldsLocked}
+                activeOpacity={0.85}
+                accessibilityRole="radio"
+                accessibilityLabel="Individual delivery"
+                accessibilityState={{ selected: deliveryPreference === "DELIVERY" }}
+              >
+                <FloatingCard style={[styles.optionRow, deliveryPreference === "DELIVERY" && styles.optionRowActive]}>
+                  <Ionicons name={deliveryPreference === "DELIVERY" ? "radio-button-on" : "radio-button-off"} size={18} color={deliveryPreference === "DELIVERY" ? "#076B51" : "#8AA194"} />
+                  <Text style={styles.optionText}>Individual delivery</Text>
+                </FloatingCard>
+              </TouchableOpacity>
+              <Text style={styles.fieldHint}>Collection point keeps participant addresses out of this — the safer default. This records your intent only; delivery-address handling is not built yet.</Text>
+            </View>
 
             {!isEdit ? (
               <View style={{ gap: 10 }}>
@@ -944,6 +1091,14 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     <Text style={styles.outcomeHint}>Once submitted, an admin reviews this campaign. If changes are needed, you'll see the exact reason and can resubmit.</Text>
                   </FloatingCard>
                 </View>
+                {submitMissing && submitMissing.length > 0 ? (
+                  <FloatingCard style={styles.noticeCard}>
+                    <Ionicons name="alert-circle-outline" size={18} color="#B48A00" />
+                    <Text style={styles.noticeText}>
+                      Still needed before this can be submitted: {submitMissing.map((m) => MISSING_FIELD_LABELS[m] ?? m).join(", ")}
+                    </Text>
+                  </FloatingCard>
+                ) : null}
                 <TouchableOpacity
                   onPress={handleSubmit}
                   disabled={submitting}

@@ -550,8 +550,8 @@ export default function BuyerHomeScreen() {
                     <FloatingCard style={styles.communityBuyCard}>
                       <Text style={styles.communityBuyCardTitle} numberOfLines={1}>{c.title}</Text>
                       <Text style={styles.communityBuyCardVendor} numberOfLines={1}>{c.supplier?.vendor?.storeName ?? "Community Buy"}</Text>
-                      <RangeProgressBar value={c.confirmedShares} min={c.minimumShares} goal={c.goalShares} max={c.maximumShares} />
-                      <Text style={styles.communityBuyCardMeta}>{communityBuyDaysLeft(c.deadline)}</Text>
+                      <RangeProgressBar value={c.confirmedShares} min={c.minimumShares!} goal={c.goalShares!} max={c.maximumShares!} />
+                      <Text style={styles.communityBuyCardMeta}>{communityBuyDaysLeft(c.deadline!)}</Text>
                     </FloatingCard>
                   </TouchableOpacity>
                 ))}

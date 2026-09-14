@@ -117,7 +117,9 @@ export default function CommunityBuyPaymentScreen() {
     );
   }
 
-  const amount = quantity * campaign.pricePerShareMinor;
+  // Nullable on a draft, but this screen only ever shows a LIVE campaign —
+  // submit() (backend) guarantees these are set by then.
+  const amount = quantity * campaign.pricePerShareMinor!;
 
   return (
     <View style={premiumStyles.page}>

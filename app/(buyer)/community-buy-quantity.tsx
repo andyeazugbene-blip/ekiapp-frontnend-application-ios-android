@@ -62,10 +62,12 @@ export default function CommunityBuyQuantityScreen() {
     );
   }
 
-  const remainingCapacity = Math.max(0, campaign.maximumShares - campaign.confirmedShares);
+  // Nullable on a draft, but this screen only ever shows a LIVE campaign —
+  // submit() (backend) guarantees these are set by then.
+  const remainingCapacity = Math.max(0, campaign.maximumShares! - campaign.confirmedShares);
   const parsedQuantity = Math.round(Number(quantity)) || 0;
   const quantityValid = parsedQuantity > 0 && parsedQuantity <= remainingCapacity;
-  const subtotal = parsedQuantity * campaign.pricePerShareMinor;
+  const subtotal = parsedQuantity * campaign.pricePerShareMinor!;
 
   const validationMessage =
     parsedQuantity <= 0
@@ -86,7 +88,7 @@ export default function CommunityBuyQuantityScreen() {
         <View style={[premiumStyles.block, { gap: 14 }]}>
           <FloatingCard style={{ gap: 10 }}>
             <Text style={styles.fieldLabel}>Price per share</Text>
-            <Text style={styles.priceValue}>{formatDisplayMoney(campaign.pricePerShareMinor / 100, campaign.currency, selectedCurrency)}</Text>
+            <Text style={styles.priceValue}>{formatDisplayMoney(campaign.pricePerShareMinor! / 100, campaign.currency!, selectedCurrency)}</Text>
 
             <View style={styles.quantityRow}>
               <TouchableOpacity

@@ -34,7 +34,14 @@ const UPDATE_POSTABLE_STATUSES = ["LIVE", "PAUSED", "RESCUE_WINDOW", "SUCCEEDED"
 // to the campaign closing out, not only while it's still in draft/review.
 const SUPPLIER_RESPONSE_STATUSES = ["DRAFT", "CHANGES_REQUIRED", "UNDER_REVIEW", "APPROVED", "LIVE", "PAUSED", "RESCUE_WINDOW"];
 
-function formatDeadline(value: string): string {
+// Community Buy Workstream 2: a campaign's deadline is nullable while
+// still a draft — a supplier can be invited to (and see) a campaign
+// before the organiser has finished the wizard (SUPPLIER_RESPONSE_
+// STATUSES includes DRAFT/CHANGES_REQUIRED). `new Date(null)` silently
+// resolves to the 1970 epoch rather than an invalid date, so the null
+// check must come before constructing the Date, not rely on NaN alone.
+function formatDeadline(value: string | null | undefined): string {
+  if (!value) return "Not yet set";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
@@ -229,14 +236,23 @@ export default function VendorCommunityBuySupplierScreen() {
                       <Text style={styles.cardMeta}>Organiser: {c.organiser?.user?.name ?? "Unknown"}</Text>
                       {c.description ? <Text style={styles.cardDescription}>{c.description}</Text> : null}
                       <Text style={styles.cardMeta}>Deadline: {formatDeadline(c.deadline)}</Text>
+                      {/* Statuses here all follow submit(), which guarantees shares are set. */}
                       {["LIVE", "PAUSED", "RESCUE_WINDOW", "UNDER_REVIEW", "APPROVED"].includes(c.status) ? (
-                        <RangeProgressBar value={c.confirmedShares} min={c.minimumShares} goal={c.goalShares} max={c.maximumShares} />
+                        <RangeProgressBar value={c.confirmedShares} min={c.minimumShares!} goal={c.goalShares!} max={c.maximumShares!} />
                       ) : null}
+                      {/* A supplier can be invited before the organiser finishes the
+                          wizard (SUPPLIER_RESPONSE_STATUSES includes DRAFT) — these
+                          can genuinely still be unset, so show that honestly rather
+                          than asserting non-null. */}
                       <Text style={styles.cardMeta}>
-                        {c.confirmedShares} of {c.maximumShares} shares · minimum {c.minimumShares} to proceed
+                        {c.maximumShares != null && c.minimumShares != null
+                          ? `${c.confirmedShares} of ${c.maximumShares} shares · minimum ${c.minimumShares} to proceed`
+                          : "Quantities not yet set by the organiser"}
                       </Text>
                       <Text style={styles.cardMeta}>
-                        {formatDisplayMoney(c.pricePerShareMinor / 100, c.currency, selectedCurrency)} per share
+                        {c.pricePerShareMinor != null && c.currency
+                          ? `${formatDisplayMoney(c.pricePerShareMinor / 100, c.currency, selectedCurrency)} per share`
+                          : "Price not yet set by the organiser"}
                       </Text>
 
                       {pendingDecision ? (
