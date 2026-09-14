@@ -107,6 +107,34 @@ export interface PendingSupplier {
   vendor?: { storeName: string; verificationStatus: string };
 }
 
+// Workstream 3 — the no-Vendor-required supplier capability (Set B, distinct
+// from the legacy Vendor-keyed PendingSupplier above). Mirrors backend
+// SupplierAccountState exactly (schema.prisma).
+export type SupplierAccountState =
+  | "NOT_STARTED" | "DRAFT" | "VERIFICATION_REQUIRED" | "UNDER_REVIEW"
+  | "INFORMATION_REQUIRED" | "APPROVED" | "PAUSED" | "RESTRICTED" | "SUSPENDED" | "CLOSED";
+
+export interface AdminSupplierAccount {
+  id: string;
+  userId: string;
+  supplierState: SupplierAccountState;
+  categories: string[];
+  coverageRegions: string[];
+  collectionAreas: string[];
+  providerConnectedAccountId: string | null;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  detailsSubmitted: boolean;
+  requirementsDue: string[];
+  legacySupplierProfileId: string | null;
+  reasonCode: string | null;
+  approvedAt: string | null;
+  pausedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user?: { name: string; email: string };
+}
+
 export type MarketPaymentMode = "DISABLED" | "TEST" | "LIVE";
 export type CommunityBuyPaymentMode = "PAY_NOW_REFUND_ON_FAILURE" | "AUTHORISE_THEN_CAPTURE" | "PLEDGE_THEN_CHARGE";
 export type SupplierReleasePolicy = "ON_DELIVERY_CONFIRMED" | "ON_FULFILMENT_MARKED";
@@ -437,5 +465,26 @@ export const communityBuyAdminAPI = {
   }>): Promise<AdminSupportCase> {
     const res = await apiClient.patch<{ supportCase: AdminSupportCase }>(`/admin/community-buy/support-cases/${id}`, data);
     return res.supportCase;
+  },
+
+  // ─── SupplierAccount review (Workstream 3, Set B) — the no-Vendor-
+  // required supplier capability. Approve/restrict/unrestrict have existed
+  // backend-side since Workstream 1 with zero admin-web UI; list is new. ──
+  async getSupplierAccounts(state?: SupplierAccountState, opts?: ReadOptions): Promise<AdminSupplierAccount[]> {
+    const qs = state ? `?state=${encodeURIComponent(state)}` : "";
+    const res = await apiClient.get<{ items?: AdminSupplierAccount[] }>(`/admin/community-buy/supplier-accounts${qs}`, opts);
+    return res.items ?? [];
+  },
+  async approveSupplierAccount(id: string): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/approve`, {});
+    return res.account;
+  },
+  async restrictSupplierAccount(id: string, reason: string): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/restrict`, { reason });
+    return res.account;
+  },
+  async unrestrictSupplierAccount(id: string): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/unrestrict`, {});
+    return res.account;
   },
 };
