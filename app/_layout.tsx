@@ -254,6 +254,14 @@ export default function RootLayout() {
             // assigned-campaigns screen (vendor route group), not the
             // buyer-side campaign detail this event has nothing to do with.
             router.push(`/(vendor)/community-buy-supplier`);
+          } else if (event === "supplier_invitation") {
+            // Workstream 3 (mandate item 7) — a real, token-based invitation,
+            // distinct from supplier_invited above (which fires only when
+            // the organiser assigns an already-approved supplier). Routes to
+            // the public accept/decline screen even for an already-logged-in
+            // existing user, since accepting/declining is still per-token.
+            const token = data.token as string | undefined;
+            if (token) router.push(`/supplier-invitation/${token}`);
           } else {
             router.push(`/(buyer)/community-buy-campaign?id=${campaignId}`);
           }
@@ -378,6 +386,7 @@ export default function RootLayout() {
             <Stack.Screen name="order/[id]" />
             <Stack.Screen name="chat/[id]" />
             <Stack.Screen name="invite/[code]" />
+            <Stack.Screen name="supplier-invitation/[token]" options={{ animation: "slide_from_right" }} />
           </Stack>
         </StripeProvider>
       </ErrorBoundary>

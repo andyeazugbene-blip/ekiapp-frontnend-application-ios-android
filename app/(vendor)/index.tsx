@@ -30,7 +30,7 @@ import {
   type SubscriptionLimits,
 } from "../../services/subscriptionService";
 import { regularDeliveriesService, type Renewal } from "../../services/regularDeliveriesService";
-import { communityBuyService, type SupplierProfile } from "../../services/communityBuyService";
+import { communityBuyService, type SupplierAccount } from "../../services/communityBuyService";
 import { VendorDashboardData, VendorSummary } from "../../types/vendor";
 import { Product } from "../../types/product";
 import { Order } from "../../types/order";
@@ -76,7 +76,10 @@ interface AggregatedDashboard {
   unreadMessages: number;
   verificationSubmitted: boolean;
   pendingRenewals: Renewal[];
-  supplierProfile: SupplierProfile | null;
+  // Workstream 3 — the no-Vendor-required SupplierAccount is the
+  // authoritative capability check now; a legacy verified SupplierProfile
+  // is synced to an APPROVED account too, so this covers both paths.
+  supplierAccount: SupplierAccount | null;
   communityBuyEnabled: boolean;
   regularDeliveriesEnabled: boolean;
 }
@@ -120,7 +123,7 @@ export default function VendorDashboardScreen() {
     unreadMessages: 0,
     verificationSubmitted: false,
     pendingRenewals: [],
-    supplierProfile: null,
+    supplierAccount: null,
     communityBuyEnabled: false,
     regularDeliveriesEnabled: false,
   });
@@ -145,7 +148,7 @@ export default function VendorDashboardScreen() {
       const profile = await vendorService.getMyProfile().catch(() => null);
 
       // 2. Everything else in parallel; each call is independent + best-effort.
-      const [data, subscription, limits, products, orders, conversations, buyers, zones, verification, pendingRenewals, supplierProfile] = await Promise.all([
+      const [data, subscription, limits, products, orders, conversations, buyers, zones, verification, pendingRenewals, supplierProfileResult] = await Promise.all([
         vendorService.getVendorDashboard().catch(() => null),
         subscriptionService.getCurrentSubscription().catch(() => null),
         subscriptionService.getLimits().catch(() => null),
@@ -178,7 +181,7 @@ export default function VendorDashboardScreen() {
         unreadMessages,
         verificationSubmitted: asArray<any>(verification?.documents).some((doc) => doc.status !== "REJECTED"),
         pendingRenewals: asArray<Renewal>(pendingRenewals).filter((r) => r.status === "AWAITING_STOCK"),
-        supplierProfile: supplierProfile as SupplierProfile | null,
+        supplierAccount: supplierProfileResult?.account ?? null,
         // Backend-authoritative — /me/dashboard's marketing_tools already
         // checks EVERY active market this vendor operates in (architecture
         // doc: "do not show Community Buy in unsupported markets"), not
@@ -211,7 +214,7 @@ export default function VendorDashboardScreen() {
   const navigate = (path: string) => router.push(path as any);
 
   // ── Live-derived values (no hardcoded numbers) ─────────────────────────
-  const { profile, data, subscription, limits, products, orders, buyers, zones, unreadMessages, verificationSubmitted, pendingRenewals, supplierProfile, communityBuyEnabled, regularDeliveriesEnabled } = agg;
+  const { profile, data, subscription, limits, products, orders, buyers, zones, unreadMessages, verificationSubmitted, pendingRenewals, supplierAccount, communityBuyEnabled, regularDeliveriesEnabled } = agg;
 
   const storeName =
     asText(profile?.storeName).trim() || asText(data?.storeName).trim() || asText(user?.name, "your store") || "your store";
@@ -643,7 +646,7 @@ export default function VendorDashboardScreen() {
                   <ToolCard
                     icon="people-circle-outline"
                     eyebrow="Community Buy"
-                    label={supplierProfile?.isVerified ? "Supply" : "Become a supplier"}
+                    label={supplierAccount?.supplierState === "APPROVED" ? "Supply" : "Become a supplier"}
                     filled
                     onPress={() => navigate("/(vendor)/community-buy-supplier")}
                   />

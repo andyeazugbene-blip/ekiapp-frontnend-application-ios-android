@@ -30,7 +30,8 @@ import {
   type CampaignUpdate,
   type MarketConfig,
   type RefundProgress,
-  type SupplierProfile,
+  type SupplierInvitation,
+  type VerifiedSupplier,
 } from "../../services/communityBuyService";
 
 // Mirrors the backend's postCampaignUpdate() gate (community-campaigns.service.ts) —
@@ -85,8 +86,15 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
   const [country, setCountry] = useState("");
   const [currency, setCurrency] = useState("GBP");
-  const [suppliers, setSuppliers] = useState<(SupplierProfile & { vendor?: { storeName: string } })[]>([]);
-  const [supplierId, setSupplierId] = useState<string | null>(null);
+  // Workstream 3 — SupplierAccount-driven picker; supplierAccountId is the
+  // id an organiser actually picks/reassigns with now (legacy supplierId is
+  // still read/displayed from an existing campaign, never chosen fresh).
+  const [suppliers, setSuppliers] = useState<VerifiedSupplier[]>([]);
+  const [supplierAccountId, setSupplierAccountId] = useState<string | null>(null);
+  const [invitations, setInvitations] = useState<SupplierInvitation[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState("");
   // Client-corrected flow: fulfilment is an explicit organiser choice, made
   // once at creation. null before the organiser has picked either option.
   const [fulfilmentOwner, setFulfilmentOwner] = useState<"SELF" | "SUPPLIER" | null>(null);
@@ -161,7 +169,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         // state for a text field, not a fabricated value.
         setCountry(existing.country ?? "");
         setCurrency(existing.currency ?? "");
-        setSupplierId(existing.supplierId);
+        setSupplierAccountId(existing.supplierAccountId ?? null);
         setFulfilmentOwner(existing.fulfilmentOwner);
         if (existing.country) {
           communityBuyService.getMarketConfig(existing.country).then(setMarketConfig).catch(() => undefined);
@@ -197,6 +205,11 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         // different supplier, a decline would be a dead end for the organiser.
         if (existing.supplierDeclinedAt && existing.country) {
           setSuppliers(await communityBuyService.listVerifiedSuppliers(existing.country).catch(() => []));
+        }
+        // Workstream 3 — invite-by-email (mandate item 7), alongside picking
+        // from the approved-supplier list.
+        if (existing.fulfilmentOwner === "SUPPLIER") {
+          setInvitations(await communityBuyService.listSupplierInvitations(id).catch(() => []));
         }
       } else {
         // Community Buy Workstream 2: organising is available to every
@@ -273,7 +286,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       quantityPerOrder: quantityPerOrder.trim() ? Math.round(Number(quantityPerOrder)) : undefined,
       qualityNotes: qualityNotes.trim() || undefined,
       deliveryPreference,
-      ...(fulfilmentOwner ? { fulfilmentOwner, ...(fulfilmentOwner === "SUPPLIER" ? { supplierId: supplierId ?? undefined } : {}) } : {}),
+      ...(fulfilmentOwner ? { fulfilmentOwner, ...(fulfilmentOwner === "SUPPLIER" ? { supplierAccountId: supplierAccountId ?? undefined } : {}) } : {}),
     };
 
     setSaving(true);
@@ -293,17 +306,47 @@ export default function CommunityBuyOrganiserCampaignScreen() {
     }
   };
 
-  const handleReassignSupplier = async (newSupplierId: string) => {
+  const handleReassignSupplier = async (newSupplierAccountId: string) => {
     if (!campaign || reassigning) return;
     setReassigning(true);
     try {
-      const updated = await communityBuyService.reassignSupplier(campaign.id, newSupplierId);
+      const updated = await communityBuyService.reassignSupplier(campaign.id, { supplierAccountId: newSupplierAccountId });
       setCampaign(updated);
-      setSupplierId(updated.supplierId);
+      setSupplierAccountId(updated.supplierAccountId ?? null);
     } catch (err) {
       Alert.alert("Couldn't reassign supplier", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setReassigning(false);
+    }
+  };
+
+  /** Workstream 3 — the third supply route (mandate item 7): invite someone by email who may have no Eki account yet. */
+  const handleSendInvitation = async () => {
+    if (!campaign) return;
+    const email = inviteEmail.trim();
+    if (!email || !email.includes("@")) {
+      setInviteError("Enter a valid email address.");
+      return;
+    }
+    setInviting(true);
+    setInviteError("");
+    try {
+      const invitation = await communityBuyService.createSupplierInvitation(campaign.id, email);
+      setInvitations((prev) => [invitation, ...prev]);
+      setInviteEmail("");
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : "Could not send this invitation.");
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleRevokeInvitation = async (invitationId: string) => {
+    try {
+      const updated = await communityBuyService.revokeSupplierInvitation(invitationId);
+      setInvitations((prev) => prev.map((i) => (i.id === invitationId ? updated : i)));
+    } catch (err) {
+      Alert.alert("Couldn't revoke this invitation", err instanceof Error ? err.message : "Please try again.");
     }
   };
 
@@ -933,27 +976,78 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 </Text>
 
                 {fulfilmentOwner === "SUPPLIER" ? (
-                  suppliers.length === 0 ? (
-                    <Text style={styles.emptyText}>No verified suppliers in {countryDisplayName(country)} yet.</Text>
-                  ) : (
-                    <View style={{ gap: 8 }}>
-                      {suppliers.map((s) => (
-                        <TouchableOpacity
-                          key={s.id}
-                          onPress={() => setSupplierId(s.id)}
-                          activeOpacity={0.85}
-                          accessibilityRole="radio"
-                          accessibilityLabel={s.vendor?.storeName ?? "Supplier"}
-                          accessibilityState={{ selected: supplierId === s.id }}
-                        >
-                          <FloatingCard style={[styles.optionRow, supplierId === s.id && styles.optionRowActive]}>
-                            <Ionicons name={supplierId === s.id ? "radio-button-on" : "radio-button-off"} size={18} color={supplierId === s.id ? "#076B51" : "#8AA194"} />
-                            <Text style={styles.optionText}>{s.vendor?.storeName ?? "Supplier"}</Text>
-                          </FloatingCard>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )
+                  <>
+                    {suppliers.length === 0 ? (
+                      <Text style={styles.emptyText}>No approved suppliers in {countryDisplayName(country)} yet.</Text>
+                    ) : (
+                      <View style={{ gap: 8 }}>
+                        {suppliers.map((s) => (
+                          <TouchableOpacity
+                            key={s.id}
+                            onPress={() => setSupplierAccountId(s.id)}
+                            activeOpacity={0.85}
+                            accessibilityRole="radio"
+                            accessibilityLabel={s.displayName ?? "Supplier"}
+                            accessibilityState={{ selected: supplierAccountId === s.id }}
+                          >
+                            <FloatingCard style={[styles.optionRow, supplierAccountId === s.id && styles.optionRowActive]}>
+                              <Ionicons name={supplierAccountId === s.id ? "radio-button-on" : "radio-button-off"} size={18} color={supplierAccountId === s.id ? "#076B51" : "#8AA194"} />
+                              <Text style={styles.optionText}>{s.displayName ?? "Supplier"}</Text>
+                            </FloatingCard>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                    {/* Workstream 3 — the third supply route (mandate item 7):
+                        invite someone by email, no Eki account required.
+                        Only meaningful once a campaign exists to invite them to. */}
+                    {isEdit && campaign ? (
+                      <View style={{ gap: 8, marginTop: 4 }}>
+                        <Text style={styles.label}>Or invite a supplier by email</Text>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <TextInput
+                            style={[styles.input, { flex: 1 }]}
+                            placeholder="supplier@example.com"
+                            placeholderTextColor="#8AA194"
+                            value={inviteEmail}
+                            onChangeText={setInviteEmail}
+                            autoCapitalize="none"
+                            keyboardType="email-address"
+                            accessibilityLabel="Supplier email to invite"
+                          />
+                          <TouchableOpacity
+                            onPress={() => void handleSendInvitation()}
+                            disabled={inviting}
+                            activeOpacity={0.88}
+                            style={[styles.secondaryBtn, { marginTop: 0, paddingHorizontal: 16 }]}
+                            accessibilityRole="button"
+                            accessibilityLabel="Send invitation"
+                            accessibilityState={{ busy: inviting, disabled: inviting }}
+                          >
+                            {inviting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Invite</Text>}
+                          </TouchableOpacity>
+                        </View>
+                        {inviteError ? <Text style={styles.fieldHint}>{inviteError}</Text> : null}
+                        {invitations.length > 0 ? (
+                          <View style={{ gap: 6 }}>
+                            {invitations.map((inv) => (
+                              <FloatingCard key={inv.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.optionText}>{inv.email}</Text>
+                                  <Text style={styles.fieldHint}>{inv.status}{inv.declineReason ? `: ${inv.declineReason}` : ""}</Text>
+                                </View>
+                                {inv.status === "PENDING" ? (
+                                  <TouchableOpacity onPress={() => void handleRevokeInvitation(inv.id)} accessibilityRole="button" accessibilityLabel="Revoke invitation">
+                                    <Text style={styles.linkText}>Revoke</Text>
+                                  </TouchableOpacity>
+                                ) : null}
+                              </FloatingCard>
+                            ))}
+                          </View>
+                        ) : null}
+                      </View>
+                    ) : null}
+                  </>
                 ) : null}
               </View>
             ) : null}
@@ -969,22 +1063,22 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     </Text>
                   </View>
                   {suppliers.length === 0 ? (
-                    <Text style={styles.emptyText}>No other verified suppliers in {countryDisplayName(country)} yet.</Text>
+                    <Text style={styles.emptyText}>No other approved suppliers in {countryDisplayName(country)} yet.</Text>
                   ) : (
                     <View style={{ gap: 8 }}>
-                      {suppliers.filter((s) => s.id !== campaign.supplierId).map((s) => (
+                      {suppliers.filter((s) => s.id !== campaign.supplierAccountId).map((s) => (
                         <TouchableOpacity
                           key={s.id}
                           onPress={() => void handleReassignSupplier(s.id)}
                           disabled={reassigning}
                           activeOpacity={0.85}
                           accessibilityRole="button"
-                          accessibilityLabel={`Reassign to ${s.vendor?.storeName ?? "Supplier"}`}
+                          accessibilityLabel={`Reassign to ${s.displayName ?? "Supplier"}`}
                           accessibilityState={{ busy: reassigning, disabled: reassigning }}
                         >
                           <FloatingCard style={styles.optionRow}>
                             {reassigning ? <ActivityIndicator size="small" color="#076B51" /> : <Ionicons name="radio-button-off" size={18} color="#8AA194" />}
-                            <Text style={styles.optionText}>{s.vendor?.storeName ?? "Supplier"}</Text>
+                            <Text style={styles.optionText}>{s.displayName ?? "Supplier"}</Text>
                           </FloatingCard>
                         </TouchableOpacity>
                       ))}
@@ -1075,7 +1169,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                         {campaign.fulfilmentOwner === "SELF"
                           ? "You (self-fulfilled)"
                           : campaign.supplierCommitted
-                            ? (suppliers.find((s) => s.id === supplierId)?.vendor?.storeName ?? "Confirmed supplier")
+                            ? (suppliers.find((s) => s.id === supplierAccountId)?.displayName ?? campaign.supplier?.vendor?.storeName ?? "Confirmed supplier")
                             : campaign.supplierDeclinedAt
                               ? "Supplier declined — choose a new one below, or submit as-is"
                               : "Supplier invited — awaiting response"}

@@ -157,6 +157,9 @@ export interface CampaignDraftInput {
   country?: string;
   fulfilmentOwner?: "SELF" | "SUPPLIER";
   supplierId?: string;
+  // Workstream 3 — the no-Vendor-required supplier choice, preferred over
+  // supplierId for new assignments (see VerifiedSupplier/listVerifiedSuppliers).
+  supplierAccountId?: string;
   description?: string;
   currency?: string;
   minimumShares?: number;
@@ -180,6 +183,13 @@ export interface Campaign {
   fulfilmentOwner: "SELF" | "SUPPLIER";
   supplierId: string | null;
   supplier?: { vendor?: { storeName: string } } | null;
+  // Workstream 3 — set when a no-Vendor SupplierAccount is assigned
+  // (alongside supplierId when that account is itself linked to a legacy
+  // profile). Prefer supplierAccount?.user?.name over supplier?.vendor?.
+  // storeName when both could apply, since supplierAccountId is the
+  // authoritative assignment going forward.
+  supplierAccountId?: string | null;
+  supplierAccount?: { user?: { name: string } } | null;
   organiser?: { user?: { name: string } };
   title: string;
   description?: string | null;
@@ -382,6 +392,73 @@ export interface SupplierProfile {
   createdAt: string;
 }
 
+// Workstream 3 — the no-Vendor-required supplier capability (Supplier
+// Centre). Mirrors backend SupplierAccountState exactly (schema.prisma).
+export type SupplierAccountState =
+  | "NOT_STARTED"
+  | "DRAFT"
+  | "VERIFICATION_REQUIRED"
+  | "UNDER_REVIEW"
+  | "INFORMATION_REQUIRED"
+  | "APPROVED"
+  | "PAUSED"
+  | "RESTRICTED"
+  | "SUSPENDED"
+  | "CLOSED";
+
+export const SUPPLIER_ACCOUNT_STATE_LABELS: Record<SupplierAccountState, string> = {
+  NOT_STARTED: "Not started",
+  DRAFT: "Draft application",
+  VERIFICATION_REQUIRED: "Verification required",
+  UNDER_REVIEW: "Under review",
+  INFORMATION_REQUIRED: "More information needed",
+  APPROVED: "Approved",
+  PAUSED: "Paused",
+  RESTRICTED: "Restricted",
+  SUSPENDED: "Suspended",
+  CLOSED: "Closed",
+};
+
+export interface SupplierAccount {
+  id?: string;
+  supplierState: SupplierAccountState;
+  requirementsDue: string[];
+  categories?: string[];
+  coverageRegions?: string[];
+  collectionAreas?: string[];
+  providerConnectedAccountId?: string | null;
+  chargesEnabled?: boolean;
+  payoutsEnabled?: boolean;
+  detailsSubmitted?: boolean;
+  reasonCode?: string | null;
+  legacySupplierProfileId?: string | null;
+  approvedAt?: string | null;
+}
+
+/** The organiser-facing picker's real shape (Workstream 3 — SupplierAccount-driven, replacing the legacy SupplierProfile+vendor shape). */
+export interface VerifiedSupplier {
+  id: string;
+  displayName: string | null;
+  categories: string[];
+  coverageRegions: string[];
+  legacySupplierProfileId: string | null;
+}
+
+export type SupplierInvitationStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "EXPIRED" | "REVOKED";
+
+export interface SupplierInvitation {
+  id: string;
+  campaignId: string;
+  email: string;
+  token: string;
+  status: SupplierInvitationStatus;
+  declineReason?: string | null;
+  expiresAt: string;
+  respondedAt?: string | null;
+  createdAt: string;
+  campaign?: { id: string; title: string };
+}
+
 interface Items<T> {
   items?: T[];
 }
@@ -474,8 +551,9 @@ export const communityBuyService = {
     return res.profile;
   },
 
-  async listVerifiedSuppliers(country: string): Promise<(SupplierProfile & { vendor?: { storeName: string } })[]> {
-    const res = await apiClient.get<Items<SupplierProfile & { vendor?: { storeName: string } }>>(
+  /** Workstream 3 — SupplierAccount-driven; every verified legacy supplier appears here too via its synced account, so this is the single organiser-facing picker source now. */
+  async listVerifiedSuppliers(country: string): Promise<VerifiedSupplier[]> {
+    const res = await apiClient.get<Items<VerifiedSupplier>>(
       `/api/organiser/suppliers?country=${encodeURIComponent(country)}`,
     );
     return res.items ?? [];
@@ -550,14 +628,29 @@ export const communityBuyService = {
   },
 
   // ─── Supplier ─────────────────────────────────────────────────────────────
-  async getMySupplierProfile(): Promise<SupplierProfile | null> {
-    const res = await apiClient.get<{ profile: SupplierProfile | null }>("/api/supplier/profile");
-    return res.profile;
+  // Workstream 3 fix: the backend has always returned { profile, account }
+  // (account added Workstream 1) — this used to silently discard `account`,
+  // meaning the client never knew a SupplierAccount existed at all.
+  async getMySupplierProfile(): Promise<{ profile: SupplierProfile | null; account: SupplierAccount }> {
+    return apiClient.get<{ profile: SupplierProfile | null; account: SupplierAccount }>("/api/supplier/profile");
   },
 
-  async applyAsSupplier(country: string): Promise<SupplierProfile> {
-    const res = await apiClient.post<{ profile: SupplierProfile }>("/api/supplier/applications", { country });
-    return res.profile;
+  async applyAsSupplier(input: { country: string; categories?: string[]; coverageRegions?: string[] }): Promise<SupplierAccount> {
+    const res = await apiClient.post<{ account: SupplierAccount }>("/api/supplier/applications", input);
+    return res.account;
+  },
+
+  // ─── Supplier Stripe Connect onboarding — Workstream 3 (mandate item 2) ──
+  async onboardSupplierStripeConnect(): Promise<{ onboardingUrl: string }> {
+    return apiClient.post("/api/supplier/stripe-connect/onboard", {});
+  },
+
+  async getSupplierStripeConnectStatus(): Promise<{ providerConnectedAccountId: string | null; chargesEnabled: boolean; payoutsEnabled: boolean; detailsSubmitted: boolean }> {
+    return apiClient.get("/api/supplier/stripe-connect/status");
+  },
+
+  async refreshSupplierStripeConnect(): Promise<{ onboardingUrl: string }> {
+    return apiClient.post("/api/supplier/stripe-connect/refresh", {});
   },
 
   async listMySupplierCampaigns(): Promise<Campaign[]> {
@@ -577,10 +670,41 @@ export const communityBuyService = {
     return res.campaign;
   },
 
-  /** Organiser-side companion to decline — only valid pre-commitment, while a campaign is still in draft. */
-  async reassignSupplier(campaignId: string, supplierId: string): Promise<Campaign> {
-    const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${campaignId}/supplier`, { supplierId });
+  /** Organiser-side companion to decline — only valid pre-commitment, while a campaign is still in draft. Accepts either the new SupplierAccount id (preferred) or a legacy supplierId. */
+  async reassignSupplier(campaignId: string, choice: { supplierAccountId: string } | { supplierId: string }): Promise<Campaign> {
+    const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${campaignId}/supplier`, choice);
     return res.campaign;
+  },
+
+  // ─── Supplier invitations — Workstream 3 (mandate item 7) ──────────────
+  async createSupplierInvitation(campaignId: string, email: string): Promise<SupplierInvitation> {
+    const res = await apiClient.post<{ invitation: SupplierInvitation }>(`/api/organiser/campaigns/${campaignId}/supplier-invitations`, { email });
+    return res.invitation;
+  },
+
+  async listSupplierInvitations(campaignId: string): Promise<SupplierInvitation[]> {
+    const res = await apiClient.get<Items<SupplierInvitation>>(`/api/organiser/campaigns/${campaignId}/supplier-invitations`);
+    return res.items ?? [];
+  },
+
+  async revokeSupplierInvitation(invitationId: string): Promise<SupplierInvitation> {
+    const res = await apiClient.post<{ invitation: SupplierInvitation }>(`/api/organiser/supplier-invitations/${invitationId}/revoke`, {});
+    return res.invitation;
+  },
+
+  /** Public — the invitee may have no Eki account yet, so this and accept/decline below never require auth. */
+  async getSupplierInvitation(token: string): Promise<SupplierInvitation> {
+    const res = await apiClient.get<{ invitation: SupplierInvitation }>(`/api/community-buy/supplier-invitations/${token}`, { skipAuth: true });
+    return res.invitation;
+  },
+
+  async acceptSupplierInvitation(token: string, newAccount?: { name: string; password: string }): Promise<{ userId: string; supplierAccountId: string; supplierState: SupplierAccountState; assigned: boolean }> {
+    return apiClient.post(`/api/community-buy/supplier-invitations/${token}/accept`, newAccount ?? {}, { skipAuth: true });
+  },
+
+  async declineSupplierInvitation(token: string, reason?: string): Promise<SupplierInvitation> {
+    const res = await apiClient.post<{ invitation: SupplierInvitation }>(`/api/community-buy/supplier-invitations/${token}/decline`, { reason }, { skipAuth: true });
+    return res.invitation;
   },
 
   // ─── Supplier fulfilment — doc Phase 8 ─────────────────────────────────
