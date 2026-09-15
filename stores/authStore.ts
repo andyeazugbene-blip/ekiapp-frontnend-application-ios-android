@@ -6,7 +6,7 @@ import { ApiRequestError, setOnUnauthorized } from "../services/api";
 import { tokenStorage } from "../services/api/tokenStorage";
 import { setMonitoringUser } from "../services/monitoring";
 import { pushTokenService } from "../services/notificationService";
-import { AdminProfile, BuyerProfile, LoginCredentials, RegisterPayload, UserRole, VendorProfile } from "../types/auth";
+import { AdminProfile, AuthCapabilities, BuyerProfile, LastDestination, LoginCredentials, RegisterPayload, UserRole, VendorProfile } from "../types/auth";
 import { useCartStore } from "./cartStore";
 import { useFavoritesStore } from "./favoritesStore";
 import { useOrderStore } from "./orderStore";
@@ -18,7 +18,7 @@ type AuthCache = {
   user: AnyProfile | null;
   hasSeenOnboarding: boolean;
   pushToken: string | null;
-  lastRole: string | null;
+  lastDestination: LastDestination | null;
 };
 
 const AUTH_CACHE_KEY = "eki_auth_cache";
@@ -31,7 +31,12 @@ interface AuthStore {
   isLoading: boolean;
   isInitializing: boolean;
   hasSeenOnboarding: boolean;
-  lastRole: string | null;
+  // Community Buy Workstream 9 (universal account) — a preference, never an
+  // authority: which of Buy/Sell/Supply/Community Buy this user last chose
+  // to enter as. Replaces the old lastRole field now that access to each
+  // destination is capability-based (hasVendor, canSupply, ...), not
+  // role-based — this value only ever decides which screen to land on.
+  lastDestination: LastDestination | null;
   error: string | null;
   isAccountLocked: boolean;
   checkAuth: () => Promise<void>;
@@ -41,9 +46,8 @@ interface AuthStore {
   deleteAccount: () => Promise<string>;
   updateProfile: (data: Record<string, unknown>) => Promise<AnyProfile>;
   setUser: (user: AnyProfile) => void;
-  switchRole: () => Promise<void>;
   finalizeOAuthSession: (user: AnyProfile, token: string) => void;
-  setLastRole: (role: string) => void;
+  setLastDestination: (destination: LastDestination) => void;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
   setHasSeenOnboarding: () => void;
@@ -68,7 +72,7 @@ async function readAuthCache(): Promise<AuthCache | null> {
       user: (parsed.user as AnyProfile | null) ?? null,
       hasSeenOnboarding: parsed.hasSeenOnboarding === true,
       pushToken: parsed.pushToken ?? null,
-      lastRole: parsed.lastRole ?? null,
+      lastDestination: parsed.lastDestination ?? null,
     };
   } catch {
     return null;
@@ -94,7 +98,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       user: state.user,
       hasSeenOnboarding: state.hasSeenOnboarding,
       pushToken: state.pushToken,
-      lastRole: state.lastRole,
+      lastDestination: state.lastDestination,
     });
   };
 
@@ -127,7 +131,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     isLoading: false,
     isInitializing: true,
     hasSeenOnboarding: false,
-    lastRole: null,
+    lastDestination: null,
     error: null,
     isAccountLocked: false,
 
@@ -144,7 +148,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           user: cached.user,
           token: storedToken,
           pushToken: cached.pushToken,
-          lastRole: cached.lastRole || null,
+          lastDestination: cached.lastDestination || null,
           isAuthenticated: true,
           hasSeenOnboarding: cached.hasSeenOnboarding || get().hasSeenOnboarding,
         });
@@ -158,7 +162,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
             user: result.user,
             token: result.token,
             pushToken: get().pushToken ?? cached?.pushToken ?? null,
-            lastRole: result.user.role,
+            lastDestination: (result.user.lastDestination as LastDestination | undefined) ?? get().lastDestination,
             isAuthenticated: true,
             isInitializing: false,
             hasSeenOnboarding: true,
@@ -195,7 +199,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         set({
           user,
           token,
-          lastRole: user.role,
+          lastDestination: (user.lastDestination as LastDestination | undefined) ?? get().lastDestination,
           isAuthenticated: true,
           isLoading: false,
           hasSeenOnboarding: true,
@@ -233,32 +237,16 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       try {
         const { user, token } = await authService.register(payload);
 
-        if (payload.role && user.role !== payload.role) {
-          await authService.logout();
-          const roleLabels: Record<string, string> = {
-            buyer: "a buyer",
-            vendor: "a vendor / seller",
-            admin: "an admin",
-          };
-          const actualLabel = roleLabels[user.role] ?? user.role;
-          const expectedLabel = roleLabels[payload.role] ?? payload.role;
-          clearLocalSession();
-          await clearAuthCache();
-          set({
-            user: null,
-            token: null,
-            pushToken: null,
-            isAuthenticated: false,
-            isLoading: false,
-            error: `This account was created as ${actualLabel}, but you selected ${expectedLabel}. Please go back and choose the correct role.`,
-          });
-          return;
-        }
-
+        // Community Buy Workstream 9 (universal account): registration no
+        // longer rejects on a role mismatch. Under the capability model
+        // every account can buy/organise regardless of which entry point
+        // created it, so there is nothing left for a mismatch to protect
+        // against — the old check only risked force-logging out a
+        // successfully-created account (a role trap), never anything real.
         set({
           user,
           token,
-          lastRole: user.role,
+          lastDestination: (user.lastDestination as LastDestination | undefined) ?? get().lastDestination,
           isAuthenticated: true,
           isLoading: false,
           hasSeenOnboarding: true,
@@ -370,7 +358,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       set({
         user,
         token,
-        lastRole: user.role,
+        lastDestination: (user.lastDestination as LastDestination | undefined) ?? get().lastDestination,
         isAuthenticated: true,
         isLoading: false,
         error: null,
@@ -388,17 +376,10 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         })
         .catch(() => {});
     },
-    switchRole: async () => {
-      try {
-        const { user, token } = await authService.switchRole();
-        set({ user, token, lastRole: user.role });
-        setMonitoringUser({ id: user.id, role: user.role });
-        persistState();
-      } catch (err) {
-        set({ error: err instanceof Error ? err.message : "Failed to switch role" });
-      }
+    setLastDestination: (destination) => {
+      set({ lastDestination: destination });
+      persistState();
     },
-    setLastRole: (role: string) => { set({ lastRole: role }); persistState(); },
     clearError: () => set({ error: null, isAccountLocked: false }),
     setLoading: (loading) => set({ isLoading: loading }),
     setHasSeenOnboarding: () => {
@@ -414,3 +395,9 @@ export const selectHasVendor = (state: AuthStore): boolean => state.user?.hasVen
 export const selectIsVendor = (state: AuthStore) => state.user?.role === "vendor";
 export const selectIsBuyer = (state: AuthStore) => state.user?.role === "buyer";
 export const selectIsAdmin = (state: AuthStore) => state.user?.role === "admin";
+// Community Buy Workstream 9 — capability-based selectors, the intended
+// replacement for role-based access checks going forward. selectIsVendor/
+// selectIsBuyer above remain for existing display-only (cosmetic) usages;
+// new access decisions should prefer these plus selectHasVendor.
+export const selectCapabilities = (state: AuthStore): AuthCapabilities | null => state.user?.capabilities ?? null;
+export const selectLastDestination = (state: AuthStore): LastDestination | null => state.lastDestination;

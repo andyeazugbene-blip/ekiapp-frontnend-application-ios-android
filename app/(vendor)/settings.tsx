@@ -312,24 +312,17 @@ export default function VendorSettingsScreen() {
             icon="swap-horizontal-outline"
             label="Switch to Buyer"
             description="Go to the buyer side of the app"
-            onPress={async () => {
-              try {
-                await useAuthStore.getState().switchRole();
-                // Global destination bounce (root cause): goBackOrReplace()
-                // prefers router.back() whenever navigation history exists —
-                // which it always does here, since Settings is only ever
-                // reached by pushing forward from inside (vendor). back()
-                // therefore just popped to whatever Vendor screen was open
-                // before Settings, silently discarding the "/(buyer)"
-                // fallback and making this button look like it did nothing
-                // (Community Buy and Supplier are unreachable from here for
-                // the same reason: both live behind first actually leaving
-                // Vendor). An explicit destination must always win over
-                // incidental back-history — replace(), not goBackOrReplace().
-                router.replace("/(buyer)" as any);
-              } catch (err) {
-                Alert.alert("Error", err instanceof Error ? err.message : "Failed to switch role");
-              }
+            onPress={() => {
+              // Community Buy Workstream 9 (universal account): Buyer
+              // access has never required any role — this is a pure
+              // navigation + preference update now, no backend call.
+              // An explicit destination must always win over incidental
+              // back-history — replace(), not goBackOrReplace() (see the
+              // history note this fix originally carried: Settings is only
+              // ever reached by pushing forward from inside Vendor, so
+              // router.back() would just pop to the prior Vendor screen).
+              useAuthStore.getState().setLastDestination("buy");
+              router.replace("/(buyer)" as any);
             }}
           />
           <SettingRow

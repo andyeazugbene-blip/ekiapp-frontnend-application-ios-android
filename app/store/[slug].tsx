@@ -712,7 +712,6 @@ export default function PublicStoreScreen() {
       await authService.login({
       email: checkout.email.trim().toLowerCase(),
       password: signInPassword.trim(),
-      expectedRole: "buyer",
       });
       await useAuthStore.getState().checkAuth();
       setShowSignIn(false);

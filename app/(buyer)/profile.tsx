@@ -114,12 +114,12 @@ export default function ProfileScreen() {
   const handleItemPress = async (item: MenuItem) => {
     if (item.action === "navigate" && item.target) {
       if (item.label === "Switch to Vendor") {
-        try {
-          await useAuthStore.getState().switchRole();
-          router.replace("/(vendor)" as any);
-        } catch (err) {
-          Alert.alert("Cannot switch", err instanceof Error ? err.message : "You may not have a vendor profile.");
-        }
+        // Community Buy Workstream 9 (universal account): Vendor access is
+        // gated purely on hasVendor (see (vendor)/_layout.tsx) — this item
+        // only shows when hasVendor is already true, so this is a pure
+        // navigation + preference update now, no backend call.
+        useAuthStore.getState().setLastDestination("sell");
+        router.replace("/(vendor)" as any);
         return;
       }
       router.push(item.target as any);

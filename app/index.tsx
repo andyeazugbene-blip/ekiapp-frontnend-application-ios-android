@@ -32,9 +32,15 @@ export default function Index() {
       if (state.isAuthenticated) {
         hasNavigated.current = true;
         if (state.user?.role === "admin") { router.replace("/(admin)" as any); return; }
-        if (state.lastRole === "vendor") { router.replace("/(vendor)" as any); return; }
-        if (state.lastRole === "buyer") { router.replace("/(buyer)" as any); return; }
-        if (state.user?.role === "vendor") { router.replace("/(vendor)" as any); return; }
+        // Community Buy Workstream 9 (universal account): lastDestination
+        // is a pure preference (never an authority) — Vendor access itself
+        // is gated purely on hasVendor inside (vendor)/_layout.tsx, so
+        // landing there when it isn't the preference is still safe.
+        if (state.lastDestination === "sell") { router.replace("/(vendor)" as any); return; }
+        if (state.lastDestination === "supply") { router.replace("/(supplier)/community-buy-supplier" as any); return; }
+        if (state.lastDestination === "community_buy") { router.replace("/(buyer)/community-buy" as any); return; }
+        if (state.lastDestination === "buy") { router.replace("/(buyer)" as any); return; }
+        if (state.user?.hasVendor) { router.replace("/(vendor)" as any); return; }
         router.replace("/(buyer)" as any);
         return;
       }

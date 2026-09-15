@@ -19,13 +19,12 @@ const ROLE_LABELS: Record<string, string> = {
 export default function LoginScreen() {
   const router = useRouter();
   const { role, redirect } = useLocalSearchParams<{ role?: string; redirect?: string }>();
-  const { login, isLoading, error, isAuthenticated, user, clearError, beginFreshAuthFlow, setLastRole } = useAuthStore();
+  const { login, isLoading, error, isAuthenticated, user, clearError, beginFreshAuthFlow, setLastDestination } = useAuthStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const pendingRoleRef = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
@@ -53,10 +52,9 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      // If handleLogin is actively switching roles, skip effect navigation
-      if (pendingRoleRef.current) return;
-      // For vendor+hasVendor, only navigate if role is already flipped
-      if (resolvedRole === "vendor" && user.hasVendor && user.role !== "vendor") return;
+      // Community Buy Workstream 9 (universal account): destination access
+      // is capability-based (hasVendor only), never role-based, so there is
+      // no backend role flip to wait for here any more.
       if (user.role === "admin") { router.replace("/(admin)"); return; }
       if (resolvedRole === "vendor" && !user.hasVendor) { router.replace("/(vendor-onboarding)/setup-store" as any); return; }
       if (resolvedRole === "vendor" && user.hasVendor) { router.replace("/(vendor)"); return; }
@@ -101,25 +99,19 @@ export default function LoginScreen() {
     if (isAuthenticated || user) {
       await beginFreshAuthFlow().catch(() => {});
     }
-    setLastRole(resolvedRole);
+    setLastDestination(resolvedRole === "vendor" ? "sell" : "buy");
     await login({
       email: email.trim().toLowerCase(),
       password,
-      expectedRole: resolvedRole as any,
     });
     // A failed login leaves isAuthenticated false — stay on this screen so
     // the error banner set by the store is visible, instead of falling
     // through to the unconditional navigation below.
     if (!useAuthStore.getState().isAuthenticated) return;
-    // ⚡ After login, read the LATEST zustand state and handle vendor role
-    // directly — no timing issues, no race conditions.
-    let currentUser = useAuthStore.getState().user;
-    if (currentUser && resolvedRole === "vendor" && currentUser.hasVendor && currentUser.role !== "vendor") {
-      pendingRoleRef.current = true;
-      try { await useAuthStore.getState().switchRole(); } catch {}
-      currentUser = useAuthStore.getState().user;
-    }
-    // Navigate directly after all state is final
+    // Community Buy Workstream 9 (universal account): destination access is
+    // capability-based (hasVendor only), never role-based — read the LATEST
+    // zustand state and navigate directly, no switchRole() round trip needed.
+    const currentUser = useAuthStore.getState().user;
     if (currentUser) {
       if (currentUser.role === "admin") { router.replace("/(admin)"); return; }
       if (resolvedRole === "vendor" && !currentUser.hasVendor) { router.replace("/(vendor-onboarding)/setup-store" as any); return; }

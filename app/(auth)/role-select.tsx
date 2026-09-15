@@ -31,13 +31,14 @@ export default function RoleSelectScreen() {
   const handleContinue = () => {
     // If already logged in, route directly based on selection
     if (isAuthenticated && user) {
+      // Community Buy Workstream 9 (universal account): destination access
+      // is capability-based (hasVendor / canSupply / authentication only),
+      // never role-based — so picking a card is a pure navigation choice
+      // plus a local preference update, never a backend switchRole() call.
       if (selected === "vendor") {
+        useAuthStore.getState().setLastDestination("sell");
         if (user.hasVendor) {
-          useAuthStore.getState().switchRole().then(() => {
-            router.replace("/(vendor)" as any);
-          }).catch(() => {
-            router.replace({ pathname: "/(auth)/welcome", params: { role: "vendor", ...refParams } } as any);
-          });
+          router.replace("/(vendor)" as any);
           return;
         }
         // No vendor profile — route to onboarding
@@ -45,14 +46,7 @@ export default function RoleSelectScreen() {
         return;
       }
       if (selected === "buyer") {
-        if (user.role !== "buyer") {
-          useAuthStore.getState().switchRole().then(() => {
-            router.replace("/(buyer)" as any);
-          }).catch(() => {
-            router.replace("/(buyer)" as any);
-          });
-          return;
-        }
+        useAuthStore.getState().setLastDestination("buy");
         router.replace("/(buyer)" as any);
         return;
       }
@@ -60,6 +54,7 @@ export default function RoleSelectScreen() {
         // Community Buy organiser/participant needs no vendor role at
         // all — (buyer)'s layout only requires authentication, so any
         // logged-in user (buyer or vendor) can go straight there.
+        useAuthStore.getState().setLastDestination("community_buy");
         router.push("/(buyer)/community-buy" as any);
         return;
       }
@@ -70,6 +65,7 @@ export default function RoleSelectScreen() {
       // review / approved) from the real backend response — so every
       // authenticated user, Vendor or not, goes straight there. No role
       // pre-switch, no forced vendor-store-onboarding detour.
+      useAuthStore.getState().setLastDestination("supply");
       router.push("/(supplier)/community-buy-supplier" as any);
       return;
     }

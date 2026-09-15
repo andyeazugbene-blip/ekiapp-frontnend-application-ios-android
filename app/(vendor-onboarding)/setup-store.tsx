@@ -137,6 +137,7 @@ export default function SetupStoreScreen() {
         // is needed here any more either.
         router.replace("/(supplier)/community-buy-supplier" as any);
       } else {
+        useAuthStore.getState().setLastDestination("sell");
         router.push("/(vendor-onboarding)/business-info" as any);
       }
     } catch (err) {
