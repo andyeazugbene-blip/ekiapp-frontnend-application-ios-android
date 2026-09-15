@@ -63,37 +63,14 @@ export default function RoleSelectScreen() {
         router.push("/(buyer)/community-buy" as any);
         return;
       }
-      // selected === "supplier"
-      if (user.hasVendor) {
-        // Confirmed routing bug: (vendor)'s layout redirects role==="buyer"
-        // back to /(buyer) even when hasVendor is true (see its own
-        // comment — only a real role switch is allowed through, exactly
-        // the same case the vendor card above already handles). Pushing
-        // straight to /(vendor)/... without this silently bounced the
-        // user back to Buyer Home.
-        if (user.role === "buyer") {
-          useAuthStore.getState().switchRole().then(() => {
-            router.push("/(vendor)/community-buy-supplier" as any);
-          }).catch(() => {
-            // switchRole failed (e.g. network error) — pushing to
-            // (vendor)/... here would just hit the exact bounce-back this
-            // fix exists to prevent, since role is still "buyer". Land
-            // somewhere real instead of a silent dead end.
-            router.replace("/(buyer)" as any);
-          });
-          return;
-        }
-        router.push("/(vendor)/community-buy-supplier" as any);
-        return;
-      }
-      // Real architecture constraint, not invented: a Supplier is a
-      // verified Eki vendor (SupplierProfile ties to Vendor for payouts,
-      // per the existing schema) — so a brand-new user still needs a
-      // store identity. Framed as supplier setup, not retail-seller
-      // marketing, and skips straight into the real supplier application
-      // once the store exists (see setup-store.tsx).
-      setPendingIntent("supplier");
-      router.push("/(vendor-onboarding)/setup-store" as any);
+      // selected === "supplier" — an independent SupplierAccount
+      // capability (Workstream 1/3), never gated behind a Vendor row.
+      // (vendor)/_layout.tsx no longer requires hasVendor for this specific
+      // route, and the screen itself renders every state (apply / under
+      // review / approved) from the real backend response — so every
+      // authenticated user, Vendor or not, goes straight there. No role
+      // pre-switch, no forced vendor-store-onboarding detour.
+      router.push("/(vendor)/community-buy-supplier" as any);
       return;
     }
 

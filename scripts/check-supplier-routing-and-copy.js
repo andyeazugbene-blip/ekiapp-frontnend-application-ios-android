@@ -2,15 +2,22 @@
 /**
  * check-supplier-routing-and-copy
  *
- * Two confirmed client-facing bugs found by a routing audit, fixed here:
+ * Two confirmed client-facing bugs found by a routing audit:
  *
- * Bug 1 (routing): a buyer-role user with hasVendor=true tapping "Suppliers"
- * was pushed straight to /(vendor)/community-buy-supplier without calling
- * switchRole() first — (vendor)'s own layout redirects role==="buyer" back
- * to /(buyer) even when hasVendor is true, so the user was silently bounced
- * back to Buyer Home and never reached the supplier dashboard. Fixed in
- * both places that had this branch: role-select.tsx (Hero) and
- * app/(buyer)/index.tsx (Home).
+ * Bug 1 (routing) — ORIGINAL fix, since superseded: a buyer-role user with
+ * hasVendor=true tapping "Suppliers" was bounced back to /(buyer) because
+ * (vendor)'s own layout redirected role==="buyer" back to /(buyer) even
+ * when hasVendor was true. The original fix worked around this per call
+ * site with a role check + switchRole() before entering. A follow-up audit
+ * found the workaround was too narrow — the SAME layout gate also blocked
+ * an approved SupplierAccount user who has NO Vendor row at all (the exact
+ * case Workstream 1/3 exists to support), since it only ever bypassed
+ * itself for hasVendor=true accounts. Root-caused and fixed at the actual
+ * source instead: (vendor)/_layout.tsx no longer requires hasVendor (or
+ * any role check) for the Supplier Centre routes specifically, so every
+ * authenticated user reaches them directly — no pre-emptive role switch
+ * needed at either call site any more. This check now verifies the real
+ * fix (the layout bypass) rather than the retired per-call-site workaround.
  *
  * Bug 2 (copy): a user who explicitly chose "Suppliers" still registers
  * through the vendor role under the hood (SupplierProfile requires a
@@ -29,6 +36,7 @@ const path = require("path");
 const ROOT = path.join(__dirname, "..");
 const ROLE_SELECT = path.join(ROOT, "app", "(auth)", "role-select.tsx");
 const BUYER_HOME = path.join(ROOT, "app", "(buyer)", "index.tsx");
+const VENDOR_LAYOUT = path.join(ROOT, "app", "(vendor)", "_layout.tsx");
 const REGISTER = path.join(ROOT, "app", "(auth)", "register.tsx");
 const VENDOR_OTP = path.join(ROOT, "app", "(vendor-onboarding)", "otp.tsx");
 const PENDING_INTENT = path.join(ROOT, "stores", "pendingIntent.ts");
@@ -47,21 +55,27 @@ function read(file) {
   return fs.readFileSync(file, "utf8");
 }
 
-// ─── Bug 1: routing — switchRole() must run before entering (vendor) when
-// the current role is still "buyer", in both entry points. ─────────────
+// ─── Bug 1: routing — every authenticated user must reach Supplier Centre
+// directly, and (vendor)/_layout.tsx must not require hasVendor to do so. ─
 
 for (const [label, file] of [["role-select.tsx", ROLE_SELECT], ["app/(buyer)/index.tsx", BUYER_HOME]]) {
   const source = read(file);
   if (!source) continue;
-  if (!source.includes('user.role === "buyer"') && !source.includes("user?.role === \"buyer\"")) {
-    fail(`${label}: Suppliers navigation no longer checks the current role before entering (vendor) — this is exactly the bounce-back bug.`);
-    continue;
-  }
-  if (!source.includes("switchRole()")) {
-    fail(`${label}: no switchRole() call found near the Suppliers navigation — a buyer-role user with hasVendor=true will be bounced back to /(buyer).`);
-  }
   if (!source.includes("community-buy-supplier")) {
     fail(`${label}: Suppliers no longer routes to the real supplier dashboard.`);
+  }
+  if (source.includes('user.role === "buyer"') || source.includes('user?.role === "buyer"')) {
+    fail(`${label}: still branches Suppliers navigation on the current role — the real fix (vendor layout no longer requiring hasVendor for this route) makes this unnecessary, and it blocks SupplierAccount-only users with no Vendor row who therefore have no hasVendor/role to satisfy.`);
+  }
+}
+
+const vendorLayoutSource = read(VENDOR_LAYOUT);
+if (vendorLayoutSource) {
+  if (!vendorLayoutSource.includes("community-buy-supplier")) {
+    fail("(vendor)/_layout.tsx no longer references community-buy-supplier — cannot confirm the Supplier Centre bypass still exists.");
+  }
+  if (!(vendorLayoutSource.includes("!hasVendor") && vendorLayoutSource.includes("isSupplierCentreRoute"))) {
+    fail("(vendor)/_layout.tsx no longer bypasses the hasVendor gate for Supplier Centre routes — a SupplierAccount-only user with no Vendor row will be redirected out before reaching Supplier Centre.");
   }
 }
 

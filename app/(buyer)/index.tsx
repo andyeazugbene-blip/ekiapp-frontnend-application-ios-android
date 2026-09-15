@@ -27,7 +27,6 @@ import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
-import { setPendingIntent } from "../../stores/pendingIntent";
 import { type Product } from "../../types/product";
 import { type VendorSummary } from "../../types/vendor";
 import { RemoteImage } from "../../components/ui/RemoteImage";
@@ -578,30 +577,23 @@ export default function BuyerHomeScreen() {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => {
-                if (user?.hasVendor) {
-                  // (vendor)'s layout redirects role==="buyer" back to
-                  // /(buyer) even when hasVendor is true — same fix as
-                  // role-select.tsx's Suppliers card, and the same pattern
-                  // the existing vendor-switch flow already uses elsewhere.
-                  if (user.role === "buyer") {
-                    useAuthStore.getState().switchRole().then(() => {
-                      router.push("/(vendor)/community-buy-supplier" as any);
-                    }).catch(() => {});
-                  } else {
-                    router.push("/(vendor)/community-buy-supplier" as any);
-                  }
-                } else {
-                  setPendingIntent("supplier");
-                  router.push("/(vendor-onboarding)/setup-store" as any);
-                }
+                // Supplier Centre (Workstream 1/3) is an independent
+                // SupplierAccount capability — it does not require a Vendor
+                // row, and the screen itself renders every state (apply /
+                // under review / approved) from the real backend response.
+                // hasVendor is irrelevant here; routing every authenticated
+                // user straight there is what "no Vendor required" actually
+                // means. (vendor)/_layout.tsx no longer gates this specific
+                // route on hasVendor either, so no role pre-switch is needed.
+                router.push("/(vendor)/community-buy-supplier" as any);
               }}
               accessibilityRole="button"
-              accessibilityLabel={user?.hasVendor ? "Open your supplier dashboard" : "Learn how to become a supplier"}
+              accessibilityLabel="Open Supplier Centre"
             >
               <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
                 <Ionicons name="cube-outline" size={20} color="#076B51" />
                 <Text style={[styles.communityBuyCardVendor, { flex: 1 }]}>
-                  {user?.hasVendor ? "Open your supplier dashboard — invitations, accepted campaigns, fulfilment" : "Suppliers fulfil bulk orders raised by Community Buy organisers. Requires a verified Eki vendor store."}
+                  {user?.hasVendor ? "Open your supplier dashboard — invitations, accepted campaigns, fulfilment" : "Suppliers fulfil bulk orders raised by Community Buy organisers — no vendor store required."}
                 </Text>
                 <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
               </FloatingCard>
