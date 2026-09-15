@@ -75,6 +75,7 @@ export default function VendorCommunityBuySupplierScreen() {
   const [applyError, setApplyError] = useState("");
 
   const [connectingPayouts, setConnectingPayouts] = useState(false);
+  const [togglingPause, setTogglingPause] = useState(false);
 
   const [committing, setCommitting] = useState<string | null>(null);
   const [declining, setDeclining] = useState<string | null>(null);
@@ -138,6 +139,20 @@ export default function VendorCommunityBuySupplierScreen() {
       Alert.alert("Couldn't start payout setup", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setConnectingPayouts(false);
+    }
+  };
+
+  /** M5 (spec §6.4 "paused: voluntarily unavailable for new work") — the only self-service SupplierAccount transition. */
+  const handleTogglePause = async (currentlyPaused: boolean) => {
+    setTogglingPause(true);
+    try {
+      if (currentlyPaused) await communityBuyService.resumeSupplierAccount();
+      else await communityBuyService.pauseSupplierAccount();
+      await load();
+    } catch (err) {
+      Alert.alert(currentlyPaused ? "Couldn't resume" : "Couldn't pause", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setTogglingPause(false);
     }
   };
 
@@ -329,7 +344,20 @@ export default function VendorCommunityBuySupplierScreen() {
             {state === "PAUSED" ? (
               <FloatingCard style={styles.bannerCard}>
                 <Ionicons name="pause-circle-outline" size={18} color="#B7791F" />
-                <Text style={styles.bannerText}>Your supplier account is paused{account?.reasonCode ? `: ${account.reasonCode}` : ""}. New campaign assignments are on hold.</Text>
+                <View style={{ flex: 1, gap: 6 }}>
+                  <Text style={styles.bannerText}>Your supplier account is paused{account?.reasonCode ? `: ${account.reasonCode}` : ""}. New campaign assignments are on hold.</Text>
+                  <TouchableOpacity
+                    onPress={() => void handleTogglePause(true)}
+                    disabled={togglingPause}
+                    activeOpacity={0.88}
+                    style={[styles.acceptBtn, { marginTop: 0 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Resume taking on new work"
+                    accessibilityState={{ busy: togglingPause, disabled: togglingPause }}
+                  >
+                    {togglingPause ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.acceptBtnText}>Resume</Text>}
+                  </TouchableOpacity>
+                </View>
               </FloatingCard>
             ) : null}
             {state === "RESTRICTED" ? (
@@ -337,6 +365,22 @@ export default function VendorCommunityBuySupplierScreen() {
                 <Ionicons name="warning-outline" size={18} color="#D6552F" />
                 <Text style={styles.bannerText}>Your supplier account is restricted{account?.reasonCode ? `: ${account.reasonCode}` : ""}. You can't take on new campaigns, but existing ones are unaffected.</Text>
               </FloatingCard>
+            ) : null}
+            {state === "APPROVED" ? (
+              <TouchableOpacity
+                onPress={() => void handleTogglePause(false)}
+                disabled={togglingPause}
+                activeOpacity={0.88}
+                accessibilityRole="button"
+                accessibilityLabel="Pause new work"
+                accessibilityState={{ busy: togglingPause, disabled: togglingPause }}
+                style={{ alignSelf: "flex-start" }}
+              >
+                <FloatingCard style={styles.bannerCard}>
+                  <Ionicons name="pause-circle-outline" size={18} color="#076B51" />
+                  {togglingPause ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.bannerText}>Pause new work — existing campaigns stay unaffected</Text>}
+                </FloatingCard>
+              </TouchableOpacity>
             ) : null}
             {!account?.payoutsEnabled ? (
               <FloatingCard style={styles.bannerCard}>

@@ -18,9 +18,24 @@ import {
   communityBuyService,
   type Campaign,
   type CampaignFulfilment,
+  type FulfilmentEvent,
   type FulfilmentMethod,
   type SupplierPayment,
 } from "../../services/communityBuyService";
+
+// M5 — the append-only evidence timeline, humanized.
+const EVENT_LABELS: Record<FulfilmentEvent["eventType"], string> = {
+  INVENTORY_CONFIRMED: "Inventory confirmed",
+  PLAN_SET: "Fulfilment plan set",
+  PACKING_STARTED: "Packing started",
+  READY: "Marked ready",
+  DISPATCHED: "Dispatched",
+  COLLECTED: "Collected",
+  COMPLETED: "Completed",
+  EXCEPTION: "Exception reported",
+  PARTICIPANT_RECEIPT_CONFIRMED: "Participant confirmed receipt",
+  PARTICIPANT_PROBLEM_REPORTED: "Participant reported a problem",
+};
 
 const STEPS: { status: CampaignFulfilment["status"]; label: string }[] = [
   { status: "AWAITING_INVENTORY_CONFIRMATION", label: "Confirm inventory" },
@@ -67,6 +82,9 @@ export default function CommunityBuySupplierFulfilmentScreen() {
 
   const [method, setMethod] = useState<FulfilmentMethod>("DELIVERY");
   const [notes, setNotes] = useState("");
+  const [events, setEvents] = useState<FulfilmentEvent[]>([]);
+  const [exceptionNote, setExceptionNote] = useState("");
+  const [reportingException, setReportingException] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -82,6 +100,7 @@ export default function CommunityBuySupplierFulfilmentScreen() {
       setNotes(f.notes ?? "");
       if (f.method) setMethod(f.method);
       setPayment(await communityBuyService.getMySupplierPayment(id).catch(() => null));
+      setEvents(await communityBuyService.getFulfilmentEvents(id).catch(() => []));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load this campaign's fulfilment.");
     } finally {
@@ -95,10 +114,28 @@ export default function CommunityBuySupplierFulfilmentScreen() {
     setBusy(key);
     try {
       setFulfilment(await action());
+      setEvents(await communityBuyService.getFulfilmentEvents(id).catch(() => events));
     } catch (err) {
       Alert.alert("Couldn't complete that", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setBusy(null);
+    }
+  };
+
+  /** M5 — an informational overlay only; never changes fulfilment.status. */
+  const handleReportException = async () => {
+    const note = exceptionNote.trim();
+    if (!note) return;
+    setReportingException(true);
+    try {
+      await communityBuyService.reportFulfilmentException(id, note);
+      setExceptionNote("");
+      setEvents(await communityBuyService.getFulfilmentEvents(id).catch(() => events));
+      Alert.alert("Reported", "The organiser has been notified.");
+    } catch (err) {
+      Alert.alert("Couldn't report this", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setReportingException(false);
     }
   };
 
@@ -276,6 +313,51 @@ export default function CommunityBuySupplierFulfilmentScreen() {
             </FloatingCard>
           ) : null}
 
+          {fulfilment.status !== "COMPLETED" ? (
+            <View>
+              <Text style={styles.section}>Report an issue</Text>
+              <FloatingCard style={{ gap: 10 }}>
+                <TextInput
+                  style={[styles.input, styles.inputMultiline]}
+                  placeholder="Describe the exception (e.g. stock damaged, courier delay)"
+                  placeholderTextColor="#8AA194"
+                  value={exceptionNote}
+                  onChangeText={setExceptionNote}
+                  multiline
+                  accessibilityLabel="Exception note"
+                />
+                <TouchableOpacity
+                  onPress={() => void handleReportException()}
+                  disabled={reportingException || !exceptionNote.trim()}
+                  activeOpacity={0.88}
+                  style={styles.secondaryBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Report exception"
+                  accessibilityState={{ busy: reportingException, disabled: reportingException || !exceptionNote.trim() }}
+                >
+                  {reportingException ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Report to organiser</Text>}
+                </TouchableOpacity>
+              </FloatingCard>
+            </View>
+          ) : null}
+
+          {events.length > 0 ? (
+            <View>
+              <Text style={styles.section}>Evidence timeline</Text>
+              <FloatingCard style={{ gap: 10 }}>
+                {events.map((e) => (
+                  <View key={e.id} style={styles.stepRow}>
+                    <Ionicons name={e.eventType === "EXCEPTION" || e.eventType === "PARTICIPANT_PROBLEM_REPORTED" ? "alert-circle-outline" : "checkmark-circle-outline"} size={16} color={e.eventType === "EXCEPTION" || e.eventType === "PARTICIPANT_PROBLEM_REPORTED" ? "#D6552F" : "#076B51"} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.stepLabel}>{EVENT_LABELS[e.eventType] ?? e.eventType}{e.note ? `: ${e.note}` : ""}</Text>
+                      <Text style={styles.eventTimestamp}>{new Date(e.createdAt).toLocaleString()}</Text>
+                    </View>
+                  </View>
+                ))}
+              </FloatingCard>
+            </View>
+          ) : null}
+
           <View>
             <Text style={styles.section}>Your payment</Text>
             {payment ? (
@@ -326,5 +408,6 @@ const styles = StyleSheet.create({
   paymentLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72" },
   paymentValue: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
   holdReason: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#D6552F" },
+  eventTimestamp: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 2 },
   paymentPlaceholder: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#8AA194", lineHeight: 17 },
 });

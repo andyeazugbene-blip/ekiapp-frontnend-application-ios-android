@@ -442,6 +442,36 @@ export interface SupplierAccount {
   reasonCode?: string | null;
   legacySupplierProfileId?: string | null;
   approvedAt?: string | null;
+  pausedAt?: string | null;
+  // M5
+  collectionCapacityPerDay?: number | null;
+  stripeRequirementsDue?: string[];
+  suspendedAt?: string | null;
+  closedAt?: string | null;
+}
+
+// M5 — the append-only fulfilment evidence timeline (spec §10.2 step 5).
+export type FulfilmentEventType =
+  | "INVENTORY_CONFIRMED"
+  | "PLAN_SET"
+  | "PACKING_STARTED"
+  | "READY"
+  | "DISPATCHED"
+  | "COLLECTED"
+  | "COMPLETED"
+  | "EXCEPTION"
+  | "PARTICIPANT_RECEIPT_CONFIRMED"
+  | "PARTICIPANT_PROBLEM_REPORTED";
+
+export interface FulfilmentEvent {
+  id: string;
+  campaignId: string;
+  contributionId: string | null;
+  actorUserId: string;
+  actorRole: "SUPPLIER" | "ORGANISER" | "PARTICIPANT" | "ADMIN";
+  eventType: FulfilmentEventType;
+  note: string | null;
+  createdAt: string;
 }
 
 /** The organiser-facing picker's real shape (Workstream 3 — SupplierAccount-driven, replacing the legacy SupplierProfile+vendor shape). */
@@ -644,8 +674,19 @@ export const communityBuyService = {
     return apiClient.get<{ profile: SupplierProfile | null; account: SupplierAccount }>("/api/supplier/profile");
   },
 
-  async applyAsSupplier(input: { country: string; categories?: string[]; coverageRegions?: string[] }): Promise<SupplierAccount> {
+  async applyAsSupplier(input: { country: string; categories?: string[]; coverageRegions?: string[]; collectionCapacityPerDay?: number }): Promise<SupplierAccount> {
     const res = await apiClient.post<{ account: SupplierAccount }>("/api/supplier/applications", input);
+    return res.account;
+  },
+
+  // M5 (spec §6.4 "paused: voluntarily unavailable for new work") — the only self-service SupplierAccount transition.
+  async pauseSupplierAccount(): Promise<SupplierAccount> {
+    const res = await apiClient.post<{ account: SupplierAccount }>("/api/supplier/pause", {});
+    return res.account;
+  },
+
+  async resumeSupplierAccount(): Promise<SupplierAccount> {
+    const res = await apiClient.post<{ account: SupplierAccount }>("/api/supplier/resume", {});
     return res.account;
   },
 
@@ -750,6 +791,28 @@ export const communityBuyService = {
   async markFulfilmentCollected(campaignId: string): Promise<CampaignFulfilment> {
     const res = await apiClient.post<{ fulfilment: CampaignFulfilment }>(`/api/supplier/campaigns/${campaignId}/fulfilment/collect`, {});
     return res.fulfilment;
+  },
+
+  /** M5 — an informational overlay; never changes fulfilment.status itself. */
+  async reportFulfilmentException(campaignId: string, note: string): Promise<{ recorded: true }> {
+    return apiClient.post(`/api/supplier/campaigns/${campaignId}/fulfilment/exception`, { note });
+  },
+
+  /** M5 — the append-only evidence timeline; organiser/supplier (own campaign) or admin. */
+  async getFulfilmentEvents(campaignId: string): Promise<FulfilmentEvent[]> {
+    const res = await apiClient.get<{ events: FulfilmentEvent[] }>(`/api/community-buy/campaigns/${campaignId}/fulfilment/events`);
+    return res.events ?? [];
+  },
+
+  /** M5 — participant-authorized only; requires an owned PAID contribution. */
+  async confirmFulfilmentReceipt(campaignId: string): Promise<{ confirmed: true }> {
+    return apiClient.post(`/api/community-buy/campaigns/${campaignId}/fulfilment/confirm-receipt`, {});
+  },
+
+  /** M5 — reuses the existing CommunityBuySupportCase (FULFILMENT_ISSUE) workflow, not a new ticket system. */
+  async reportFulfilmentProblem(campaignId: string, description: string, evidenceUrls?: string[]): Promise<SupportCase> {
+    const res = await apiClient.post<{ supportCase: SupportCase }>(`/api/community-buy/campaigns/${campaignId}/fulfilment/report-problem`, { description, evidenceUrls });
+    return res.supportCase;
   },
 
   async getMySupplierPayment(campaignId: string): Promise<SupplierPayment> {

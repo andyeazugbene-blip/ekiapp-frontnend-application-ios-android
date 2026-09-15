@@ -112,6 +112,66 @@ export default function CommunitySupplierAccountsPage() {
     }
   };
 
+  // M5 — request-information mirrors restrict's severity (no 2FA).
+  const requestInformation = async (id: string) => {
+    const reason = prompt("What information is needed from this supplier?")?.trim();
+    if (!reason) return;
+    setBusyId(id);
+    try {
+      await communityBuyAdminAPI.requestSupplierInformation(id, reason);
+      await load();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Failed to request information");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // M5 — always revokes data access; harder to reverse than restrict, so 2FA-gated on the backend.
+  const suspend = async (id: string) => {
+    const reason = prompt("Reason for suspending this supplier account (required):")?.trim();
+    if (!reason) return;
+    if (!confirm("Suspend this supplier account? This immediately and atomically revokes their access to participant delivery data across every assigned campaign.")) return;
+    setBusyId(id);
+    try {
+      await communityBuyAdminAPI.suspendSupplierAccount(id, reason);
+      await load();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Failed to suspend supplier account");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const unsuspend = async (id: string) => {
+    if (!confirm("Lift this suspension? The account returns to its prior approved/under-review state.")) return;
+    setBusyId(id);
+    try {
+      await communityBuyAdminAPI.unsuspendSupplierAccount(id);
+      await load();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Failed to lift suspension");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // M5 — permanent, terminal; no reversal exists.
+  const close = async (id: string) => {
+    const reason = prompt("Reason for permanently closing this supplier account (required):")?.trim();
+    if (!reason) return;
+    if (!confirm("Permanently close this supplier account? This cannot be undone.")) return;
+    setBusyId(id);
+    try {
+      await communityBuyAdminAPI.closeSupplierAccount(id, reason);
+      await load();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Failed to close supplier account");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   // M4 — manual data-access revoke (spec §19 "attribution/solicitation
   // investigation"), independent of restrict/suspend — for cases where the
   // supplier's state hasn't changed but access still needs cutting off now.
@@ -171,12 +231,20 @@ export default function CommunitySupplierAccountsPage() {
                       <div className="mt-3 grid gap-1 text-xs text-slate-500">
                         <p>Categories: {a.categories.length > 0 ? a.categories.join(", ") : "None listed"}</p>
                         <p>Coverage: {regionList(a.coverageRegions)}</p>
+                        {a.collectionCapacityPerDay != null ? <p>Collection capacity: {a.collectionCapacityPerDay}/day</p> : null}
+                        {a.supplierState === "VERIFICATION_REQUIRED" && a.stripeRequirementsDue?.length > 0 ? (
+                          <p className="text-amber-700">Stripe requirements outstanding: {a.stripeRequirementsDue.join(", ")}</p>
+                        ) : null}
                         {a.supplierState === "INFORMATION_REQUIRED" && a.reasonCode ? (
                           <p className="text-amber-700">Requested: {a.reasonCode}</p>
                         ) : null}
                         <p>Applied {new Date(a.createdAt).toLocaleDateString()}</p>
                       </div>
-                      <div className="mt-3 flex justify-end">
+                      <div className="mt-3 flex flex-wrap justify-end gap-3">
+                        {a.supplierState !== "INFORMATION_REQUIRED" ? (
+                          <Button variant="ghost" disabled={busyId === a.id} onClick={() => void requestInformation(a.id)}>Request information</Button>
+                        ) : null}
+                        <Button variant="danger" disabled={busyId === a.id} onClick={() => void suspend(a.id)}>Suspend</Button>
                         <Button disabled={busyId === a.id} onClick={() => void approve(a.id)}>Approve</Button>
                       </div>
                     </div>
@@ -213,10 +281,18 @@ export default function CommunitySupplierAccountsPage() {
                           <p>Participant data access: {a.controlScope === "fulfilment_access_preserved" ? "Preserved for existing campaigns" : "Revoked"}</p>
                         ) : null}
                       </div>
-                      {a.supplierState === "RESTRICTED" || a.supplierState === "SUSPENDED" ? (
+                      {a.supplierState === "SUSPENDED" ? (
+                        <div className="mt-3 flex flex-wrap justify-end gap-3">
+                          <Button variant="ghost" disabled={busyId === a.id} onClick={() => void revokeDataAccess(a.id)}>Revoke data access now</Button>
+                          <Button variant="secondary" disabled={busyId === a.id} onClick={() => void unsuspend(a.id)}>Lift suspension</Button>
+                        </div>
+                      ) : a.supplierState === "CLOSED" ? (
+                        <p className="mt-3 text-right text-xs text-slate-400">Permanently closed — no action available.</p>
+                      ) : a.supplierState === "RESTRICTED" ? (
                         <div className="mt-3 flex flex-wrap justify-end gap-3">
                           <Button variant="ghost" disabled={busyId === a.id} onClick={() => void revokeDataAccess(a.id)}>Revoke data access now</Button>
                           <Button variant="secondary" disabled={busyId === a.id} onClick={() => void unrestrict(a.id)}>Lift restriction</Button>
+                          <Button variant="danger" disabled={busyId === a.id} onClick={() => void suspend(a.id)}>Suspend</Button>
                         </div>
                       ) : a.supplierState === "APPROVED" || a.supplierState === "PAUSED" ? (
                         <div className="mt-3 space-y-2">
@@ -237,6 +313,11 @@ export default function CommunitySupplierAccountsPage() {
                             />
                             Preserve fulfilment access for campaigns already in progress
                           </label>
+                          <div className="flex justify-end gap-3">
+                            <Button variant="ghost" disabled={busyId === a.id} onClick={() => void requestInformation(a.id)}>Request information</Button>
+                            <Button variant="danger" disabled={busyId === a.id} onClick={() => void suspend(a.id)}>Suspend</Button>
+                            <Button variant="danger" disabled={busyId === a.id} onClick={() => void close(a.id)}>Close permanently</Button>
+                          </div>
                         </div>
                       ) : null}
                     </div>

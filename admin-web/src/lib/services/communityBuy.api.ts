@@ -132,6 +132,11 @@ export interface AdminSupplierAccount {
   controlScope: string | null;
   approvedAt: string | null;
   pausedAt: string | null;
+  // M5
+  collectionCapacityPerDay: number | null;
+  stripeRequirementsDue: string[];
+  suspendedAt: string | null;
+  closedAt: string | null;
   createdAt: string;
   updatedAt: string;
   user?: { name: string; email: string };
@@ -504,6 +509,26 @@ export const communityBuyAdminAPI = {
   },
   async unrestrictSupplierAccount(id: string): Promise<AdminSupplierAccount> {
     const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/unrestrict`, {});
+    return res.account;
+  },
+  // M5 (spec §10.1/§10.2 step 6 "request information").
+  async requestSupplierInformation(id: string, reason: string): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/request-information`, { reason });
+    return res.account;
+  },
+  // M5 — always revokes data access; 2FA-gated on the backend.
+  async suspendSupplierAccount(id: string, reason: string): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/suspend`, { reason });
+    return res.account;
+  },
+  // M5 — permanent, terminal; 2FA-gated on the backend.
+  async closeSupplierAccount(id: string, reason: string): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/close`, { reason });
+    return res.account;
+  },
+  // M5 — the equally-guarded (2FA) reversal for suspend(); never unrestrict().
+  async unsuspendSupplierAccount(id: string): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/unsuspend`, {});
     return res.account;
   },
   // M4 — manual, admin-initiated revoke for investigation cases (spec §19).

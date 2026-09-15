@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Share, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Share, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
@@ -55,6 +55,12 @@ export default function CommunityBuyCampaignScreen() {
   const [updates, setUpdates] = useState<CampaignUpdate[]>([]);
   const [showReceipt, setShowReceipt] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  // M5 — participant fulfilment evidence: receipt confirmation + problem report.
+  const [confirmingReceipt, setConfirmingReceipt] = useState(false);
+  const [receiptConfirmed, setReceiptConfirmed] = useState(false);
+  const [showProblemForm, setShowProblemForm] = useState(false);
+  const [problemDescription, setProblemDescription] = useState("");
+  const [reportingProblem, setReportingProblem] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -104,6 +110,37 @@ export default function CommunityBuyCampaignScreen() {
       Alert.alert("Couldn't join", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setJoining(false);
+    }
+  };
+
+  /** M5 — participant-authorized only; the backend requires an owned PAID contribution. */
+  const handleConfirmReceipt = async () => {
+    if (confirmingReceipt) return;
+    setConfirmingReceipt(true);
+    try {
+      await communityBuyService.confirmFulfilmentReceipt(id);
+      setReceiptConfirmed(true);
+    } catch (err) {
+      Alert.alert("Couldn't confirm receipt", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setConfirmingReceipt(false);
+    }
+  };
+
+  /** M5 — reuses the existing support-case (FULFILMENT_ISSUE) workflow, not a new ticket system. */
+  const handleReportProblem = async () => {
+    const description = problemDescription.trim();
+    if (!description || reportingProblem) return;
+    setReportingProblem(true);
+    try {
+      await communityBuyService.reportFulfilmentProblem(id, description);
+      setShowProblemForm(false);
+      setProblemDescription("");
+      Alert.alert("Reported", "Our support team will follow up.");
+    } catch (err) {
+      Alert.alert("Couldn't send this report", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setReportingProblem(false);
     }
   };
 
@@ -362,6 +399,62 @@ export default function CommunityBuyCampaignScreen() {
                 <Text style={styles.fulfilmentStatusText}>Status: {FULFILMENT_STATUS_LABELS[fulfilment.status]}</Text>
               ) : null}
             </FloatingCard>
+
+            {/* M5 — participant evidence actions. Only once this participant's
+                own order was actually captured, and only once there's
+                something to receive (dispatched/collected/completed). */}
+            {contribution?.status === "PAID" && (fulfilment?.status === "DISPATCHED" || fulfilment?.status === "COLLECTED" || fulfilment?.status === "COMPLETED") ? (
+              <View style={{ gap: 8, marginTop: 10 }}>
+                {!receiptConfirmed ? (
+                  <TouchableOpacity
+                    onPress={() => void handleConfirmReceipt()}
+                    disabled={confirmingReceipt}
+                    activeOpacity={0.88}
+                    style={styles.secondaryBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Confirm you received your order"
+                    accessibilityState={{ busy: confirmingReceipt, disabled: confirmingReceipt }}
+                  >
+                    {confirmingReceipt ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Confirm receipt</Text>}
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.fulfilmentStatusText}>Thanks — receipt confirmed.</Text>
+                )}
+                {!showProblemForm ? (
+                  <TouchableOpacity
+                    onPress={() => setShowProblemForm(true)}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Report a problem with this order"
+                  >
+                    <Text style={styles.reportProblemLink}>Report a problem</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <FloatingCard style={{ gap: 10 }}>
+                    <TextInput
+                      style={styles.problemInput}
+                      placeholder="Describe what went wrong"
+                      placeholderTextColor="#8AA194"
+                      value={problemDescription}
+                      onChangeText={setProblemDescription}
+                      multiline
+                      accessibilityLabel="Problem description"
+                    />
+                    <TouchableOpacity
+                      onPress={() => void handleReportProblem()}
+                      disabled={reportingProblem || !problemDescription.trim()}
+                      activeOpacity={0.88}
+                      style={styles.secondaryBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Send problem report"
+                      accessibilityState={{ busy: reportingProblem, disabled: reportingProblem || !problemDescription.trim() }}
+                    >
+                      {reportingProblem ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Send report</Text>}
+                    </TouchableOpacity>
+                  </FloatingCard>
+                )}
+              </View>
+            ) : null}
           </View>
 
           {updates.length > 0 ? (
@@ -439,4 +532,6 @@ const styles = StyleSheet.create({
   howItWorksText: { flex: 1, fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
   fulfilmentText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#4A5A52" },
   fulfilmentStatusText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  reportProblemLink: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#D6552F", textAlign: "center" },
+  problemInput: { backgroundColor: "#F4F6F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: "Outfit-Regular", color: "#151E1B", minHeight: 70, textAlignVertical: "top" },
 });
