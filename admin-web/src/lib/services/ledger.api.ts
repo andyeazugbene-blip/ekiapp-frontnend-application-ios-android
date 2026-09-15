@@ -81,6 +81,12 @@ export const ledgerAdminAPI = {
     return res.run;
   },
 
+  /** M6 — Community Buy's Direct Charge/legacy-transfer/payout retrieve-per-record reconciliation. Writes into the SAME ReconciliationRun/ReconciliationDifference tables, tagged provider="stripe-community-buy". */
+  async runCommunityBuyReconciliation(periodStart: string, periodEnd: string): Promise<ReconciliationRun> {
+    const res = await apiClient.post<{ run: ReconciliationRun }>("/admin/ledger/community-buy-reconciliation-runs", { periodStart, periodEnd });
+    return res.run;
+  },
+
   async listOpenDifferences(): Promise<ReconciliationDifference[]> {
     const res = await apiClient.get<{ items?: ReconciliationDifference[] }>("/admin/ledger/differences");
     return res.items ?? [];

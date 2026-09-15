@@ -105,6 +105,10 @@ export default function LedgerPage() {
   const [periodEnd, setPeriodEnd] = useState(todayIso());
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState("");
+  const [cbPeriodStart, setCbPeriodStart] = useState(daysAgoIso(7));
+  const [cbPeriodEnd, setCbPeriodEnd] = useState(todayIso());
+  const [cbRunning, setCbRunning] = useState(false);
+  const [cbRunError, setCbRunError] = useState("");
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [expandedRun, setExpandedRun] = useState<ReconciliationRun | null>(null);
 
@@ -142,6 +146,22 @@ export default function LedgerPage() {
       setRunError(err instanceof APIError ? err.message : "Reconciliation run failed.");
     } finally {
       setRunning(false);
+    }
+  };
+
+  const triggerCommunityBuyRun = async () => {
+    setCbRunning(true);
+    setCbRunError("");
+    try {
+      const run = await ledgerAdminAPI.runCommunityBuyReconciliation(new Date(cbPeriodStart).toISOString(), new Date(`${cbPeriodEnd}T23:59:59.999Z`).toISOString());
+      setRuns((prev) => [run, ...prev]);
+      if (run.differences && run.differences.length > 0) {
+        setDifferences((prev) => [...run.differences!.filter((d) => d.status === "OPEN"), ...prev]);
+      }
+    } catch (err) {
+      setCbRunError(err instanceof APIError ? err.message : "Community Buy reconciliation run failed.");
+    } finally {
+      setCbRunning(false);
     }
   };
 
@@ -247,6 +267,27 @@ export default function LedgerPage() {
                   </Button>
                 </div>
                 {runError ? <p className="mt-2 text-sm text-red-600">{runError}</p> : null}
+              </Card>
+
+              <Card>
+                <h2 className="text-base font-bold text-[#101820]">Run Community Buy reconciliation</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Community Buy&apos;s Direct Charge holds/captures, legacy PLEDGE_THEN_CHARGE transfers, and manual payouts live on the CONNECTED account&apos;s own Stripe object space — invisible to the generic list-based reconciliation above. This retrieves each record individually with the correct account context instead, writing into these same tables (tagged <code className="rounded bg-slate-100 px-1">stripe-community-buy</code>). Genuine mismatches escalate the affected payout into MANUAL_REVIEW rather than being silently corrected.
+                </p>
+                <div className="mt-4 flex flex-wrap items-end gap-3">
+                  <label className="space-y-1">
+                    <span className="block text-xs font-bold uppercase tracking-wide text-slate-500">From</span>
+                    <input type="date" value={cbPeriodStart} onChange={(e) => setCbPeriodStart(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#096B4A]" />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="block text-xs font-bold uppercase tracking-wide text-slate-500">To</span>
+                    <input type="date" value={cbPeriodEnd} onChange={(e) => setCbPeriodEnd(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#096B4A]" />
+                  </label>
+                  <Button variant="primary" onClick={() => void triggerCommunityBuyRun()} disabled={cbRunning}>
+                    {cbRunning ? "Running..." : "Run Community Buy reconciliation"}
+                  </Button>
+                </div>
+                {cbRunError ? <p className="mt-2 text-sm text-red-600">{cbRunError}</p> : null}
               </Card>
 
               <Card>

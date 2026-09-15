@@ -312,6 +312,51 @@ export interface ReadOptions {
   bypassCache?: boolean;
 }
 
+// ─── M6 — CommunityBuyPayout (M2 AUTHORISE_THEN_CAPTURE Direct Charge) ────
+export type CommunityBuyPayoutStatus = "HELD" | "READY" | "PENDING" | "IN_TRANSIT" | "PAID" | "FAILED" | "REVERSED" | "CANCELLED" | "MANUAL_REVIEW";
+
+export interface AdminCommunityBuyPayout {
+  id: string;
+  campaignId: string;
+  supplierId: string;
+  supplierConnectedAccountId: string;
+  currency: string;
+  capturedGrossAmount: number;
+  providerFeeAmount: number;
+  supplierPayableAmount: number;
+  organiserFeeAmount: number;
+  ekiFeeAmount: number;
+  refundDeductionAmount: number;
+  disputeDeductionAmount: number;
+  reserveAmount: number;
+  netPayoutAmount: number;
+  status: CommunityBuyPayoutStatus;
+  holdReasonCodes: string[];
+  releaseEligibleAt: string | null;
+  providerPayoutId: string | null;
+  requestedAt: string | null;
+  submittedAt: string | null;
+  paidAt: string | null;
+  failedAt: string | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  retryCount: number;
+  createdAt: string;
+  updatedAt: string;
+  campaign?: { id: string; title: string; confirmedShares: number };
+}
+
+export interface PayoutEligibility {
+  eligible: boolean;
+  blockers: string[];
+}
+
+export type ReleaseCommunityBuyPayoutResult = { payout: AdminCommunityBuyPayout } | PendingApprovalResponse;
+
+export function isPendingCommunityBuyPayoutApproval(result: ReleaseCommunityBuyPayoutResult): result is PendingApprovalResponse {
+  return "pendingApproval" in result;
+}
+
 export const communityBuyAdminAPI = {
   async getCampaignsForReview(opts?: ReadOptions): Promise<AdminCampaign[]> {
     const res = await apiClient.get<{ items?: AdminCampaign[] }>("/admin/community-campaigns/review", opts);
@@ -550,5 +595,32 @@ export const communityBuyAdminAPI = {
   // M4 (spec §14.3, AT-42) — always four-eyes gated; this only ever creates the pending approval, never the disclosure itself. A second, different admin decides it from the Approvals queue.
   async requestEmergencyDisclosure(campaignId: string, contributionId: string, reason: string): Promise<{ pendingApproval: unknown; message: string }> {
     return apiClient.post<{ pendingApproval: unknown; message: string }>(`/admin/community-campaigns/${campaignId}/contributions/${contributionId}/emergency-disclosure`, { reason });
+  },
+
+  // ─── M6 — CommunityBuyPayout (M2 AUTHORISE_THEN_CAPTURE Direct Charge
+  // governance). Parallel to the supplier-payments section above (which is
+  // the OLD PLEDGE_THEN_CHARGE transfer mechanism) — never the same record. ──
+  async getCommunityBuyPayouts(opts?: ReadOptions): Promise<AdminCommunityBuyPayout[]> {
+    const res = await apiClient.get<{ items?: AdminCommunityBuyPayout[] }>("/admin/community-buy/payouts", opts);
+    return res.items ?? [];
+  },
+  async getCommunityBuyPayout(campaignId: string, opts?: ReadOptions): Promise<AdminCommunityBuyPayout> {
+    const res = await apiClient.get<{ payout: AdminCommunityBuyPayout }>(`/admin/community-campaigns/${campaignId}/payout`, opts);
+    return res.payout;
+  },
+  async getCommunityBuyPayoutEligibility(campaignId: string, opts?: ReadOptions): Promise<PayoutEligibility> {
+    return apiClient.get<PayoutEligibility>(`/admin/community-campaigns/${campaignId}/payout/eligibility`, opts);
+  },
+  async markCommunityBuyPayoutReady(campaignId: string, twoFactorCode?: string): Promise<AdminCommunityBuyPayout> {
+    const res = await apiClient.post<{ payout: AdminCommunityBuyPayout }>(`/admin/community-campaigns/${campaignId}/payout/mark-ready`, {}, { twoFactorCode });
+    return res.payout;
+  },
+  async holdCommunityBuyPayout(campaignId: string, reasonCode: string, twoFactorCode?: string): Promise<AdminCommunityBuyPayout> {
+    const res = await apiClient.post<{ payout: AdminCommunityBuyPayout }>(`/admin/community-campaigns/${campaignId}/payout/hold`, { reasonCode }, { twoFactorCode });
+    return res.payout;
+  },
+  /** Four-eyes gated when a rule is configured — check isPendingApproval() before assuming release actually happened, same contract as releaseSupplierPayment() above. */
+  async releaseCommunityBuyPayout(campaignId: string, twoFactorCode?: string): Promise<ReleaseCommunityBuyPayoutResult> {
+    return apiClient.post<ReleaseCommunityBuyPayoutResult>(`/admin/community-campaigns/${campaignId}/payout/release`, {}, { twoFactorCode });
   },
 };
