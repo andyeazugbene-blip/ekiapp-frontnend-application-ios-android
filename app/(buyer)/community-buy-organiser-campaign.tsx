@@ -926,20 +926,25 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                   <Text style={styles.optionText}>Collection point (default)</Text>
                 </FloatingCard>
               </TouchableOpacity>
+              {/* M4 (spec §14.2, AT-38): individual delivery has no protected
+                  contact/courier integration yet — hard-disabled, not just
+                  hinted at, while the backend's global flag is off. There is
+                  no creator override: the option is unselectable, and even a
+                  bypassed tap would still be rejected server-side. */}
               <TouchableOpacity
-                onPress={() => setDeliveryPreference("DELIVERY")}
-                disabled={financialFieldsLocked}
+                onPress={() => marketConfig?.individualDeliveryEnabled && setDeliveryPreference("DELIVERY")}
+                disabled={financialFieldsLocked || !marketConfig?.individualDeliveryEnabled}
                 activeOpacity={0.85}
                 accessibilityRole="radio"
-                accessibilityLabel="Individual delivery"
-                accessibilityState={{ selected: deliveryPreference === "DELIVERY" }}
+                accessibilityLabel="Individual delivery, not yet available"
+                accessibilityState={{ selected: deliveryPreference === "DELIVERY", disabled: !marketConfig?.individualDeliveryEnabled }}
               >
-                <FloatingCard style={[styles.optionRow, deliveryPreference === "DELIVERY" && styles.optionRowActive]}>
-                  <Ionicons name={deliveryPreference === "DELIVERY" ? "radio-button-on" : "radio-button-off"} size={18} color={deliveryPreference === "DELIVERY" ? "#076B51" : "#8AA194"} />
-                  <Text style={styles.optionText}>Individual delivery</Text>
+                <FloatingCard style={[styles.optionRow, deliveryPreference === "DELIVERY" && styles.optionRowActive, !marketConfig?.individualDeliveryEnabled && styles.optionRowDisabled]}>
+                  <Ionicons name={deliveryPreference === "DELIVERY" ? "radio-button-on" : "radio-button-off"} size={18} color={!marketConfig?.individualDeliveryEnabled ? "#C7CFC9" : deliveryPreference === "DELIVERY" ? "#076B51" : "#8AA194"} />
+                  <Text style={[styles.optionText, !marketConfig?.individualDeliveryEnabled && styles.optionTextDisabled]}>Individual delivery — not available yet</Text>
                 </FloatingCard>
               </TouchableOpacity>
-              <Text style={styles.fieldHint}>Collection point keeps participant addresses out of this — the safer default. This records your intent only; delivery-address handling is not built yet.</Text>
+              <Text style={styles.fieldHint}>Collection point keeps participant addresses out of this — the safer default. Individual delivery needs a protected courier connection that isn't live yet, so it can't be selected.</Text>
             </View>
 
             {!isEdit ? (
@@ -1094,7 +1099,8 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
                   {participants.map((p, index) => (
                     <View key={p.userId} style={[styles.participantRow, index > 0 && styles.participantRowBorder]}>
-                      <Text style={styles.optionText}>{p.name}{p.isOrganiser ? " (you)" : ""}</Text>
+                      {/* M4 (AT-44): name is omitted for a self-supply campaign — the organiser gets only fulfilment-necessary data, same as a third-party supplier's masked manifest. */}
+                      <Text style={styles.optionText}>{p.name ?? "Participant"}{p.isOrganiser ? " (you)" : ""}</Text>
                       <Text style={styles.fieldHint}>{p.totalQuantity} share{p.totalQuantity === 1 ? "" : "s"} · {formatDisplayMoney(p.totalPaid / 100, currency, selectedCurrency)}</Text>
                     </View>
                   ))}
@@ -1270,7 +1276,9 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72" },
   optionRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: "transparent" },
   optionRowActive: { borderColor: "#076B51" },
+  optionRowDisabled: { opacity: 0.5 },
   optionText: { fontSize: 13, fontFamily: "Outfit-Medium", color: "#151E1B" },
+  optionTextDisabled: { color: "#8AA194" },
   participantRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14, gap: 8 },
   participantRowBorder: { borderTopWidth: 1, borderTopColor: "#F0F0F0" },
   primaryBtnInline: { minHeight: 48, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", marginTop: 4 },

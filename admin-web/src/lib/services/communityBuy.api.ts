@@ -128,11 +128,30 @@ export interface AdminSupplierAccount {
   requirementsDue: string[];
   legacySupplierProfileId: string | null;
   reasonCode: string | null;
+  // M4 (spec §14.4) — the only recognised value is "fulfilment_access_preserved"; anything else (including null/unset) means restriction revokes participant-delivery-data access.
+  controlScope: string | null;
   approvedAt: string | null;
   pausedAt: string | null;
   createdAt: string;
   updatedAt: string;
   user?: { name: string; email: string };
+}
+
+// M4 — data-access audit trail (spec §15.8, AT-43).
+export interface AdminDataAccessLogEntry {
+  id: string;
+  campaignId: string;
+  contributionId: string | null;
+  accessorAccountId: string | null;
+  accessorUserId: string;
+  accessorRole: "SUPPLIER" | "ORGANISER" | "ADMIN";
+  dataCategory: "DELIVERY_STATUS" | "CONTACT_CHANNEL" | "EMERGENCY_NUMBER" | "MANIFEST";
+  action: "VIEWED" | "LABEL_GENERATED" | "MESSAGE_SENT" | "PROXY_CALL_STARTED" | "COURIER_SHARED" | "ACCESS_REVOKED" | "ADMIN_OVERRIDE";
+  purposeCode: string;
+  accessedAt: string;
+  accessExpiresAt: string | null;
+  revokedAt: string | null;
+  revocationReason: string | null;
 }
 
 export type MarketPaymentMode = "DISABLED" | "TEST" | "LIVE";
@@ -479,12 +498,32 @@ export const communityBuyAdminAPI = {
     const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/approve`, {});
     return res.account;
   },
-  async restrictSupplierAccount(id: string, reason: string): Promise<AdminSupplierAccount> {
-    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/restrict`, { reason });
+  async restrictSupplierAccount(id: string, reason: string, controlScope?: "fulfilment_access_preserved"): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/restrict`, { reason, controlScope: controlScope ?? null });
     return res.account;
   },
   async unrestrictSupplierAccount(id: string): Promise<AdminSupplierAccount> {
     const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/unrestrict`, {});
     return res.account;
+  },
+  // M4 — manual, admin-initiated revoke for investigation cases (spec §19).
+  async revokeSupplierDataAccess(id: string, reason: string): Promise<{ revokedCount: number }> {
+    return apiClient.post<{ revokedCount: number }>(`/admin/community-buy/supplier-accounts/${id}/revoke-data-access`, { reason });
+  },
+  // M4 — data-access audit search (spec §19, AT-43).
+  async getDataAccessLog(filters?: { campaignId?: string; supplierAccountId?: string; accessorUserId?: string; dataCategory?: string; action?: string }, opts?: ReadOptions): Promise<AdminDataAccessLogEntry[]> {
+    const params = new URLSearchParams();
+    if (filters?.campaignId) params.set("campaignId", filters.campaignId);
+    if (filters?.supplierAccountId) params.set("supplierAccountId", filters.supplierAccountId);
+    if (filters?.accessorUserId) params.set("accessorUserId", filters.accessorUserId);
+    if (filters?.dataCategory) params.set("dataCategory", filters.dataCategory);
+    if (filters?.action) params.set("action", filters.action);
+    const qs = params.toString();
+    const res = await apiClient.get<{ items?: AdminDataAccessLogEntry[] }>(`/admin/community-buy/data-access-log${qs ? `?${qs}` : ""}`, opts);
+    return res.items ?? [];
+  },
+  // M4 (spec §14.3, AT-42) — always four-eyes gated; this only ever creates the pending approval, never the disclosure itself. A second, different admin decides it from the Approvals queue.
+  async requestEmergencyDisclosure(campaignId: string, contributionId: string, reason: string): Promise<{ pendingApproval: unknown; message: string }> {
+    return apiClient.post<{ pendingApproval: unknown; message: string }>(`/admin/community-campaigns/${campaignId}/contributions/${contributionId}/emergency-disclosure`, { reason });
   },
 };

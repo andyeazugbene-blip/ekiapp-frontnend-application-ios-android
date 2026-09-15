@@ -74,6 +74,7 @@ const sections: NavSection[] = [
       { name: "Supplier Payments", href: "/community-supplier-payments" },
       { name: "Support Cases", href: "/community-support-cases" },
       { name: "Fulfilment Delays", href: "/fulfilment-delays" },
+      { name: "Data Access Log", href: "/community-data-access" },
       { name: "Market Controls", href: "/community-markets" },
       { name: "Subscription Exceptions", href: "/subscription-exceptions" },
     ],

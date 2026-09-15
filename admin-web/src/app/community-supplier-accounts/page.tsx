@@ -48,6 +48,7 @@ export default function CommunitySupplierAccountsPage() {
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [restrictReasonById, setRestrictReasonById] = useState<Record<string, string>>({});
+  const [preserveAccessById, setPreserveAccessById] = useState<Record<string, boolean>>({});
 
   const load = async (bypassCache = false) => {
     try {
@@ -80,11 +81,16 @@ export default function CommunitySupplierAccountsPage() {
   const restrict = async (id: string) => {
     const reason = restrictReasonById[id]?.trim();
     if (!reason) return;
-    if (!confirm("Restrict this supplier from taking on new campaigns? Existing commitments are unaffected.")) return;
+    const preserve = preserveAccessById[id] ?? false;
+    const confirmMessage = preserve
+      ? "Restrict this supplier from taking on new campaigns, but keep their access to participant delivery data for campaigns already in progress?"
+      : "Restrict this supplier from taking on new campaigns? This also immediately revokes their access to participant delivery data across every assigned campaign (spec §14.4's safer default) — check \"Preserve fulfilment access\" first if that's not intended.";
+    if (!confirm(confirmMessage)) return;
     setBusyId(id);
     try {
-      await communityBuyAdminAPI.restrictSupplierAccount(id, reason);
+      await communityBuyAdminAPI.restrictSupplierAccount(id, reason, preserve ? "fulfilment_access_preserved" : undefined);
       setRestrictReasonById((prev) => ({ ...prev, [id]: "" }));
+      setPreserveAccessById((prev) => ({ ...prev, [id]: false }));
       await load();
     } catch (err) {
       alert(err instanceof APIError ? err.message : "Failed to restrict supplier account");
@@ -101,6 +107,23 @@ export default function CommunitySupplierAccountsPage() {
       await load();
     } catch (err) {
       alert(err instanceof APIError ? err.message : "Failed to lift restriction");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // M4 — manual data-access revoke (spec §19 "attribution/solicitation
+  // investigation"), independent of restrict/suspend — for cases where the
+  // supplier's state hasn't changed but access still needs cutting off now.
+  const revokeDataAccess = async (id: string) => {
+    const reason = prompt("Reason for revoking this supplier's data access (required):")?.trim();
+    if (!reason) return;
+    setBusyId(id);
+    try {
+      const { revokedCount } = await communityBuyAdminAPI.revokeSupplierDataAccess(id, reason);
+      alert(`Revoked data access for ${revokedCount} campaign${revokedCount === 1 ? "" : "s"}.`);
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Failed to revoke data access");
     } finally {
       setBusyId(null);
     }
@@ -185,20 +208,35 @@ export default function CommunitySupplierAccountsPage() {
                         <p>Coverage: {regionList(a.coverageRegions)}</p>
                         <p>Payouts: {a.payoutsEnabled ? "Stripe Connect ready" : "Not yet enabled"}{a.providerConnectedAccountId ? "" : " — onboarding not started"}</p>
                         {a.reasonCode ? <p>Reason on file: {a.reasonCode}</p> : null}
+                        {/* M4 (spec §14.4) — controlScope now actually gates participant-data access; surfaced here so admin can see what a restriction is currently doing. */}
+                        {a.supplierState === "RESTRICTED" ? (
+                          <p>Participant data access: {a.controlScope === "fulfilment_access_preserved" ? "Preserved for existing campaigns" : "Revoked"}</p>
+                        ) : null}
                       </div>
                       {a.supplierState === "RESTRICTED" || a.supplierState === "SUSPENDED" ? (
-                        <div className="mt-3 flex justify-end">
+                        <div className="mt-3 flex flex-wrap justify-end gap-3">
+                          <Button variant="ghost" disabled={busyId === a.id} onClick={() => void revokeDataAccess(a.id)}>Revoke data access now</Button>
                           <Button variant="secondary" disabled={busyId === a.id} onClick={() => void unrestrict(a.id)}>Lift restriction</Button>
                         </div>
                       ) : a.supplierState === "APPROVED" || a.supplierState === "PAUSED" ? (
-                        <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
-                          <input
-                            placeholder="Restriction reason"
-                            value={restrictReasonById[a.id] ?? ""}
-                            onChange={(e) => setRestrictReasonById((prev) => ({ ...prev, [a.id]: e.target.value }))}
-                            className="flex-1 rounded-xl border border-slate-200 p-2 text-sm"
-                          />
-                          <Button variant="danger" disabled={busyId === a.id || !restrictReasonById[a.id]?.trim()} onClick={() => void restrict(a.id)}>Restrict</Button>
+                        <div className="mt-3 space-y-2">
+                          <div className="flex flex-wrap items-center justify-end gap-3">
+                            <input
+                              placeholder="Restriction reason"
+                              value={restrictReasonById[a.id] ?? ""}
+                              onChange={(e) => setRestrictReasonById((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                              className="flex-1 rounded-xl border border-slate-200 p-2 text-sm"
+                            />
+                            <Button variant="danger" disabled={busyId === a.id || !restrictReasonById[a.id]?.trim()} onClick={() => void restrict(a.id)}>Restrict</Button>
+                          </div>
+                          <label className="flex items-center justify-end gap-2 text-xs text-slate-500">
+                            <input
+                              type="checkbox"
+                              checked={preserveAccessById[a.id] ?? false}
+                              onChange={(e) => setPreserveAccessById((prev) => ({ ...prev, [a.id]: e.target.checked }))}
+                            />
+                            Preserve fulfilment access for campaigns already in progress
+                          </label>
                         </div>
                       ) : null}
                     </div>

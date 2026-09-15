@@ -147,6 +147,10 @@ export interface MarketConfig {
   // — do not present it as an active charge.
   communityBuyFeeBps?: number | null;
   organiserFeeBps?: number | null;
+  // M4 — global kill-switch (COMMUNITY_BUY_INDIVIDUAL_DELIVERY_ENABLED on
+  // the backend), not per-market. Defaults false server-side; treat a
+  // missing value the same as false.
+  individualDeliveryEnabled?: boolean;
 }
 
 export type CampaignDeliveryPreference = "COLLECTION" | "DELIVERY";
@@ -274,8 +278,13 @@ export interface CampaignUpdate {
 
 export interface CampaignParticipant {
   userId: string;
-  name: string;
-  email: string;
+  // M4 (spec §14.3, AT-44): omitted entirely by the backend for a
+  // SELF-fulfilled campaign — the organiser IS the fulfiller and gets only
+  // fulfilment-necessary data, same principle a third-party supplier's
+  // masked manifest gets. Present for a genuinely third-party-supplied
+  // campaign.
+  name?: string;
+  email?: string;
   joinedAt: string;
   totalQuantity: number;
   totalPaid: number;

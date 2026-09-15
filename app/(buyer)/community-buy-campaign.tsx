@@ -188,6 +188,14 @@ export default function CommunityBuyCampaignScreen() {
               <Text style={styles.infoLabel}>Organiser</Text>
               <Text style={styles.infoValue} numberOfLines={1}>{campaign.organiser?.user?.name ?? "Verified organiser"}</Text>
             </View>
+            {/* M4 (spec §14.2): show who receives delivery data before joining. */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Delivery</Text>
+              <Text style={styles.infoValue}>{campaign.deliveryPreference === "DELIVERY" ? "Individual delivery" : "Collection point"}</Text>
+            </View>
+            {campaign.deliveryPreference !== "DELIVERY" ? (
+              <Text style={styles.progressMetaSub}>You'll collect your order from a collection point — your home address is never shared with the supplier.</Text>
+            ) : null}
 
             <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares!} goal={campaign.goalShares!} max={campaign.maximumShares!} />
             <Text style={styles.progressMetaText}>{campaign.confirmedShares} of {campaign.maximumShares} slots filled</Text>
