@@ -1,19 +1,11 @@
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
-import { Redirect, Slot, Tabs, usePathname } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ColorValue, Platform, StyleSheet, View as RNView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TAB_BAR_HEIGHT, TAB_BAR_GAP } from "../../components/layout/tabBarConstants";
 import { useAuthStore } from "../../stores/authStore";
-
-// Supplier Centre (Workstream 1/3) is an independent SupplierAccount
-// capability, never gated behind a Vendor row — a user who is an approved
-// supplier (or applying to become one) with NO Vendor at all must still
-// reach it. Both screens are already fully SupplierAccount/userId-driven
-// (no `vendor`/`hasVendor` read anywhere in either file), so nothing about
-// them needs to change — only this layout's blanket Vendor gate did.
-const SUPPLIER_CENTRE_PATHS = ["/community-buy-supplier", "/community-buy-supplier-fulfilment"];
 
 export default function VendorLayout() {
   const insets = useSafeAreaInsets();
@@ -21,8 +13,6 @@ export default function VendorLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const role = useAuthStore((s) => s.user?.role);
   const hasVendor = useAuthStore((s) => s.user?.hasVendor === true);
-  const pathname = usePathname();
-  const isSupplierCentreRoute = SUPPLIER_CENTRE_PATHS.includes(pathname);
 
   if (isInitializing) {
     return (
@@ -42,17 +32,12 @@ export default function VendorLayout() {
   // bounce a buyer-with-a-store back to /(buyer) unless something had
   // pre-emptively called switchRole() first (the exact bug patched
   // earlier this session in role-select.tsx/(buyer)/index.tsx). No store
-  // at all is still the only real reason to keep someone out — except
-  // Supplier Centre, which was never meant to require one at all (below).
-  if (!hasVendor && isSupplierCentreRoute) {
-    // Bare screen, no Vendor Tabs chrome — a SupplierAccount-only user
-    // must not see a Vendor-branded tab bar (Dashboard/Orders/Foodstuff/
-    // Buyers/Earnings) around a screen that has nothing to do with any of
-    // that. Every other (vendor) route below is untouched and still
-    // requires hasVendor exactly as before.
-    return <Slot />;
-  }
-
+  // at all is still the only real reason to keep someone out. Supplier
+  // Centre used to live here with a hasVendor bypass — real-device testing
+  // showed that still left it wrapped in this Tabs navigator's own chrome
+  // for a Vendor+SupplierAccount user, so it now lives in its own
+  // independent route group (app/(supplier)/) instead of being special-
+  // cased here at all.
   if (!hasVendor) {
     return <Redirect href="/(buyer)" />;
   }
@@ -193,8 +178,6 @@ export default function VendorLayout() {
       <Tabs.Screen name="regular-delivery-offer-edit" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="regular-delivery-subscriber-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="regular-delivery-insights" options={{ href: null, tabBarStyle: { display: "none" } }} />
-      <Tabs.Screen name="community-buy-supplier" options={{ href: null, tabBarStyle: { display: "none" } }} />
-      <Tabs.Screen name="community-buy-supplier-fulfilment" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>
   );
 }

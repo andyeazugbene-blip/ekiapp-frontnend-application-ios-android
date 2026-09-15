@@ -150,7 +150,7 @@ export default function NotificationsScreen() {
                   } else if (notif.type === "subscription") {
                     router.push("/(vendor)/regular-deliveries" as any);
                   } else if (notif.type === "campaign") {
-                    router.push("/(vendor)/community-buy-supplier" as any);
+                    router.push("/(supplier)/community-buy-supplier" as any);
                   } else if (notif.type === "automation") {
                     router.push("/(vendor)/automation-center" as any);
                   }

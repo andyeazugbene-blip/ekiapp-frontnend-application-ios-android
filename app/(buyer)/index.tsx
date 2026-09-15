@@ -585,7 +585,7 @@ export default function BuyerHomeScreen() {
                 // user straight there is what "no Vendor required" actually
                 // means. (vendor)/_layout.tsx no longer gates this specific
                 // route on hasVendor either, so no role pre-switch is needed.
-                router.push("/(vendor)/community-buy-supplier" as any);
+                router.push("/(supplier)/community-buy-supplier" as any);
               }}
               accessibilityRole="button"
               accessibilityLabel="Open Supplier Centre"

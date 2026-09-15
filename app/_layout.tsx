@@ -251,9 +251,10 @@ export default function RootLayout() {
             router.push(`/(buyer)/community-buy-organiser-campaign?id=${campaignId}`);
           } else if (event === "supplier_invited") {
             // Supplier-facing, not organiser/participant — the supplier's
-            // assigned-campaigns screen (vendor route group), not the
-            // buyer-side campaign detail this event has nothing to do with.
-            router.push(`/(vendor)/community-buy-supplier`);
+            // assigned-campaigns screen (its own independent route group,
+            // not nested under vendor), not the buyer-side campaign detail
+            // this event has nothing to do with.
+            router.push(`/(supplier)/community-buy-supplier`);
           } else if (event === "supplier_invitation") {
             // Workstream 3 (mandate item 7) — a real, token-based invitation,
             // distinct from supplier_invited above (which fires only when
@@ -368,6 +369,7 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(buyer)" />
             <Stack.Screen name="(vendor)" />
+            <Stack.Screen name="(supplier)" />
             <Stack.Screen name="(admin)" />
             <Stack.Screen name="terms" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="privacy" options={{ animation: "slide_from_right" }} />

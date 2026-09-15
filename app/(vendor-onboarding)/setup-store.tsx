@@ -132,15 +132,10 @@ export default function SetupStoreScreen() {
         }
       }
       if (supplierIntent) {
-        // (vendor)'s layout redirects role==="buyer"+hasVendor back to
-        // /(buyer) (see its own comment: only a real role switch, not just
-        // hasVendor becoming true, is allowed through) — an existing buyer
-        // who just created a store here needs the same explicit switch
-        // role-select.tsx already uses for this exact case.
-        if (useAuthStore.getState().user?.role === "buyer") {
-          await useAuthStore.getState().switchRole().catch(() => {});
-        }
-        router.replace("/(vendor)/community-buy-supplier" as any);
+        // Supplier Centre is its own independent route group now — no
+        // role/hasVendor check to satisfy, so no pre-emptive switchRole()
+        // is needed here any more either.
+        router.replace("/(supplier)/community-buy-supplier" as any);
       } else {
         router.push("/(vendor-onboarding)/business-info" as any);
       }

@@ -460,7 +460,7 @@ export default function VendorCommunityBuySupplierScreen() {
 
                       {["FULFILLING", "SUCCEEDED", "COMPLETED"].includes(c.status) ? (
                         <TouchableOpacity
-                          onPress={() => router.push({ pathname: "/(vendor)/community-buy-supplier-fulfilment", params: { id: c.id } } as any)}
+                          onPress={() => router.push({ pathname: "/(supplier)/community-buy-supplier-fulfilment", params: { id: c.id } } as any)}
                           activeOpacity={0.88}
                           style={styles.acceptBtn}
                           accessibilityRole="button"
@@ -532,7 +532,7 @@ export default function VendorCommunityBuySupplierScreen() {
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title="Community Buy" subtitle="Supplier dashboard" onBack={() => goBackOrReplace(router, "/(vendor)" as any)} />
+      <PremiumHeader title="Community Buy" subtitle="Supplier dashboard" onBack={() => goBackOrReplace(router, "/(buyer)" as any)} />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         {loading ? <LoadingBlock /> : error ? (

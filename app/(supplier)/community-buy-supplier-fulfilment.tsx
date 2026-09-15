@@ -105,7 +105,7 @@ export default function CommunityBuySupplierFulfilmentScreen() {
   if (loading) {
     return (
       <View style={premiumStyles.page}>
-        <PremiumHeader title="Fulfilment" onBack={() => goBackOrReplace(router, "/(vendor)/community-buy-supplier" as any)} />
+        <PremiumHeader title="Fulfilment" onBack={() => goBackOrReplace(router, "/(supplier)/community-buy-supplier" as any)} />
         <LoadingBlock />
       </View>
     );
@@ -114,7 +114,7 @@ export default function CommunityBuySupplierFulfilmentScreen() {
   if (error || !campaign || !fulfilment) {
     return (
       <View style={premiumStyles.page}>
-        <PremiumHeader title="Fulfilment" onBack={() => goBackOrReplace(router, "/(vendor)/community-buy-supplier" as any)} />
+        <PremiumHeader title="Fulfilment" onBack={() => goBackOrReplace(router, "/(supplier)/community-buy-supplier" as any)} />
         <View style={premiumStyles.block}>
           <ErrorState message={error || "This campaign has no fulfilment record yet."} onRetry={() => void load()} />
         </View>
@@ -126,7 +126,7 @@ export default function CommunityBuySupplierFulfilmentScreen() {
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title={campaign.title} onBack={() => goBackOrReplace(router, "/(vendor)/community-buy-supplier" as any)} />
+      <PremiumHeader title={campaign.title} onBack={() => goBackOrReplace(router, "/(supplier)/community-buy-supplier" as any)} />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         <View style={[premiumStyles.block, { gap: 14 }]}>

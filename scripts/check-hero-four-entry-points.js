@@ -59,8 +59,8 @@ if (!source.includes('pathname: "/(auth)/register", params: { role: "buyer", red
   );
   process.exit(1);
 }
-if (!source.includes('router.push("/(vendor)/community-buy-supplier"')) {
-  console.error("FAIL check-hero-four-entry-points: Suppliers selection no longer routes to the real supplier dashboard for an existing vendor.");
+if (!source.includes('router.push("/(supplier)/community-buy-supplier"')) {
+  console.error("FAIL check-hero-four-entry-points: Suppliers selection no longer routes to the real Supplier Centre (its own independent route group, not nested under (vendor)).");
   process.exit(1);
 }
 

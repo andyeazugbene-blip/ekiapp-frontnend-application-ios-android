@@ -70,7 +70,7 @@ export default function RoleSelectScreen() {
       // review / approved) from the real backend response — so every
       // authenticated user, Vendor or not, goes straight there. No role
       // pre-switch, no forced vendor-store-onboarding detour.
-      router.push("/(vendor)/community-buy-supplier" as any);
+      router.push("/(supplier)/community-buy-supplier" as any);
       return;
     }
 

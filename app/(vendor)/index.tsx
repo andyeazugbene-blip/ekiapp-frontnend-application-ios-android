@@ -648,7 +648,7 @@ export default function VendorDashboardScreen() {
                     eyebrow="Community Buy"
                     label={supplierAccount?.supplierState === "APPROVED" ? "Supply" : "Become a supplier"}
                     filled
-                    onPress={() => navigate("/(vendor)/community-buy-supplier")}
+                    onPress={() => navigate("/(supplier)/community-buy-supplier")}
                   />
                   <ToolCard
                     icon="megaphone-outline"
