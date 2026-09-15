@@ -73,6 +73,7 @@ const sections: NavSection[] = [
       { name: "Financial Ledger", href: "/community-ledger" },
       { name: "Supplier Payments", href: "/community-supplier-payments" },
       { name: "Direct Charge Payouts", href: "/community-buy-payouts" },
+      { name: "Organiser Fees & Attribution", href: "/community-organiser-fees" },
       { name: "Support Cases", href: "/community-support-cases" },
       { name: "Fulfilment Delays", href: "/fulfilment-delays" },
       { name: "Data Access Log", href: "/community-data-access" },

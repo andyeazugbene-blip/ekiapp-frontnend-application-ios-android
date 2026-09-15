@@ -357,6 +357,52 @@ export function isPendingCommunityBuyPayoutApproval(result: ReleaseCommunityBuyP
   return "pendingApproval" in result;
 }
 
+// ─── M7 — CommunityBuyOrganiserFee (spec §13.3/§15.6) ─────────────────────
+export type CommunityBuyOrganiserFeeStatus = "ACCRUED" | "HELD" | "BLOCKED_NO_SETTLEMENT_ROUTE" | "SETTLED" | "CANCELLED" | "REVERSED";
+export type OrganiserFeeSettlementMethod = "NONE" | "EXTERNAL_SUPPLIER_ARRANGEMENT" | "NON_CASH_REWARD" | "STRIPE_CONNECT_TRANSFER";
+
+export interface AdminCommunityBuyOrganiserFee {
+  id: string;
+  campaignId: string;
+  organiserId: string;
+  supplierId: string | null;
+  currency: string;
+  feePerCapturedOrder: number;
+  capturedQuantity: number;
+  grossFeeAmount: number;
+  refundDeductionAmount: number;
+  disputeDeductionAmount: number;
+  netFeeAmount: number;
+  status: CommunityBuyOrganiserFeeStatus;
+  settlementMethod: OrganiserFeeSettlementMethod;
+  providerReference: string | null;
+  heldReasonCodes: string[];
+  settledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  campaign?: { id: string; title: string; organiserId: string };
+}
+
+// ─── M7 — organiser acquisition attribution review (spec §14.5, AT-45/46) ─
+export type AttributionStatus = "ACTIVE" | "UNDER_REVIEW" | "INVALIDATED";
+export type AttributionSource = "DIRECT_JOIN" | "REORDER_RETAINED" | "SELF";
+
+export interface AdminAttributionParticipant {
+  id: string;
+  campaignId: string;
+  userId: string;
+  joinedAt: string;
+  acquisitionOrganiserId: string | null;
+  acquisitionCampaignId: string | null;
+  acquiredAt: string | null;
+  organiserAttributionExpiresAt: string | null;
+  attributionSource: AttributionSource | null;
+  attributionStatus: AttributionStatus;
+  attributionOverrideReason: string | null;
+  campaign?: { id: string; title: string };
+  user?: { id: string; name: string; email: string };
+}
+
 export const communityBuyAdminAPI = {
   async getCampaignsForReview(opts?: ReadOptions): Promise<AdminCampaign[]> {
     const res = await apiClient.get<{ items?: AdminCampaign[] }>("/admin/community-campaigns/review", opts);
@@ -622,5 +668,42 @@ export const communityBuyAdminAPI = {
   /** Four-eyes gated when a rule is configured — check isPendingApproval() before assuming release actually happened, same contract as releaseSupplierPayment() above. */
   async releaseCommunityBuyPayout(campaignId: string, twoFactorCode?: string): Promise<ReleaseCommunityBuyPayoutResult> {
     return apiClient.post<ReleaseCommunityBuyPayoutResult>(`/admin/community-campaigns/${campaignId}/payout/release`, {}, { twoFactorCode });
+  },
+
+  // ─── M7 — CommunityBuyOrganiserFee ───────────────────────────────────────
+  async getCommunityBuyOrganiserFees(opts?: ReadOptions): Promise<AdminCommunityBuyOrganiserFee[]> {
+    const res = await apiClient.get<{ items?: AdminCommunityBuyOrganiserFee[] }>("/admin/community-buy/organiser-fees", opts);
+    return res.items ?? [];
+  },
+  async getCommunityBuyOrganiserFee(campaignId: string, opts?: ReadOptions): Promise<AdminCommunityBuyOrganiserFee> {
+    const res = await apiClient.get<{ fee: AdminCommunityBuyOrganiserFee }>(`/admin/community-campaigns/${campaignId}/organiser-fee`, opts);
+    return res.fee;
+  },
+  async holdCommunityBuyOrganiserFee(campaignId: string, reasonCode: string, twoFactorCode?: string): Promise<AdminCommunityBuyOrganiserFee> {
+    const res = await apiClient.post<{ fee: AdminCommunityBuyOrganiserFee }>(`/admin/community-campaigns/${campaignId}/organiser-fee/hold`, { reasonCode }, { twoFactorCode });
+    return res.fee;
+  },
+  async releaseCommunityBuyOrganiserFee(campaignId: string, twoFactorCode?: string): Promise<AdminCommunityBuyOrganiserFee> {
+    const res = await apiClient.post<{ fee: AdminCommunityBuyOrganiserFee }>(`/admin/community-campaigns/${campaignId}/organiser-fee/release`, {}, { twoFactorCode });
+    return res.fee;
+  },
+  /** Only EXTERNAL_SUPPLIER_ARRANGEMENT/NON_CASH_REWARD are reachable today — STRIPE_CONNECT_TRANSFER refuses 503 server-side until a settlement route is confirmed (spec §26). */
+  async settleCommunityBuyOrganiserFee(campaignId: string, settlementMethod: Exclude<OrganiserFeeSettlementMethod, "NONE">, providerReference: string | undefined, twoFactorCode?: string): Promise<AdminCommunityBuyOrganiserFee> {
+    const res = await apiClient.post<{ fee: AdminCommunityBuyOrganiserFee }>(`/admin/community-campaigns/${campaignId}/organiser-fee/settle`, { settlementMethod, providerReference }, { twoFactorCode });
+    return res.fee;
+  },
+
+  // ─── M7 — attribution review ─────────────────────────────────────────────
+  async getAttributionReviews(status: AttributionStatus = "UNDER_REVIEW", opts?: ReadOptions): Promise<AdminAttributionParticipant[]> {
+    const res = await apiClient.get<{ items?: AdminAttributionParticipant[] }>(`/admin/community-buy/attribution-reviews?status=${status}`, opts);
+    return res.items ?? [];
+  },
+  async flagAttributionForReview(participantId: string, reason: string): Promise<AdminAttributionParticipant> {
+    const res = await apiClient.post<{ participant: AdminAttributionParticipant }>(`/admin/community-buy/participants/${participantId}/attribution/flag`, { reason });
+    return res.participant;
+  },
+  async resolveAttributionReview(participantId: string, outcome: "CONFIRMED_VALID" | "INVALIDATED", reason: string): Promise<AdminAttributionParticipant> {
+    const res = await apiClient.post<{ participant: AdminAttributionParticipant }>(`/admin/community-buy/participants/${participantId}/attribution/resolve`, { outcome, reason });
+    return res.participant;
   },
 };
