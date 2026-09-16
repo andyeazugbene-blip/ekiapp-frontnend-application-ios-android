@@ -255,6 +255,24 @@ export default function RootLayout() {
             // not nested under vendor), not the buyer-side campaign detail
             // this event has nothing to do with.
             router.push(`/(supplier)/community-buy-supplier`);
+          } else if (
+            // M9 fix — these six payout-lifecycle events (campaign-payout.
+            // service.ts's notifySupplier) and the fulfilment-follow-up
+            // alert (fulfilment-delay.service.ts) are ALL sent to the
+            // SUPPLIER, never the participant. Before this fix they fell
+            // through to the participant campaign-detail screen below,
+            // which has no payout/fulfilment-delay content for a supplier
+            // to act on — a dead-feeling deep link, not just a suboptimal one.
+            event === "payout_ready" || event === "payout_held" || event === "payout_initiated" ||
+            event === "payout_in_transit" || event === "payout_paid" || event === "payout_failed" ||
+            event === "fulfilment_follow_up"
+          ) {
+            router.push(`/(supplier)/community-buy-supplier-fulfilment?id=${campaignId}`);
+          } else if (event === "emergency_disclosure_granted") {
+            // Also supplier-facing (admin-approvals.controller.ts grants
+            // this TO the assigned supplier) — the fulfilment screen is
+            // where the disclosed contact detail is actually surfaced.
+            router.push(`/(supplier)/community-buy-supplier-fulfilment?id=${campaignId}`);
           } else if (event === "supplier_invitation") {
             // Workstream 3 (mandate item 7) — a real, token-based invitation,
             // distinct from supplier_invited above (which fires only when
