@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
@@ -27,6 +27,13 @@ export default function CommunityBuyPaymentScreen() {
   const [addingCard, setAddingCard] = useState(false);
   const [contributing, setContributing] = useState(false);
   const [contributeError, setContributeError] = useState("");
+  // Phase 3 (address + privacy foundation) — collected only when the
+  // campaign's deliveryPreference is DELIVERY; ignored/unused otherwise.
+  const [recipientName, setRecipientName] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [addressLine2, setAddressLine2] = useState("");
+  const [city, setCity] = useState("");
+  const [postcode, setPostcode] = useState("");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -83,10 +90,17 @@ export default function CommunityBuyPaymentScreen() {
       setContributeError("Add a payment method to continue.");
       return;
     }
+    if (campaign?.deliveryPreference === "DELIVERY" && (!recipientName.trim() || !addressLine1.trim() || !city.trim() || !postcode.trim())) {
+      setContributeError("Enter your delivery address to continue.");
+      return;
+    }
     setContributing(true);
     setContributeError("");
     try {
-      const pledge = await communityBuyService.pledgeContribution(id, quantity, paymentMethodId);
+      const deliveryAddress = campaign?.deliveryPreference === "DELIVERY"
+        ? { recipientName: recipientName.trim(), addressLine1: addressLine1.trim(), addressLine2: addressLine2.trim() || undefined, city: city.trim(), postcode: postcode.trim() }
+        : undefined;
+      const pledge = await communityBuyService.pledgeContribution(id, quantity, paymentMethodId, deliveryAddress);
       router.replace({ pathname: "/(buyer)/community-buy-contribution-confirmed", params: { id, contributionId: pledge.contributionId } } as any);
     } catch (err) {
       // Genuinely failed to create the pledge — no contribution exists and
@@ -132,6 +146,8 @@ export default function CommunityBuyPaymentScreen() {
   // rather than showing an invented figure.
   const isDelivery = campaign.deliveryPreference === "DELIVERY";
   const maxTotal = amount + serviceFee;
+  const addressMissing = isDelivery && (!recipientName.trim() || !addressLine1.trim() || !city.trim() || !postcode.trim());
+  const pledgeDisabled = contributing || !paymentMethodId || addressMissing;
 
   return (
     <View style={premiumStyles.page}>
@@ -160,6 +176,24 @@ export default function CommunityBuyPaymentScreen() {
               Organiser: {campaign.organiserDisplayName ?? "—"}{campaign.supplier?.vendor?.storeName || campaign.supplierAccount?.user?.name ? ` · Supplier: ${campaign.supplier?.vendor?.storeName ?? campaign.supplierAccount?.user?.name}` : ""}
             </Text>
           </FloatingCard>
+
+          {isDelivery ? (
+            <FloatingCard style={{ gap: 10 }}>
+              <Text style={styles.section}>Delivery address</Text>
+              <Text style={styles.disclosureText}>Required for this campaign. Only you and the campaign organiser can see this — never the supplier.</Text>
+              <TextInput style={styles.input} placeholder="Recipient name" placeholderTextColor="#8AA194" value={recipientName} onChangeText={setRecipientName} accessibilityLabel="Recipient name" />
+              <TextInput style={styles.input} placeholder="Address line 1" placeholderTextColor="#8AA194" value={addressLine1} onChangeText={setAddressLine1} accessibilityLabel="Address line 1" />
+              <TextInput style={styles.input} placeholder="Address line 2 (optional)" placeholderTextColor="#8AA194" value={addressLine2} onChangeText={setAddressLine2} accessibilityLabel="Address line 2" />
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <TextInput style={styles.input} placeholder="City" placeholderTextColor="#8AA194" value={city} onChangeText={setCity} accessibilityLabel="City" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <TextInput style={styles.input} placeholder="Postcode" placeholderTextColor="#8AA194" value={postcode} onChangeText={setPostcode} accessibilityLabel="Postcode" autoCapitalize="characters" />
+                </View>
+              </View>
+            </FloatingCard>
+          ) : null}
 
           <FloatingCard style={{ gap: 10 }}>
             <View style={{ gap: 8 }}>
@@ -200,12 +234,12 @@ export default function CommunityBuyPaymentScreen() {
 
           <TouchableOpacity
             onPress={() => void handlePledge()}
-            disabled={contributing || !paymentMethodId}
+            disabled={pledgeDisabled}
             activeOpacity={0.88}
             accessibilityRole="button"
             accessibilityLabel={contributing ? "Submitting pledge" : "Pledge, no charge now"}
-            accessibilityState={{ busy: contributing, disabled: contributing || !paymentMethodId }}
-            style={[styles.primaryBtn, (contributing || !paymentMethodId) && { opacity: 0.6 }]}
+            accessibilityState={{ busy: contributing, disabled: pledgeDisabled }}
+            style={[styles.primaryBtn, pledgeDisabled && { opacity: 0.6 }]}
           >
             {contributing ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Pledge — no charge now</Text>}
           </TouchableOpacity>
@@ -226,6 +260,7 @@ const styles = StyleSheet.create({
   optionRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1.5, borderColor: "transparent" },
   optionRowActive: { borderColor: "#076B51" },
   optionTitle: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  input: { backgroundColor: "#F4F6F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 13, fontFamily: "Outfit-Regular", color: "#151E1B" },
   addRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 },
   addRowText: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#076B51" },
   disclosureText: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72", lineHeight: 16 },

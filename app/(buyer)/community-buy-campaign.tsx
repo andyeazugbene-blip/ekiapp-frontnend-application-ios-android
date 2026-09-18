@@ -231,7 +231,16 @@ export default function CommunityBuyCampaignScreen() {
               <Text style={styles.infoValue}>{campaign.deliveryPreference === "DELIVERY" ? "Individual delivery" : "Collection point"}</Text>
             </View>
             {campaign.deliveryPreference !== "DELIVERY" ? (
-              <Text style={styles.progressMetaSub}>You'll collect your order from a collection point — your home address is never shared with the supplier.</Text>
+              <>
+                <Text style={styles.progressMetaSub}>You'll collect your order from a collection point — your home address is never shared with the supplier.</Text>
+                {campaign.collectionAddressLine1 ? (
+                  <Text style={styles.progressMetaSub}>
+                    Collection point: {[campaign.collectionAddressLine1, campaign.collectionAddressLine2, campaign.collectionCity, campaign.collectionPostcode].filter(Boolean).join(", ")}
+                  </Text>
+                ) : null}
+              </>
+            ) : campaign.deliveryCoverageAreas && campaign.deliveryCoverageAreas.length > 0 ? (
+              <Text style={styles.progressMetaSub}>Delivers to: {campaign.deliveryCoverageAreas.join(", ")}. You'll be asked for your delivery address when you pledge.</Text>
             ) : null}
 
             <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares!} goal={campaign.goalShares!} max={campaign.maximumShares!} />

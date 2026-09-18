@@ -182,6 +182,12 @@ export interface CampaignDraftInput {
   deliveryPreference?: CampaignDeliveryPreference;
   // Phase 2 (organiser controls) — optional scheduled opening.
   scheduledOpenAt?: string;
+  // Phase 3 (address + privacy foundation) — organiser receiving configuration.
+  collectionAddressLine1?: string;
+  collectionAddressLine2?: string;
+  collectionCity?: string;
+  collectionPostcode?: string;
+  deliveryCoverageAreas?: string[];
 }
 
 export interface Campaign {
@@ -248,6 +254,15 @@ export interface Campaign {
   // Phase 2 (organiser controls) — optional scheduled opening. Null means
   // publish() opens the campaign immediately.
   scheduledOpenAt?: string | null;
+  // Phase 3 (address + privacy foundation) — organiser receiving
+  // configuration. collectionAddress* is public (shown to every buyer);
+  // deliveryCoverageAreas is only meaningful when deliveryPreference is
+  // DELIVERY.
+  collectionAddressLine1?: string | null;
+  collectionAddressLine2?: string | null;
+  collectionCity?: string | null;
+  collectionPostcode?: string | null;
+  deliveryCoverageAreas?: string[];
   // Phase 2 (organiser identity display preference) — server-computed
   // display name (first name only, or full name, per the organiser's own
   // preference). Buyer-facing surfaces should always prefer this over
@@ -278,8 +293,24 @@ export interface Contribution {
   // alongside `amount` in the same capture. Total actually charged is
   // amount + buyerServiceFeeAmount.
   buyerServiceFeeAmount?: number;
+  // Phase 3 (address + privacy foundation) — present only for a DELIVERY
+  // campaign's contribution; this is the buyer's own data, visible on
+  // their own contribution read regardless of campaign delivery mode.
+  deliveryRecipientName?: string | null;
+  deliveryAddressLine1?: string | null;
+  deliveryAddressLine2?: string | null;
+  deliveryCity?: string | null;
+  deliveryPostcode?: string | null;
   refund?: { status: string; amount: number } | null;
   createdAt: string;
+}
+
+export interface DeliveryAddressInput {
+  recipientName: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  postcode: string;
 }
 
 export interface MyCommunityBuy {
@@ -326,6 +357,16 @@ export interface CampaignParticipant {
   totalQuantity: number;
   totalPaid: number;
   isOrganiser: boolean;
+  // Phase 3 (address + privacy foundation) — present only for a DELIVERY
+  // campaign, and only for the campaign's owning organiser. Never present
+  // on any supplier-facing read (the manifest has no address field at all).
+  deliveryAddress?: {
+    recipientName: string | null;
+    addressLine1: string | null;
+    addressLine2: string | null;
+    city: string | null;
+    postcode: string | null;
+  };
 }
 
 export interface RefundProgress {
@@ -607,8 +648,8 @@ export const communityBuyService = {
    * regularDeliveriesService.createSetupIntent/confirmSetupIntent (the same
    * generic /api/buyer/payment-methods flow, reused as-is).
    */
-  async pledgeContribution(campaignId: string, quantity: number, paymentMethodId: string): Promise<{ contributionId: string; quantity: number; amount: number; currency: string; status: ContributionStatus }> {
-    return apiClient.post(`/api/community-buy/campaigns/${campaignId}/contributions`, { quantity, paymentMethodId });
+  async pledgeContribution(campaignId: string, quantity: number, paymentMethodId: string, deliveryAddress?: DeliveryAddressInput): Promise<{ contributionId: string; quantity: number; amount: number; currency: string; status: ContributionStatus }> {
+    return apiClient.post(`/api/community-buy/campaigns/${campaignId}/contributions`, { quantity, paymentMethodId, deliveryAddress });
   },
 
   async getContribution(id: string): Promise<Contribution> {

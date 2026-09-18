@@ -131,6 +131,12 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [deadline, setDeadline] = useState("");
   // Phase 2 (organiser controls) — optional scheduled opening.
   const [scheduledOpenAt, setScheduledOpenAt] = useState("");
+  // Phase 3 (address + privacy foundation) — organiser receiving configuration.
+  const [collectionAddressLine1, setCollectionAddressLine1] = useState("");
+  const [collectionAddressLine2, setCollectionAddressLine2] = useState("");
+  const [collectionCity, setCollectionCity] = useState("");
+  const [collectionPostcode, setCollectionPostcode] = useState("");
+  const [deliveryCoverageAreasText, setDeliveryCoverageAreasText] = useState("");
   // Community Buy Workstream 2 — Product step (spec §7 step 1). One image
   // URL per line — no media-upload pipeline exists yet, so this stores
   // real URLs the organiser provides rather than fabricating an uploader.
@@ -217,6 +223,11 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         setPricePerShare(existing.pricePerShareMinor ? String(existing.pricePerShareMinor / 100) : "");
         setDeadline(existing.deadline ? existing.deadline.slice(0, 10) : "");
         setScheduledOpenAt(existing.scheduledOpenAt ? existing.scheduledOpenAt.slice(0, 10) : "");
+        setCollectionAddressLine1(existing.collectionAddressLine1 ?? "");
+        setCollectionAddressLine2(existing.collectionAddressLine2 ?? "");
+        setCollectionCity(existing.collectionCity ?? "");
+        setCollectionPostcode(existing.collectionPostcode ?? "");
+        setDeliveryCoverageAreasText((existing.deliveryCoverageAreas ?? []).join(", "));
         setImagesText((existing.images ?? []).join("\n"));
         setUnit(existing.unit ?? "");
         setQuantityPerOrder(existing.quantityPerOrder != null ? String(existing.quantityPerOrder) : "");
@@ -332,6 +343,13 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       quantityPerOrder: quantityPerOrder.trim() ? Math.round(Number(quantityPerOrder)) : undefined,
       qualityNotes: qualityNotes.trim() || undefined,
       deliveryPreference,
+      collectionAddressLine1: collectionAddressLine1.trim() || undefined,
+      collectionAddressLine2: collectionAddressLine2.trim() || undefined,
+      collectionCity: collectionCity.trim() || undefined,
+      collectionPostcode: collectionPostcode.trim() || undefined,
+      deliveryCoverageAreas: deliveryCoverageAreasText.trim()
+        ? deliveryCoverageAreasText.split(",").map((a) => a.trim()).filter(Boolean)
+        : undefined,
       ...(fulfilmentOwner ? { fulfilmentOwner, ...(fulfilmentOwner === "SUPPLIER" ? { supplierAccountId: supplierAccountId ?? undefined } : {}) } : {}),
     };
 
@@ -1100,6 +1118,29 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 </FloatingCard>
               </TouchableOpacity>
               <Text style={styles.fieldHint}>Collection point keeps participant addresses out of this — the safer default. Individual delivery needs a protected courier connection that isn't live yet, so it can't be selected.</Text>
+
+              {deliveryPreference === "COLLECTION" ? (
+                <FloatingCard style={{ gap: 10 }}>
+                  <Text style={styles.label}>Collection point address</Text>
+                  <Text style={styles.fieldHint}>Shown to every buyer once this campaign is live.</Text>
+                  <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="Address line 1" placeholderTextColor="#8AA194" value={collectionAddressLine1} onChangeText={setCollectionAddressLine1} accessibilityLabel="Collection address line 1" />
+                  <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="Address line 2 (optional)" placeholderTextColor="#8AA194" value={collectionAddressLine2} onChangeText={setCollectionAddressLine2} accessibilityLabel="Collection address line 2" />
+                  <View style={{ flexDirection: "row", gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="City" placeholderTextColor="#8AA194" value={collectionCity} onChangeText={setCollectionCity} accessibilityLabel="Collection city" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="Postcode" placeholderTextColor="#8AA194" value={collectionPostcode} onChangeText={setCollectionPostcode} accessibilityLabel="Collection postcode" />
+                    </View>
+                  </View>
+                </FloatingCard>
+              ) : deliveryPreference === "DELIVERY" ? (
+                <FloatingCard style={{ gap: 10 }}>
+                  <Text style={styles.label}>Delivery coverage areas</Text>
+                  <Text style={styles.fieldHint}>Postcode areas this campaign can deliver to, comma-separated (e.g. SW1, E14). A buyer's address must match one of these.</Text>
+                  <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="SW1, E14, NW3" placeholderTextColor="#8AA194" value={deliveryCoverageAreasText} onChangeText={setDeliveryCoverageAreasText} accessibilityLabel="Delivery coverage areas" autoCapitalize="characters" />
+                </FloatingCard>
+              ) : null}
             </View>
             </>
             ) : null}
@@ -1336,6 +1377,12 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                         {/* M4 (AT-44): name is omitted for a self-supply campaign — the organiser gets only fulfilment-necessary data, same as a third-party supplier's masked manifest. */}
                         <Text style={styles.optionText}>{p.name ?? "Participant"}{p.isOrganiser ? " (you)" : ""}</Text>
                         <Text style={styles.fieldHint}>{p.totalQuantity} share{p.totalQuantity === 1 ? "" : "s"} · {formatDisplayMoney(p.totalPaid / 100, currency, selectedCurrency)}</Text>
+                        {/* Phase 3 — present only for a DELIVERY campaign, only for this campaign's owning organiser. */}
+                        {p.deliveryAddress ? (
+                          <Text style={styles.fieldHint}>
+                            {p.deliveryAddress.recipientName ?? "—"} · {[p.deliveryAddress.addressLine1, p.deliveryAddress.addressLine2, p.deliveryAddress.city, p.deliveryAddress.postcode].filter(Boolean).join(", ")}
+                          </Text>
+                        ) : null}
                       </View>
                     ))}
                   </FloatingCard>
