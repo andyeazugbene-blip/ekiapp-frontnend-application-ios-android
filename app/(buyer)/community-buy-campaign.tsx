@@ -223,7 +223,7 @@ export default function CommunityBuyCampaignScreen() {
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Organiser</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>{campaign.organiser?.user?.name ?? "Verified organiser"}</Text>
+              <Text style={styles.infoValue} numberOfLines={1}>{campaign.organiserDisplayName ?? "Verified organiser"}</Text>
             </View>
             {/* M4 (spec §14.2): show who receives delivery data before joining. */}
             <View style={styles.infoRow}>

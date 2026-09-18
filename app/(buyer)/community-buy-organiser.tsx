@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { Ionicons } from "@expo/vector-icons";
@@ -54,6 +54,9 @@ export default function CommunityBuyOrganiserScreen() {
   const [error, setError] = useState("");
   const [applying, setApplying] = useState<string | null>(null);
   const [applyError, setApplyError] = useState("");
+  // Phase 2 (organiser identity display preference) — account-level, so it
+  // lives here rather than in the per-campaign wizard.
+  const [displayPrefBusy, setDisplayPrefBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,6 +79,21 @@ export default function CommunityBuyOrganiserScreen() {
   }, []);
 
   useFocusRefresh(load);
+
+  // Phase 2 (organiser identity display preference) — toggling this
+  // controls whether buyers see this organiser's first name only (default)
+  // or their full name, across every campaign they run.
+  const handleToggleDisplayPreference = async (showFullName: boolean) => {
+    setDisplayPrefBusy(true);
+    try {
+      const updated = await communityBuyService.updateMyOrganiserProfile({ firstNameOnlyDisplay: !showFullName });
+      setProfile(updated);
+    } catch (err) {
+      Alert.alert("Couldn't update", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setDisplayPrefBusy(false);
+    }
+  };
 
   const handleApply = async (countryCode: string) => {
     setApplying(countryCode);
@@ -207,6 +225,20 @@ export default function CommunityBuyOrganiserScreen() {
                 <Ionicons name="chevron-forward" size={16} color="#8AA194" />
               </FloatingCard>
             </TouchableOpacity>
+
+            <FloatingCard style={styles.applyRow}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.applyRowText}>Show my full name to buyers</Text>
+                <Text style={styles.cardMeta}>Off shows only your first name on your campaigns. Default is first name only.</Text>
+              </View>
+              <Switch
+                value={!(profile.firstNameOnlyDisplay ?? true)}
+                onValueChange={(v) => void handleToggleDisplayPreference(v)}
+                disabled={displayPrefBusy}
+                accessibilityLabel="Show my full name to buyers"
+                trackColor={{ false: "#D9E2DC", true: "#076B51" }}
+              />
+            </FloatingCard>
 
             <Text style={styles.section}>Your campaigns</Text>
             {campaigns.length === 0 ? (

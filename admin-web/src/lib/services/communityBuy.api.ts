@@ -37,6 +37,13 @@ export interface AdminCampaign {
   createdAt: string;
   organiser?: { user?: { name: string; email: string } };
   supplier?: { vendor?: { storeName: string } } | null;
+  // Phase 2 (organiser controls) — additive, admin-visible.
+  perBuyerMinShares?: number | null;
+  perBuyerMaxShares?: number | null;
+  scheduledOpenAt?: string | null;
+  // Phase 2 (admin ops) — the unified campaign-operations view's one
+  // shared issue/notes field.
+  adminIssueNotes?: string | null;
 }
 
 export type ExtensionRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -430,6 +437,11 @@ export const communityBuyAdminAPI = {
   },
   async resumeCampaign(id: string): Promise<AdminCampaign> {
     const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/resume`, {});
+    return res.campaign;
+  },
+  /** Phase 2 (admin ops) — the unified campaign-operations view's one shared issue/notes field. */
+  async setCampaignIssueNotes(id: string, notes: string): Promise<AdminCampaign> {
+    const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/issue-notes`, { notes });
     return res.campaign;
   },
   /** Phase 9 — only reachable pre-charge (DRAFT..RESCUE_WINDOW); the backend 409s for anything past that. */

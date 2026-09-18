@@ -157,7 +157,7 @@ export default function CommunityBuyPaymentScreen() {
               <Text style={styles.totalValue}>{formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)}</Text>
             </View>
             <Text style={styles.disclosureText}>
-              Organiser: {campaign.organiser?.user?.name ?? "—"}{campaign.supplier?.vendor?.storeName || campaign.supplierAccount?.user?.name ? ` · Supplier: ${campaign.supplier?.vendor?.storeName ?? campaign.supplierAccount?.user?.name}` : ""}
+              Organiser: {campaign.organiserDisplayName ?? "—"}{campaign.supplier?.vendor?.storeName || campaign.supplierAccount?.user?.name ? ` · Supplier: ${campaign.supplier?.vendor?.storeName ?? campaign.supplierAccount?.user?.name}` : ""}
             </Text>
           </FloatingCard>
 

@@ -169,6 +169,9 @@ export interface CampaignDraftInput {
   minimumShares?: number;
   goalShares?: number;
   maximumShares?: number;
+  // Phase 2 (organiser controls) — optional per-buyer slot limits.
+  perBuyerMinShares?: number;
+  perBuyerMaxShares?: number;
   pricePerShareMinor?: number;
   deadline?: string;
   rescueDurationMinutes?: number;
@@ -177,6 +180,8 @@ export interface CampaignDraftInput {
   quantityPerOrder?: number;
   qualityNotes?: string;
   deliveryPreference?: CampaignDeliveryPreference;
+  // Phase 2 (organiser controls) — optional scheduled opening.
+  scheduledOpenAt?: string;
 }
 
 export interface Campaign {
@@ -206,6 +211,11 @@ export interface Campaign {
   minimumShares: number | null;
   goalShares: number | null;
   maximumShares: number | null;
+  // Phase 2 (organiser controls) — optional per-buyer slot limits, distinct
+  // from maximumShares (the campaign-wide cap). Null means no per-buyer
+  // limit.
+  perBuyerMinShares?: number | null;
+  perBuyerMaxShares?: number | null;
   pricePerShareMinor: number | null;
   // Diaspora escrow reconciliation — the organiser-agreed wholesale price
   // paid to an Eki-registered supplier, distinct from pricePerShareMinor
@@ -235,6 +245,15 @@ export interface Campaign {
   qualityNotes: string | null;
   // Delivery step (spec §7 step 5) — organiser intent only, no address data.
   deliveryPreference: CampaignDeliveryPreference;
+  // Phase 2 (organiser controls) — optional scheduled opening. Null means
+  // publish() opens the campaign immediately.
+  scheduledOpenAt?: string | null;
+  // Phase 2 (organiser identity display preference) — server-computed
+  // display name (first name only, or full name, per the organiser's own
+  // preference). Buyer-facing surfaces should always prefer this over
+  // organiser?.user?.name, which is only ever present on organiser-owned
+  // reads (never a buyer-facing one).
+  organiserDisplayName?: string;
   // Diaspora escrow reconciliation (final V1 settlement doc, required buyer
   // disclosure) — PER-SHARE preview of Eki's buyer service fee at the
   // market's CURRENT rate; a client multiplies by chosen quantity for the
@@ -426,6 +445,9 @@ export interface OrganiserProfile {
   verifiedAt?: string | null;
   isRestricted?: boolean;
   restrictedReason?: string | null;
+  // Phase 2 (organiser identity display preference) — defaults true
+  // (first-name-only) server-side.
+  firstNameOnlyDisplay?: boolean;
   createdAt: string;
 }
 
@@ -622,6 +644,12 @@ export const communityBuyService = {
     return res.profile;
   },
 
+  /** Phase 2 (organiser controls) — account-level identity display preference, applies to every campaign this organiser runs. */
+  async updateMyOrganiserProfile(input: { firstNameOnlyDisplay?: boolean }): Promise<OrganiserProfile> {
+    const res = await apiClient.patch<{ profile: OrganiserProfile }>("/api/organiser/profile", input);
+    return res.profile;
+  },
+
   async applyAsOrganiser(country: string): Promise<OrganiserProfile> {
     const res = await apiClient.post<{ profile: OrganiserProfile }>("/api/organiser/applications", { country });
     return res.profile;
@@ -669,6 +697,23 @@ export const communityBuyService = {
   async publishCampaign(id: string): Promise<Campaign> {
     const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${id}/publish`, {});
     return res.campaign;
+  },
+
+  /** Phase 2 (organiser controls) — reuses admin pause()/resume()'s exact status transitions, scoped to the organiser's own campaign. */
+  async pauseCampaignAsOrganiser(id: string): Promise<Campaign> {
+    const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${id}/pause`, {});
+    return res.campaign;
+  },
+
+  async resumeCampaignAsOrganiser(id: string): Promise<Campaign> {
+    const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${id}/resume`, {});
+    return res.campaign;
+  },
+
+  /** Phase 2 (organiser controls) — general change request, filed through the existing support-case model/admin-review flow. */
+  async requestCampaignChange(id: string, description: string): Promise<{ id: string; status: string }> {
+    const res = await apiClient.post<{ supportCase: { id: string; status: string } }>(`/api/organiser/campaigns/${id}/change-request`, { description });
+    return res.supportCase;
   },
 
   async listCampaignParticipants(campaignId: string): Promise<CampaignParticipant[]> {

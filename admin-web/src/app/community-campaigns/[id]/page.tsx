@@ -55,6 +55,11 @@ export default function CommunityCampaignDetailPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [pendingAction, setPendingAction] = useState<"release" | "hold" | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
+  // Phase 2 (admin ops) — the unified operations view's one shared
+  // issue/notes field. Independent of every existing review/payment/
+  // campaign state field above.
+  const [issueNotes, setIssueNotes] = useState("");
+  const [issueNotesSaved, setIssueNotesSaved] = useState(true);
 
   // Diaspora escrow reconciliation (Figma admin S84/S85) — this page is
   // additive: it reuses the SAME two list endpoints the review-queue page
@@ -83,6 +88,32 @@ export default function CommunityCampaignDetailPage() {
   }, [params.id]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Phase 2 (admin ops) — sync the notes draft only when a genuinely
+  // different campaign loads, not on every background refresh, so an
+  // in-progress edit here survives an unrelated action (approve/pause/etc.)
+  // updating `campaign`.
+  useEffect(() => {
+    if (campaign) {
+      setIssueNotes(campaign.adminIssueNotes ?? "");
+      setIssueNotesSaved(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaign?.id]);
+
+  const runSaveIssueNotes = async () => {
+    if (!campaign) return;
+    setBusy(true);
+    try {
+      await communityBuyAdminAPI.setCampaignIssueNotes(campaign.id, issueNotes.trim());
+      setIssueNotesSaved(true);
+      await load();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Action failed");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const runAction = async (action: () => Promise<AdminCampaign>) => {
     setBusy(true);
@@ -231,6 +262,12 @@ export default function CommunityCampaignDetailPage() {
                 <p>Confirmed shares: <span className="font-semibold text-[#101820]">{campaign.confirmedShares} of {campaign.maximumShares}</span></p>
                 {campaign.paidTotal != null ? <p>Paid total: <span className="font-semibold text-[#101820]">{centsToUnit(campaign.paidTotal).toFixed(2)} {campaign.currency}</span></p> : null}
                 {campaign.status === "RESCUE_WINDOW" && campaign.rescueEndsAt ? <p>Rescue window ends: <span className="font-semibold text-[#101820]">{new Date(campaign.rescueEndsAt).toLocaleString()}</span></p> : null}
+                {campaign.perBuyerMinShares != null || campaign.perBuyerMaxShares != null ? (
+                  <p>Per-buyer limit: <span className="font-semibold text-[#101820]">{campaign.perBuyerMinShares ?? "—"} – {campaign.perBuyerMaxShares ?? "—"}</span></p>
+                ) : null}
+                {campaign.scheduledOpenAt ? (
+                  <p>Scheduled opening: <span className="font-semibold text-[#101820]">{new Date(campaign.scheduledOpenAt).toLocaleString()}</span></p>
+                ) : null}
               </div>
 
               {/* Current issues — read from the real fields already recorded against this campaign/payment, never a new freestanding note. */}
@@ -242,6 +279,32 @@ export default function CommunityCampaignDetailPage() {
                   {payment?.holdReason ? <p className="mt-1">Payment on hold: {payment.holdReason}</p> : null}
                 </div>
               ) : null}
+
+              {/* Phase 2 (admin ops) — one shared, admin-internal issue/notes
+                  field for this campaign, independent of every other field
+                  on this page (reviewNotes, supplierDeclineReason, holdReason
+                  all stay exactly as they are). Never shown to the organiser
+                  or participants. */}
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <p className="text-xs font-semibold text-slate-500">Admin notes (internal only)</p>
+                <textarea
+                  placeholder="Free-text notes for other admins reviewing this campaign"
+                  value={issueNotes}
+                  onChange={(e) => { setIssueNotes(e.target.value); setIssueNotesSaved(false); }}
+                  className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm"
+                  rows={3}
+                />
+                <div className="mt-2 flex items-center gap-3">
+                  <Button
+                    variant="secondary"
+                    disabled={busy || issueNotesSaved}
+                    onClick={() => void runSaveIssueNotes()}
+                  >
+                    Save notes
+                  </Button>
+                  {issueNotesSaved ? <span className="text-xs text-slate-400">Saved</span> : <span className="text-xs text-amber-600">Unsaved changes</span>}
+                </div>
+              </div>
 
               {campaign.status === "LIVE" || campaign.status === "PAUSED" ? (
                 <div className="mt-4 flex flex-wrap gap-3 border-t border-slate-100 pt-4">

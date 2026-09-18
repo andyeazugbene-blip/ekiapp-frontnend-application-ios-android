@@ -124,8 +124,13 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [minimumShares, setMinimumShares] = useState("");
   const [goalShares, setGoalShares] = useState("");
   const [maximumShares, setMaximumShares] = useState("");
+  // Phase 2 (organiser controls) — optional per-buyer slot limits.
+  const [perBuyerMinShares, setPerBuyerMinShares] = useState("");
+  const [perBuyerMaxShares, setPerBuyerMaxShares] = useState("");
   const [pricePerShare, setPricePerShare] = useState("");
   const [deadline, setDeadline] = useState("");
+  // Phase 2 (organiser controls) — optional scheduled opening.
+  const [scheduledOpenAt, setScheduledOpenAt] = useState("");
   // Community Buy Workstream 2 — Product step (spec §7 step 1). One image
   // URL per line — no media-upload pipeline exists yet, so this stores
   // real URLs the organiser provides rather than fabricating an uploader.
@@ -143,6 +148,11 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  // Phase 2 (organiser controls) — pause/resume + general change request.
+  const [pauseResumeBusy, setPauseResumeBusy] = useState(false);
+  const [showChangeRequestForm, setShowChangeRequestForm] = useState(false);
+  const [changeRequestText, setChangeRequestText] = useState("");
+  const [changeRequestBusy, setChangeRequestBusy] = useState(false);
   const [decisionBusy, setDecisionBusy] = useState<"top-up" | "extension" | "end" | null>(null);
   const [topUpQuantity, setTopUpQuantity] = useState("1");
   const [paymentMethods, setPaymentMethods] = useState<BuyerPaymentMethod[]>([]);
@@ -202,8 +212,11 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         setMinimumShares(String(existing.minimumShares ?? ""));
         setGoalShares(String(existing.goalShares ?? ""));
         setMaximumShares(String(existing.maximumShares ?? ""));
+        setPerBuyerMinShares(existing.perBuyerMinShares != null ? String(existing.perBuyerMinShares) : "");
+        setPerBuyerMaxShares(existing.perBuyerMaxShares != null ? String(existing.perBuyerMaxShares) : "");
         setPricePerShare(existing.pricePerShareMinor ? String(existing.pricePerShareMinor / 100) : "");
         setDeadline(existing.deadline ? existing.deadline.slice(0, 10) : "");
+        setScheduledOpenAt(existing.scheduledOpenAt ? existing.scheduledOpenAt.slice(0, 10) : "");
         setImagesText((existing.images ?? []).join("\n"));
         setUnit(existing.unit ?? "");
         setQuantityPerOrder(existing.quantityPerOrder != null ? String(existing.quantityPerOrder) : "");
@@ -299,6 +312,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
     if (deadline.trim() && Number.isNaN(new Date(deadline).getTime())) {
       return Alert.alert("Invalid date", "Enter a valid date (YYYY-MM-DD).");
     }
+    if (scheduledOpenAt.trim() && Number.isNaN(new Date(scheduledOpenAt).getTime())) {
+      return Alert.alert("Invalid date", "Enter a valid scheduled opening date (YYYY-MM-DD).");
+    }
 
     const images = imagesText.split("\n").map((s) => s.trim()).filter(Boolean);
     const sharedFields = {
@@ -306,8 +322,11 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       minimumShares: minimumShares.trim() ? Math.round(Number(minimumShares)) : undefined,
       goalShares: goalShares.trim() ? Math.round(Number(goalShares)) : undefined,
       maximumShares: maximumShares.trim() ? Math.round(Number(maximumShares)) : undefined,
+      perBuyerMinShares: perBuyerMinShares.trim() ? Math.round(Number(perBuyerMinShares)) : undefined,
+      perBuyerMaxShares: perBuyerMaxShares.trim() ? Math.round(Number(perBuyerMaxShares)) : undefined,
       pricePerShareMinor: pricePerShare.trim() ? Math.round(Number(pricePerShare) * 100) : undefined,
       deadline: deadline.trim() ? new Date(deadline).toISOString() : undefined,
+      scheduledOpenAt: scheduledOpenAt.trim() ? new Date(scheduledOpenAt).toISOString() : undefined,
       images,
       unit: unit.trim() || undefined,
       quantityPerOrder: quantityPerOrder.trim() ? Math.round(Number(quantityPerOrder)) : undefined,
@@ -439,12 +458,52 @@ export default function CommunityBuyOrganiserCampaignScreen() {
     if (!campaign) return;
     setPublishing(true);
     try {
-      setCampaign(await communityBuyService.publishCampaign(campaign.id));
-      Alert.alert("Published", "Your campaign is now live.");
+      const updated = await communityBuyService.publishCampaign(campaign.id);
+      setCampaign(updated);
+      // Phase 2 (organiser controls) — a future scheduledOpenAt keeps the
+      // campaign APPROVED until the sweep opens it, rather than going LIVE
+      // immediately.
+      Alert.alert("Published", updated.status === "LIVE" ? "Your campaign is now live." : "Your campaign will open automatically at its scheduled time.");
     } catch (err) {
       Alert.alert("Couldn't publish", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setPublishing(false);
+    }
+  };
+
+  // Phase 2 (organiser controls) — reuses admin pause()/resume()'s exact
+  // status transitions, scoped to the organiser's own campaign.
+  const handlePauseResume = async () => {
+    if (!campaign) return;
+    setPauseResumeBusy(true);
+    try {
+      const updated = campaign.status === "LIVE"
+        ? await communityBuyService.pauseCampaignAsOrganiser(campaign.id)
+        : await communityBuyService.resumeCampaignAsOrganiser(campaign.id);
+      setCampaign(updated);
+    } catch (err) {
+      Alert.alert("Couldn't update campaign", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setPauseResumeBusy(false);
+    }
+  };
+
+  // Phase 2 (organiser controls) — general change request, filed through
+  // the existing support-case model/admin-review flow. Separate from the
+  // rescue-window extension request above.
+  const handleRequestChange = async () => {
+    if (!campaign) return;
+    if (!changeRequestText.trim()) return Alert.alert("Description required", "Describe the change you're requesting.");
+    setChangeRequestBusy(true);
+    try {
+      await communityBuyService.requestCampaignChange(campaign.id, changeRequestText.trim());
+      setChangeRequestText("");
+      setShowChangeRequestForm(false);
+      Alert.alert("Request sent", "Eki will review your request and follow up.");
+    } catch (err) {
+      Alert.alert("Couldn't send request", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setChangeRequestBusy(false);
     }
   };
 
@@ -946,6 +1005,19 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 </View>
               </View>
 
+              <View>
+                <Text style={styles.label}>Per-buyer limit (optional)</Text>
+                <Text style={styles.fieldHint}>Cap how many shares any single buyer may pledge. Leave blank for no limit.</Text>
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="Min" placeholderTextColor="#8AA194" keyboardType="number-pad" value={perBuyerMinShares} onChangeText={setPerBuyerMinShares} accessibilityLabel="Minimum shares per buyer" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="Max" placeholderTextColor="#8AA194" keyboardType="number-pad" value={perBuyerMaxShares} onChangeText={setPerBuyerMaxShares} accessibilityLabel="Maximum shares per buyer" />
+                  </View>
+                </View>
+              </View>
+
               <FloatingCard style={styles.outcomeExplainerCard}>
                 <Text style={styles.outcomeExplainerTitle}>What happens at the deadline</Text>
                 <Text style={styles.outcomeExplainerText}>• Confirmed shares reach the goal → the campaign proceeds, goal reached.</Text>
@@ -982,6 +1054,15 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 disabled={financialFieldsLocked}
                 minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
                 hint={isLiveLike ? "Financial terms are locked once a campaign is live. Only the title and description can be changed." : "Contributions stop being accepted after this date."}
+              />
+
+              <DatePickerField
+                label="Scheduled opening (optional)"
+                value={scheduledOpenAt}
+                onChange={setScheduledOpenAt}
+                disabled={financialFieldsLocked}
+                minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
+                hint="Leave blank to go live as soon as you publish. If set, the campaign stays approved but hidden until this date, then opens automatically."
               />
             </FloatingCard>
 
@@ -1376,7 +1457,13 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     </View>
                     <View style={styles.previewRow}><Text style={styles.fieldHint}>Participant price</Text><Text style={styles.previewValue}>{formatDisplayMoney(Number(pricePerShare) || 0, currency, selectedCurrency)} / share</Text></View>
                     <View style={styles.previewRow}><Text style={styles.fieldHint}>Minimum / goal / maximum</Text><Text style={styles.previewValue}>{minimumShares || "—"} / {goalShares || "—"} / {maximumShares || "—"}</Text></View>
+                    {perBuyerMinShares || perBuyerMaxShares ? (
+                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Per-buyer limit</Text><Text style={styles.previewValue}>{perBuyerMinShares || "—"} – {perBuyerMaxShares || "—"}</Text></View>
+                    ) : null}
                     <View style={styles.previewRow}><Text style={styles.fieldHint}>Deadline</Text><Text style={styles.previewValue}>{deadline || "—"}</Text></View>
+                    {scheduledOpenAt ? (
+                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Scheduled opening</Text><Text style={styles.previewValue}>{scheduledOpenAt}</Text></View>
+                    ) : null}
                     <View style={styles.previewRow}><Text style={styles.fieldHint}>Eki's fee</Text><Text style={styles.previewValue}>{marketConfig?.communityBuyFeeBps != null ? `${(marketConfig.communityBuyFeeBps / 100).toFixed(2)}%` : "Not yet configured"}</Text></View>
                     {campaign.fulfilmentOwner === "SUPPLIER" && !campaign.supplierCommitted ? (
                       <Text style={styles.outcomeHint}>Your supplier hasn't responded yet — that's fine, you can submit for review now. They can still accept or decline later, even after this campaign goes live.</Text>
@@ -1418,6 +1505,59 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               >
                 {publishing ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Publish campaign</Text>}
               </TouchableOpacity>
+            ) : null}
+
+            {campaign && (campaign.status === "LIVE" || campaign.status === "PAUSED") ? (
+              <View style={{ gap: 10 }}>
+                <TouchableOpacity
+                  onPress={() => void handlePauseResume()}
+                  disabled={pauseResumeBusy}
+                  activeOpacity={0.85}
+                  style={styles.secondaryBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={campaign.status === "LIVE" ? "Pause campaign" : "Resume campaign"}
+                  accessibilityState={{ busy: pauseResumeBusy, disabled: pauseResumeBusy }}
+                >
+                  {pauseResumeBusy ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>{campaign.status === "LIVE" ? "Pause campaign" : "Resume campaign"}</Text>}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setShowChangeRequestForm((v) => !v)}
+                  activeOpacity={0.85}
+                  style={styles.secondaryBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Request a change"
+                  accessibilityState={{ expanded: showChangeRequestForm }}
+                >
+                  <Text style={styles.secondaryBtnText}>Request a change</Text>
+                </TouchableOpacity>
+                {showChangeRequestForm ? (
+                  <View style={styles.extensionForm}>
+                    <Text style={styles.label}>What would you like to change?</Text>
+                    <TextInput
+                      style={[styles.input, styles.inputMultiline]}
+                      placeholder="Describe the change you're requesting"
+                      placeholderTextColor="#8AA194"
+                      value={changeRequestText}
+                      onChangeText={setChangeRequestText}
+                      multiline
+                      accessibilityLabel="Describe the change you're requesting"
+                    />
+                    <Text style={styles.outcomeHint}>Eki reviews every request — this doesn't change your campaign automatically.</Text>
+                    <TouchableOpacity
+                      onPress={() => void handleRequestChange()}
+                      disabled={changeRequestBusy}
+                      activeOpacity={0.88}
+                      style={styles.secondaryBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Send request"
+                      accessibilityState={{ busy: changeRequestBusy, disabled: changeRequestBusy }}
+                    >
+                      {changeRequestBusy ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Send request</Text>}
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+              </View>
             ) : null}
             </>
             ) : null}

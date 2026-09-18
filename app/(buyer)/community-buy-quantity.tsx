@@ -67,7 +67,15 @@ export default function CommunityBuyQuantityScreen() {
   // submit() (backend) guarantees these are set by then.
   const remainingCapacity = Math.max(0, campaign.maximumShares! - campaign.confirmedShares);
   const parsedQuantity = Math.round(Number(quantity)) || 0;
-  const quantityValid = parsedQuantity > 0 && parsedQuantity <= remainingCapacity;
+  // Phase 2 (organiser controls) — per-buyer slot limits, when the
+  // organiser has set them. This is a preview check against THIS pledge's
+  // quantity only (the server is authoritative and also accounts for any
+  // earlier pledge you've already made on this campaign).
+  const perBuyerMin = campaign.perBuyerMinShares ?? null;
+  const perBuyerMax = campaign.perBuyerMaxShares ?? null;
+  const quantityValid = parsedQuantity > 0 && parsedQuantity <= remainingCapacity
+    && (perBuyerMin == null || parsedQuantity >= perBuyerMin)
+    && (perBuyerMax == null || parsedQuantity <= perBuyerMax);
   const subtotal = parsedQuantity * campaign.pricePerShareMinor!;
   // Diaspora escrow reconciliation (final V1 settlement doc — required
   // buyer disclosure): Eki's 5% service fee, min £1.20 / max £5.00, applied
@@ -81,7 +89,11 @@ export default function CommunityBuyQuantityScreen() {
       ? "Enter at least 1 share."
       : parsedQuantity > remainingCapacity
         ? `Only ${remainingCapacity} share${remainingCapacity === 1 ? "" : "s"} remain available for this campaign.`
-        : "";
+        : perBuyerMin != null && parsedQuantity < perBuyerMin
+          ? `This campaign requires at least ${perBuyerMin} share${perBuyerMin === 1 ? "" : "s"} per buyer.`
+          : perBuyerMax != null && parsedQuantity > perBuyerMax
+            ? `This campaign allows at most ${perBuyerMax} share${perBuyerMax === 1 ? "" : "s"} per buyer.`
+            : "";
 
   const goToReview = () => {
     if (!quantityValid) return;
@@ -129,6 +141,9 @@ export default function CommunityBuyQuantityScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.helperText}>{remainingCapacity} share{remainingCapacity === 1 ? "" : "s"} remain available (maximum {campaign.maximumShares}).</Text>
+            {perBuyerMin != null || perBuyerMax != null ? (
+              <Text style={styles.helperText}>Per buyer: {perBuyerMin ?? "no minimum"}{perBuyerMax != null ? ` – ${perBuyerMax}` : "+"} share{perBuyerMax === 1 ? "" : "s"}.</Text>
+            ) : null}
             {validationMessage ? <Text style={styles.errorText}>{validationMessage}</Text> : null}
           </FloatingCard>
 
