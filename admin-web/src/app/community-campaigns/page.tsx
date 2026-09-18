@@ -226,7 +226,10 @@ export default function CommunityCampaignsPage() {
                         <Badge tone="amber">{countryDisplayName(c.country)}</Badge>
                         <span className="text-sm text-slate-500">{new Date(c.createdAt).toLocaleString()}</span>
                       </div>
-                      <h3 className="mt-3 text-lg font-bold text-[#101820]">{c.title}</h3>
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <h3 className="text-lg font-bold text-[#101820]">{c.title}</h3>
+                        <TextLink href={`/community-campaigns/${c.id}`}>View details</TextLink>
+                      </div>
                       {c.description ? <p className="mt-1 text-sm text-slate-600">{c.description}</p> : null}
                       <div className="mt-3 grid gap-1 text-sm text-slate-600 md:grid-cols-2">
                         <p>Organiser: <span className="font-semibold text-[#101820]">{c.organiser?.user?.name ?? "Unknown"} ({c.organiser?.user?.email ?? "—"})</span></p>
@@ -315,6 +318,7 @@ export default function CommunityCampaignsPage() {
                           {expandedContributionsId === c.id ? "Hide contributions" : "View contributions"}
                         </button>
                         <TextLink href={`/activity-logs?entityId=${c.id}`}>View audit history</TextLink>
+                        <TextLink href={`/community-campaigns/${c.id}`}>View details / operations</TextLink>
                       </div>
 
                       {expandedContributionsId === c.id ? (

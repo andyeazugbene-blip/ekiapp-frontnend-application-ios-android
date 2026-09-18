@@ -302,7 +302,7 @@ export default function CommunityBuyCampaignScreen() {
                 <FloatingCard style={styles.outcomeCard}>
                   <Ionicons name="checkmark-circle-outline" size={20} color="#076B51" />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.outcomeText}>Payment confirmed — this campaign succeeded, and your saved card was charged {formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)} for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"}.</Text>
+                    <Text style={styles.outcomeText}>Payment confirmed — this campaign succeeded, and your saved card was charged {formatDisplayMoney((contribution.amount + (contribution.buyerServiceFeeAmount ?? 0)) / 100, contribution.currency, selectedCurrency)} (including Eki's service fee) for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"}.</Text>
                     <TouchableOpacity
                       onPress={() => setShowReceipt((v) => !v)}
                       activeOpacity={0.85}
@@ -317,7 +317,9 @@ export default function CommunityBuyCampaignScreen() {
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Campaign</Text><Text style={styles.receiptValue} numberOfLines={1}>{campaign.title}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Shares</Text><Text style={styles.receiptValue}>{contribution.quantity}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Price per share</Text><Text style={styles.receiptValue}>{formatDisplayMoney(campaign.pricePerShareMinor! / 100, campaign.currency!, selectedCurrency)}</Text></View>
-                        <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Total charged</Text><Text style={styles.receiptValue}>{formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}</Text></View>
+                        <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Product subtotal</Text><Text style={styles.receiptValue}>{formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}</Text></View>
+                        <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Eki service fee</Text><Text style={styles.receiptValue}>{formatDisplayMoney((contribution.buyerServiceFeeAmount ?? 0) / 100, contribution.currency, selectedCurrency)}</Text></View>
+                        <View style={[styles.receiptRow, styles.receiptTotalRow]}><Text style={styles.receiptTotalLabel}>Total charged</Text><Text style={styles.receiptTotalValue}>{formatDisplayMoney((contribution.amount + (contribution.buyerServiceFeeAmount ?? 0)) / 100, contribution.currency, selectedCurrency)}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Date</Text><Text style={styles.receiptValue}>{formatDateTime(contribution.createdAt)}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Reference</Text><Text style={styles.receiptValue} numberOfLines={1}>{contribution.id}</Text></View>
                       </View>
@@ -327,7 +329,7 @@ export default function CommunityBuyCampaignScreen() {
               ) : contribution?.status === "PLEDGED" ? (
                 <FloatingCard style={styles.outcomeCard}>
                   <Ionicons name="bookmark-outline" size={20} color="#076B51" />
-                  <Text style={styles.outcomeText}>Pledge recorded — payment method saved for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} ({formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}). You will only be charged if this campaign succeeds. Awaiting campaign outcome.</Text>
+                  <Text style={styles.outcomeText}>Pledge recorded — payment method saved for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} ({formatDisplayMoney((contribution.amount + (contribution.buyerServiceFeeAmount ?? 0)) / 100, contribution.currency, selectedCurrency)}, including Eki's service fee). You will only be charged if this campaign succeeds. Awaiting campaign outcome.</Text>
                 </FloatingCard>
               ) : contribution?.status === "PAYMENT_PROCESSING" ? (
                 <FloatingCard style={styles.outcomeCard}>
@@ -521,6 +523,9 @@ const styles = StyleSheet.create({
   receiptRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
   receiptLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72" },
   receiptValue: { flex: 1, fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#151E1B", textAlign: "right" },
+  receiptTotalRow: { borderTopWidth: 1, borderTopColor: "#E1E7E3", paddingTop: 6, marginTop: 2 },
+  receiptTotalLabel: { fontSize: 11, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  receiptTotalValue: { flex: 1, fontSize: 13, fontFamily: "Manrope-ExtraBold", color: "#076B51", textAlign: "right" },
   updateTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
   updateBody: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#4A5A52", lineHeight: 17 },
   updateDate: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 2 },

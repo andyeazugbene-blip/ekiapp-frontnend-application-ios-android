@@ -20,8 +20,10 @@ import {
   type CampaignFulfilment,
   type FulfilmentEvent,
   type FulfilmentMethod,
+  type MarketConfig,
   type SupplierPayment,
 } from "../../services/communityBuyService";
+import { calculateSupplierCommission } from "../../utils/communityBuyFees";
 
 // M5 — the append-only evidence timeline, humanized.
 const EVENT_LABELS: Record<FulfilmentEvent["eventType"], string> = {
@@ -76,6 +78,7 @@ export default function CommunityBuySupplierFulfilmentScreen() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [fulfilment, setFulfilment] = useState<CampaignFulfilment | null>(null);
   const [payment, setPayment] = useState<SupplierPayment | null>(null);
+  const [marketConfig, setMarketConfig] = useState<MarketConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -101,6 +104,7 @@ export default function CommunityBuySupplierFulfilmentScreen() {
       if (f.method) setMethod(f.method);
       setPayment(await communityBuyService.getMySupplierPayment(id).catch(() => null));
       setEvents(await communityBuyService.getFulfilmentEvents(id).catch(() => []));
+      if (c.country) setMarketConfig(await communityBuyService.getMarketConfig(c.country).catch(() => null));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load this campaign's fulfilment.");
     } finally {
@@ -360,19 +364,41 @@ export default function CommunityBuySupplierFulfilmentScreen() {
 
           <View>
             <Text style={styles.section}>Your payment</Text>
-            {payment ? (
-              <FloatingCard style={{ gap: 8 }}>
-                <View style={styles.paymentRow}>
-                  <Text style={styles.paymentLabel}>Status</Text>
-                  <StatusPill label={PAYMENT_LABEL[payment.status]} tone={PAYMENT_TONE[payment.status]} />
-                </View>
-                <View style={styles.paymentRow}>
-                  <Text style={styles.paymentLabel}>Amount</Text>
-                  <Text style={styles.paymentValue}>{formatDisplayMoney(payment.amount / 100, payment.currency, selectedCurrency)}</Text>
-                </View>
-                {payment.holdReason ? <Text style={styles.holdReason}>{payment.holdReason}</Text> : null}
-              </FloatingCard>
-            ) : (
+            {payment ? (() => {
+              // Diaspora escrow reconciliation (final V1 settlement doc §N
+              // item 4) — once released, feeAmount/netAmount are the real,
+              // settled figures; before that, preview using the agreed
+              // wholesale amount (or the full amount when no wholesale
+              // split applies — legacy/self-supply/external-supplier) and
+              // the market's current commission rate.
+              const settled = payment.feeAmount != null && payment.netAmount != null;
+              const base = payment.wholesaleAmount ?? payment.amount;
+              const feeBps = marketConfig?.communityBuyFeeBps ?? 800;
+              const preview = calculateSupplierCommission(base, feeBps);
+              const commissionAmount = settled ? payment.feeAmount! : preview.commissionAmount;
+              const netAmount = settled ? payment.netAmount! : preview.netPayable;
+              return (
+                <FloatingCard style={{ gap: 8 }}>
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>Status</Text>
+                    <StatusPill label={PAYMENT_LABEL[payment.status]} tone={PAYMENT_TONE[payment.status]} />
+                  </View>
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>{payment.wholesaleAmount != null ? "Agreed wholesale amount" : "Amount"}</Text>
+                    <Text style={styles.paymentValue}>{formatDisplayMoney(base / 100, payment.currency, selectedCurrency)}</Text>
+                  </View>
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>Eki supplier commission ({(feeBps / 100).toFixed(0)}%)</Text>
+                    <Text style={styles.paymentValue}>-{formatDisplayMoney(commissionAmount / 100, payment.currency, selectedCurrency)}</Text>
+                  </View>
+                  <View style={[styles.paymentRow, styles.payoutTotalRow]}>
+                    <Text style={styles.payoutTotalLabel}>Net payout</Text>
+                    <Text style={styles.payoutTotalValue}>{formatDisplayMoney(netAmount / 100, payment.currency, selectedCurrency)}</Text>
+                  </View>
+                  {payment.holdReason ? <Text style={styles.holdReason}>{payment.holdReason}</Text> : null}
+                </FloatingCard>
+              );
+            })() : (
               <FloatingCard>
                 <Text style={styles.paymentPlaceholder}>Payment details will appear here once available — Eki processes your payment after fulfilment is confirmed.</Text>
               </FloatingCard>
@@ -407,6 +433,9 @@ const styles = StyleSheet.create({
   paymentRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   paymentLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72" },
   paymentValue: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  payoutTotalRow: { borderTopWidth: 1, borderTopColor: "#F0F0F0", paddingTop: 8, marginTop: 2 },
+  payoutTotalLabel: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  payoutTotalValue: { fontSize: 14, fontFamily: "Manrope-ExtraBold", color: "#076B51" },
   holdReason: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#D6552F" },
   eventTimestamp: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 2 },
   paymentPlaceholder: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#8AA194", lineHeight: 17 },

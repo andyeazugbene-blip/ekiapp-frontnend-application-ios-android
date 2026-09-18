@@ -12,6 +12,7 @@ import {
   type Campaign,
   type CampaignFulfilment,
 } from "../../services/communityBuyService";
+import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 
 export default function CommunityBuyQuantityScreen() {
   const router = useRouter();
@@ -68,6 +69,12 @@ export default function CommunityBuyQuantityScreen() {
   const parsedQuantity = Math.round(Number(quantity)) || 0;
   const quantityValid = parsedQuantity > 0 && parsedQuantity <= remainingCapacity;
   const subtotal = parsedQuantity * campaign.pricePerShareMinor!;
+  // Diaspora escrow reconciliation (final V1 settlement doc — required
+  // buyer disclosure): Eki's 5% service fee, min £1.20 / max £5.00, applied
+  // to the real subtotal (not per-share) — mirrors attemptCharge()'s
+  // eventual server-side calculation exactly.
+  const serviceFee = calculateBuyerServiceFee(subtotal, campaign.perShareFeeEstimate?.feeBps);
+  const maxTotal = subtotal + serviceFee;
 
   const validationMessage =
     parsedQuantity <= 0
@@ -123,18 +130,31 @@ export default function CommunityBuyQuantityScreen() {
             </View>
             <Text style={styles.helperText}>{remainingCapacity} share{remainingCapacity === 1 ? "" : "s"} remain available (maximum {campaign.maximumShares}).</Text>
             {validationMessage ? <Text style={styles.errorText}>{validationMessage}</Text> : null}
-
-            <View style={styles.amountRow}>
-              <Text style={styles.fieldLabel}>Amount if this campaign succeeds</Text>
-              <Text style={styles.amountValue}>{formatDisplayMoney(subtotal / 100, campaign.currency, selectedCurrency)}</Text>
-            </View>
           </FloatingCard>
+
+          <View>
+            <Text style={styles.sectionTitle}>Payment breakdown</Text>
+            <FloatingCard style={{ gap: 8 }}>
+              <View style={styles.amountRow}>
+                <Text style={styles.fieldLabel}>Product subtotal</Text>
+                <Text style={styles.previewValue}>{formatDisplayMoney(subtotal / 100, campaign.currency, selectedCurrency)}</Text>
+              </View>
+              <View style={styles.amountRow}>
+                <Text style={styles.fieldLabel}>Eki service fee (5%, min £1.20, max £5.00)</Text>
+                <Text style={styles.previewValue}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text>
+              </View>
+              <View style={[styles.amountRow, styles.totalRow]}>
+                <Text style={styles.fieldLabel}>Maximum total if this campaign succeeds</Text>
+                <Text style={styles.amountValue}>{formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)}</Text>
+              </View>
+            </FloatingCard>
+          </View>
 
           <View>
             <Text style={styles.sectionTitle}>Financial disclosure</Text>
             <FloatingCard style={{ gap: 8 }}>
               <Text style={styles.disclosureText}>
-                You pay exactly {formatDisplayMoney(subtotal / 100, campaign.currency, selectedCurrency)} for {parsedQuantity || 0} share{parsedQuantity === 1 ? "" : "s"} — nothing more. Eki's processing fee comes out of the amount the supplier receives, not added on top of your payment.
+                You pay exactly {formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)} for {parsedQuantity || 0} share{parsedQuantity === 1 ? "" : "s"} — nothing more.
               </Text>
               <Text style={styles.disclosureText}>
                 Your card is not charged now. It will only be charged if this campaign reaches its minimum required quantity.
@@ -181,8 +201,10 @@ const styles = StyleSheet.create({
   quantityInput: { flex: 1, backgroundColor: "#F4F6F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, fontFamily: "Manrope-Bold", color: "#151E1B", textAlign: "center" },
   helperText: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72" },
   errorText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#D6552F" },
-  amountRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, borderTopWidth: 1, borderTopColor: "#F0F0F0", paddingTop: 10 },
+  amountRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   amountValue: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  previewValue: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  totalRow: { borderTopWidth: 1, borderTopColor: "#F0F0F0", paddingTop: 8, marginTop: 2 },
   sectionTitle: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 10 },
   disclosureText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#4A5A52", lineHeight: 17 },
   fulfilmentText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#4A5A52" },

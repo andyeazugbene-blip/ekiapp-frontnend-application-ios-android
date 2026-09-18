@@ -2,11 +2,13 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { presentSetupIntent } from "../../services/stripePayment";
 import { countryCodeForName, countryDisplayName } from "../../utils/countries";
+import { getPublicCommunityBuyUrl } from "../../utils/shareLinks";
 import { regularDeliveriesService, type BuyerPaymentMethod } from "../../services/regularDeliveriesService";
 import { ApiRequestError } from "../../services/api/client";
 import {
@@ -29,14 +31,32 @@ import {
   type CampaignParticipant,
   type CampaignUpdate,
   type MarketConfig,
+  type OrganiserPayout,
   type RefundProgress,
   type SupplierInvitation,
   type VerifiedSupplier,
 } from "../../services/communityBuyService";
 
+type OrganiserDashboardTab = "overview" | "buyers" | "supplier" | "updates" | "payments";
+const DASHBOARD_TABS: { key: OrganiserDashboardTab; label: string }[] = [
+  { key: "overview", label: "Overview" },
+  { key: "buyers", label: "Buyers" },
+  { key: "supplier", label: "Supplier" },
+  { key: "updates", label: "Updates" },
+  { key: "payments", label: "Payments" },
+];
+
 // Mirrors the backend's postCampaignUpdate() gate (community-campaigns.service.ts) —
 // an update only makes sense once a campaign has actually gone live.
 const UPDATE_POSTABLE_STATUSES = ["LIVE", "PAUSED", "CLOSING", "RESCUE_WINDOW", "SUCCEEDED", "FAILED", "REFUNDING", "FULFILLING", "COMPLETED", "FINANCIALLY_CLOSED"];
+
+const ORGANISER_PAYOUT_STATUS_LABEL: Record<string, string> = {
+  NOT_RELEASED: "Not yet released",
+  PROCESSING: "Processing",
+  PAID: "Paid",
+  ON_HOLD: "On hold",
+  FAILED: "Failed",
+};
 
 const FULFILMENT_STEP_LABEL: Record<CampaignFulfilment["status"], string> = {
   AWAITING_INVENTORY_CONFIRMATION: "Waiting for the supplier to confirm inventory",
@@ -144,6 +164,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [updateMessageInput, setUpdateMessageInput] = useState("");
   const [postingUpdate, setPostingUpdate] = useState(false);
   const [marketConfig, setMarketConfig] = useState<MarketConfig | null>(null);
+  const [activeTab, setActiveTab] = useState<OrganiserDashboardTab>("overview");
+  const [organiserPayout, setOrganiserPayout] = useState<OrganiserPayout | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
   const { selectedCurrency } = useCurrencyStore();
 
   // Shared by the initial load and the country-picker's onPress — resolves
@@ -201,6 +224,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         if (UPDATE_POSTABLE_STATUSES.includes(existing.status)) {
           setUpdates(await communityBuyService.getCampaignUpdates(id).catch(() => []));
         }
+        // Diaspora escrow reconciliation — organiser's own payout record.
+        // 404s until the campaign has actually succeeded and a payout row
+        // exists; that's a real "nothing yet" state, not an error.
+        setOrganiserPayout(await communityBuyService.getMyOrganiserPayout(id).catch(() => null));
         // Necessary companion to supplier decline — without a way to pick a
         // different supplier, a decline would be a dead end for the organiser.
         if (existing.supplierDeclinedAt && existing.country) {
@@ -354,10 +381,21 @@ export default function CommunityBuyOrganiserCampaignScreen() {
     if (!campaign) return;
     try {
       await Share.share({
-        message: `Help "${campaign.title}" reach its goal on Eki Community Buy — ${campaign.confirmedShares} of ${campaign.maximumShares} slots filled so far. Open the Eki app to take part.`,
+        message: `Help "${campaign.title}" reach its goal on Eki Community Buy — ${campaign.confirmedShares} of ${campaign.maximumShares} slots filled so far. Open the Eki app to take part.\n${getPublicCommunityBuyUrl(campaign.id)}`,
       });
     } catch {
       // User cancelled the native share sheet — nothing to do.
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!campaign) return;
+    try {
+      await Clipboard.setStringAsync(getPublicCommunityBuyUrl(campaign.id));
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      Alert.alert("Couldn't copy link", "Please try again.");
     }
   };
 
@@ -533,6 +571,11 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const financialFieldsLocked = !isDraftLike;
   const contentEditable = isDraftLike || isLiveLike;
   const isLocked = !contentEditable;
+  // Diaspora escrow reconciliation (Figma dashboard restructure) — the
+  // tabbed dashboard only makes sense once a campaign has actually been
+  // submitted; a brand-new draft or one sent back for changes keeps the
+  // original single-scroll editing form exactly as before.
+  const showTabs = Boolean(isEdit && campaign && !isDraftLike);
 
   return (
     <View style={premiumStyles.page}>
@@ -541,19 +584,48 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         onBack={() => goBackOrReplace(router, "/(buyer)/community-buy-organiser" as any)}
         right={
           isEdit && campaign?.status === "LIVE" ? (
-            <TouchableOpacity
-              onPress={() => void handleShare()}
-              activeOpacity={0.85}
-              style={styles.headerIconBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Share this campaign"
-            >
-              <Ionicons name="share-social-outline" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              <TouchableOpacity
+                onPress={() => void handleCopyLink()}
+                activeOpacity={0.85}
+                style={styles.headerIconBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={copiedLink ? "Link copied" : "Copy campaign link"}
+              >
+                <Ionicons name={copiedLink ? "checkmark" : "link-outline"} size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => void handleShare()}
+                activeOpacity={0.85}
+                style={styles.headerIconBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Share this campaign"
+              >
+                <Ionicons name="share-social-outline" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
           ) : undefined
         }
       />
+      {showTabs ? (
+        <View style={styles.tabBar}>
+          {DASHBOARD_TABS.map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              activeOpacity={0.85}
+              style={[styles.tabItem, activeTab === tab.key && styles.tabItemActive]}
+              accessibilityRole="tab"
+              accessibilityLabel={tab.label}
+              accessibilityState={{ selected: activeTab === tab.key }}
+            >
+              <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>{tab.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
 
       {loading ? (
         <LoadingBlock />
@@ -562,6 +634,8 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
           <View style={[premiumStyles.block, { gap: 14 }]}>
+            {(!showTabs || activeTab === "overview") ? (
+            <>
             {campaign?.status === "CHANGES_REQUIRED" && campaign.reviewNotes ? (
               <FloatingCard style={styles.noticeCard}>
                 <Ionicons name="alert-circle-outline" size={18} color="#B48A00" />
@@ -946,6 +1020,8 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               </TouchableOpacity>
               <Text style={styles.fieldHint}>Collection point keeps participant addresses out of this — the safer default. Individual delivery needs a protected courier connection that isn't live yet, so it can't be selected.</Text>
             </View>
+            </>
+            ) : null}
 
             {!isEdit ? (
               <View style={{ gap: 10 }}>
@@ -1057,7 +1133,83 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               </View>
             ) : null}
 
-            {isEdit && campaign?.supplierDeclinedAt ? (
+            {showTabs && activeTab === "supplier" && campaign ? (
+              <View style={{ gap: 14 }}>
+                <View>
+                  <Text style={styles.sectionOutside}>Supplier</Text>
+                  <FloatingCard style={{ gap: 8 }}>
+                    {campaign.fulfilmentOwner === "SELF" ? (
+                      <Text style={styles.outcomeHint}>This campaign is self-fulfilled — you are responsible for getting shares to participants yourself.</Text>
+                    ) : (
+                      <>
+                        <View style={styles.previewRow}>
+                          <Text style={styles.fieldHint}>Supplier</Text>
+                          <Text style={styles.previewValue}>{campaign.supplier?.vendor?.storeName ?? campaign.supplierAccount?.user?.name ?? "Awaiting response"}</Text>
+                        </View>
+                        <View style={styles.previewRow}>
+                          <Text style={styles.fieldHint}>Status</Text>
+                          <Text style={styles.previewValue}>
+                            {campaign.supplierCommitted ? "Accepted" : campaign.supplierDeclinedAt ? "Declined" : "Invited — awaiting response"}
+                          </Text>
+                        </View>
+                        {campaign.supplierDeclinedAt && campaign.supplierDeclineReason ? (
+                          <Text style={styles.fieldHint}>Reason: {campaign.supplierDeclineReason}</Text>
+                        ) : null}
+                      </>
+                    )}
+                  </FloatingCard>
+                </View>
+
+                {campaign.fulfilmentOwner === "SUPPLIER" ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={styles.label}>Invite another supplier by email</Text>
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      <TextInput
+                        style={[styles.input, { flex: 1 }]}
+                        placeholder="supplier@example.com"
+                        placeholderTextColor="#8AA194"
+                        value={inviteEmail}
+                        onChangeText={setInviteEmail}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        accessibilityLabel="Supplier email to invite"
+                      />
+                      <TouchableOpacity
+                        onPress={() => void handleSendInvitation()}
+                        disabled={inviting}
+                        activeOpacity={0.88}
+                        style={[styles.secondaryBtn, { marginTop: 0, paddingHorizontal: 16 }]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Send invitation"
+                        accessibilityState={{ busy: inviting, disabled: inviting }}
+                      >
+                        {inviting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Invite</Text>}
+                      </TouchableOpacity>
+                    </View>
+                    {inviteError ? <Text style={styles.fieldHint}>{inviteError}</Text> : null}
+                    {invitations.length > 0 ? (
+                      <View style={{ gap: 6 }}>
+                        {invitations.map((inv) => (
+                          <FloatingCard key={inv.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.optionText}>{inv.email}</Text>
+                              <Text style={styles.fieldHint}>{inv.status}{inv.declineReason ? `: ${inv.declineReason}` : ""}</Text>
+                            </View>
+                            {inv.status === "PENDING" ? (
+                              <TouchableOpacity onPress={() => void handleRevokeInvitation(inv.id)} accessibilityRole="button" accessibilityLabel="Revoke invitation">
+                                <Text style={styles.linkText}>Revoke</Text>
+                              </TouchableOpacity>
+                            ) : null}
+                          </FloatingCard>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            {isEdit && campaign?.supplierDeclinedAt && (!showTabs || activeTab === "supplier") ? (
               <View>
                 <Text style={styles.sectionOutside}>Choose a new supplier</Text>
                 <FloatingCard style={{ gap: 10 }}>
@@ -1093,22 +1245,26 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               </View>
             ) : null}
 
-            {isEdit && participants.length > 0 ? (
+            {isEdit && (!showTabs || activeTab === "buyers") ? (
               <View>
                 <Text style={styles.sectionOutside}>Participants ({participants.length})</Text>
-                <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
-                  {participants.map((p, index) => (
-                    <View key={p.userId} style={[styles.participantRow, index > 0 && styles.participantRowBorder]}>
-                      {/* M4 (AT-44): name is omitted for a self-supply campaign — the organiser gets only fulfilment-necessary data, same as a third-party supplier's masked manifest. */}
-                      <Text style={styles.optionText}>{p.name ?? "Participant"}{p.isOrganiser ? " (you)" : ""}</Text>
-                      <Text style={styles.fieldHint}>{p.totalQuantity} share{p.totalQuantity === 1 ? "" : "s"} · {formatDisplayMoney(p.totalPaid / 100, currency, selectedCurrency)}</Text>
-                    </View>
-                  ))}
-                </FloatingCard>
+                {participants.length > 0 ? (
+                  <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
+                    {participants.map((p, index) => (
+                      <View key={p.userId} style={[styles.participantRow, index > 0 && styles.participantRowBorder]}>
+                        {/* M4 (AT-44): name is omitted for a self-supply campaign — the organiser gets only fulfilment-necessary data, same as a third-party supplier's masked manifest. */}
+                        <Text style={styles.optionText}>{p.name ?? "Participant"}{p.isOrganiser ? " (you)" : ""}</Text>
+                        <Text style={styles.fieldHint}>{p.totalQuantity} share{p.totalQuantity === 1 ? "" : "s"} · {formatDisplayMoney(p.totalPaid / 100, currency, selectedCurrency)}</Text>
+                      </View>
+                    ))}
+                  </FloatingCard>
+                ) : (
+                  <FloatingCard><Text style={styles.emptyText}>No participants yet.</Text></FloatingCard>
+                )}
               </View>
             ) : null}
 
-            {isEdit && campaign && UPDATE_POSTABLE_STATUSES.includes(campaign.status) ? (
+            {isEdit && campaign && UPDATE_POSTABLE_STATUSES.includes(campaign.status) && (!showTabs || activeTab === "updates") ? (
               <View style={{ gap: 10 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                   <Text style={styles.sectionOutside}>Campaign updates</Text>
@@ -1160,6 +1316,43 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               </View>
             ) : null}
 
+            {showTabs && activeTab === "payments" ? (
+              <View>
+                <Text style={styles.sectionOutside}>Payments</Text>
+                {organiserPayout ? (
+                  <FloatingCard style={{ gap: 8 }}>
+                    <View style={styles.previewRow}><Text style={styles.fieldHint}>Status</Text><Text style={styles.previewValue}>{ORGANISER_PAYOUT_STATUS_LABEL[organiserPayout.status]}</Text></View>
+                    <View style={styles.previewRow}><Text style={styles.fieldHint}>Gross proceeds</Text><Text style={styles.previewValue}>{formatDisplayMoney(organiserPayout.amount / 100, organiserPayout.currency, selectedCurrency)}</Text></View>
+                    {organiserPayout.commissionAmount != null ? (
+                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Eki organiser commission</Text><Text style={styles.previewValue}>-{formatDisplayMoney(organiserPayout.commissionAmount / 100, organiserPayout.currency, selectedCurrency)}</Text></View>
+                    ) : null}
+                    {organiserPayout.netAmount != null ? (
+                      <View style={[styles.previewRow, styles.payoutTotalRow]}><Text style={styles.rescueSectionLabel}>Net payout</Text><Text style={styles.feeValue}>{formatDisplayMoney(organiserPayout.netAmount / 100, organiserPayout.currency, selectedCurrency)}</Text></View>
+                    ) : (
+                      <Text style={styles.fieldHint}>Your commission and net payout are calculated when this campaign is released for settlement.</Text>
+                    )}
+                    {organiserPayout.holdReason ? <Text style={[styles.fieldHint, { color: "#D6552F" }]}>{organiserPayout.holdReason}</Text> : null}
+                  </FloatingCard>
+                ) : (
+                  <FloatingCard><Text style={styles.emptyText}>No payout record yet — this appears once the campaign succeeds.</Text></FloatingCard>
+                )}
+                <TouchableOpacity
+                  onPress={() => router.push("/(buyer)/community-buy-organiser-payouts" as any)}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel="Manage Stripe Connect payout setup"
+                >
+                  <FloatingCard style={[styles.optionRow, { marginTop: 10 }]}>
+                    <Ionicons name="card-outline" size={16} color="#076B51" />
+                    <Text style={styles.optionText}>Manage Stripe Connect payout setup</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#8AA194" style={{ marginLeft: "auto" }} />
+                  </FloatingCard>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {(!showTabs || activeTab === "overview") ? (
+            <>
             {!isLocked ? (
               <PrimaryButton label={isEdit ? "Save changes" : "Create campaign"} onPress={() => void handleSave()} loading={saving} />
             ) : null}
@@ -1226,6 +1419,8 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 {publishing ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Publish campaign</Text>}
               </TouchableOpacity>
             ) : null}
+            </>
+            ) : null}
           </View>
         </ScrollView>
       )}
@@ -1235,6 +1430,12 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
 const styles = StyleSheet.create({
   headerIconBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
+  tabBar: { flexDirection: "row", paddingHorizontal: 16, gap: 4, borderBottomWidth: 1, borderBottomColor: "#EEF2EF", backgroundColor: "#FFFFFF" },
+  tabItem: { paddingVertical: 12, paddingHorizontal: 10, borderBottomWidth: 2, borderBottomColor: "transparent" },
+  tabItemActive: { borderBottomColor: "#076B51" },
+  tabLabel: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#8AA194" },
+  tabLabelActive: { color: "#076B51" },
+  payoutTotalRow: { borderTopWidth: 1, borderTopColor: "#F0F0F0", paddingTop: 8, marginTop: 2 },
   thresholdGroup: { gap: 14 },
   thresholdRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   thresholdDot: { width: 10, height: 10, borderRadius: 5, marginTop: 6 },

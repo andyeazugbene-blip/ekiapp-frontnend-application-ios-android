@@ -81,6 +81,15 @@ export function getPublicOrderUrl(orderId: string | undefined | null): string {
 }
 
 /**
+ * Build a public Community Buy campaign URL (used for the organiser's
+ * share/copy-link action once a campaign is live).
+ */
+export function getPublicCommunityBuyUrl(campaignId: string | undefined | null): string {
+  const safe = (campaignId ?? "").trim();
+  return safe ? `${PUBLIC_DOMAIN}/community-buy/${encodeURIComponent(safe)}` : PUBLIC_DOMAIN;
+}
+
+/**
  * Build a promo / campaign URL for a specific product on a vendor's storefront.
  */
 export function getPublicPromoUrl(input: {

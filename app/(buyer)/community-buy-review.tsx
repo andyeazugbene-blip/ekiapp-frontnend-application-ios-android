@@ -7,6 +7,7 @@ import { useCurrencyStore } from "../../stores/currencyStore";
 import { ErrorState, FloatingCard, LoadingBlock, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, FULFILMENT_METHOD_LABELS, type Campaign, type CampaignFulfilment } from "../../services/communityBuyService";
 import { countryDisplayName } from "../../utils/countries";
+import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 
 function formatDeadline(value: string): string {
   const d = new Date(value);
@@ -68,6 +69,8 @@ export default function CommunityBuyReviewScreen() {
   // Nullable on a draft, but this screen only ever shows a LIVE campaign —
   // submit() (backend) guarantees these are set by then.
   const amount = quantity * campaign.pricePerShareMinor!;
+  const serviceFee = calculateBuyerServiceFee(amount, campaign.perShareFeeEstimate?.feeBps);
+  const maxTotal = amount + serviceFee;
 
   return (
     <View style={premiumStyles.page}>
@@ -80,9 +83,11 @@ export default function CommunityBuyReviewScreen() {
             <View style={styles.row}><Text style={styles.label}>Market</Text><Text style={styles.value}>{countryDisplayName(campaign.country)}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Quantity</Text><Text style={styles.value}>{quantity} share{quantity === 1 ? "" : "s"}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Price per share</Text><Text style={styles.value}>{formatDisplayMoney(campaign.pricePerShareMinor! / 100, campaign.currency, selectedCurrency)}</Text></View>
+            <View style={styles.row}><Text style={styles.label}>Product subtotal</Text><Text style={styles.value}>{formatDisplayMoney(amount / 100, campaign.currency, selectedCurrency)}</Text></View>
+            <View style={styles.row}><Text style={styles.label}>Eki service fee (5%, min £1.20, max £5.00)</Text><Text style={styles.value}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text></View>
             <View style={[styles.row, styles.totalRow]}>
-              <Text style={styles.totalLabel}>Amount if this campaign succeeds</Text>
-              <Text style={styles.totalValue}>{formatDisplayMoney(amount / 100, campaign.currency, selectedCurrency)}</Text>
+              <Text style={styles.totalLabel}>Maximum total if this campaign succeeds</Text>
+              <Text style={styles.totalValue}>{formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)}</Text>
             </View>
           </FloatingCard>
 
@@ -99,7 +104,7 @@ export default function CommunityBuyReviewScreen() {
             <Text style={styles.sectionTitle}>Important conditions</Text>
             <FloatingCard style={{ gap: 8 }}>
               <Text style={styles.bodyText}>• Your card is not charged now — only saved against this pledge.</Text>
-              <Text style={styles.bodyText}>• You are only charged {formatDisplayMoney(amount / 100, campaign.currency, selectedCurrency)} if this campaign reaches its minimum required quantity by {formatDeadline(campaign.deadline!)}.</Text>
+              <Text style={styles.bodyText}>• You are only charged {formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)} (including Eki's service fee) if this campaign reaches its minimum required quantity by {formatDeadline(campaign.deadline!)}.</Text>
               <Text style={styles.bodyText}>• Reaching the goal is not required — the campaign proceeds at the minimum.</Text>
               <Text style={styles.bodyText}>• If the campaign fails, nothing is charged — there is nothing to refund.</Text>
             </FloatingCard>

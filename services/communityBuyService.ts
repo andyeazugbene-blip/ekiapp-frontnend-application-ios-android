@@ -246,12 +246,19 @@ export interface Contribution {
   id: string;
   campaignId: string;
   participantId: string;
+  // Product subtotal only — the buyer service fee is a separate field (see
+  // buyerServiceFeeAmount) so this stays exactly what capacity/pricing math
+  // already assumes it means.
   amount: number;
   currency: string;
   quantity: number;
   isOrganiserTopUp: boolean;
   status: ContributionStatus;
   stripePaymentIntentId?: string | null;
+  // Diaspora escrow reconciliation — Eki's 5% buyer service fee, charged
+  // alongside `amount` in the same capture. Total actually charged is
+  // amount + buyerServiceFeeAmount.
+  buyerServiceFeeAmount?: number;
   refund?: { status: string; amount: number } | null;
   createdAt: string;
 }
@@ -356,6 +363,12 @@ export interface SupplierPayment {
   currency: string;
   status: SupplierPaymentStatus;
   holdReason?: string | null;
+  // Diaspora escrow reconciliation — the organiser-agreed wholesale amount
+  // (null = no wholesale split, legacy/self-supply/external-supplier
+  // behavior); feeAmount/netAmount are only populated once released.
+  wholesaleAmount?: number | null;
+  feeAmount?: number | null;
+  netAmount?: number | null;
 }
 
 // Diaspora escrow reconciliation — the organiser's own settlement record,
