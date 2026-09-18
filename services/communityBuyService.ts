@@ -207,6 +207,12 @@ export interface Campaign {
   goalShares: number | null;
   maximumShares: number | null;
   pricePerShareMinor: number | null;
+  // Diaspora escrow reconciliation — the organiser-agreed wholesale price
+  // paid to an Eki-registered supplier, distinct from pricePerShareMinor
+  // (what participants pay). Null means no wholesale split applies
+  // (self-supply, external supplier, or a supplier campaign with no
+  // wholesale figure yet).
+  wholesaleAmountMinor?: number | null;
   confirmedShares: number;
   fundingOutcome: FundingOutcome;
   supplierCommitted: boolean;
@@ -229,6 +235,11 @@ export interface Campaign {
   qualityNotes: string | null;
   // Delivery step (spec §7 step 5) — organiser intent only, no address data.
   deliveryPreference: CampaignDeliveryPreference;
+  // Diaspora escrow reconciliation (final V1 settlement doc, required buyer
+  // disclosure) — PER-SHARE preview of Eki's buyer service fee at the
+  // market's CURRENT rate; a client multiplies by chosen quantity for the
+  // real total. Null when there's no price yet or no market configured.
+  perShareFeeEstimate?: { productSubtotal: number; feeAmount: number; maxTotal: number; feeBps: number } | null;
 }
 
 export interface Contribution {
@@ -344,6 +355,19 @@ export interface SupplierPayment {
   amount: number;
   currency: string;
   status: SupplierPaymentStatus;
+  holdReason?: string | null;
+}
+
+// Diaspora escrow reconciliation — the organiser's own settlement record,
+// mirrors SupplierPayment's shape exactly (same SupplierPaymentStatus enum
+// on the backend).
+export interface OrganiserPayout {
+  campaignId: string;
+  amount: number;
+  currency: string;
+  status: SupplierPaymentStatus;
+  commissionAmount?: number | null;
+  netAmount?: number | null;
   holdReason?: string | null;
 }
 
@@ -701,6 +725,26 @@ export const communityBuyService = {
 
   async refreshSupplierStripeConnect(): Promise<{ onboardingUrl: string }> {
     return apiClient.post("/api/supplier/stripe-connect/refresh", {});
+  },
+
+  // ─── Organiser Stripe Connect onboarding (Diaspora escrow reconciliation) ──
+  // Mirrors the supplier methods above exactly — same shape, same backend
+  // pattern (Express account + hosted onboarding link), different owner.
+  async onboardOrganiserStripeConnect(): Promise<{ onboardingUrl: string }> {
+    return apiClient.post("/api/organiser/stripe-connect/onboard", {});
+  },
+
+  async getOrganiserStripeConnectStatus(): Promise<{ providerConnectedAccountId: string | null; chargesEnabled: boolean; payoutsEnabled: boolean; detailsSubmitted: boolean }> {
+    return apiClient.get("/api/organiser/stripe-connect/status");
+  },
+
+  async refreshOrganiserStripeConnect(): Promise<{ onboardingUrl: string }> {
+    return apiClient.post("/api/organiser/stripe-connect/refresh", {});
+  },
+
+  async getMyOrganiserPayout(campaignId: string): Promise<OrganiserPayout> {
+    const res = await apiClient.get<{ payout: OrganiserPayout }>(`/api/organiser/campaigns/${campaignId}/payout`);
+    return res.payout;
   },
 
   async listMySupplierCampaigns(): Promise<Campaign[]> {

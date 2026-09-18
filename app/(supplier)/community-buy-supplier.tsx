@@ -28,6 +28,7 @@ import {
   type SupplierAccountState,
 } from "../../services/communityBuyService";
 import { countryDisplayName } from "../../utils/countries";
+import { calculateSupplierCommission } from "../../utils/communityBuyFees";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -64,6 +65,11 @@ export default function VendorCommunityBuySupplierScreen() {
   const [account, setAccount] = useState<SupplierAccount | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [markets, setMarkets] = useState<MarketConfig[]>([]);
+  // Diaspora escrow reconciliation — keyed by country, unfiltered (unlike
+  // `markets` above, which is deliberately narrowed to markets still open
+  // for new applications and would wrongly omit a market an already-
+  // approved supplier is still actively operating in).
+  const [marketByCountry, setMarketByCountry] = useState<Record<string, MarketConfig>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -102,7 +108,13 @@ export default function VendorCommunityBuySupplierScreen() {
       // applications is offered; the backend re-validates on submit.
       setMarkets(marketList.filter((m) => m.supplierApplicationsEnabled));
       if (profileData.account && DASHBOARD_VISIBLE_STATES.includes(profileData.account.supplierState)) {
-        setCampaigns(await communityBuyService.listMySupplierCampaigns());
+        const myCampaigns = await communityBuyService.listMySupplierCampaigns();
+        setCampaigns(myCampaigns);
+        // Diaspora escrow reconciliation — only fetch the specific
+        // countries these campaigns actually use, not the whole list.
+        const countries = Array.from(new Set(myCampaigns.map((c) => c.country).filter((c): c is string => !!c)));
+        const configs = await Promise.all(countries.map((code) => communityBuyService.getMarketConfig(code).catch(() => null)));
+        setMarketByCountry(Object.fromEntries(configs.filter((c): c is MarketConfig => !!c).map((c) => [c.countryCode, c])));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load your supplier status.");
@@ -433,6 +445,28 @@ export default function VendorCommunityBuySupplierScreen() {
                           : "Price not yet set by the organiser"}
                       </Text>
 
+                      {pendingDecision && c.wholesaleAmountMinor != null && c.currency ? (() => {
+                        const feeBps = marketByCountry[c.country ?? ""]?.communityBuyFeeBps ?? 800;
+                        const { commissionAmount, netPayable } = calculateSupplierCommission(c.wholesaleAmountMinor, feeBps);
+                        return (
+                          <FloatingCard style={styles.wholesaleCard}>
+                            <Text style={styles.wholesaleTitle}>Your settlement for this campaign</Text>
+                            <View style={styles.previewRow}>
+                              <Text style={styles.fieldHint}>Agreed wholesale amount</Text>
+                              <Text style={styles.previewValue}>{formatDisplayMoney(c.wholesaleAmountMinor / 100, c.currency, selectedCurrency)}</Text>
+                            </View>
+                            <View style={styles.previewRow}>
+                              <Text style={styles.fieldHint}>Eki supplier commission ({(feeBps / 100).toFixed(0)}%)</Text>
+                              <Text style={styles.previewValue}>-{formatDisplayMoney(commissionAmount / 100, c.currency, selectedCurrency)}</Text>
+                            </View>
+                            <View style={[styles.previewRow, styles.wholesaleTotalRow]}>
+                              <Text style={styles.wholesaleTotalLabel}>You receive</Text>
+                              <Text style={styles.wholesaleTotalValue}>{formatDisplayMoney(netPayable / 100, c.currency, selectedCurrency)}</Text>
+                            </View>
+                          </FloatingCard>
+                        );
+                      })() : null}
+
                       {pendingDecision ? (
                         <>
                           <View style={styles.decisionRow}>
@@ -588,6 +622,14 @@ export default function VendorCommunityBuySupplierScreen() {
 }
 
 const styles = StyleSheet.create({
+  wholesaleCard: { gap: 6, backgroundColor: "#F4F6F5" },
+  wholesaleTitle: { fontSize: 12, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
+  previewRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  fieldHint: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  previewValue: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  wholesaleTotalRow: { borderTopWidth: 1, borderTopColor: "#E1E7E3", paddingTop: 6, marginTop: 2 },
+  wholesaleTotalLabel: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  wholesaleTotalValue: { fontSize: 13, fontFamily: "Manrope-ExtraBold", color: "#076B51" },
   introCard: { alignItems: "center", gap: 8 },
   introTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#151E1B" },
   introBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", textAlign: "center", lineHeight: 19 },

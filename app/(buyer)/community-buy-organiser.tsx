@@ -193,6 +193,21 @@ export default function CommunityBuyOrganiserScreen() {
               <PrimaryButton label="New campaign" icon="add" onPress={() => router.push("/(buyer)/community-buy-organiser-campaign" as any)} />
             )}
 
+            <TouchableOpacity
+              onPress={() => router.push("/(buyer)/community-buy-organiser-payouts" as any)}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Payouts and Stripe Connect setup"
+            >
+              <FloatingCard style={styles.applyRow}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Ionicons name="card-outline" size={16} color="#076B51" />
+                  <Text style={styles.applyRowText}>Payouts & Stripe Connect setup</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#8AA194" />
+              </FloatingCard>
+            </TouchableOpacity>
+
             <Text style={styles.section}>Your campaigns</Text>
             {campaigns.length === 0 ? (
               <Text style={styles.emptyText}>You haven't created a campaign yet.</Text>

@@ -8,6 +8,7 @@ import { useCurrencyStore } from "../../stores/currencyStore";
 import { presentSetupIntent } from "../../services/stripePayment";
 import { ErrorState, FloatingCard, LoadingBlock, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, type Campaign } from "../../services/communityBuyService";
+import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 // The saved-card flow is generic (buyer/payment-methods), built for Regular
 // Deliveries — reused as-is for Community Buy pledges rather than duplicated.
 import { regularDeliveriesService, type BuyerPaymentMethod } from "../../services/regularDeliveriesService";
@@ -120,12 +121,46 @@ export default function CommunityBuyPaymentScreen() {
   // Nullable on a draft, but this screen only ever shows a LIVE campaign —
   // submit() (backend) guarantees these are set by then.
   const amount = quantity * campaign.pricePerShareMinor!;
+  // Diaspora escrow reconciliation (final V1 settlement doc — required
+  // buyer disclosure): Eki's 5% service fee, min £1.20 / max £5.00, on top
+  // of the product subtotal. This is a PREVIEW using the campaign's current
+  // rate — the amount actually charged is always the rate the backend
+  // snapshots at pledge time (see CampaignContribution.buyerServiceFeeAmount).
+  const serviceFee = calculateBuyerServiceFee(amount, campaign.perShareFeeEstimate?.feeBps);
+  // No delivery-charge mechanism exists in Community Buy today — collection
+  // has no charge; a delivery campaign's arrangement is disclosed as such
+  // rather than showing an invented figure.
+  const isDelivery = campaign.deliveryPreference === "DELIVERY";
+  const maxTotal = amount + serviceFee;
 
   return (
     <View style={premiumStyles.page}>
       <PremiumHeader title="Payment method" subtitle={campaign.title} onBack={backToReview} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         <View style={[premiumStyles.block, { gap: 14 }]}>
+          <FloatingCard style={{ gap: 10 }}>
+            <Text style={styles.section}>Payment breakdown</Text>
+            <View style={styles.previewRow}>
+              <Text style={styles.fieldHint}>Product subtotal ({quantity} × {formatDisplayMoney(campaign.pricePerShareMinor! / 100, campaign.currency, selectedCurrency)})</Text>
+              <Text style={styles.previewValue}>{formatDisplayMoney(amount / 100, campaign.currency, selectedCurrency)}</Text>
+            </View>
+            <View style={styles.previewRow}>
+              <Text style={styles.fieldHint}>Eki service fee (5%, min £1.20, max £5.00)</Text>
+              <Text style={styles.previewValue}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text>
+            </View>
+            <View style={styles.previewRow}>
+              <Text style={styles.fieldHint}>{isDelivery ? "Delivery" : "Collection"}</Text>
+              <Text style={styles.previewValue}>{isDelivery ? "Arranged by organiser" : "No delivery charge"}</Text>
+            </View>
+            <View style={[styles.previewRow, styles.totalRow]}>
+              <Text style={styles.totalLabel}>Maximum total</Text>
+              <Text style={styles.totalValue}>{formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)}</Text>
+            </View>
+            <Text style={styles.disclosureText}>
+              Organiser: {campaign.organiser?.user?.name ?? "—"}{campaign.supplier?.vendor?.storeName || campaign.supplierAccount?.user?.name ? ` · Supplier: ${campaign.supplier?.vendor?.storeName ?? campaign.supplierAccount?.user?.name}` : ""}
+            </Text>
+          </FloatingCard>
+
           <FloatingCard style={{ gap: 10 }}>
             <View style={{ gap: 8 }}>
               {paymentMethods.map((m) => (
@@ -157,7 +192,7 @@ export default function CommunityBuyPaymentScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.disclosureText}>
-              Your card will not be charged now. It will only be charged {formatDisplayMoney(amount / 100, campaign.currency, selectedCurrency)} if this campaign reaches its minimum or goal.
+              Your card will not be charged now. It will only be charged {formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)} (including Eki's service fee) if this campaign reaches its minimum or goal. If the campaign doesn't succeed, you are never charged.
             </Text>
           </FloatingCard>
 
@@ -181,6 +216,13 @@ export default function CommunityBuyPaymentScreen() {
 }
 
 const styles = StyleSheet.create({
+  section: { fontSize: 13, fontFamily: "Manrope-ExtraBold", color: "#151E1B" },
+  previewRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  fieldHint: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  previewValue: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  totalRow: { borderTopWidth: 1, borderTopColor: "#EEF2EF", paddingTop: 8, marginTop: 2 },
+  totalLabel: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  totalValue: { fontSize: 14, fontFamily: "Manrope-ExtraBold", color: "#076B51" },
   optionRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1.5, borderColor: "transparent" },
   optionRowActive: { borderColor: "#076B51" },
   optionTitle: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
