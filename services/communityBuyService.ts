@@ -27,7 +27,11 @@ export type CampaignStatus =
   | "FULFILLING"
   | "COMPLETED"
   | "FINANCIALLY_CLOSED"
-  | "CANCELLED";
+  | "CANCELLED"
+  // Phase 4 (cancellation under review) — a campaign that has already
+  // captured at least one payment enters this state when its organiser
+  // requests cancellation, instead of going straight to CANCELLED.
+  | "CANCELLATION_UNDER_REVIEW";
 
 export type FundingOutcome = "PENDING" | "GOAL_REACHED" | "MINIMUM_REACHED" | "BELOW_MINIMUM";
 
@@ -50,6 +54,7 @@ export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
   COMPLETED: "Completed",
   FINANCIALLY_CLOSED: "Closed",
   CANCELLED: "Ended",
+  CANCELLATION_UNDER_REVIEW: "Cancellation under review",
 };
 
 export const CAMPAIGN_STATUS_TONE: Record<CampaignStatus, StatusTone> = {
@@ -68,6 +73,7 @@ export const CAMPAIGN_STATUS_TONE: Record<CampaignStatus, StatusTone> = {
   COMPLETED: "success",
   FINANCIALLY_CLOSED: "neutral",
   CANCELLED: "error",
+  CANCELLATION_UNDER_REVIEW: "warning",
 };
 
 // PLEDGE_THEN_CHARGE model (client mandate 2026-09): a pledge saves a
@@ -128,6 +134,18 @@ export interface ExtensionRequest {
   priceUnchangedConfirmed: boolean;
   participantTermsUnchanged: boolean;
   status: ExtensionRequestStatus;
+  reviewNotes?: string | null;
+  createdAt: string;
+}
+
+export type CancellationRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface CancellationRequest {
+  id: string;
+  campaignId: string;
+  reason: string;
+  hadFinancialActivity: boolean;
+  status: CancellationRequestStatus;
   reviewNotes?: string | null;
   createdAt: string;
 }
@@ -787,6 +805,16 @@ export const communityBuyService = {
   async endCampaignRescue(campaignId: string): Promise<Campaign> {
     const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${campaignId}/rescue/end`, {});
     return res.campaign;
+  },
+
+  /**
+   * Phase 4 (cancellation under review) — resolves immediately (campaign
+   * moves straight to CANCELLED) when nothing has been captured yet, or
+   * moves the campaign to CANCELLATION_UNDER_REVIEW and creates a pending
+   * request when it has. requiresReview tells the caller which happened.
+   */
+  async requestCampaignCancellation(campaignId: string, reason: string): Promise<{ campaign: Campaign; request: CancellationRequest | null; requiresReview: boolean }> {
+    return apiClient.post(`/api/organiser/campaigns/${campaignId}/cancellation-request`, { reason });
   },
 
   // ─── Supplier ─────────────────────────────────────────────────────────────

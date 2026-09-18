@@ -3,7 +3,9 @@ import { apiClient } from "../api";
 export type CampaignStatus =
   | "DRAFT" | "UNDER_REVIEW" | "CHANGES_REQUIRED" | "APPROVED" | "REJECTED"
   | "LIVE" | "PAUSED" | "RESCUE_WINDOW" | "SUCCEEDED" | "FAILED" | "REFUNDING"
-  | "FULFILLING" | "COMPLETED" | "FINANCIALLY_CLOSED" | "CANCELLED";
+  | "FULFILLING" | "COMPLETED" | "FINANCIALLY_CLOSED" | "CANCELLED"
+  // Phase 4 (cancellation under review).
+  | "CANCELLATION_UNDER_REVIEW";
 
 export type FundingOutcome = "PENDING" | "GOAL_REACHED" | "MINIMUM_REACHED" | "BELOW_MINIMUM";
 
@@ -59,6 +61,20 @@ export interface AdminExtensionRequest {
   status: ExtensionRequestStatus;
   createdAt: string;
   campaign?: { id: string; title: string; confirmedShares: number; minimumShares: number };
+}
+
+export type CancellationRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface AdminCancellationRequest {
+  id: string;
+  campaignId: string;
+  reason: string;
+  hadFinancialActivity: boolean;
+  preCancellationStatus: CampaignStatus;
+  status: CancellationRequestStatus;
+  reviewNotes?: string | null;
+  createdAt: string;
+  campaign?: { id: string; title: string; confirmedShares: number; paidTotal?: number | null; currency: string };
 }
 
 export type SupplierPaymentStatus = "NOT_RELEASED" | "PROCESSING" | "PAID" | "ON_HOLD" | "FAILED";
@@ -311,9 +327,12 @@ export interface PendingApprovalResponse {
 
 export type ReleaseSupplierPaymentResult = { payment: AdminSupplierPayment } | PendingApprovalResponse;
 
-export function isPendingApproval(result: ReleaseSupplierPaymentResult): result is PendingApprovalResponse {
+export function isPendingApproval(result: ReleaseSupplierPaymentResult | ApproveCancellationResult): result is PendingApprovalResponse {
   return "pendingApproval" in result;
 }
+
+/** Response when a cancellation approval requires a second admin's sign-off (four-eyes) instead of executing immediately. */
+export type ApproveCancellationResult = { cancellationRequest: AdminCancellationRequest } | PendingApprovalResponse;
 
 export interface ReadOptions {
   bypassCache?: boolean;
@@ -506,6 +525,20 @@ export const communityBuyAdminAPI = {
   async rejectExtension(id: string, notes?: string): Promise<AdminExtensionRequest> {
     const res = await apiClient.post<{ extensionRequest: AdminExtensionRequest }>(`/admin/community-buy/extension-requests/${id}/reject`, { notes });
     return res.extensionRequest;
+  },
+
+  // ─── Phase 4 — cancellation-under-review requests ───────────────────────
+  async getCancellationRequests(opts?: ReadOptions): Promise<AdminCancellationRequest[]> {
+    const res = await apiClient.get<{ items?: AdminCancellationRequest[] }>("/admin/community-buy/cancellation-requests", opts);
+    return res.items ?? [];
+  },
+  /** Returns the decided request directly, OR — when a four-eyes AdminApprovalRule is configured — a 202 pending-approval response. Callers must check isPendingApproval() before assuming it was actually approved. */
+  async approveCancellation(id: string): Promise<ApproveCancellationResult> {
+    return apiClient.post(`/admin/community-buy/cancellation-requests/${id}/approve`, {});
+  },
+  async rejectCancellation(id: string, notes?: string): Promise<AdminCancellationRequest> {
+    const res = await apiClient.post<{ cancellationRequest: AdminCancellationRequest }>(`/admin/community-buy/cancellation-requests/${id}/reject`, { notes });
+    return res.cancellationRequest;
   },
 
   // ─── Supplier payments — doc §Screen 131 ────────────────────────────────

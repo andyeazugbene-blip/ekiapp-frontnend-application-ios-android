@@ -279,10 +279,15 @@ export default function CommunityBuyCampaignScreen() {
               <Ionicons name="return-down-back-outline" size={20} color="#B48A00" />
               <Text style={styles.outcomeText}>Your refund is being processed.</Text>
             </FloatingCard>
+          ) : campaign.status === "CANCELLATION_UNDER_REVIEW" ? (
+            <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
+              <Ionicons name="alert-circle-outline" size={20} color="#B48A00" />
+              <Text style={styles.outcomeText}>The organiser has requested to end this campaign. Because payments have already been captured, Eki is reviewing the request before anything happens — you'll be notified once a decision is made.</Text>
+            </FloatingCard>
           ) : campaign.status === "CANCELLED" ? (
             <FloatingCard style={[styles.outcomeCard, styles.outcomeCardError]}>
               <Ionicons name="return-down-back-outline" size={20} color="#D6552F" />
-              <Text style={styles.outcomeText}>This campaign was ended. No participant was charged — any pledge you made has been cancelled.</Text>
+              <Text style={styles.outcomeText}>This campaign was ended. If you had already been charged, your payment is being refunded to your original payment method — otherwise, your pledge was simply cancelled and you were never charged.</Text>
             </FloatingCard>
           ) : campaign.status === "PAUSED" ? (
             <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>

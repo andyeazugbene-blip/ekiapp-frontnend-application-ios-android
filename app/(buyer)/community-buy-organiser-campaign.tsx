@@ -159,6 +159,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [showChangeRequestForm, setShowChangeRequestForm] = useState(false);
   const [changeRequestText, setChangeRequestText] = useState("");
   const [changeRequestBusy, setChangeRequestBusy] = useState(false);
+  // Phase 4 (cancellation under review) — organiser-initiated cancellation.
+  const [showCancellationForm, setShowCancellationForm] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancellationBusy, setCancellationBusy] = useState(false);
   const [decisionBusy, setDecisionBusy] = useState<"top-up" | "extension" | "end" | null>(null);
   const [topUpQuantity, setTopUpQuantity] = useState("1");
   const [paymentMethods, setPaymentMethods] = useState<BuyerPaymentMethod[]>([]);
@@ -522,6 +526,32 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       Alert.alert("Couldn't send request", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setChangeRequestBusy(false);
+    }
+  };
+
+  // Phase 4 (cancellation under review) — the backend decides whether this
+  // resolves immediately (nothing captured yet) or routes to admin review
+  // (real money already captured); this screen just reflects whichever
+  // happened via the campaign it gets back.
+  const handleRequestCancellation = async () => {
+    if (!campaign) return;
+    if (!cancellationReason.trim()) return Alert.alert("Reason required", "Explain why this campaign should be cancelled.");
+    setCancellationBusy(true);
+    try {
+      const result = await communityBuyService.requestCampaignCancellation(campaign.id, cancellationReason.trim());
+      setCampaign(result.campaign);
+      setCancellationReason("");
+      setShowCancellationForm(false);
+      Alert.alert(
+        result.requiresReview ? "Cancellation under review" : "Campaign cancelled",
+        result.requiresReview
+          ? "Eki is reviewing this request because funds have already been captured. You'll be notified once a decision is made."
+          : "Your campaign has been cancelled. No participant had been charged.",
+      );
+    } catch (err) {
+      Alert.alert("Couldn't request cancellation", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setCancellationBusy(false);
     }
   };
 
@@ -1540,6 +1570,15 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               </View>
             ) : null}
 
+            {campaign?.status === "CANCELLATION_UNDER_REVIEW" ? (
+              <FloatingCard style={styles.noticeCard}>
+                <Ionicons name="alert-circle-outline" size={18} color="#B48A00" />
+                <Text style={styles.noticeText}>
+                  Your request to cancel this campaign is under review. Funds already collected are being kept safe while Eki decides — you'll be notified either way.
+                </Text>
+              </FloatingCard>
+            ) : null}
+
             {campaign?.status === "APPROVED" ? (
               <TouchableOpacity
                 onPress={handlePublish}
@@ -1601,6 +1640,53 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                       accessibilityState={{ busy: changeRequestBusy, disabled: changeRequestBusy }}
                     >
                       {changeRequestBusy ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Send request</Text>}
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            {/* Phase 4 (cancellation under review) — reachable both before
+                and after a campaign succeeds; the backend alone decides
+                whether this needs admin review (funds already captured) or
+                resolves immediately. */}
+            {campaign && ["LIVE", "PAUSED", "RESCUE_WINDOW", "FULFILLING", "SUCCEEDED"].includes(campaign.status) ? (
+              <View style={{ gap: 10 }}>
+                <TouchableOpacity
+                  onPress={() => setShowCancellationForm((v) => !v)}
+                  activeOpacity={0.85}
+                  style={styles.cancelBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Request cancellation"
+                  accessibilityState={{ expanded: showCancellationForm }}
+                >
+                  <Text style={styles.cancelBtnText}>Request cancellation</Text>
+                </TouchableOpacity>
+                {showCancellationForm ? (
+                  <View style={styles.extensionForm}>
+                    <Text style={styles.label}>Why do you want to cancel this campaign?</Text>
+                    <TextInput
+                      style={[styles.input, styles.inputMultiline]}
+                      placeholder="Explain why this campaign should be cancelled"
+                      placeholderTextColor="#8AA194"
+                      value={cancellationReason}
+                      onChangeText={setCancellationReason}
+                      multiline
+                      accessibilityLabel="Reason for cancellation"
+                    />
+                    <Text style={styles.outcomeHint}>
+                      If no participant has been charged yet, this cancels the campaign immediately. If funds have already been captured, Eki reviews the request before anything happens — no one is refunded or paid out without that review.
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => void handleRequestCancellation()}
+                      disabled={cancellationBusy}
+                      activeOpacity={0.88}
+                      style={styles.cancelBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Confirm cancellation request"
+                      accessibilityState={{ busy: cancellationBusy, disabled: cancellationBusy }}
+                    >
+                      {cancellationBusy ? <ActivityIndicator size="small" color="#D6552F" /> : <Text style={styles.cancelBtnText}>Confirm cancellation request</Text>}
                     </TouchableOpacity>
                   </View>
                 ) : null}

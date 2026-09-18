@@ -21,6 +21,7 @@ const STATUS_TONE: Record<CampaignStatus, "green" | "amber" | "red" | "blue" | "
   DRAFT: "gray", UNDER_REVIEW: "amber", CHANGES_REQUIRED: "amber", APPROVED: "blue", REJECTED: "red",
   LIVE: "blue", PAUSED: "gray", RESCUE_WINDOW: "amber", SUCCEEDED: "green", FAILED: "amber",
   REFUNDING: "amber", FULFILLING: "blue", COMPLETED: "green", FINANCIALLY_CLOSED: "gray", CANCELLED: "red",
+  CANCELLATION_UNDER_REVIEW: "amber",
 };
 
 const STATUS_LABEL: Record<CampaignStatus, string> = {
@@ -28,6 +29,7 @@ const STATUS_LABEL: Record<CampaignStatus, string> = {
   REJECTED: "Rejected", LIVE: "Live", PAUSED: "Paused", RESCUE_WINDOW: "Needs more participants",
   SUCCEEDED: "Succeeded", FAILED: "Did not reach minimum", REFUNDING: "Refunding", FULFILLING: "Proceeding",
   COMPLETED: "Completed", FINANCIALLY_CLOSED: "Financially closed", CANCELLED: "Ended",
+  CANCELLATION_UNDER_REVIEW: "Cancellation under review",
 };
 
 const SUPPLIER_PAYMENT_STATUS_LABEL: Record<SupplierPaymentStatus, string> = {

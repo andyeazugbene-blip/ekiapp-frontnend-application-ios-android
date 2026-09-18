@@ -7,7 +7,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { API2FARequiredError, APIError } from "@/lib/api";
 import {
   communityBuyAdminAPI, isPendingApproval,
-  type AdminCampaign, type AdminContribution, type AdminExtensionRequest, type AdminSupplierPayment,
+  type AdminCampaign, type AdminCancellationRequest, type AdminContribution, type AdminExtensionRequest, type AdminSupplierPayment,
   type CampaignStatus, type FundingOutcome, type SupplierPaymentStatus,
 } from "@/lib/services/communityBuy.api";
 import { countryDisplayName } from "@/lib/countries";
@@ -20,6 +20,7 @@ const CLOSED_STATUS_TONE: Record<CampaignStatus, "green" | "amber" | "red" | "bl
   DRAFT: "gray", UNDER_REVIEW: "amber", CHANGES_REQUIRED: "amber", APPROVED: "blue", REJECTED: "red",
   LIVE: "blue", PAUSED: "gray", RESCUE_WINDOW: "amber", SUCCEEDED: "green", FAILED: "amber",
   REFUNDING: "amber", FULFILLING: "blue", COMPLETED: "green", FINANCIALLY_CLOSED: "gray", CANCELLED: "red",
+  CANCELLATION_UNDER_REVIEW: "amber",
 };
 
 const CLOSED_STATUS_LABEL: Record<CampaignStatus, string> = {
@@ -27,6 +28,7 @@ const CLOSED_STATUS_LABEL: Record<CampaignStatus, string> = {
   REJECTED: "Rejected", LIVE: "Live", PAUSED: "Paused", RESCUE_WINDOW: "Needs more participants",
   SUCCEEDED: "Succeeded", FAILED: "Did not reach minimum", REFUNDING: "Refunding", FULFILLING: "Proceeding",
   COMPLETED: "Completed", FINANCIALLY_CLOSED: "Financially closed", CANCELLED: "Ended",
+  CANCELLATION_UNDER_REVIEW: "Cancellation under review",
 };
 
 const FUNDING_OUTCOME_LABEL: Record<FundingOutcome, string> = {
@@ -47,6 +49,8 @@ export default function CommunityCampaignsPage() {
   const [items, setItems] = useState<AdminCampaign[]>([]);
   const [closed, setClosed] = useState<AdminCampaign[]>([]);
   const [extensionRequests, setExtensionRequests] = useState<AdminExtensionRequest[]>([]);
+  const [cancellationRequests, setCancellationRequests] = useState<AdminCancellationRequest[]>([]);
+  const [cancellationNotesById, setCancellationNotesById] = useState<Record<string, string>>({});
   const [supplierPayments, setSupplierPayments] = useState<AdminSupplierPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,15 +74,17 @@ export default function CommunityCampaignsPage() {
       bypassCache ? setRefreshing(true) : setLoading(true);
       setError("");
       const opts = bypassCache ? { bypassCache: true } : undefined;
-      const [review, recentlyClosed, pendingExtensions, payments] = await Promise.all([
+      const [review, recentlyClosed, pendingExtensions, pendingCancellations, payments] = await Promise.all([
         communityBuyAdminAPI.getCampaignsForReview(opts),
         communityBuyAdminAPI.getRecentlyClosedCampaigns(opts),
         communityBuyAdminAPI.getExtensionRequests(opts),
+        communityBuyAdminAPI.getCancellationRequests(opts),
         communityBuyAdminAPI.getSupplierPayments(opts),
       ]);
       setItems(review);
       setClosed(recentlyClosed);
       setExtensionRequests(pendingExtensions);
+      setCancellationRequests(pendingCancellations);
       setSupplierPayments(payments);
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to load campaigns");
@@ -124,6 +130,31 @@ export default function CommunityCampaignsPage() {
     setBusyId(id);
     try {
       await action();
+      await load();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Action failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const runRejectCancellation = async (id: string) => {
+    setBusyId(id);
+    try {
+      await communityBuyAdminAPI.rejectCancellation(id, cancellationNotesById[id]);
+      await load();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Action failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const runApproveCancellation = async (id: string) => {
+    setBusyId(id);
+    try {
+      const result = await communityBuyAdminAPI.approveCancellation(id);
+      if (isPendingApproval(result)) alert(result.message);
       await load();
     } catch (err) {
       alert(err instanceof APIError ? err.message : "Action failed");
@@ -435,6 +466,56 @@ export default function CommunityCampaignsPage() {
                           disabled={busyId === req.id}
                           onClick={() => {
                             if (confirm("Reject this extension request?")) void runExtensionAction(req.id, () => communityBuyAdminAPI.rejectExtension(req.id));
+                          }}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card>
+              <h2 className="text-2xl font-black">Cancellation requests</h2>
+              <p className="mt-1 text-sm text-slate-500">Requested by the organiser once funds have already been captured. Approval refunds every paid participant and holds any not-yet-released supplier/organiser payout — never a duplicate refund on retry.</p>
+              {cancellationRequests.length === 0 ? (
+                <p className="mt-8 text-slate-500">No cancellation requests waiting for review.</p>
+              ) : (
+                <div className="mt-6 space-y-4">
+                  {cancellationRequests.map((req) => (
+                    <div key={req.id} className="rounded-2xl border border-slate-200 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h3 className="text-base font-bold text-[#101820]">{req.campaign?.title ?? req.campaignId}</h3>
+                        <span className="text-sm text-slate-500">{new Date(req.createdAt).toLocaleString()}</span>
+                      </div>
+                      <div className="mt-2 grid gap-1 text-sm text-slate-600 md:grid-cols-2">
+                        <p>Confirmed shares: <span className="font-semibold text-[#101820]">{req.campaign?.confirmedShares ?? "—"}</span></p>
+                        <p>Paid so far: <span className="font-semibold text-[#101820]">{req.campaign?.paidTotal != null ? `${centsToUnit(req.campaign.paidTotal).toFixed(2)} ${req.campaign.currency}` : "—"}</span></p>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-600">Reason: {req.reason}</p>
+                      <textarea
+                        placeholder="Notes for the organiser (shown only if rejected)"
+                        value={cancellationNotesById[req.id] ?? ""}
+                        onChange={(e) => setCancellationNotesById((prev) => ({ ...prev, [req.id]: e.target.value }))}
+                        className="mt-3 w-full rounded-xl border border-slate-200 p-3 text-sm"
+                        rows={2}
+                      />
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <Button
+                          disabled={busyId === req.id}
+                          onClick={() => {
+                            if (confirm("Approve this cancellation? Every paid participant will be refunded, and any not-yet-released supplier/organiser payout will be held. This can't be undone.")) void runApproveCancellation(req.id);
+                          }}
+                        >
+                          Approve cancellation
+                        </Button>
+                        <Button
+                          variant="danger"
+                          disabled={busyId === req.id}
+                          onClick={() => {
+                            if (confirm("Reject this cancellation request? The campaign resumes at its previous status.")) void runRejectCancellation(req.id);
                           }}
                         >
                           Reject
