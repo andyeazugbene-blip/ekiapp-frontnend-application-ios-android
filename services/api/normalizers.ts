@@ -45,9 +45,14 @@ export function normalizeProduct(raw: Record<string, any>): Product {
       ? Number(raw.costPrice)
       : undefined;
 
+  // isActive is the backend's publish flag (see products.service.ts —
+  // createProduct() forces it false for an unverified vendor, and
+  // disableProduct() sets it false too): an unpublished/disabled listing
+  // is a DRAFT, never "out of stock" — those are independent concepts.
+  // Stock-based status only applies once a listing is actually published.
   let status: ProductStatus = "active";
   if (raw.isActive === false) {
-    status = "out_of_stock";
+    status = "draft";
   } else if ((raw.stock ?? 0) <= 0) {
     status = "out_of_stock";
   } else if ((raw.stock ?? 0) <= 5) {

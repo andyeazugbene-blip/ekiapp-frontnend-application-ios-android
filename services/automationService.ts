@@ -114,9 +114,9 @@ export const AUTOMATION_EXPLAINER: Partial<Record<AutomationType, string>> = {
   REVIEW_REQUEST: "Eki asks buyers to review a completed order.",
   LOW_STOCK_ALERT: "Eki lets you know when your foodstuff is running low so buyers aren't disappointed.",
   BUYER_REFERRAL: "Eki rewards buyers who introduce new customers to your store. A referral qualifies only after the new buyer's first order is paid and completed.",
-  PAYMENT_RECOVERY: "Eki follows up when a Regular Delivery renewal payment fails, so subscribers don't lose their delivery.",
-  RENEWAL_REMINDER: "Eki reminds Regular Delivery subscribers before their next renewal is charged.",
-  PRICE_APPROVAL_REMINDER: "Eki reminds buyers when a price change on their Regular Delivery needs their approval.",
+  PAYMENT_RECOVERY: "Eki follows up when a Foodstuff Subscription renewal payment fails, so subscribers don't lose their delivery.",
+  RENEWAL_REMINDER: "Eki reminds Foodstuff Subscription subscribers before their next renewal is charged.",
+  PRICE_APPROVAL_REMINDER: "Eki reminds buyers when a price change on their Foodstuff Subscription needs their approval.",
 };
 
 /**
@@ -151,9 +151,9 @@ export function getAutomationEligibilityDetail(type: AutomationType, config?: Re
     case "CHECKOUT_PAYMENT_FOLLOW_UP":
       return "Runs for a checkout that has been pending for 2–48 hours. A live payment status check runs immediately before sending — no message is sent if the checkout has since succeeded.";
     case "PAYMENT_RECOVERY":
-      return "Runs when a Regular Delivery renewal payment fails and the renewal is still unpaid.";
+      return "Runs when a Foodstuff Subscription renewal payment fails and the renewal is still unpaid.";
     case "RENEWAL_REMINDER":
-      return "Runs 1–3 days before a Regular Delivery subscriber's next renewal charge.";
+      return "Runs 1–3 days before a Foodstuff Subscription subscriber's next renewal charge.";
     case "PRICE_APPROVAL_REMINDER":
       return "Runs when a renewal's price increase exceeds the buyer's approval limit and needs their decision.";
     default:

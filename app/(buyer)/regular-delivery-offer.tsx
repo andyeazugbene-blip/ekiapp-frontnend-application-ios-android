@@ -76,7 +76,7 @@ export default function RegularDeliveryOfferScreen() {
       const defaultMethod = methods.find((m) => m.isDefault) ?? methods[0];
       setPaymentMethodId(defaultMethod?.id ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load this Regular Delivery offer.");
+      setError(err instanceof Error ? err.message : "Could not load this Foodstuff Subscription offer.");
     } finally {
       setLoading(false);
     }
@@ -176,7 +176,7 @@ export default function RegularDeliveryOfferScreen() {
       });
       router.replace({ pathname: "/(buyer)/regular-delivery-detail", params: { id: subscription.id } } as any);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Could not start this Regular Delivery.");
+      setSubmitError(err instanceof Error ? err.message : "Could not start this Foodstuff Subscription.");
     } finally {
       setSubmitting(false);
     }
@@ -184,7 +184,7 @@ export default function RegularDeliveryOfferScreen() {
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title="Regular Delivery" subtitle={offer?.vendor?.storeName} onBack={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)} />
+      <PremiumHeader title="Foodstuff Subscription" subtitle={offer?.vendor?.storeName} onBack={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)} />
 
       {loading ? (
         <LoadingBlock />

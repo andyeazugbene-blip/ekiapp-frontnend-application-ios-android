@@ -50,7 +50,7 @@ export default function RegularDeliveriesScreen() {
       setItems(subs);
       setSuggestions(reorderSuggestions);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load your Regular Deliveries.");
+      setError(err instanceof Error ? err.message : "Could not load your Foodstuff Subscriptions.");
     } finally {
       setLoading(false);
     }
@@ -61,7 +61,7 @@ export default function RegularDeliveriesScreen() {
   return (
     <View style={premiumStyles.page}>
       <PremiumHeader
-        title="Regular Deliveries"
+        title="Foodstuff Subscription"
         subtitle={loading ? undefined : `${items.length} subscription${items.length === 1 ? "" : "s"}`}
         onBack={() => goBackOrReplace(router, "/(buyer)/profile" as any)}
         right={
@@ -80,7 +80,7 @@ export default function RegularDeliveriesScreen() {
           <View style={{ gap: 20 }}>
             {suggestions.length > 0 ? (
               <View>
-                <Text style={styles.sectionLabel}>Reorder as a Regular Delivery</Text>
+                <Text style={styles.sectionLabel}>Reorder as a Foodstuff Subscription</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionsRow}>
                   {suggestions.map((s) => (
                     <TouchableOpacity
@@ -105,11 +105,11 @@ export default function RegularDeliveriesScreen() {
                 <FloatingCard style={{ gap: 12 }}>
                   <EmptyState
                     icon="repeat-outline"
-                    title="No Regular Deliveries yet"
+                    title="No Foodstuff Subscriptions yet"
                     body="Browse what vendors near you offer, or open a vendor's store directly."
                   />
                   <TouchableOpacity onPress={() => router.push("/(buyer)/regular-deliveries-browse" as any)} activeOpacity={0.85} style={styles.browseBtn}>
-                    <Text style={styles.browseBtnText}>Browse Regular Deliveries</Text>
+                    <Text style={styles.browseBtnText}>Browse Foodstuff Subscriptions</Text>
                   </TouchableOpacity>
                 </FloatingCard>
               ) : (
@@ -121,7 +121,7 @@ export default function RegularDeliveriesScreen() {
                   >
                     <FloatingCard>
                       <View style={styles.cardTop}>
-                        <Text style={styles.cardTitle} numberOfLines={1}>{sub.offer?.title ?? "Regular Delivery"}</Text>
+                        <Text style={styles.cardTitle} numberOfLines={1}>{sub.offer?.title ?? "Foodstuff Subscription"}</Text>
                         <StatusPill label={BUYER_SUBSCRIPTION_STATUS_LABELS[sub.status]} tone={BUYER_SUBSCRIPTION_STATUS_TONE[sub.status]} />
                       </View>
                       <Text style={styles.cardVendor}>{sub.offer?.vendor?.storeName ?? "Vendor"}</Text>

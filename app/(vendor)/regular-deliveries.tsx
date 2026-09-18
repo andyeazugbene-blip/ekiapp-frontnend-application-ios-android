@@ -56,7 +56,7 @@ export default function VendorRegularDeliveriesScreen() {
       setSubscribers(subscriberList);
       setRenewals(renewalList);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load Regular Deliveries.");
+      setError(err instanceof Error ? err.message : "Could not load Foodstuff Subscription.");
     } finally {
       setLoading(false);
     }
@@ -109,7 +109,7 @@ export default function VendorRegularDeliveriesScreen() {
   return (
     <View style={premiumStyles.page}>
       <PremiumHeader
-        title="Regular Deliveries"
+        title="Foodstuff Subscription"
         subtitle={loading ? undefined : `${offers.length} offer${offers.length === 1 ? "" : "s"} · ${subscribers.length} subscriber${subscribers.length === 1 ? "" : "s"}`}
         onBack={() => goBackOrReplace(router, "/(vendor)" as any)}
         right={
@@ -143,7 +143,7 @@ export default function VendorRegularDeliveriesScreen() {
           <View style={[premiumStyles.block, { gap: 10 }]}>
             {tab === "offers" ? (
               offers.length === 0 ? (
-                <FloatingCard><EmptyState icon="pricetags-outline" title="No offers yet" body="Create a Regular Delivery offer to let buyers subscribe to recurring orders." /></FloatingCard>
+                <FloatingCard><EmptyState icon="pricetags-outline" title="No offers yet" body="Create a Foodstuff Subscription offer to let buyers subscribe to recurring orders." /></FloatingCard>
               ) : (
                 offers.map((offer) => (
                   <FloatingCard key={offer.id}>
@@ -181,7 +181,7 @@ export default function VendorRegularDeliveriesScreen() {
               )
             ) : tab === "subscribers" ? (
               subscribers.length === 0 ? (
-                <FloatingCard><EmptyState icon="people-outline" title="No subscribers yet" body="Buyers who start a Regular Delivery from your offers will show up here." /></FloatingCard>
+                <FloatingCard><EmptyState icon="people-outline" title="No subscribers yet" body="Buyers who start a Foodstuff Subscription from your offers will show up here." /></FloatingCard>
               ) : (
                 subscribers.map((s) => (
                   <TouchableOpacity

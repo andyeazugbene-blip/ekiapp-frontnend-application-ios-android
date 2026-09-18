@@ -284,7 +284,7 @@ export default function VendorRegularDeliveryOfferEditScreen() {
                 <TouchableOpacity onPress={() => setUseDiscount((v) => !v)} activeOpacity={0.85} style={styles.checkRow}>
                   <Ionicons name={useDiscount ? "checkbox" : "square-outline"} size={20} color={useDiscount ? "#076B51" : "#C7D2CB"} />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.checkRowLabel}>Offer a Regular Delivery discount</Text>
+                    <Text style={styles.checkRowLabel}>Offer a Foodstuff Subscription discount</Text>
                     <Text style={styles.fieldHint}>Off uses the current product price at each renewal.</Text>
                   </View>
                 </TouchableOpacity>

@@ -90,7 +90,7 @@ export default function ProfileScreen() {
 
   const items: MenuItem[] = [
     { icon: "receipt-outline", label: "My Orders", action: "navigate", target: "/(buyer)/orders" },
-    { icon: "repeat-outline", label: "Regular Deliveries", action: "navigate", target: "/(buyer)/regular-deliveries" },
+    { icon: "repeat-outline", label: "Foodstuff Subscription", action: "navigate", target: "/(buyer)/regular-deliveries" },
     { icon: "people-circle-outline", label: "Community Buy", action: "navigate", target: "/(buyer)/community-buy" },
     { icon: "notifications-outline", label: "Notifications", action: "navigate", target: "/(buyer)/notifications" },
     { icon: "wallet-outline", label: "Wallet & Rewards", action: "navigate", target: "/(buyer)/wallet" },

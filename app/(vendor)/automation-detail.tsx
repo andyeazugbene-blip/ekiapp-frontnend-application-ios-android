@@ -213,7 +213,7 @@ export default function AutomationDetailScreen() {
 
               {isManaged ? (
                 <Text style={styles.managedNote}>
-                  This is a mandatory operational message, not optional marketing — it can't be turned off. Eki sends it automatically to keep your buyers informed about their Regular Delivery.
+                  This is a mandatory operational message, not optional marketing — it can't be turned off. Eki sends it automatically to keep your buyers informed about their Foodstuff Subscription.
                 </Text>
               ) : (
                 <TouchableOpacity

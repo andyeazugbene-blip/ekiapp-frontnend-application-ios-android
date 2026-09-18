@@ -66,7 +66,7 @@ export default function RegularDeliveryDetailScreen() {
     try {
       setSub(await regularDeliveriesService.getSubscription(id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load this Regular Delivery.");
+      setError(err instanceof Error ? err.message : "Could not load this Foodstuff Subscription.");
     } finally {
       setLoading(false);
     }
@@ -145,7 +145,7 @@ export default function RegularDeliveryDetailScreen() {
   };
 
   const confirmCancel = () => {
-    Alert.alert("Cancel this Regular Delivery?", "Future renewals will stop. This can't be undone.", [
+    Alert.alert("Cancel this Foodstuff Subscription?", "Future renewals will stop. This can't be undone.", [
       { text: "Keep it", style: "cancel" },
       { text: "Cancel delivery", style: "destructive", onPress: () => runAction("cancel", () => regularDeliveriesService.cancelSubscription(id)) },
     ]);
@@ -186,14 +186,14 @@ export default function RegularDeliveryDetailScreen() {
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title={sub?.offer?.title ?? "Regular Delivery"} subtitle={sub?.offer?.vendor?.storeName} onBack={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)} />
+      <PremiumHeader title={sub?.offer?.title ?? "Foodstuff Subscription"} subtitle={sub?.offer?.vendor?.storeName} onBack={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)} />
 
       {loading ? (
         <LoadingBlock />
       ) : error || !sub ? (
         <View style={premiumStyles.block}>
           <ErrorState
-            title="We couldn't load this Regular Delivery"
+            title="We couldn't load this Foodstuff Subscription"
             message={error || "Check your connection and try again."}
             onRetry={() => void load()}
           />
