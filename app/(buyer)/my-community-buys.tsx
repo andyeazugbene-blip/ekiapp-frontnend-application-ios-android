@@ -24,6 +24,7 @@ import {
   CONTRIBUTION_STATUS_TONE,
   type MyCommunityBuy,
 } from "../../services/communityBuyService";
+import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 
 function formatDate(value: string): string {
   const d = new Date(value);
@@ -91,7 +92,15 @@ export default function MyCommunityBuysScreen() {
           </View>
         ) : (
           <View style={[premiumStyles.block, { gap: 10 }]}>
-            {items.map((item) => (
+            {items.map((item) => {
+              // Same fee-inclusive total as the quantity/review/receipt
+              // screens — totalPaid/totalPledged are product-subtotal-only
+              // (see MyCommunityBuy backend contract), so the fee is added
+              // here for display, mirroring calculateBuyerServiceFee's
+              // existing default-rate preview path.
+              const paidTotal = item.totalPaid > 0 ? item.totalPaid + calculateBuyerServiceFee(item.totalPaid) : 0;
+              const pledgedTotal = item.totalPledged > 0 ? item.totalPledged + calculateBuyerServiceFee(item.totalPledged) : 0;
+              return (
               <TouchableOpacity
                 key={item.campaign.id}
                 activeOpacity={0.85}
@@ -130,16 +139,17 @@ export default function MyCommunityBuysScreen() {
                   <View style={styles.cardMetaRow}>
                     <Text style={styles.cardMetaText}>
                       {item.totalPaid > 0
-                        ? `${item.totalQuantity} share${item.totalQuantity === 1 ? "" : "s"} · ${formatDisplayMoney(item.totalPaid / 100, item.campaign.currency, selectedCurrency)} charged`
+                        ? `${item.totalQuantity} share${item.totalQuantity === 1 ? "" : "s"} · ${formatDisplayMoney(paidTotal / 100, item.campaign.currency, selectedCurrency)} charged (incl. Eki fee)`
                         : !item.refundStatus
                           ? CONTRIBUTION_STATUS_LABELS[item.latestContribution.status]
-                          : `${formatDisplayMoney(item.totalPledged / 100, item.campaign.currency, selectedCurrency)} pledged — not charged`}
+                          : `${formatDisplayMoney(pledgedTotal / 100, item.campaign.currency, selectedCurrency)} pledged — not charged`}
                     </Text>
                     <Text style={styles.cardMetaText}>{formatDate(item.campaign.deadline)}</Text>
                   </View>
                 </FloatingCard>
               </TouchableOpacity>
-            ))}
+              );
+            })}
           </View>
         )}
       </ScrollView>

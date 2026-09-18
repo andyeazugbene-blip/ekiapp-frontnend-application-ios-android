@@ -6,6 +6,7 @@ import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { ErrorState, FloatingCard, IconAvatar, LoadingBlock, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, type Campaign, type Contribution } from "../../services/communityBuyService";
+import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 
 export default function CommunityBuyContributionConfirmedScreen() {
   const router = useRouter();
@@ -72,6 +73,13 @@ export default function CommunityBuyContributionConfirmedScreen() {
     );
   }
 
+  // buyerServiceFeeAmount is the authoritative value already computed by the
+  // backend for this exact contribution; calculateBuyerServiceFee is only a
+  // fallback preview for the (should-not-happen) case it's missing — same
+  // pattern as the quantity/review/receipt screens.
+  const serviceFee = contribution.buyerServiceFeeAmount ?? calculateBuyerServiceFee(contribution.amount);
+  const maxTotal = contribution.amount + serviceFee;
+
   return (
     <View style={premiumStyles.page}>
       <PremiumHeader title="Pledge confirmed" />
@@ -80,13 +88,15 @@ export default function CommunityBuyContributionConfirmedScreen() {
           <IconAvatar icon="bookmark-outline" tone="success" size={64} />
           <Text style={styles.title}>Your pledge is recorded</Text>
           <Text style={styles.body}>
-            {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} of "{campaign.title}" — your payment method is saved for {formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}. You will only be charged if this campaign reaches its minimum required quantity.
+            {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} of "{campaign.title}" — your payment method is saved for {formatDisplayMoney(maxTotal / 100, contribution.currency, selectedCurrency)} (including Eki's service fee). You will only be charged if this campaign reaches its minimum required quantity.
           </Text>
 
           <FloatingCard style={{ width: "100%", gap: 8 }}>
             <View style={styles.row}><Text style={styles.label}>Campaign</Text><Text style={styles.value} numberOfLines={1}>{campaign.title}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Shares</Text><Text style={styles.value}>{contribution.quantity}</Text></View>
-            <View style={styles.row}><Text style={styles.label}>Amount if successful</Text><Text style={styles.value}>{formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}</Text></View>
+            <View style={styles.row}><Text style={styles.label}>Product subtotal</Text><Text style={styles.value}>{formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}</Text></View>
+            <View style={styles.row}><Text style={styles.label}>Eki service fee (5%, min £1.20, max £5.00)</Text><Text style={styles.value}>{formatDisplayMoney(serviceFee / 100, contribution.currency, selectedCurrency)}</Text></View>
+            <View style={styles.row}><Text style={styles.label}>Amount if successful</Text><Text style={styles.value}>{formatDisplayMoney(maxTotal / 100, contribution.currency, selectedCurrency)}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Status</Text><Text style={styles.value}>Not charged yet</Text></View>
           </FloatingCard>
 
