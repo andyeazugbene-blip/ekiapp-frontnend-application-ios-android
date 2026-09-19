@@ -103,6 +103,16 @@
               "scheme": "https",
               "host": "www.culinarytales.app",
               "pathPrefix": "/invite"
+            },
+            {
+              "scheme": "https",
+              "host": "culinarytales.app",
+              "pathPrefix": "/community-buy"
+            },
+            {
+              "scheme": "https",
+              "host": "www.culinarytales.app",
+              "pathPrefix": "/community-buy"
             }
           ],
           "category": [

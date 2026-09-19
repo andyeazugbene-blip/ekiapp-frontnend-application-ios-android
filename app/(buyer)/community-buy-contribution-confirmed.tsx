@@ -6,7 +6,7 @@ import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { ErrorState, FloatingCard, IconAvatar, LoadingBlock, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, type Campaign, type Contribution } from "../../services/communityBuyService";
-import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
+import { BUYER_SERVICE_FEE_MAX_MINOR, BUYER_SERVICE_FEE_MIN_MINOR, calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 
 export default function CommunityBuyContributionConfirmedScreen() {
   const router = useRouter();
@@ -99,7 +99,7 @@ export default function CommunityBuyContributionConfirmedScreen() {
             <View style={styles.row}><Text style={styles.label}>Campaign</Text><Text style={styles.value} numberOfLines={1}>{campaign.title}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Shares</Text><Text style={styles.value}>{contribution.quantity}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Product subtotal</Text><Text style={styles.value}>{formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}</Text></View>
-            <View style={styles.row}><Text style={styles.label}>Eki service fee (5%, min £1.20, max £5.00)</Text><Text style={styles.value}>{formatDisplayMoney(serviceFee / 100, contribution.currency, selectedCurrency)}</Text></View>
+            <View style={styles.row}><Text style={styles.label}>Eki service fee (5%, min {formatDisplayMoney(BUYER_SERVICE_FEE_MIN_MINOR / 100, contribution.currency, selectedCurrency)}, max {formatDisplayMoney(BUYER_SERVICE_FEE_MAX_MINOR / 100, contribution.currency, selectedCurrency)})</Text><Text style={styles.value}>{formatDisplayMoney(serviceFee / 100, contribution.currency, selectedCurrency)}</Text></View>
             {isDelivery ? (
               <View style={styles.row}><Text style={styles.label}>Delivery fee</Text><Text style={styles.value}>{deliveryFee > 0 ? formatDisplayMoney(deliveryFee / 100, contribution.currency, selectedCurrency) : "Free"}</Text></View>
             ) : null}

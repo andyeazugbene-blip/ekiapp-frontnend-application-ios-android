@@ -7,7 +7,7 @@ import { useCurrencyStore } from "../../stores/currencyStore";
 import { ErrorState, FloatingCard, LoadingBlock, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, FULFILMENT_METHOD_LABELS, type Campaign, type CampaignFulfilment } from "../../services/communityBuyService";
 import { countryDisplayName } from "../../utils/countries";
-import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
+import { BUYER_SERVICE_FEE_MAX_MINOR, BUYER_SERVICE_FEE_MIN_MINOR, calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 
 function formatDeadline(value: string): string {
   const d = new Date(value);
@@ -88,7 +88,7 @@ export default function CommunityBuyReviewScreen() {
             <View style={styles.row}><Text style={styles.label}>Quantity</Text><Text style={styles.value}>{quantity} share{quantity === 1 ? "" : "s"}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Price per share</Text><Text style={styles.value}>{formatDisplayMoney(campaign.pricePerShareMinor! / 100, campaign.currency, selectedCurrency)}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Product subtotal</Text><Text style={styles.value}>{formatDisplayMoney(amount / 100, campaign.currency, selectedCurrency)}</Text></View>
-            <View style={styles.row}><Text style={styles.label}>Eki service fee (5%, min £1.20, max £5.00)</Text><Text style={styles.value}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text></View>
+            <View style={styles.row}><Text style={styles.label}>Eki service fee (5%, min {formatDisplayMoney(BUYER_SERVICE_FEE_MIN_MINOR / 100, campaign.currency, selectedCurrency)}, max {formatDisplayMoney(BUYER_SERVICE_FEE_MAX_MINOR / 100, campaign.currency, selectedCurrency)})</Text><Text style={styles.value}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text></View>
             {isDelivery ? (
               <View style={styles.row}><Text style={styles.label}>Delivery fee</Text><Text style={styles.value}>{deliveryFee > 0 ? formatDisplayMoney(deliveryFee / 100, campaign.currency, selectedCurrency) : "Free"}</Text></View>
             ) : null}

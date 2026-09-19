@@ -8,7 +8,7 @@ import { useCurrencyStore } from "../../stores/currencyStore";
 import { presentSetupIntent } from "../../services/stripePayment";
 import { ErrorState, FloatingCard, LoadingBlock, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, type Campaign } from "../../services/communityBuyService";
-import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
+import { BUYER_SERVICE_FEE_MAX_MINOR, BUYER_SERVICE_FEE_MIN_MINOR, calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 // The saved-card flow is generic (buyer/payment-methods), built for Regular
 // Deliveries — reused as-is for Community Buy pledges rather than duplicated.
 import { regularDeliveriesService, type BuyerPaymentMethod } from "../../services/regularDeliveriesService";
@@ -161,7 +161,7 @@ export default function CommunityBuyPaymentScreen() {
               <Text style={styles.previewValue}>{formatDisplayMoney(amount / 100, campaign.currency, selectedCurrency)}</Text>
             </View>
             <View style={styles.previewRow}>
-              <Text style={styles.fieldHint}>Eki service fee (5%, min £1.20, max £5.00)</Text>
+              <Text style={styles.fieldHint}>Eki service fee (5%, min {formatDisplayMoney(BUYER_SERVICE_FEE_MIN_MINOR / 100, campaign.currency, selectedCurrency)}, max {formatDisplayMoney(BUYER_SERVICE_FEE_MAX_MINOR / 100, campaign.currency, selectedCurrency)})</Text>
               <Text style={styles.previewValue}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text>
             </View>
             <View style={styles.previewRow}>

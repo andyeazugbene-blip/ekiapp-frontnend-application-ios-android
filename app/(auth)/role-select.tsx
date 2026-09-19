@@ -109,7 +109,7 @@ export default function RoleSelectScreen() {
           <RoleCard
             iconName="home-outline"
             title="Foodstuffs"
-            subtitle="Start selling to buyers in UK, US,\nCanada and Europe"
+            subtitle={"Start selling to buyers in UK, US,\nCanada and Europe"}
             selected={selected === "vendor"}
             onPress={() => setSelected("vendor")}
           />
@@ -117,7 +117,7 @@ export default function RoleSelectScreen() {
           <RoleCard
             iconName="bag-outline"
             title="Buyers"
-            subtitle="Order authentic African foodstuff\nfrom trusted vendors"
+            subtitle={"Order authentic African foodstuff\nfrom trusted vendors"}
             selected={selected === "buyer"}
             onPress={() => setSelected("buyer")}
           />
@@ -125,7 +125,7 @@ export default function RoleSelectScreen() {
           <RoleCard
             iconName="people-outline"
             title="Community Buy"
-            subtitle="Organise or join a bulk buy — no\nstore or vendor account required"
+            subtitle={"Organise or join a bulk buy — no\nstore or vendor account required"}
             selected={selected === "community_buy"}
             onPress={() => setSelected("community_buy")}
           />
@@ -133,7 +133,7 @@ export default function RoleSelectScreen() {
           <RoleCard
             iconName="cube-outline"
             title="Suppliers"
-            subtitle="Fulfil Community Buy campaigns\nas a verified Eki supplier"
+            subtitle={"Fulfil Community Buy campaigns\nas a verified Eki supplier"}
             selected={selected === "supplier"}
             onPress={() => setSelected("supplier")}
           />

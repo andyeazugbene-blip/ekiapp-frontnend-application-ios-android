@@ -12,7 +12,7 @@ import {
   type Campaign,
   type CampaignFulfilment,
 } from "../../services/communityBuyService";
-import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
+import { BUYER_SERVICE_FEE_MAX_MINOR, BUYER_SERVICE_FEE_MIN_MINOR, calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 
 export default function CommunityBuyQuantityScreen() {
   const router = useRouter();
@@ -155,7 +155,7 @@ export default function CommunityBuyQuantityScreen() {
                 <Text style={styles.previewValue}>{formatDisplayMoney(subtotal / 100, campaign.currency, selectedCurrency)}</Text>
               </View>
               <View style={styles.amountRow}>
-                <Text style={styles.fieldLabel}>Eki service fee (5%, min £1.20, max £5.00)</Text>
+                <Text style={styles.fieldLabel}>Eki service fee (5%, min {formatDisplayMoney(BUYER_SERVICE_FEE_MIN_MINOR / 100, campaign.currency, selectedCurrency)}, max {formatDisplayMoney(BUYER_SERVICE_FEE_MAX_MINOR / 100, campaign.currency, selectedCurrency)})</Text>
                 <Text style={styles.previewValue}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text>
               </View>
               <View style={[styles.amountRow, styles.totalRow]}>
