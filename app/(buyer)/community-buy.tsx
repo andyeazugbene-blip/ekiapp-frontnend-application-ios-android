@@ -28,6 +28,7 @@ import {
 } from "../../services/communityBuyService";
 import { countryDisplayName } from "../../utils/countries";
 import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
+import { useAuthStore } from "../../stores/authStore";
 
 function daysLeft(deadline: string | null): string {
   if (!deadline) return "";
@@ -56,10 +57,19 @@ const DRAFT_STATUSES = new Set(["DRAFT", "CHANGES_REQUIRED"]);
 export default function CommunityBuyDiscoveryScreen() {
   const router = useRouter();
   const { selectedCurrency } = useCurrencyStore();
+  const user = useAuthStore((s) => s.user);
+  const deliveryCountry = user && "country" in user ? user.country : undefined;
   const [activeTab, setActiveTab] = useState<HomeTab>("discover");
 
   const [markets, setMarkets] = useState<MarketConfig[]>([]);
-  const [countryFilter, setCountryFilter] = useState<string | null>(null);
+  // Defaults to the buyer's own market, matching Buyer Home's preview
+  // filter — without this, Discover's default "All markets" view could
+  // show a live campaign from an unrelated country while Home (which is
+  // always scoped to the buyer's own country) correctly says there are
+  // none, which read as a contradiction rather than two different scopes.
+  // The existing "All markets" chip still lets a buyer broaden this
+  // themselves at any time.
+  const [countryFilter, setCountryFilter] = useState<string | null>(deliveryCountry ?? null);
   const [searchQuery, setSearchQuery] = useState("");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
@@ -392,7 +402,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: "#076B51" },
   searchRow: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, marginTop: 12 },
   searchInput: { flex: 1, fontSize: 13, fontFamily: "Outfit-Regular", color: "#FFFFFF", padding: 0 },
-  filterRow: { gap: 8, paddingTop: 12 },
+  filterRow: { gap: 8, paddingTop: 12, paddingRight: 12 },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.14)" },
   chipActive: { backgroundColor: "#FFFFFF" },
   chipText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },

@@ -486,7 +486,7 @@ export default function BuyerHomeScreen() {
                         {communityBuySharesNeeded(c)}{communityBuySharesNeeded(c) ? " · " : ""}{communityBuyDaysLeft(c.deadline!)}
                       </Text>
                       <View style={styles.communityBuyCardCta}>
-                        <Text style={styles.communityBuyCardCtaText}>Join campaign</Text>
+                        <Text style={styles.communityBuyCardCtaText}>Join Community Buy</Text>
                         <Ionicons name="arrow-forward" size={14} color="#076B51" />
                       </View>
                     </FloatingCard>

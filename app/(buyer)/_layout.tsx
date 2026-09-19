@@ -79,6 +79,19 @@ export default function BuyerLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
         }}
       />
+      {/* Promoted from a hidden-tab-bar detail screen to a real tab —
+          Community Buy is a primary destination reachable directly from
+          role-selection and Buyer Home, not a drill-down page, so it needs
+          the same persistent-tab-bar access as Home/Messages/Cart/Wallet
+          rather than only a back button. The screen itself (its own
+          Discover/Joined/Organised/Drafts hub) is unchanged. */}
+      <Tabs.Screen
+        name="community-buy"
+        options={{
+          title: "Community Buy",
+          tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="messages"
         options={{
@@ -129,7 +142,6 @@ export default function BuyerLayout() {
       <Tabs.Screen name="regular-deliveries-browse" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="regular-delivery-offer" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="regular-delivery-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
-      <Tabs.Screen name="community-buy" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="community-buy-campaign" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="community-buy-organiser" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="community-buy-organiser-campaign" options={{ href: null, tabBarStyle: { display: "none" } }} />

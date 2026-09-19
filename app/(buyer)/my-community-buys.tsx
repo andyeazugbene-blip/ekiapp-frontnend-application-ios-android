@@ -87,7 +87,13 @@ export default function MyCommunityBuysScreen() {
         ) : items.length === 0 ? (
           <View style={premiumStyles.block}>
             <FloatingCard>
-              <EmptyState icon="people-circle-outline" title="No contributions yet" body="Campaigns you contribute to will show up here." />
+              <EmptyState
+                icon="people-circle-outline"
+                title="No contributions yet"
+                body="Campaigns you contribute to will show up here."
+                actionLabel="Explore Campaigns"
+                onAction={() => router.push("/(buyer)/community-buy" as any)}
+              />
             </FloatingCard>
           </View>
         ) : (
