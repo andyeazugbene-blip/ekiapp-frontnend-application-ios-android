@@ -142,16 +142,31 @@ export default function CommunityBuyDiscoveryScreen() {
         subtitle="Bulk-buy together, unlock better prices"
         onBack={() => goBackOrReplace(router, "/(buyer)/profile" as any)}
         right={
-          <TouchableOpacity
-            onPress={() => router.push("/(buyer)/community-buy-organiser-campaign" as any)}
-            activeOpacity={0.85}
-            style={styles.headerIconBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel="Create a campaign"
-          >
-            <Ionicons name="add" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {/* my-community-buys.tsx has no other persistent entry point —
+                without this it's only reachable via the one-time post-charge
+                confirmation redirect, so returning buyers had no way back in. */}
+            <TouchableOpacity
+              onPress={() => router.push("/(buyer)/my-community-buys" as any)}
+              activeOpacity={0.85}
+              style={styles.headerIconBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="My Community Buys"
+            >
+              <Ionicons name="receipt-outline" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(buyer)/community-buy-organiser-campaign" as any)}
+              activeOpacity={0.85}
+              style={styles.headerIconBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Create a campaign"
+            >
+              <Ionicons name="add" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         }
       >
         <View style={styles.tabRow}>

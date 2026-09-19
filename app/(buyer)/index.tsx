@@ -132,17 +132,21 @@ export default function BuyerHomeScreen() {
   const [communityBuyCampaigns, setCommunityBuyCampaigns] = useState<CommunityBuyCampaign[]>([]);
 
   const loadCommunityBuy = useCallback(async () => {
-    if (!deliveryCountry) {
-      setCommunityBuyEnabled(false);
-      setCommunityBuyCampaigns([]);
-      return;
-    }
     try {
       const markets = await communityBuyService.listMarketConfigs();
-      const market = markets.find((m) => m.countryCode === deliveryCountry);
-      const enabled = Boolean(market?.communityBuyEnabled);
-      setCommunityBuyEnabled(enabled);
-      if (enabled) {
+      // The entry point ("Community Buy — Explore") must not depend on this
+      // buyer already having a delivery country set — "Set your country" is
+      // itself a normal, expected state on this exact screen (see the
+      // delivery-country pill below), and B02 (Discover) already has its
+      // own market/country filter for browsing once inside. Gating the
+      // whole section on deliveryCountry meant a buyer with no country set
+      // yet never saw Community Buy exists at all, even though it's live in
+      // multiple markets. Show the entry whenever the feature is enabled
+      // ANYWHERE; only the live-campaign preview needs a specific country.
+      const enabledAnywhere = markets.some((m) => m.communityBuyEnabled);
+      setCommunityBuyEnabled(enabledAnywhere);
+      const market = deliveryCountry ? markets.find((m) => m.countryCode === deliveryCountry) : undefined;
+      if (market?.communityBuyEnabled && deliveryCountry) {
         const liveCampaigns = await communityBuyService.listLiveCampaigns(deliveryCountry).catch(() => [] as CommunityBuyCampaign[]);
         setCommunityBuyCampaigns(liveCampaigns.slice(0, 3));
       } else {
@@ -151,7 +155,7 @@ export default function BuyerHomeScreen() {
     } catch {
       // Market config is genuinely unavailable (not just "no campaigns") —
       // stay hidden rather than guess. Never expose an active-looking entry
-      // for a market Community Buy hasn't actually been enabled in.
+      // when Community Buy isn't actually enabled anywhere.
       setCommunityBuyEnabled(false);
       setCommunityBuyCampaigns([]);
     }
