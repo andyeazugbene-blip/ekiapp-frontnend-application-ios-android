@@ -536,6 +536,22 @@ export default function VendorCommunityBuySupplierScreen() {
                         </View>
                       ) : null}
 
+                      {/* Phase 5 (organiser<->supplier negotiation) — separate from the
+                          binary accept/decline above: propose a change to price/slots/
+                          ready-by date instead of (or after) accepting as-is. */}
+                      {SUPPLIER_RESPONSE_STATUSES.includes(c.status) ? (
+                        <TouchableOpacity
+                          onPress={() => router.push({ pathname: "/(supplier)/community-buy-supplier-proposal", params: { id: c.id } } as any)}
+                          activeOpacity={0.85}
+                          style={styles.proposeBtn}
+                          accessibilityRole="button"
+                          accessibilityLabel="Propose changes"
+                        >
+                          <Ionicons name="swap-horizontal-outline" size={14} color="#076B51" />
+                          <Text style={styles.proposeBtnText}>Propose changes</Text>
+                        </TouchableOpacity>
+                      ) : null}
+
                       {["FULFILLING", "SUCCEEDED", "COMPLETED"].includes(c.status) ? (
                         <TouchableOpacity
                           onPress={() => router.push({ pathname: "/(supplier)/community-buy-supplier-fulfilment", params: { id: c.id } } as any)}
@@ -648,6 +664,8 @@ const styles = StyleSheet.create({
   cardMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
   acceptBtn: { minHeight: 42, borderRadius: 12, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", marginTop: 6 },
   acceptBtnText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  proposeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", marginTop: 6 },
+  proposeBtnText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   committedRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
   committedText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#076B51" },
   declinedRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 4 },

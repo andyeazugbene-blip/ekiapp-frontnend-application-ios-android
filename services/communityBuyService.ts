@@ -150,6 +150,63 @@ export interface CancellationRequest {
   createdAt: string;
 }
 
+// Phase 5 (organiser<->supplier negotiation) — a supplier-initiated
+// proposal to change price/slots/ready-by date. adminNotes is only ever
+// present when this proposal is the caller's own (supplier) or the caller
+// is admin — the organiser-facing read never includes it (see
+// campaign-supplier-proposal.service.ts's own read-scoping doc comment).
+export type SupplierProposalStatus =
+  | "SUBMITTED"
+  | "ADMIN_CHANGES_NEEDED"
+  | "AWAITING_ORGANISER"
+  | "ORGANISER_ACCEPTED"
+  | "ORGANISER_REJECTED"
+  | "WITHDRAWN"
+  | "EXPIRED";
+
+export const SUPPLIER_PROPOSAL_STATUS_LABELS: Record<SupplierProposalStatus, string> = {
+  SUBMITTED: "Submitted — Eki reviewing",
+  ADMIN_CHANGES_NEEDED: "Eki requested changes",
+  AWAITING_ORGANISER: "Awaiting organiser decision",
+  ORGANISER_ACCEPTED: "Accepted",
+  ORGANISER_REJECTED: "Declined",
+  WITHDRAWN: "Withdrawn",
+  EXPIRED: "Expired",
+};
+
+export const SUPPLIER_PROPOSAL_STATUS_TONE: Record<SupplierProposalStatus, StatusTone> = {
+  SUBMITTED: "info",
+  ADMIN_CHANGES_NEEDED: "warning",
+  AWAITING_ORGANISER: "info",
+  ORGANISER_ACCEPTED: "success",
+  ORGANISER_REJECTED: "error",
+  WITHDRAWN: "neutral",
+  EXPIRED: "neutral",
+};
+
+export interface SupplierProposalInput {
+  proposedWholesaleAmountMinor?: number;
+  proposedMaximumShares?: number;
+  proposedReadyByDate?: string;
+  message: string;
+}
+
+export interface SupplierProposal {
+  id: string;
+  campaignId: string;
+  proposedWholesaleAmountMinor?: number | null;
+  proposedMaximumShares?: number | null;
+  proposedReadyByDate?: string | null;
+  message: string;
+  status: SupplierProposalStatus;
+  revisionCount: number;
+  adminNotes?: string | null;
+  organiserNotes?: string | null;
+  respondByDeadline: string;
+  createdAt: string;
+  campaign?: { id: string; title: string; wholesaleAmountMinor?: number | null; maximumShares?: number | null; confirmedShares?: number };
+}
+
 export interface MarketConfig {
   countryCode: string;
   currency?: string;
@@ -247,6 +304,10 @@ export interface Campaign {
   // (self-supply, external supplier, or a supplier campaign with no
   // wholesale figure yet).
   wholesaleAmountMinor?: number | null;
+  // Phase 5 (organiser<->supplier negotiation) — set only when an
+  // organiser accepts a supplier proposal carrying a proposedReadyByDate.
+  // Informational only; does not drive CampaignFulfilment's own timeline.
+  agreedReadyByDate?: string | null;
   confirmedShares: number;
   fundingOutcome: FundingOutcome;
   supplierCommitted: boolean;
@@ -889,6 +950,38 @@ export const communityBuyService = {
   async declineSupplierCommitment(campaignId: string, reason?: string): Promise<Campaign> {
     const res = await apiClient.post<{ campaign: Campaign }>(`/api/supplier/campaigns/${campaignId}/decline`, { reason });
     return res.campaign;
+  },
+
+  // ─── Phase 5 (organiser<->supplier negotiation) — supplier-facing ────────
+  async submitSupplierProposal(campaignId: string, input: SupplierProposalInput): Promise<SupplierProposal> {
+    const res = await apiClient.post<{ proposal: SupplierProposal }>(`/api/supplier/campaigns/${campaignId}/proposals`, input);
+    return res.proposal;
+  },
+  async listMySupplierProposals(campaignId: string): Promise<SupplierProposal[]> {
+    const res = await apiClient.get<{ items: SupplierProposal[] }>(`/api/supplier/campaigns/${campaignId}/proposals`);
+    return res.items ?? [];
+  },
+  async resubmitSupplierProposal(campaignId: string, proposalId: string, input: SupplierProposalInput): Promise<SupplierProposal> {
+    const res = await apiClient.post<{ proposal: SupplierProposal }>(`/api/supplier/campaigns/${campaignId}/proposals/${proposalId}/resubmit`, input);
+    return res.proposal;
+  },
+  async withdrawSupplierProposal(campaignId: string, proposalId: string): Promise<SupplierProposal> {
+    const res = await apiClient.post<{ proposal: SupplierProposal }>(`/api/supplier/campaigns/${campaignId}/proposals/${proposalId}/withdraw`, {});
+    return res.proposal;
+  },
+
+  // ─── Phase 5 (organiser<->supplier negotiation) — organiser-facing ──────
+  async listCampaignSupplierProposals(campaignId: string): Promise<SupplierProposal[]> {
+    const res = await apiClient.get<{ items: SupplierProposal[] }>(`/api/organiser/campaigns/${campaignId}/proposals`);
+    return res.items ?? [];
+  },
+  async acceptSupplierProposal(proposalId: string): Promise<SupplierProposal> {
+    const res = await apiClient.post<{ proposal: SupplierProposal }>(`/api/organiser/proposals/${proposalId}/accept`, {});
+    return res.proposal;
+  },
+  async rejectSupplierProposal(proposalId: string, notes?: string): Promise<SupplierProposal> {
+    const res = await apiClient.post<{ proposal: SupplierProposal }>(`/api/organiser/proposals/${proposalId}/reject`, { notes });
+    return res.proposal;
   },
 
   /** Organiser-side companion to decline — only valid pre-commitment, while a campaign is still in draft. Accepts either the new SupplierAccount id (preferred) or a legacy supplierId. */

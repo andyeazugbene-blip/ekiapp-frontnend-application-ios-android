@@ -34,7 +34,10 @@ import {
   type OrganiserPayout,
   type RefundProgress,
   type SupplierInvitation,
+  type SupplierProposal,
   type VerifiedSupplier,
+  SUPPLIER_PROPOSAL_STATUS_LABELS,
+  SUPPLIER_PROPOSAL_STATUS_TONE,
 } from "../../services/communityBuyService";
 
 type OrganiserDashboardTab = "overview" | "buyers" | "supplier" | "updates" | "payments";
@@ -112,6 +115,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [suppliers, setSuppliers] = useState<VerifiedSupplier[]>([]);
   const [supplierAccountId, setSupplierAccountId] = useState<string | null>(null);
   const [invitations, setInvitations] = useState<SupplierInvitation[]>([]);
+  // Phase 5 (organiser<->supplier negotiation)
+  const [supplierProposals, setSupplierProposals] = useState<SupplierProposal[]>([]);
+  const [proposalDecisionBusy, setProposalDecisionBusy] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState("");
@@ -265,6 +271,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         // from the approved-supplier list.
         if (existing.fulfilmentOwner === "SUPPLIER") {
           setInvitations(await communityBuyService.listSupplierInvitations(id).catch(() => []));
+          setSupplierProposals(await communityBuyService.listCampaignSupplierProposals(id).catch(() => []));
         }
       } else {
         // Community Buy Workstream 2: organising is available to every
@@ -415,6 +422,42 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       setInvitations((prev) => prev.map((i) => (i.id === invitationId ? updated : i)));
     } catch (err) {
       Alert.alert("Couldn't revoke this invitation", err instanceof Error ? err.message : "Please try again.");
+    }
+  };
+
+  const handleAcceptProposal = async (proposalId: string) => {
+    if (!campaign || proposalDecisionBusy) return;
+    Alert.alert("Accept these changes?", "This updates the campaign's wholesale amount, maximum shares and/or ready-by date immediately.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Accept",
+        onPress: async () => {
+          setProposalDecisionBusy(proposalId);
+          try {
+            const updated = await communityBuyService.acceptSupplierProposal(proposalId);
+            setSupplierProposals((prev) => prev.map((p) => (p.id === proposalId ? updated : p)));
+            const refreshed = await communityBuyService.getCampaign(campaign.id).catch(() => null);
+            if (refreshed) setCampaign(refreshed);
+          } catch (err) {
+            Alert.alert("Couldn't accept", err instanceof Error ? err.message : "Please try again.");
+          } finally {
+            setProposalDecisionBusy(null);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleRejectProposal = async (proposalId: string) => {
+    if (!campaign || proposalDecisionBusy) return;
+    setProposalDecisionBusy(proposalId);
+    try {
+      const updated = await communityBuyService.rejectSupplierProposal(proposalId);
+      setSupplierProposals((prev) => prev.map((p) => (p.id === proposalId ? updated : p)));
+    } catch (err) {
+      Alert.alert("Couldn't decline", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setProposalDecisionBusy(null);
     }
   };
 
@@ -1311,6 +1354,59 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     )}
                   </FloatingCard>
                 </View>
+
+                {campaign.fulfilmentOwner === "SUPPLIER" && supplierProposals.length > 0 ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={styles.sectionOutside}>Supplier's proposed changes</Text>
+                    {supplierProposals.map((p) => {
+                      const isPending = p.status === "AWAITING_ORGANISER";
+                      const busy = proposalDecisionBusy === p.id;
+                      return (
+                        <FloatingCard key={p.id} style={{ gap: 8 }}>
+                          <View style={styles.previewRow}>
+                            <StatusPill label={SUPPLIER_PROPOSAL_STATUS_LABELS[p.status]} tone={SUPPLIER_PROPOSAL_STATUS_TONE[p.status]} />
+                          </View>
+                          {p.proposedWholesaleAmountMinor != null ? (
+                            <View style={styles.previewRow}><Text style={styles.fieldHint}>Wholesale amount</Text><Text style={styles.previewValue}>{formatDisplayMoney(p.proposedWholesaleAmountMinor / 100, currency, selectedCurrency)}</Text></View>
+                          ) : null}
+                          {p.proposedMaximumShares != null ? (
+                            <View style={styles.previewRow}><Text style={styles.fieldHint}>Maximum shares</Text><Text style={styles.previewValue}>{p.proposedMaximumShares}</Text></View>
+                          ) : null}
+                          {p.proposedReadyByDate ? (
+                            <View style={styles.previewRow}><Text style={styles.fieldHint}>Ready by</Text><Text style={styles.previewValue}>{new Date(p.proposedReadyByDate).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</Text></View>
+                          ) : null}
+                          <Text style={styles.fieldHint}>"{p.message}"</Text>
+                          {isPending ? (
+                            <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+                              <TouchableOpacity
+                                onPress={() => void handleRejectProposal(p.id)}
+                                disabled={busy}
+                                activeOpacity={0.85}
+                                style={[styles.secondaryBtn, { flex: 1, marginTop: 0 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel="Decline proposal"
+                                accessibilityState={{ busy, disabled: busy }}
+                              >
+                                <Text style={styles.secondaryBtnText}>Decline</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => void handleAcceptProposal(p.id)}
+                                disabled={busy}
+                                activeOpacity={0.88}
+                                style={[styles.primaryBtnInline, { flex: 1 }]}
+                                accessibilityRole="button"
+                                accessibilityLabel="Accept proposal"
+                                accessibilityState={{ busy, disabled: busy }}
+                              >
+                                {busy ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fulfilBtnText}>Accept</Text>}
+                              </TouchableOpacity>
+                            </View>
+                          ) : null}
+                        </FloatingCard>
+                      );
+                    })}
+                  </View>
+                ) : null}
 
                 {campaign.fulfilmentOwner === "SUPPLIER" ? (
                   <View style={{ gap: 8 }}>
