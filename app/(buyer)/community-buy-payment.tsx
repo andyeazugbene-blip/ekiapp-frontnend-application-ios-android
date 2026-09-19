@@ -141,11 +141,11 @@ export default function CommunityBuyPaymentScreen() {
   // rate — the amount actually charged is always the rate the backend
   // snapshots at pledge time (see CampaignContribution.buyerServiceFeeAmount).
   const serviceFee = calculateBuyerServiceFee(amount, campaign.perShareFeeEstimate?.feeBps);
-  // No delivery-charge mechanism exists in Community Buy today — collection
-  // has no charge; a delivery campaign's arrangement is disclosed as such
-  // rather than showing an invented figure.
+  // Phase 6 (delivery + collection/tracking) — flat per pledge, real,
+  // organiser-set; separate from Eki's service fee, never folded into it.
   const isDelivery = campaign.deliveryPreference === "DELIVERY";
-  const maxTotal = amount + serviceFee;
+  const deliveryFee = isDelivery ? campaign.deliveryFeeAmountMinor ?? 0 : 0;
+  const maxTotal = amount + serviceFee + deliveryFee;
   const addressMissing = isDelivery && (!recipientName.trim() || !addressLine1.trim() || !city.trim() || !postcode.trim());
   const pledgeDisabled = contributing || !paymentMethodId || addressMissing;
 
@@ -165,8 +165,8 @@ export default function CommunityBuyPaymentScreen() {
               <Text style={styles.previewValue}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text>
             </View>
             <View style={styles.previewRow}>
-              <Text style={styles.fieldHint}>{isDelivery ? "Delivery" : "Collection"}</Text>
-              <Text style={styles.previewValue}>{isDelivery ? "Arranged by organiser" : "No delivery charge"}</Text>
+              <Text style={styles.fieldHint}>{isDelivery ? "Delivery fee" : "Collection"}</Text>
+              <Text style={styles.previewValue}>{isDelivery ? (deliveryFee > 0 ? formatDisplayMoney(deliveryFee / 100, campaign.currency, selectedCurrency) : "Free") : "No delivery charge"}</Text>
             </View>
             <View style={[styles.previewRow, styles.totalRow]}>
               <Text style={styles.totalLabel}>Maximum total</Text>
@@ -226,7 +226,7 @@ export default function CommunityBuyPaymentScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.disclosureText}>
-              Your card will not be charged now. It will only be charged {formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)} (including Eki's service fee) if this campaign reaches its minimum or goal. If the campaign doesn't succeed, you are never charged.
+              Your card will not be charged now. It will only be charged {formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)} (including Eki's service fee{isDelivery ? " and delivery fee" : ""}) if this campaign reaches its minimum or goal. If the campaign doesn't succeed, you are never charged.
             </Text>
           </FloatingCard>
 

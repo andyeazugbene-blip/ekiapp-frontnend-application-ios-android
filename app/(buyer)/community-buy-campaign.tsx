@@ -18,12 +18,15 @@ import {
   communityBuyService,
   CAMPAIGN_STATUS_LABELS,
   CAMPAIGN_STATUS_TONE,
+  DELIVERY_REFERENCE_STATUS_LABELS,
+  DELIVERY_REFERENCE_STATUS_TONE,
   FULFILMENT_METHOD_LABELS,
   FULFILMENT_STATUS_LABELS,
   type Campaign,
   type CampaignFulfilment,
   type CampaignUpdate,
   type Contribution,
+  type MyDeliveryReference,
 } from "../../services/communityBuyService";
 import { countryDisplayName } from "../../utils/countries";
 
@@ -52,6 +55,8 @@ export default function CommunityBuyCampaignScreen() {
   const [joined, setJoined] = useState(false);
 
   const [contribution, setContribution] = useState<Contribution | null>(null);
+  // Phase 6 (delivery + collection/tracking) — this buyer's own delivery/collection status and code.
+  const [myDelivery, setMyDelivery] = useState<MyDeliveryReference | null>(null);
   const [updates, setUpdates] = useState<CampaignUpdate[]>([]);
   const [showReceipt, setShowReceipt] = useState(false);
   const [retrying, setRetrying] = useState(false);
@@ -79,6 +84,9 @@ export default function CommunityBuyCampaignScreen() {
       if (mineForCampaign?.latestContribution) {
         setContribution(mineForCampaign.latestContribution);
         setJoined(true);
+        if (mineForCampaign.latestContribution.status === "PAID") {
+          setMyDelivery(await communityBuyService.getMyDeliveryReference(id).catch(() => null));
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load this campaign.");
@@ -416,6 +424,25 @@ export default function CommunityBuyCampaignScreen() {
               ) : null}
             </FloatingCard>
 
+            {/* Phase 6 (delivery + collection/tracking) — this buyer's own
+                tracking status, and their collection code while unredeemed. */}
+            {myDelivery ? (
+              <FloatingCard style={{ gap: 8, marginTop: 10 }}>
+                <View style={styles.statusRow}>
+                  <Text style={styles.fulfilmentText}>Your order</Text>
+                  <StatusPill label={DELIVERY_REFERENCE_STATUS_LABELS[myDelivery.status]} tone={DELIVERY_REFERENCE_STATUS_TONE[myDelivery.status]} />
+                </View>
+                {myDelivery.deliveryMethod === "COLLECTION" && myDelivery.collectionCode ? (
+                  <View style={styles.collectionCodeBox}>
+                    <Text style={styles.collectionCodeHint}>Show this code at collection</Text>
+                    <Text style={styles.collectionCodeText}>{myDelivery.collectionCode}</Text>
+                  </View>
+                ) : myDelivery.deliveryMethod === "COLLECTION" && myDelivery.collectionCodeRedeemedAt ? (
+                  <Text style={styles.fulfilmentStatusText}>Collected on {formatDateTime(myDelivery.collectionCodeRedeemedAt)}.</Text>
+                ) : null}
+              </FloatingCard>
+            ) : null}
+
             {/* M5 — participant evidence actions. Only once this participant's
                 own order was actually captured, and only once there's
                 something to receive (dispatched/collected/completed). */}
@@ -553,4 +580,7 @@ const styles = StyleSheet.create({
   fulfilmentStatusText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   reportProblemLink: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#D6552F", textAlign: "center" },
   problemInput: { backgroundColor: "#F4F6F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: "Outfit-Regular", color: "#151E1B", minHeight: 70, textAlignVertical: "top" },
+  collectionCodeBox: { alignItems: "center", backgroundColor: "rgba(7,107,81,0.08)", borderRadius: 14, paddingVertical: 14 },
+  collectionCodeHint: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#516A60", marginBottom: 4 },
+  collectionCodeText: { fontSize: 28, fontFamily: "Manrope-ExtraBold", color: "#076B51", letterSpacing: 4 },
 });

@@ -89,6 +89,7 @@ const MISSING_FIELD_LABELS: Record<string, string> = {
   supplierId: "Supplier",
   supplier_eligibility: "Supplier is not currently eligible",
   market_not_enabled: "Community Buy is not enabled in this market",
+  deliveryFeeAmountMinor: "Delivery fee",
 };
 
 function formatDateTime(value?: string | null): string {
@@ -143,6 +144,8 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [collectionCity, setCollectionCity] = useState("");
   const [collectionPostcode, setCollectionPostcode] = useState("");
   const [deliveryCoverageAreasText, setDeliveryCoverageAreasText] = useState("");
+  // Phase 6 (delivery + collection/tracking) — real, organiser-set delivery charge.
+  const [deliveryFeeAmount, setDeliveryFeeAmount] = useState("");
   // Community Buy Workstream 2 — Product step (spec §7 step 1). One image
   // URL per line — no media-upload pipeline exists yet, so this stores
   // real URLs the organiser provides rather than fabricating an uploader.
@@ -184,6 +187,11 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [refundProgress, setRefundProgress] = useState<RefundProgress | null>(null);
   const [fulfilment, setFulfilment] = useState<CampaignFulfilment | null>(null);
   const [confirmingCompletion, setConfirmingCompletion] = useState(false);
+  // Phase 6 (delivery + collection/tracking) — self-fulfilled campaigns have
+  // no CampaignFulfilment row/state machine, but a COLLECTION campaign's
+  // buyers still get real collection codes only the organiser can verify.
+  const [organiserCollectionCode, setOrganiserCollectionCode] = useState("");
+  const [verifyingOrganiserCode, setVerifyingOrganiserCode] = useState(false);
   const [updates, setUpdates] = useState<CampaignUpdate[]>([]);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updateTitleInput, setUpdateTitleInput] = useState("");
@@ -238,6 +246,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         setCollectionCity(existing.collectionCity ?? "");
         setCollectionPostcode(existing.collectionPostcode ?? "");
         setDeliveryCoverageAreasText((existing.deliveryCoverageAreas ?? []).join(", "));
+        setDeliveryFeeAmount(existing.deliveryFeeAmountMinor != null ? String(existing.deliveryFeeAmountMinor / 100) : "");
         setImagesText((existing.images ?? []).join("\n"));
         setUnit(existing.unit ?? "");
         setQuantityPerOrder(existing.quantityPerOrder != null ? String(existing.quantityPerOrder) : "");
@@ -361,6 +370,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       deliveryCoverageAreas: deliveryCoverageAreasText.trim()
         ? deliveryCoverageAreasText.split(",").map((a) => a.trim()).filter(Boolean)
         : undefined,
+      deliveryFeeAmountMinor: deliveryPreference === "DELIVERY" && deliveryFeeAmount.trim() ? Math.round(Number(deliveryFeeAmount) * 100) : undefined,
       ...(fulfilmentOwner ? { fulfilmentOwner, ...(fulfilmentOwner === "SUPPLIER" ? { supplierAccountId: supplierAccountId ?? undefined } : {}) } : {}),
     };
 
@@ -493,6 +503,22 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       Alert.alert("Couldn't confirm this", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setConfirmingCompletion(false);
+    }
+  };
+
+  const handleVerifyOrganiserCollectionCode = async () => {
+    if (!campaign) return;
+    const code = organiserCollectionCode.trim();
+    if (!code || verifyingOrganiserCode) return;
+    setVerifyingOrganiserCode(true);
+    try {
+      await communityBuyService.verifyOrganiserCollectionCode(campaign.id, code);
+      setOrganiserCollectionCode("");
+      Alert.alert("Verified", "Collection confirmed for that buyer.");
+    } catch (err) {
+      Alert.alert("Couldn't verify that code", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setVerifyingOrganiserCode(false);
     }
   };
 
@@ -963,6 +989,32 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     ) : null}
                   </>
                 ) : null}
+                {campaign.fulfilmentOwner === "SELF" && campaign.deliveryPreference === "COLLECTION" ? (
+                  <View style={{ gap: 8, marginTop: 4 }}>
+                    <Text style={styles.outcomeHint}>Ask the buyer for their 6-digit collection code and enter it here to confirm handover.</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="123456"
+                      placeholderTextColor="#8AA194"
+                      value={organiserCollectionCode}
+                      onChangeText={setOrganiserCollectionCode}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      accessibilityLabel="Buyer's collection code"
+                    />
+                    <TouchableOpacity
+                      onPress={() => void handleVerifyOrganiserCollectionCode()}
+                      disabled={verifyingOrganiserCode || !organiserCollectionCode.trim()}
+                      activeOpacity={0.88}
+                      style={styles.secondaryBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Verify collection code"
+                      accessibilityState={{ busy: verifyingOrganiserCode, disabled: verifyingOrganiserCode || !organiserCollectionCode.trim() }}
+                    >
+                      {verifyingOrganiserCode ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Verify</Text>}
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
               </FloatingCard>
             ) : campaign?.status === "FAILED" ? (
               <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
@@ -1212,6 +1264,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                   <Text style={styles.label}>Delivery coverage areas</Text>
                   <Text style={styles.fieldHint}>Postcode areas this campaign can deliver to, comma-separated (e.g. SW1, E14). A buyer's address must match one of these.</Text>
                   <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="SW1, E14, NW3" placeholderTextColor="#8AA194" value={deliveryCoverageAreasText} onChangeText={setDeliveryCoverageAreasText} accessibilityLabel="Delivery coverage areas" autoCapitalize="characters" />
+                  <Text style={styles.label}>Delivery fee</Text>
+                  <Text style={styles.fieldHint}>Charged once per pledge, on top of Eki's service fee — never included inside it. Enter 0 for free delivery.</Text>
+                  <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder={`0.00 ${currency}`} placeholderTextColor="#8AA194" value={deliveryFeeAmount} onChangeText={setDeliveryFeeAmount} keyboardType="decimal-pad" accessibilityLabel="Delivery fee" />
                 </FloatingCard>
               ) : null}
             </View>
@@ -1638,6 +1693,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                       <View style={styles.previewRow}><Text style={styles.fieldHint}>Scheduled opening</Text><Text style={styles.previewValue}>{scheduledOpenAt}</Text></View>
                     ) : null}
                     <View style={styles.previewRow}><Text style={styles.fieldHint}>Eki's fee</Text><Text style={styles.previewValue}>{marketConfig?.communityBuyFeeBps != null ? `${(marketConfig.communityBuyFeeBps / 100).toFixed(2)}%` : "Not yet configured"}</Text></View>
+                    {deliveryPreference === "DELIVERY" ? (
+                      <View style={styles.previewRow}><Text style={styles.fieldHint}>Delivery fee</Text><Text style={styles.previewValue}>{deliveryFeeAmount.trim() ? formatDisplayMoney(Number(deliveryFeeAmount) || 0, currency, selectedCurrency) : "Not yet set"}</Text></View>
+                    ) : null}
                     {campaign.fulfilmentOwner === "SUPPLIER" && !campaign.supplierCommitted ? (
                       <Text style={styles.outcomeHint}>Your supplier hasn't responded yet — that's fine, you can submit for review now. They can still accept or decline later, even after this campaign goes live.</Text>
                     ) : null}

@@ -70,7 +70,11 @@ export default function CommunityBuyReviewScreen() {
   // submit() (backend) guarantees these are set by then.
   const amount = quantity * campaign.pricePerShareMinor!;
   const serviceFee = calculateBuyerServiceFee(amount, campaign.perShareFeeEstimate?.feeBps);
-  const maxTotal = amount + serviceFee;
+  // Phase 6 (delivery + collection/tracking) — flat per pledge, not per
+  // share; separate from Eki's service fee above and never folded into it.
+  const isDelivery = campaign.deliveryPreference === "DELIVERY";
+  const deliveryFee = isDelivery ? campaign.deliveryFeeAmountMinor ?? 0 : 0;
+  const maxTotal = amount + serviceFee + deliveryFee;
 
   return (
     <View style={premiumStyles.page}>
@@ -85,6 +89,9 @@ export default function CommunityBuyReviewScreen() {
             <View style={styles.row}><Text style={styles.label}>Price per share</Text><Text style={styles.value}>{formatDisplayMoney(campaign.pricePerShareMinor! / 100, campaign.currency, selectedCurrency)}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Product subtotal</Text><Text style={styles.value}>{formatDisplayMoney(amount / 100, campaign.currency, selectedCurrency)}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Eki service fee (5%, min £1.20, max £5.00)</Text><Text style={styles.value}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text></View>
+            {isDelivery ? (
+              <View style={styles.row}><Text style={styles.label}>Delivery fee</Text><Text style={styles.value}>{deliveryFee > 0 ? formatDisplayMoney(deliveryFee / 100, campaign.currency, selectedCurrency) : "Free"}</Text></View>
+            ) : null}
             <View style={[styles.row, styles.totalRow]}>
               <Text style={styles.totalLabel}>Maximum total if this campaign succeeds</Text>
               <Text style={styles.totalValue}>{formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)}</Text>
@@ -104,7 +111,7 @@ export default function CommunityBuyReviewScreen() {
             <Text style={styles.sectionTitle}>Important conditions</Text>
             <FloatingCard style={{ gap: 8 }}>
               <Text style={styles.bodyText}>• Your card is not charged now — only saved against this pledge.</Text>
-              <Text style={styles.bodyText}>• You are only charged {formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)} (including Eki's service fee) if this campaign reaches its minimum required quantity by {formatDeadline(campaign.deadline!)}.</Text>
+              <Text style={styles.bodyText}>• You are only charged {formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)} (including Eki's service fee{isDelivery ? " and delivery fee" : ""}) if this campaign reaches its minimum required quantity by {formatDeadline(campaign.deadline!)}.</Text>
               <Text style={styles.bodyText}>• Reaching the goal is not required — the campaign proceeds at the minimum.</Text>
               <Text style={styles.bodyText}>• If the campaign fails, nothing is charged — there is nothing to refund.</Text>
             </FloatingCard>

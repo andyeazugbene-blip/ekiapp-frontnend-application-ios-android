@@ -88,6 +88,9 @@ export default function CommunityBuySupplierFulfilmentScreen() {
   const [events, setEvents] = useState<FulfilmentEvent[]>([]);
   const [exceptionNote, setExceptionNote] = useState("");
   const [reportingException, setReportingException] = useState(false);
+  // Phase 6 (delivery + collection/tracking)
+  const [collectionCodeInput, setCollectionCodeInput] = useState("");
+  const [verifyingCode, setVerifyingCode] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -140,6 +143,21 @@ export default function CommunityBuySupplierFulfilmentScreen() {
       Alert.alert("Couldn't report this", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setReportingException(false);
+    }
+  };
+
+  const handleVerifyCollectionCode = async () => {
+    const code = collectionCodeInput.trim();
+    if (!code || verifyingCode) return;
+    setVerifyingCode(true);
+    try {
+      await communityBuyService.verifySupplierCollectionCode(id, code);
+      setCollectionCodeInput("");
+      Alert.alert("Verified", "Collection confirmed for that buyer.");
+    } catch (err) {
+      Alert.alert("Couldn't verify that code", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setVerifyingCode(false);
     }
   };
 
@@ -306,6 +324,36 @@ export default function CommunityBuySupplierFulfilmentScreen() {
             >
               {busy === "finish" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Mark {fulfilment.method === "COLLECTION" ? "collected" : "dispatched"}</Text>}
             </TouchableOpacity>
+          ) : null}
+
+          {fulfilment.method === "COLLECTION" && (fulfilment.status === "READY_FOR_DISPATCH_OR_COLLECTION" || fulfilment.status === "COLLECTED") ? (
+            <View>
+              <Text style={styles.section}>Verify collection code</Text>
+              <FloatingCard style={{ gap: 10 }}>
+                <Text style={styles.outcomeText}>Ask the buyer for their 6-digit code and enter it here to confirm handover.</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="123456"
+                  placeholderTextColor="#8AA194"
+                  value={collectionCodeInput}
+                  onChangeText={setCollectionCodeInput}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  accessibilityLabel="Buyer's collection code"
+                />
+                <TouchableOpacity
+                  onPress={() => void handleVerifyCollectionCode()}
+                  disabled={verifyingCode || !collectionCodeInput.trim()}
+                  activeOpacity={0.88}
+                  style={styles.secondaryBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Verify collection code"
+                  accessibilityState={{ busy: verifyingCode, disabled: verifyingCode || !collectionCodeInput.trim() }}
+                >
+                  {verifyingCode ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Verify</Text>}
+                </TouchableOpacity>
+              </FloatingCard>
+            </View>
           ) : null}
 
           {fulfilment.status === "DISPATCHED" || fulfilment.status === "COLLECTED" || fulfilment.status === "COMPLETED" ? (

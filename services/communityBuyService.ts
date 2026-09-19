@@ -263,6 +263,8 @@ export interface CampaignDraftInput {
   collectionCity?: string;
   collectionPostcode?: string;
   deliveryCoverageAreas?: string[];
+  // Phase 6 (delivery + collection/tracking) — required once deliveryPreference is DELIVERY; 0 is a valid "free delivery" choice.
+  deliveryFeeAmountMinor?: number;
 }
 
 export interface Campaign {
@@ -342,6 +344,11 @@ export interface Campaign {
   collectionCity?: string | null;
   collectionPostcode?: string | null;
   deliveryCoverageAreas?: string[];
+  // Phase 6 (delivery + collection/tracking) — the real, organiser-set
+  // delivery charge, separate from the Eki 5% service fee. Null means not
+  // configured yet (a live DELIVERY campaign always has one; submit()
+  // requires it). 0 is a valid, explicit "free delivery" choice.
+  deliveryFeeAmountMinor?: number | null;
   // Phase 2 (organiser identity display preference) — server-computed
   // display name (first name only, or full name, per the organiser's own
   // preference). Buyer-facing surfaces should always prefer this over
@@ -492,6 +499,50 @@ export interface CampaignFulfilment {
   readyAt?: string | null;
   dispatchedAt?: string | null;
   collectedAt?: string | null;
+}
+
+// Phase 6 (delivery + collection/tracking) — per-participant delivery
+// status, distinct from CampaignFulfilment above (which is campaign-wide).
+export type DeliveryReferenceStatus =
+  | "NOT_REQUIRED"
+  | "PENDING"
+  | "LABEL_GENERATED"
+  | "HANDED_TO_COURIER"
+  | "DELIVERED"
+  | "COLLECTED"
+  | "EXCEPTION"
+  | "REVOKED";
+
+export const DELIVERY_REFERENCE_STATUS_LABELS: Record<DeliveryReferenceStatus, string> = {
+  NOT_REQUIRED: "No tracking needed",
+  PENDING: "Preparing",
+  LABEL_GENERATED: "Label created",
+  HANDED_TO_COURIER: "On its way",
+  DELIVERED: "Delivered",
+  COLLECTED: "Collected",
+  EXCEPTION: "Issue reported",
+  REVOKED: "Cancelled",
+};
+
+export const DELIVERY_REFERENCE_STATUS_TONE: Record<DeliveryReferenceStatus, StatusTone> = {
+  NOT_REQUIRED: "neutral",
+  PENDING: "info",
+  LABEL_GENERATED: "info",
+  HANDED_TO_COURIER: "info",
+  DELIVERED: "success",
+  COLLECTED: "success",
+  EXCEPTION: "warning",
+  REVOKED: "neutral",
+};
+
+export interface MyDeliveryReference {
+  deliveryMethod: "DELIVERY" | "COLLECTION";
+  status: DeliveryReferenceStatus;
+  // Only ever present while unredeemed and only for the owning participant
+  // — see campaign-fulfilment.service.ts's getMyDeliveryReference() doc
+  // comment on the backend.
+  collectionCode: string | null;
+  collectionCodeRedeemedAt: string | null;
 }
 
 export type SupplierPaymentStatus = "NOT_RELEASED" | "PROCESSING" | "PAID" | "ON_HOLD" | "FAILED";
@@ -1060,6 +1111,23 @@ export const communityBuyService = {
   /** M5 — an informational overlay; never changes fulfilment.status itself. */
   async reportFulfilmentException(campaignId: string, note: string): Promise<{ recorded: true }> {
     return apiClient.post(`/api/supplier/campaigns/${campaignId}/fulfilment/exception`, { note });
+  },
+
+  // ─── Phase 6 (delivery + collection/tracking) ────────────────────────
+  /** Participant's own delivery/collection status, including their collection code while it's still unredeemed. */
+  async getMyDeliveryReference(campaignId: string): Promise<MyDeliveryReference | null> {
+    const res = await apiClient.get<{ delivery: MyDeliveryReference | null }>(`/api/community-buy/campaigns/${campaignId}/fulfilment/my-delivery`);
+    return res.delivery;
+  },
+
+  /** Supplier verifies a buyer's collection code at physical handover — campaign + code alone, no contributionId needed at the counter. */
+  async verifySupplierCollectionCode(campaignId: string, code: string): Promise<{ verified: true; contributionId: string }> {
+    return apiClient.post(`/api/supplier/campaigns/${campaignId}/fulfilment/collection/verify`, { code });
+  },
+
+  /** Organiser verifies a buyer's collection code — only for a self-fulfilled campaign. */
+  async verifyOrganiserCollectionCode(campaignId: string, code: string): Promise<{ verified: true; contributionId: string }> {
+    return apiClient.post(`/api/organiser/campaigns/${campaignId}/fulfilment/collection/verify`, { code });
   },
 
   /** M5 — the append-only evidence timeline; organiser/supplier (own campaign) or admin. */
