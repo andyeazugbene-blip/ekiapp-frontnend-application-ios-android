@@ -88,7 +88,15 @@ export default function BuyerLayout() {
       <Tabs.Screen
         name="community-buy"
         options={{
-          title: "Community Buy",
+          // Tab label kept short on purpose: every existing 5-tab label in
+          // this app (Vendor shell: Dashboard/Orders/Foodstuff/Buyers/
+          // Earnings) is a single short word at this same 10px bold size in
+          // the same ~69px-wide slot (375px screen / 5 tabs). "Community
+          // Buy" is visibly longer than any of those and risks wrapping or
+          // clipping. The full name is still used everywhere a user
+          // actually reads about the feature (role-select, Buyer Home,
+          // the hub's own header).
+          title: "Community",
           tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} />,
         }}
       />
