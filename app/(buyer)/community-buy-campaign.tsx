@@ -245,9 +245,14 @@ export default function CommunityBuyCampaignScreen() {
             <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares!} goal={campaign.goalShares!} max={campaign.maximumShares!} />
             <Text style={styles.progressMetaText}>{campaign.confirmedShares} of {campaign.maximumShares} slots filled</Text>
             {!minimumReached ? (
-              <Text style={styles.progressMetaSub}>Only {remaining} more needed for this campaign to proceed.</Text>
+              <Text style={styles.progressMetaSub}>
+                {remaining} more {remaining === 1 ? "share" : "shares"} needed to reach the minimum and activate this campaign.
+                {campaign.goalShares && campaign.goalShares > campaign.minimumShares! ? ` Reaching the goal of ${campaign.goalShares} is optional — the campaign proceeds as soon as the minimum is met.` : ""}
+              </Text>
             ) : (
-              <Text style={[styles.progressMetaSub, { color: "#076B51" }]}>This campaign will now proceed. {remainingCapacity} additional slot{remainingCapacity === 1 ? "" : "s"} remain available.</Text>
+              <Text style={[styles.progressMetaSub, { color: "#076B51" }]}>
+                Minimum reached — this campaign will proceed. {remainingCapacity} additional slot{remainingCapacity === 1 ? "" : "s"} remain available{campaign.goalShares && campaign.goalShares > campaign.minimumShares! ? ` up to the goal of ${campaign.goalShares}` : ""}.
+              </Text>
             )}
             <View style={styles.progressMetaRow}>
               <Text style={styles.progressMetaSub}>Closes {formatDeadline(campaign.deadline!)}</Text>

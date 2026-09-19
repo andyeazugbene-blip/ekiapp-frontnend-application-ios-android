@@ -21,8 +21,13 @@ import { rewardService, type Reward } from "../../services/rewardService";
 import { giftCardService, type GiftCard } from "../../services/giftCardService";
 import { campaignService, campaignColors, type Campaign } from "../../services/campaignService";
 import { marketingService } from "../../services/marketingService";
-import { communityBuyService, type Campaign as CommunityBuyCampaign } from "../../services/communityBuyService";
-import { FloatingCard, RangeProgressBar } from "../../components/shared/PremiumBlocks";
+import {
+  communityBuyService,
+  CAMPAIGN_STATUS_LABELS,
+  CAMPAIGN_STATUS_TONE,
+  type Campaign as CommunityBuyCampaign,
+} from "../../services/communityBuyService";
+import { FloatingCard, RangeProgressBar, StatusPill } from "../../components/shared/PremiumBlocks";
 import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
@@ -38,6 +43,17 @@ function communityBuyDaysLeft(deadline: string): string {
   if (ms <= 0) return "Closing";
   const days = Math.ceil(ms / (24 * 60 * 60 * 1000));
   return days === 1 ? "1 day left" : `${days} days left`;
+}
+
+// Phase 3 wording ("2 more shares needed to reach the minimum and activate
+// this campaign") shortened to fit the compact Home preview card — the full
+// explanation lives on the campaign detail screen itself.
+function communityBuySharesNeeded(campaign: CommunityBuyCampaign): string {
+  const minimum = campaign.minimumShares;
+  if (minimum == null) return "";
+  const remaining = minimum - campaign.confirmedShares;
+  if (remaining <= 0) return "Minimum reached";
+  return `${remaining} more ${remaining === 1 ? "share" : "shares"} needed`;
 }
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -432,6 +448,136 @@ export default function BuyerHomeScreen() {
           </ScrollView>
         </View>
 
+        {communityBuyEnabled ? (
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitleInline}>Community Buy</Text>
+                <Text style={styles.communityBuySubtitle}>Bulk-buy together, unlock better prices</Text>
+              </View>
+              <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy" as any)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Explore Community Buy">
+                <Text style={styles.viewAllText}>Explore</Text>
+              </TouchableOpacity>
+            </View>
+            {communityBuyCampaigns.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.communityBuyScroll}>
+                {communityBuyCampaigns.map((c) => (
+                  <TouchableOpacity
+                    key={c.id}
+                    activeOpacity={0.85}
+                    onPress={() => router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: c.id } } as any)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${c.title}, ${CAMPAIGN_STATUS_LABELS[c.status]}, join campaign`}
+                  >
+                    <FloatingCard style={styles.communityBuyCard}>
+                      <View style={styles.communityBuyCardImageWrap}>
+                        <RemoteImage uri={c.images?.[0]} style={styles.communityBuyCardImage} borderRadius={12} />
+                        <View style={styles.communityBuyStatusPillWrap}>
+                          <StatusPill label={CAMPAIGN_STATUS_LABELS[c.status]} tone={CAMPAIGN_STATUS_TONE[c.status]} />
+                        </View>
+                      </View>
+                      <Text style={styles.communityBuyCardTitle} numberOfLines={1}>{c.title}</Text>
+                      <Text style={styles.communityBuyCardVendor} numberOfLines={1}>{c.supplier?.vendor?.storeName ?? c.supplierAccount?.user?.name ?? "Community Buy"}</Text>
+                      {c.pricePerShareMinor != null ? (
+                        <Text style={styles.communityBuyCardPrice}>{formatDisplayMoney(c.pricePerShareMinor / 100, c.currency, selectedCurrency)} / share</Text>
+                      ) : null}
+                      <RangeProgressBar value={c.confirmedShares} min={c.minimumShares!} goal={c.goalShares!} max={c.maximumShares!} />
+                      <Text style={styles.communityBuyCardMeta} numberOfLines={1}>
+                        {communityBuySharesNeeded(c)}{communityBuySharesNeeded(c) ? " · " : ""}{communityBuyDaysLeft(c.deadline!)}
+                      </Text>
+                      <View style={styles.communityBuyCardCta}>
+                        <Text style={styles.communityBuyCardCtaText}>Join campaign</Text>
+                        <Ionicons name="arrow-forward" size={14} color="#076B51" />
+                      </View>
+                    </FloatingCard>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <TouchableOpacity activeOpacity={0.85} onPress={() => router.push("/(buyer)/community-buy" as any)}>
+                <FloatingCard style={{ gap: 4 }}>
+                  <Text style={styles.communityBuyCardTitle}>No live campaigns right now</Text>
+                  <Text style={styles.communityBuyCardVendor}>Check back soon, or browse Community Buy to see what's coming up — including campaigns opening soon.</Text>
+                </FloatingCard>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : null}
+
+        {communityBuyEnabled ? (
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitleInline}>Suppliers</Text>
+                <Text style={styles.communityBuySubtitle}>Fulfil Community Buy campaigns as a verified Eki supplier</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                // Supplier Centre (Workstream 1/3) is an independent
+                // SupplierAccount capability — it does not require a Vendor
+                // row, and the screen itself renders every state (apply /
+                // under review / approved) from the real backend response.
+                // hasVendor is irrelevant here; routing every authenticated
+                // user straight there is what "no Vendor required" actually
+                // means. (vendor)/_layout.tsx no longer gates this specific
+                // route on hasVendor either, so no role pre-switch is needed.
+                router.push("/(supplier)/community-buy-supplier" as any);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Open Supplier Centre"
+            >
+              <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                <Ionicons name="cube-outline" size={20} color="#076B51" />
+                <Text style={[styles.communityBuyCardVendor, { flex: 1 }]}>
+                  {user?.hasVendor ? "Open your supplier dashboard — invitations, accepted campaigns, fulfilment" : "Suppliers fulfil bulk orders raised by Community Buy organisers — no vendor store required."}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
+              </FloatingCard>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {vendors.length > 0 ? (
+          <View style={styles.supportSection}>
+            <View style={styles.supportHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.supportTitle}>Support new vendors</Text>
+                <Text style={styles.supportSubtitle}>Discover new stores and help them get their first order</Text>
+              </View>
+              <View style={styles.supportIcon}>
+                <Ionicons name="thumbs-up" size={18} color="#FFFFFF" />
+              </View>
+            </View>
+
+            {vendors.slice(0, 2).map((vendor) => (
+              <TouchableOpacity
+                key={vendor.id}
+                onPress={() => handleOpenVendor(vendor.id)}
+                activeOpacity={0.86}
+                style={styles.supportStoreRow}
+              >
+                <RemoteImage uri={vendor.coverImage || vendor.avatar} style={styles.supportStoreImage} borderRadius={12} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.supportStoreName}>{vendor.storeName}</Text>
+                  <Text style={styles.supportStoreMeta} numberOfLines={1}>
+                    {vendor.description || "Authentic African ingredients"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "vendors", sort: "newest" } } as any)}
+              activeOpacity={0.86}
+              style={styles.supportButton}
+            >
+              <Text style={styles.supportButtonText}>Support new vendors</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {loading ? (
           <View style={styles.loaderBlock}>
             <ActivityIndicator color="#076B51" />
@@ -528,119 +674,6 @@ export default function BuyerHomeScreen() {
                 );
               })}
             </ScrollView>
-          </View>
-        ) : null}
-
-        {communityBuyEnabled ? (
-          <View style={styles.sectionBlock}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sectionTitleInline}>Community Buy</Text>
-                <Text style={styles.communityBuySubtitle}>Bulk-buy together, unlock better prices</Text>
-              </View>
-              <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy" as any)} activeOpacity={0.8}>
-                <Text style={styles.viewAllText}>View All</Text>
-              </TouchableOpacity>
-            </View>
-            {communityBuyCampaigns.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.communityBuyScroll}>
-                {communityBuyCampaigns.map((c) => (
-                  <TouchableOpacity
-                    key={c.id}
-                    activeOpacity={0.85}
-                    onPress={() => router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: c.id } } as any)}
-                  >
-                    <FloatingCard style={styles.communityBuyCard}>
-                      <Text style={styles.communityBuyCardTitle} numberOfLines={1}>{c.title}</Text>
-                      <Text style={styles.communityBuyCardVendor} numberOfLines={1}>{c.supplier?.vendor?.storeName ?? "Community Buy"}</Text>
-                      <RangeProgressBar value={c.confirmedShares} min={c.minimumShares!} goal={c.goalShares!} max={c.maximumShares!} />
-                      <Text style={styles.communityBuyCardMeta}>{communityBuyDaysLeft(c.deadline!)}</Text>
-                    </FloatingCard>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            ) : (
-              <TouchableOpacity activeOpacity={0.85} onPress={() => router.push("/(buyer)/community-buy" as any)}>
-                <FloatingCard style={{ gap: 4 }}>
-                  <Text style={styles.communityBuyCardTitle}>No live campaigns right now</Text>
-                  <Text style={styles.communityBuyCardVendor}>Check back soon, or browse Community Buy to see what's coming up.</Text>
-                </FloatingCard>
-              </TouchableOpacity>
-            )}
-          </View>
-        ) : null}
-
-        {communityBuyEnabled ? (
-          <View style={styles.sectionBlock}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sectionTitleInline}>Suppliers</Text>
-                <Text style={styles.communityBuySubtitle}>Fulfil Community Buy campaigns as a verified Eki supplier</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => {
-                // Supplier Centre (Workstream 1/3) is an independent
-                // SupplierAccount capability — it does not require a Vendor
-                // row, and the screen itself renders every state (apply /
-                // under review / approved) from the real backend response.
-                // hasVendor is irrelevant here; routing every authenticated
-                // user straight there is what "no Vendor required" actually
-                // means. (vendor)/_layout.tsx no longer gates this specific
-                // route on hasVendor either, so no role pre-switch is needed.
-                router.push("/(supplier)/community-buy-supplier" as any);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Open Supplier Centre"
-            >
-              <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-                <Ionicons name="cube-outline" size={20} color="#076B51" />
-                <Text style={[styles.communityBuyCardVendor, { flex: 1 }]}>
-                  {user?.hasVendor ? "Open your supplier dashboard — invitations, accepted campaigns, fulfilment" : "Suppliers fulfil bulk orders raised by Community Buy organisers — no vendor store required."}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
-              </FloatingCard>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        {vendors.length > 0 ? (
-          <View style={styles.supportSection}>
-            <View style={styles.supportHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.supportTitle}>Support new vendors</Text>
-                <Text style={styles.supportSubtitle}>Discover new stores and help them get their first order</Text>
-              </View>
-              <View style={styles.supportIcon}>
-                <Ionicons name="thumbs-up" size={18} color="#FFFFFF" />
-              </View>
-            </View>
-
-            {vendors.slice(0, 2).map((vendor) => (
-              <TouchableOpacity
-                key={vendor.id}
-                onPress={() => handleOpenVendor(vendor.id)}
-                activeOpacity={0.86}
-                style={styles.supportStoreRow}
-              >
-                <RemoteImage uri={vendor.coverImage || vendor.avatar} style={styles.supportStoreImage} borderRadius={12} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.supportStoreName}>{vendor.storeName}</Text>
-                  <Text style={styles.supportStoreMeta} numberOfLines={1}>
-                    {vendor.description || "Authentic African ingredients"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-
-            <TouchableOpacity
-              onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "vendors", sort: "newest" } } as any)}
-              activeOpacity={0.86}
-              style={styles.supportButton}
-            >
-              <Text style={styles.supportButtonText}>Support new vendors</Text>
-            </TouchableOpacity>
           </View>
         ) : null}
 
@@ -784,8 +817,25 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   communityBuyCard: {
-    width: Math.min(SCREEN_WIDTH - 64, 240),
-    gap: 8,
+    width: Math.min(SCREEN_WIDTH - 64, 260),
+    gap: 6,
+  },
+  communityBuyCardImageWrap: {
+    width: "100%",
+    height: 96,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#EDF3EF",
+    marginBottom: 2,
+  },
+  communityBuyCardImage: {
+    width: "100%",
+    height: "100%",
+  },
+  communityBuyStatusPillWrap: {
+    position: "absolute",
+    top: 8,
+    left: 8,
   },
   communityBuyCardTitle: {
     fontSize: 14,
@@ -797,9 +847,25 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Regular",
     color: "#6A7B72",
   },
+  communityBuyCardPrice: {
+    fontSize: 13,
+    fontFamily: "Manrope-Bold",
+    color: "#151E1B",
+  },
   communityBuyCardMeta: {
     fontSize: 12,
     fontFamily: "Outfit-Medium",
+    color: "#076B51",
+  },
+  communityBuyCardCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  communityBuyCardCtaText: {
+    fontSize: 13,
+    fontFamily: "Manrope-Bold",
     color: "#076B51",
   },
   vendorDealsBanner: {

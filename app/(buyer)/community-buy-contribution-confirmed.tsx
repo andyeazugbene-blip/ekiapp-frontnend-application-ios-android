@@ -104,7 +104,7 @@ export default function CommunityBuyContributionConfirmedScreen() {
               <View style={styles.row}><Text style={styles.label}>Delivery fee</Text><Text style={styles.value}>{deliveryFee > 0 ? formatDisplayMoney(deliveryFee / 100, contribution.currency, selectedCurrency) : "Free"}</Text></View>
             ) : null}
             <View style={styles.row}><Text style={styles.label}>Receiving method</Text><Text style={styles.value}>{isDelivery ? "Home delivery" : "Collection point"}</Text></View>
-            <View style={styles.row}><Text style={styles.label}>Amount if successful</Text><Text style={styles.value}>{formatDisplayMoney(maxTotal / 100, contribution.currency, selectedCurrency)}</Text></View>
+            <View style={styles.row}><Text style={styles.label}>Total if campaign succeeds</Text><Text style={styles.value}>{formatDisplayMoney(maxTotal / 100, contribution.currency, selectedCurrency)}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Status</Text><Text style={styles.value}>Not charged yet</Text></View>
           </FloatingCard>
 

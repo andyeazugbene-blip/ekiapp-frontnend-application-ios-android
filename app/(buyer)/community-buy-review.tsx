@@ -93,7 +93,7 @@ export default function CommunityBuyReviewScreen() {
               <View style={styles.row}><Text style={styles.label}>Delivery fee</Text><Text style={styles.value}>{deliveryFee > 0 ? formatDisplayMoney(deliveryFee / 100, campaign.currency, selectedCurrency) : "Free"}</Text></View>
             ) : null}
             <View style={[styles.row, styles.totalRow]}>
-              <Text style={styles.totalLabel}>Maximum total if this campaign succeeds</Text>
+              <Text style={styles.totalLabel}>Total if campaign succeeds</Text>
               <Text style={styles.totalValue}>{formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)}</Text>
             </View>
           </FloatingCard>

@@ -165,14 +165,14 @@ export default function CommunityBuyPaymentScreen() {
               <Text style={styles.previewValue}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text>
             </View>
             <View style={styles.previewRow}>
-              <Text style={styles.fieldHint}>{isDelivery ? "Delivery fee" : "Collection"}</Text>
-              <Text style={styles.previewValue}>{isDelivery ? (deliveryFee > 0 ? formatDisplayMoney(deliveryFee / 100, campaign.currency, selectedCurrency) : "Free") : "No delivery charge"}</Text>
+              <Text style={styles.fieldHint}>{isDelivery ? "Delivery fee" : "Fulfilment"}</Text>
+              <Text style={styles.previewValue}>{isDelivery ? (deliveryFee > 0 ? formatDisplayMoney(deliveryFee / 100, campaign.currency, selectedCurrency) : "Free") : "Collection only — delivery not available"}</Text>
             </View>
             {!isDelivery ? (
               <Text style={styles.disclosureText}>Your collection code will be available here once payment succeeds.</Text>
             ) : null}
             <View style={[styles.previewRow, styles.totalRow]}>
-              <Text style={styles.totalLabel}>Maximum total</Text>
+              <Text style={styles.totalLabel}>Total if campaign succeeds</Text>
               <Text style={styles.totalValue}>{formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)}</Text>
             </View>
             <Text style={styles.disclosureText}>

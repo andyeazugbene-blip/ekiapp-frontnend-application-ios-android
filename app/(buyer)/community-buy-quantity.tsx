@@ -159,7 +159,7 @@ export default function CommunityBuyQuantityScreen() {
                 <Text style={styles.previewValue}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text>
               </View>
               <View style={[styles.amountRow, styles.totalRow]}>
-                <Text style={styles.fieldLabel}>Maximum total if this campaign succeeds</Text>
+                <Text style={styles.fieldLabel}>Total if campaign succeeds</Text>
                 <Text style={styles.amountValue}>{formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)}</Text>
               </View>
             </FloatingCard>
