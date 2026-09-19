@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Share, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
@@ -18,6 +18,8 @@ import {
   communityBuyService,
   CAMPAIGN_STATUS_LABELS,
   CAMPAIGN_STATUS_TONE,
+  CONTRIBUTION_STATUS_LABELS,
+  CONTRIBUTION_STATUS_TONE,
   DELIVERY_REFERENCE_STATUS_LABELS,
   DELIVERY_REFERENCE_STATUS_TONE,
   FULFILMENT_METHOD_LABELS,
@@ -96,17 +98,6 @@ export default function CommunityBuyCampaignScreen() {
   }, [id]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
-
-  const handleShare = async () => {
-    if (!campaign) return;
-    try {
-      await Share.share({
-        message: `Join "${campaign.title}" on Eki Community Buy — ${campaign.confirmedShares} of ${campaign.maximumShares} slots filled. Open the Eki app to take part.`,
-      });
-    } catch {
-      // User cancelled the native share sheet — nothing to do.
-    }
-  };
 
   const handleJoin = async () => {
     if (joining) return;
@@ -205,7 +196,7 @@ export default function CommunityBuyCampaignScreen() {
         onBack={() => goBackOrReplace(router, "/(buyer)/community-buy" as any)}
         right={
           <TouchableOpacity
-            onPress={() => void handleShare()}
+            onPress={() => router.push({ pathname: "/(buyer)/community-buy-share", params: { id: campaign.id } } as any)}
             activeOpacity={0.85}
             style={styles.headerIconBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -285,7 +276,23 @@ export default function CommunityBuyCampaignScreen() {
           ) : campaign.status === "REFUNDING" ? (
             <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
               <Ionicons name="return-down-back-outline" size={20} color="#B48A00" />
-              <Text style={styles.outcomeText}>Your refund is being processed.</Text>
+              <View style={{ flex: 1 }}>
+                {/* B15 — the real refund state from the backend, not an
+                    invented generic message. contribution.refund is only
+                    ever present once a refund record actually exists for
+                    this buyer's own contribution. */}
+                {contribution?.refund ? (
+                  <View style={{ gap: 4 }}>
+                    <View style={styles.statusRow}>
+                      <Text style={styles.outcomeText}>Your refund</Text>
+                      <StatusPill label={CONTRIBUTION_STATUS_LABELS[contribution.refund.status as keyof typeof CONTRIBUTION_STATUS_LABELS] ?? contribution.refund.status} tone={CONTRIBUTION_STATUS_TONE[contribution.refund.status as keyof typeof CONTRIBUTION_STATUS_TONE] ?? "warning"} />
+                    </View>
+                    <Text style={styles.outcomeText}>{formatDisplayMoney(contribution.refund.amount / 100, contribution.currency, selectedCurrency)} being returned to your original payment method.</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.outcomeText}>Your refund is being processed — this appears here as soon as it's created.</Text>
+                )}
+              </View>
             </FloatingCard>
           ) : campaign.status === "CANCELLATION_UNDER_REVIEW" ? (
             <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
@@ -295,7 +302,19 @@ export default function CommunityBuyCampaignScreen() {
           ) : campaign.status === "CANCELLED" ? (
             <FloatingCard style={[styles.outcomeCard, styles.outcomeCardError]}>
               <Ionicons name="return-down-back-outline" size={20} color="#D6552F" />
-              <Text style={styles.outcomeText}>This campaign was ended. If you had already been charged, your payment is being refunded to your original payment method — otherwise, your pledge was simply cancelled and you were never charged.</Text>
+              <View style={{ flex: 1 }}>
+                {contribution?.refund ? (
+                  <View style={{ gap: 4 }}>
+                    <View style={styles.statusRow}>
+                      <Text style={styles.outcomeText}>This campaign was ended. Your refund</Text>
+                      <StatusPill label={CONTRIBUTION_STATUS_LABELS[contribution.refund.status as keyof typeof CONTRIBUTION_STATUS_LABELS] ?? contribution.refund.status} tone={CONTRIBUTION_STATUS_TONE[contribution.refund.status as keyof typeof CONTRIBUTION_STATUS_TONE] ?? "warning"} />
+                    </View>
+                    <Text style={styles.outcomeText}>{formatDisplayMoney(contribution.refund.amount / 100, contribution.currency, selectedCurrency)} being returned to your original payment method.</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.outcomeText}>This campaign was ended. Your pledge was cancelled — you were never charged, so there is nothing to refund.</Text>
+                )}
+              </View>
             </FloatingCard>
           ) : campaign.status === "PAUSED" ? (
             <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
@@ -324,7 +343,7 @@ export default function CommunityBuyCampaignScreen() {
                 <FloatingCard style={styles.outcomeCard}>
                   <Ionicons name="checkmark-circle-outline" size={20} color="#076B51" />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.outcomeText}>Payment confirmed — this campaign succeeded, and your saved card was charged {formatDisplayMoney((contribution.amount + (contribution.buyerServiceFeeAmount ?? 0)) / 100, contribution.currency, selectedCurrency)} (including Eki's service fee) for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"}.</Text>
+                    <Text style={styles.outcomeText}>Payment confirmed — this campaign succeeded, and your saved card was charged {formatDisplayMoney((contribution.amount + (contribution.buyerServiceFeeAmount ?? 0) + (contribution.deliveryFeeAmountMinor ?? 0)) / 100, contribution.currency, selectedCurrency)} (including Eki's service fee{campaign.deliveryPreference === "DELIVERY" ? " and delivery fee" : ""}) for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"}.</Text>
                     <TouchableOpacity
                       onPress={() => setShowReceipt((v) => !v)}
                       activeOpacity={0.85}
@@ -341,7 +360,10 @@ export default function CommunityBuyCampaignScreen() {
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Price per share</Text><Text style={styles.receiptValue}>{formatDisplayMoney(campaign.pricePerShareMinor! / 100, campaign.currency!, selectedCurrency)}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Product subtotal</Text><Text style={styles.receiptValue}>{formatDisplayMoney(contribution.amount / 100, contribution.currency, selectedCurrency)}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Eki service fee</Text><Text style={styles.receiptValue}>{formatDisplayMoney((contribution.buyerServiceFeeAmount ?? 0) / 100, contribution.currency, selectedCurrency)}</Text></View>
-                        <View style={[styles.receiptRow, styles.receiptTotalRow]}><Text style={styles.receiptTotalLabel}>Total charged</Text><Text style={styles.receiptTotalValue}>{formatDisplayMoney((contribution.amount + (contribution.buyerServiceFeeAmount ?? 0)) / 100, contribution.currency, selectedCurrency)}</Text></View>
+                        {campaign.deliveryPreference === "DELIVERY" ? (
+                          <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Delivery fee</Text><Text style={styles.receiptValue}>{formatDisplayMoney((contribution.deliveryFeeAmountMinor ?? 0) / 100, contribution.currency, selectedCurrency)}</Text></View>
+                        ) : null}
+                        <View style={[styles.receiptRow, styles.receiptTotalRow]}><Text style={styles.receiptTotalLabel}>Total charged</Text><Text style={styles.receiptTotalValue}>{formatDisplayMoney((contribution.amount + (contribution.buyerServiceFeeAmount ?? 0) + (contribution.deliveryFeeAmountMinor ?? 0)) / 100, contribution.currency, selectedCurrency)}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Date</Text><Text style={styles.receiptValue}>{formatDateTime(contribution.createdAt)}</Text></View>
                         <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Reference</Text><Text style={styles.receiptValue} numberOfLines={1}>{contribution.id}</Text></View>
                       </View>
@@ -351,7 +373,7 @@ export default function CommunityBuyCampaignScreen() {
               ) : contribution?.status === "PLEDGED" ? (
                 <FloatingCard style={styles.outcomeCard}>
                   <Ionicons name="bookmark-outline" size={20} color="#076B51" />
-                  <Text style={styles.outcomeText}>Pledge recorded — payment method saved for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} ({formatDisplayMoney((contribution.amount + (contribution.buyerServiceFeeAmount ?? 0)) / 100, contribution.currency, selectedCurrency)}, including Eki's service fee). You will only be charged if this campaign succeeds. Awaiting campaign outcome.</Text>
+                  <Text style={styles.outcomeText}>Pledge recorded — payment method saved for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} ({formatDisplayMoney((contribution.amount + (contribution.buyerServiceFeeAmount ?? 0) + (contribution.deliveryFeeAmountMinor ?? 0)) / 100, contribution.currency, selectedCurrency)}, including Eki's service fee{campaign.deliveryPreference === "DELIVERY" ? " and delivery fee" : ""}). You will only be charged if this campaign succeeds. Awaiting campaign outcome.</Text>
                 </FloatingCard>
               ) : contribution?.status === "PAYMENT_PROCESSING" ? (
                 <FloatingCard style={styles.outcomeCard}>

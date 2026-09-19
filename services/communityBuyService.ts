@@ -379,6 +379,9 @@ export interface Contribution {
   // alongside `amount` in the same capture. Total actually charged is
   // amount + buyerServiceFeeAmount.
   buyerServiceFeeAmount?: number;
+  // Phase 6 (delivery + collection/tracking) — flat per contribution, real
+  // organiser-set fee, snapshotted at pledge time. 0 for a COLLECTION pledge.
+  deliveryFeeAmountMinor?: number;
   // Phase 3 (address + privacy foundation) — present only for a DELIVERY
   // campaign's contribution; this is the buyer's own data, visible on
   // their own contribution read regardless of campaign delivery mode.

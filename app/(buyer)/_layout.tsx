@@ -141,6 +141,7 @@ export default function BuyerLayout() {
       <Tabs.Screen name="community-buy-review" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="community-buy-payment" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="community-buy-contribution-confirmed" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="community-buy-share" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>
   );
 }
