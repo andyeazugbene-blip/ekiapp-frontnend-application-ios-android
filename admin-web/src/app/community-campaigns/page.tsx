@@ -8,7 +8,7 @@ import { API2FARequiredError, APIError } from "@/lib/api";
 import {
   communityBuyAdminAPI, isPendingApproval,
   type AdminCampaign, type AdminCancellationRequest, type AdminContribution, type AdminExtensionRequest, type AdminSupplierPayment,
-  type CampaignStatus, type FundingOutcome, type SupplierPaymentStatus,
+  type AdminSupplierProposal, type CampaignStatus, type FundingOutcome, type SupplierPaymentStatus,
 } from "@/lib/services/communityBuy.api";
 import { countryDisplayName } from "@/lib/countries";
 
@@ -51,6 +51,9 @@ export default function CommunityCampaignsPage() {
   const [extensionRequests, setExtensionRequests] = useState<AdminExtensionRequest[]>([]);
   const [cancellationRequests, setCancellationRequests] = useState<AdminCancellationRequest[]>([]);
   const [cancellationNotesById, setCancellationNotesById] = useState<Record<string, string>>({});
+  // Phase 5 (organiser<->supplier negotiation)
+  const [supplierProposals, setSupplierProposals] = useState<AdminSupplierProposal[]>([]);
+  const [proposalNotesById, setProposalNotesById] = useState<Record<string, string>>({});
   const [supplierPayments, setSupplierPayments] = useState<AdminSupplierPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,17 +77,19 @@ export default function CommunityCampaignsPage() {
       bypassCache ? setRefreshing(true) : setLoading(true);
       setError("");
       const opts = bypassCache ? { bypassCache: true } : undefined;
-      const [review, recentlyClosed, pendingExtensions, pendingCancellations, payments] = await Promise.all([
+      const [review, recentlyClosed, pendingExtensions, pendingCancellations, pendingProposals, payments] = await Promise.all([
         communityBuyAdminAPI.getCampaignsForReview(opts),
         communityBuyAdminAPI.getRecentlyClosedCampaigns(opts),
         communityBuyAdminAPI.getExtensionRequests(opts),
         communityBuyAdminAPI.getCancellationRequests(opts),
+        communityBuyAdminAPI.getSupplierProposals(opts),
         communityBuyAdminAPI.getSupplierPayments(opts),
       ]);
       setItems(review);
       setClosed(recentlyClosed);
       setExtensionRequests(pendingExtensions);
       setCancellationRequests(pendingCancellations);
+      setSupplierProposals(pendingProposals);
       setSupplierPayments(payments);
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to load campaigns");
@@ -155,6 +160,30 @@ export default function CommunityCampaignsPage() {
     try {
       const result = await communityBuyAdminAPI.approveCancellation(id);
       if (isPendingApproval(result)) alert(result.message);
+      await load();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Action failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const runApproveProposal = async (id: string) => {
+    setBusyId(id);
+    try {
+      await communityBuyAdminAPI.approveSupplierProposal(id);
+      await load();
+    } catch (err) {
+      alert(err instanceof APIError ? err.message : "Action failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const runRequestProposalChanges = async (id: string, notes: string) => {
+    setBusyId(id);
+    try {
+      await communityBuyAdminAPI.requestSupplierProposalChanges(id, notes);
       await load();
     } catch (err) {
       alert(err instanceof APIError ? err.message : "Action failed");
@@ -242,6 +271,7 @@ export default function CommunityCampaignsPage() {
               <MetricCard icon="clock" label="Under review" value={items.length} tone="amber" />
               <MetricCard icon="warning" label="In rescue window" value={closed.filter((c) => c.status === "RESCUE_WINDOW").length} tone="amber" />
               <MetricCard icon="clock" label="Extension requests" value={extensionRequests.length} tone="amber" />
+              <MetricCard icon="clock" label="Supplier proposals" value={supplierProposals.length} tone="amber" />
               <MetricCard icon="warning" label="Payments to release" value={supplierPayments.filter((p) => p.status === "NOT_RELEASED").length} tone="amber" />
             </div>
 
@@ -519,6 +549,56 @@ export default function CommunityCampaignsPage() {
                           }}
                         >
                           Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card>
+              <h2 className="text-2xl font-black">Supplier proposals</h2>
+              <p className="mt-1 text-sm text-slate-500">A supplier-requested change to wholesale amount, maximum shares, or ready-by date. Approving here only forwards it to the organiser for their own decision — it does not change the campaign.</p>
+              {supplierProposals.length === 0 ? (
+                <p className="mt-8 text-slate-500">No supplier proposals waiting for review.</p>
+              ) : (
+                <div className="mt-6 space-y-4">
+                  {supplierProposals.map((p) => (
+                    <div key={p.id} className="rounded-2xl border border-slate-200 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h3 className="text-base font-bold text-[#101820]">{p.campaign?.title ?? p.campaignId}</h3>
+                        <span className="text-sm text-slate-500">{new Date(p.createdAt).toLocaleString()}</span>
+                      </div>
+                      <div className="mt-2 grid gap-1 text-sm text-slate-600 md:grid-cols-2">
+                        {p.proposedWholesaleAmountMinor != null ? <p>Proposed wholesale amount: <span className="font-semibold text-[#101820]">{centsToUnit(p.proposedWholesaleAmountMinor).toFixed(2)}</span></p> : null}
+                        {p.proposedMaximumShares != null ? <p>Proposed maximum shares: <span className="font-semibold text-[#101820]">{p.proposedMaximumShares}</span> (currently {p.campaign?.maximumShares ?? "—"}, {p.campaign?.confirmedShares ?? "—"} confirmed)</p> : null}
+                        {p.proposedReadyByDate ? <p>Proposed ready-by date: <span className="font-semibold text-[#101820]">{new Date(p.proposedReadyByDate).toLocaleDateString()}</span></p> : null}
+                        {p.revisionCount > 0 ? <p>Revisions: <span className="font-semibold text-[#101820]">{p.revisionCount}</span></p> : null}
+                      </div>
+                      <p className="mt-2 text-sm text-slate-600">Message: {p.message}</p>
+                      <textarea
+                        placeholder="Notes for the supplier (required to request changes)"
+                        value={proposalNotesById[p.id] ?? ""}
+                        onChange={(e) => setProposalNotesById((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                        className="mt-3 w-full rounded-xl border border-slate-200 p-3 text-sm"
+                        rows={2}
+                      />
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <Button
+                          disabled={busyId === p.id}
+                          onClick={() => {
+                            if (confirm("Forward this proposal to the organiser for their decision?")) void runApproveProposal(p.id);
+                          }}
+                        >
+                          Forward to organiser
+                        </Button>
+                        <Button
+                          variant="danger"
+                          disabled={busyId === p.id || !proposalNotesById[p.id]?.trim()}
+                          onClick={() => void runRequestProposalChanges(p.id, proposalNotesById[p.id]!.trim())}
+                        >
+                          Request changes
                         </Button>
                       </div>
                     </div>

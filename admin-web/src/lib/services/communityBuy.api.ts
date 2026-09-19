@@ -77,6 +77,20 @@ export interface AdminCancellationRequest {
   campaign?: { id: string; title: string; confirmedShares: number; paidTotal?: number | null; currency: string };
 }
 
+// Phase 5 (organiser<->supplier negotiation) — only ever surfaced to admin
+// while SUBMITTED (Eki's own review queue, before the organiser sees it).
+export interface AdminSupplierProposal {
+  id: string;
+  campaignId: string;
+  proposedWholesaleAmountMinor?: number | null;
+  proposedMaximumShares?: number | null;
+  proposedReadyByDate?: string | null;
+  message: string;
+  revisionCount: number;
+  createdAt: string;
+  campaign?: { id: string; title: string; wholesaleAmountMinor?: number | null; maximumShares?: number | null; confirmedShares: number };
+}
+
 export type SupplierPaymentStatus = "NOT_RELEASED" | "PROCESSING" | "PAID" | "ON_HOLD" | "FAILED";
 
 export interface CurrencySupplierPaymentTotals {
@@ -539,6 +553,20 @@ export const communityBuyAdminAPI = {
   async rejectCancellation(id: string, notes?: string): Promise<AdminCancellationRequest> {
     const res = await apiClient.post<{ cancellationRequest: AdminCancellationRequest }>(`/admin/community-buy/cancellation-requests/${id}/reject`, { notes });
     return res.cancellationRequest;
+  },
+
+  // ─── Phase 5 — organiser<->supplier negotiation proposals ───────────────
+  async getSupplierProposals(opts?: ReadOptions): Promise<AdminSupplierProposal[]> {
+    const res = await apiClient.get<{ items?: AdminSupplierProposal[] }>("/admin/community-buy/supplier-proposals", opts);
+    return res.items ?? [];
+  },
+  async approveSupplierProposal(id: string): Promise<AdminSupplierProposal> {
+    const res = await apiClient.post<{ proposal: AdminSupplierProposal }>(`/admin/community-buy/supplier-proposals/${id}/approve`, {});
+    return res.proposal;
+  },
+  async requestSupplierProposalChanges(id: string, notes: string): Promise<AdminSupplierProposal> {
+    const res = await apiClient.post<{ proposal: AdminSupplierProposal }>(`/admin/community-buy/supplier-proposals/${id}/request-changes`, { notes });
+    return res.proposal;
   },
 
   // ─── Supplier payments — doc §Screen 131 ────────────────────────────────
