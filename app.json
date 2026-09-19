@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ekiapp.mobilee",
-      "buildNumber": "116",
+      "buildNumber": "117",
       "usesAppleSignIn": true,
       "splash": {
         "image": "./assets/splash-icon.png",
