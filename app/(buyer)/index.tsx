@@ -21,41 +21,17 @@ import { rewardService, type Reward } from "../../services/rewardService";
 import { giftCardService, type GiftCard } from "../../services/giftCardService";
 import { campaignService, campaignColors, type Campaign } from "../../services/campaignService";
 import { marketingService } from "../../services/marketingService";
-import {
-  communityBuyService,
-  CAMPAIGN_STATUS_LABELS,
-  CAMPAIGN_STATUS_TONE,
-  type Campaign as CommunityBuyCampaign,
-} from "../../services/communityBuyService";
-import { FloatingCard, RangeProgressBar, StatusPill } from "../../components/shared/PremiumBlocks";
+import { communityBuyService } from "../../services/communityBuyService";
+import { FloatingCard } from "../../components/shared/PremiumBlocks";
 import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
-import { countryCodeForName } from "../../utils/countries";
 import { type Product } from "../../types/product";
 import { type VendorSummary } from "../../types/vendor";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { vendorService } from "../../services/vendorService";
 import { formatDisplayMoney } from "../../utils/currency";
-
-function communityBuyDaysLeft(deadline: string): string {
-  const ms = new Date(deadline).getTime() - Date.now();
-  if (ms <= 0) return "Closing";
-  const days = Math.ceil(ms / (24 * 60 * 60 * 1000));
-  return days === 1 ? "1 day left" : `${days} days left`;
-}
-
-// Phase 3 wording ("2 more shares needed to reach the minimum and activate
-// this campaign") shortened to fit the compact Home preview card — the full
-// explanation lives on the campaign detail screen itself.
-function communityBuySharesNeeded(campaign: CommunityBuyCampaign): string {
-  const minimum = campaign.minimumShares;
-  if (minimum == null) return "";
-  const remaining = minimum - campaign.confirmedShares;
-  if (remaining <= 0) return "Minimum reached";
-  return `${remaining} more ${remaining === 1 ? "share" : "shares"} needed`;
-}
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const DEAL_CARD_WIDTH = Math.min(SCREEN_WIDTH - 96, 280);
@@ -146,7 +122,6 @@ export default function BuyerHomeScreen() {
   const [activeDealIndex, setActiveDealIndex] = useState(0);
   const [vendorDealsCount, setVendorDealsCount] = useState(0);
   const [communityBuyEnabled, setCommunityBuyEnabled] = useState(false);
-  const [communityBuyCampaigns, setCommunityBuyCampaigns] = useState<CommunityBuyCampaign[]>([]);
 
   const loadCommunityBuy = useCallback(async () => {
     try {
@@ -155,34 +130,17 @@ export default function BuyerHomeScreen() {
       // buyer already having a delivery country set — "Set your country" is
       // itself a normal, expected state on this exact screen (see the
       // delivery-country pill below), and B02 (Discover) already has its
-      // own market/country filter for browsing once inside. Gating the
-      // whole section on deliveryCountry meant a buyer with no country set
-      // yet never saw Community Buy exists at all, even though it's live in
-      // multiple markets. Show the entry whenever the feature is enabled
-      // ANYWHERE; only the live-campaign preview needs a specific country.
-      const enabledAnywhere = markets.some((m) => m.communityBuyEnabled);
-      setCommunityBuyEnabled(enabledAnywhere);
-      // user.country is free text entered at registration ("United Kingdom",
-      // "uk", etc.), while MarketConfig.countryCode is always the ISO code
-      // ("GB") — comparing them raw meant this preview silently matched
-      // nothing for almost every real buyer. countryCodeForName() is this
-      // app's single authoritative name/alias/code -> ISO code resolver.
-      const deliveryCountryCode = countryCodeForName(deliveryCountry);
-      const market = deliveryCountryCode ? markets.find((m) => m.countryCode === deliveryCountryCode) : undefined;
-      if (market?.communityBuyEnabled && deliveryCountryCode) {
-        const liveCampaigns = await communityBuyService.listLiveCampaigns(deliveryCountryCode).catch(() => [] as CommunityBuyCampaign[]);
-        setCommunityBuyCampaigns(liveCampaigns.slice(0, 3));
-      } else {
-        setCommunityBuyCampaigns([]);
-      }
+      // own market/country filter for browsing once inside. Show the entry
+      // whenever the feature is enabled ANYWHERE; the browse screen itself
+      // handles per-country filtering.
+      setCommunityBuyEnabled(markets.some((m) => m.communityBuyEnabled));
     } catch {
       // Market config is genuinely unavailable (not just "no campaigns") —
       // stay hidden rather than guess. Never expose an active-looking entry
       // when Community Buy isn't actually enabled anywhere.
       setCommunityBuyEnabled(false);
-      setCommunityBuyCampaigns([]);
     }
-  }, [deliveryCountry]);
+  }, []);
 
   const loadCampaigns = useCallback(async () => {
     setCampaignsLoading(true);
@@ -458,56 +416,22 @@ export default function BuyerHomeScreen() {
         {communityBuyEnabled ? (
           <View style={styles.sectionBlock}>
             <View style={styles.sectionHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sectionTitleInline}>Community Buy</Text>
-                <Text style={styles.communityBuySubtitle}>Bulk-buy together, unlock better prices</Text>
-              </View>
+              <Text style={styles.sectionTitleInline}>Community Buy</Text>
               <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy" as any)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Explore Community Buy">
                 <Text style={styles.viewAllText}>Explore</Text>
               </TouchableOpacity>
             </View>
-            {communityBuyCampaigns.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.communityBuyScroll}>
-                {communityBuyCampaigns.map((c) => (
-                  <TouchableOpacity
-                    key={c.id}
-                    activeOpacity={0.85}
-                    onPress={() => router.push({ pathname: "/(buyer)/community-buy-campaign", params: { id: c.id } } as any)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${c.title}, ${CAMPAIGN_STATUS_LABELS[c.status]}, join campaign`}
-                  >
-                    <FloatingCard style={styles.communityBuyCard}>
-                      <View style={styles.communityBuyCardImageWrap}>
-                        <RemoteImage uri={c.images?.[0]} style={styles.communityBuyCardImage} borderRadius={12} />
-                        <View style={styles.communityBuyStatusPillWrap}>
-                          <StatusPill label={CAMPAIGN_STATUS_LABELS[c.status]} tone={CAMPAIGN_STATUS_TONE[c.status]} />
-                        </View>
-                      </View>
-                      <Text style={styles.communityBuyCardTitle} numberOfLines={1}>{c.title}</Text>
-                      <Text style={styles.communityBuyCardVendor} numberOfLines={1}>{c.supplier?.vendor?.storeName ?? c.supplierAccount?.user?.name ?? "Community Buy"}</Text>
-                      {c.pricePerShareMinor != null ? (
-                        <Text style={styles.communityBuyCardPrice}>{formatDisplayMoney(c.pricePerShareMinor / 100, c.currency, selectedCurrency)} / share</Text>
-                      ) : null}
-                      <RangeProgressBar value={c.confirmedShares} min={c.minimumShares!} goal={c.goalShares!} max={c.maximumShares!} />
-                      <Text style={styles.communityBuyCardMeta} numberOfLines={1}>
-                        {communityBuySharesNeeded(c)}{communityBuySharesNeeded(c) ? " · " : ""}{communityBuyDaysLeft(c.deadline!)}
-                      </Text>
-                      <View style={styles.communityBuyCardCta}>
-                        <Text style={styles.communityBuyCardCtaText}>Join Community Buy</Text>
-                        <Ionicons name="arrow-forward" size={14} color="#076B51" />
-                      </View>
-                    </FloatingCard>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            ) : (
-              <TouchableOpacity activeOpacity={0.85} onPress={() => router.push("/(buyer)/community-buy" as any)}>
-                <FloatingCard style={{ gap: 4 }}>
-                  <Text style={styles.communityBuyCardTitle}>No live campaigns right now</Text>
-                  <Text style={styles.communityBuyCardVendor}>Check back soon, or browse Community Buy to see what's coming up — including campaigns opening soon.</Text>
-                </FloatingCard>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity activeOpacity={0.85} onPress={() => router.push("/(buyer)/community-buy" as any)} accessibilityRole="button" accessibilityLabel="Explore Community Buy">
+              <View style={styles.communityBuyPromoCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.communityBuyPromoTitle}>Buy together. Save more.</Text>
+                  <Text style={styles.communityBuyPromoSubtitle}>Join a group order before it closes.</Text>
+                </View>
+                <View style={styles.communityBuyPromoButton}>
+                  <Text style={styles.communityBuyPromoButtonText}>Explore</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
           </View>
         ) : null}
 
@@ -819,61 +743,42 @@ const styles = StyleSheet.create({
     color: "#6A7B72",
     marginTop: 2,
   },
-  communityBuyScroll: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  communityBuyCard: {
-    width: Math.min(SCREEN_WIDTH - 64, 260),
-    gap: 6,
-  },
-  communityBuyCardImageWrap: {
-    width: "100%",
-    height: 96,
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: "#EDF3EF",
-    marginBottom: 2,
-  },
-  communityBuyCardImage: {
-    width: "100%",
-    height: "100%",
-  },
-  communityBuyStatusPillWrap: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-  },
-  communityBuyCardTitle: {
-    fontSize: 14,
-    fontFamily: "Manrope-Bold",
-    color: "#151E1B",
-  },
   communityBuyCardVendor: {
     fontSize: 12,
     fontFamily: "Outfit-Regular",
     color: "#6A7B72",
   },
-  communityBuyCardPrice: {
-    fontSize: 13,
+  communityBuyPromoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderRadius: 20,
+    backgroundColor: "#E8F4ED",
+  },
+  communityBuyPromoTitle: {
+    fontSize: 15,
     fontFamily: "Manrope-Bold",
     color: "#151E1B",
   },
-  communityBuyCardMeta: {
+  communityBuyPromoSubtitle: {
     fontSize: 12,
-    fontFamily: "Outfit-Medium",
-    color: "#076B51",
-  },
-  communityBuyCardCta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
+    fontFamily: "Outfit-Regular",
+    color: "#6A7B72",
     marginTop: 2,
   },
-  communityBuyCardCtaText: {
+  communityBuyPromoButton: {
+    backgroundColor: "#076B51",
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 20,
+  },
+  communityBuyPromoButtonText: {
     fontSize: 13,
     fontFamily: "Manrope-Bold",
-    color: "#076B51",
+    color: "#FFFFFF",
   },
   vendorDealsBanner: {
     flexDirection: "row",
