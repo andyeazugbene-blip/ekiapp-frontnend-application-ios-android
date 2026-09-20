@@ -32,6 +32,7 @@ import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { useCartStore } from "../../stores/cartStore";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useAuthStore } from "../../stores/authStore";
+import { countryCodeForName } from "../../utils/countries";
 import { type Product } from "../../types/product";
 import { type VendorSummary } from "../../types/vendor";
 import { RemoteImage } from "../../components/ui/RemoteImage";
@@ -161,9 +162,15 @@ export default function BuyerHomeScreen() {
       // ANYWHERE; only the live-campaign preview needs a specific country.
       const enabledAnywhere = markets.some((m) => m.communityBuyEnabled);
       setCommunityBuyEnabled(enabledAnywhere);
-      const market = deliveryCountry ? markets.find((m) => m.countryCode === deliveryCountry) : undefined;
-      if (market?.communityBuyEnabled && deliveryCountry) {
-        const liveCampaigns = await communityBuyService.listLiveCampaigns(deliveryCountry).catch(() => [] as CommunityBuyCampaign[]);
+      // user.country is free text entered at registration ("United Kingdom",
+      // "uk", etc.), while MarketConfig.countryCode is always the ISO code
+      // ("GB") — comparing them raw meant this preview silently matched
+      // nothing for almost every real buyer. countryCodeForName() is this
+      // app's single authoritative name/alias/code -> ISO code resolver.
+      const deliveryCountryCode = countryCodeForName(deliveryCountry);
+      const market = deliveryCountryCode ? markets.find((m) => m.countryCode === deliveryCountryCode) : undefined;
+      if (market?.communityBuyEnabled && deliveryCountryCode) {
+        const liveCampaigns = await communityBuyService.listLiveCampaigns(deliveryCountryCode).catch(() => [] as CommunityBuyCampaign[]);
         setCommunityBuyCampaigns(liveCampaigns.slice(0, 3));
       } else {
         setCommunityBuyCampaigns([]);

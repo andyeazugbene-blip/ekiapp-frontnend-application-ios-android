@@ -26,7 +26,7 @@ import {
   type MarketConfig,
   type MyCommunityBuy,
 } from "../../services/communityBuyService";
-import { countryDisplayName } from "../../utils/countries";
+import { countryCodeForName, countryDisplayName } from "../../utils/countries";
 import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 import { useAuthStore } from "../../stores/authStore";
 
@@ -68,8 +68,13 @@ export default function CommunityBuyDiscoveryScreen() {
   // always scoped to the buyer's own country) correctly says there are
   // none, which read as a contradiction rather than two different scopes.
   // The existing "All markets" chip still lets a buyer broaden this
-  // themselves at any time.
-  const [countryFilter, setCountryFilter] = useState<string | null>(deliveryCountry ?? null);
+  // themselves at any time. user.country is free text ("United Kingdom",
+  // "uk", ...) while MarketConfig.countryCode is always the ISO code
+  // ("GB") — this must go through countryCodeForName() (this app's single
+  // authoritative resolver) or the default silently matches no market for
+  // almost every real buyer, since the chips below compare against the
+  // ISO code once a market is selected.
+  const [countryFilter, setCountryFilter] = useState<string | null>(countryCodeForName(deliveryCountry));
   const [searchQuery, setSearchQuery] = useState("");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
