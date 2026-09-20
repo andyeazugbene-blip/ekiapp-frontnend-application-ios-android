@@ -24,17 +24,36 @@ const FORBIDDEN_PATTERNS = [
   { label: "subscription checkout endpoint", re: /\/api\/subscriptions\/checkout/i },
   { label: "checkout URL field", re: /\bcheckoutUrl\b/i },
   { label: "subscription checkout opener", re: /\bopenCheckout\b/i },
-  { label: "subscription checkout route", re: /(?:waqti\.pro|culinarytales\.app)\/(?:subscribe|subscription|subscriptions|checkout|pricing|plans|upgrade)\b/i },
-  { label: "paid subscription CTA", re: /<(?:Text|Button)\b[^>]*>[^<]*(?:Upgrade now|Upgrade Plan|Choose Plan|View Plans|See Plans|Subscribe|Activate\s+[-\u2013\u2014])[^<]*<\/(?:Text|Button)>/i },
+  // (?=\/|$|\?) instead of a trailing \b: \b also matches at a hyphen (a
+  // word/non-word transition), so the old pattern flagged
+  // "subscription-policy" (a legal disclosure page's own canonical URL) as
+  // if it were a "/subscription" checkout path. Requiring the match be
+  // followed by "/", end-of-string or "?" keeps real checkout-path hits
+  // ("culinarytales.app/subscribe", ".../subscription/123") while excluding
+  // an unrelated compound word that merely starts the same way.
+  { label: "subscription checkout route", re: /(?:waqti\.pro|culinarytales\.app)\/(?:subscribe|subscription|subscriptions|checkout|pricing|plans|upgrade)(?=\/|$|\?)/i },
+  // \bSubscribe\b (not bare "Subscribe"): the unbounded version matched
+  // "Subscribe" as a substring of "subscribers"/"subscriber's" in ordinary
+  // Regular Deliveries copy (a buyer<->vendor recurring-order feature,
+  // unrelated to Eki's own paid app subscription tier this check exists
+  // to police) \u2014 e.g. "existing subscribers won't be charged". A real CTA
+  // ("Subscribe", "Subscribe Now") always has a word boundary around the verb.
+  { label: "paid subscription CTA", re: /<(?:Text|Button)\b[^>]*>[^<]*(?:Upgrade now|Upgrade Plan|Choose Plan|View Plans|See Plans|\bSubscribe\b|Activate\s+[-\u2013\u2014])[^<]*<\/(?:Text|Button)>/i },
 ];
 
 const WEB_ONLY_SUBSCRIPTION_ROUTE = "app/vendor/subscription.tsx";
+// Same verified pattern as WEB_ONLY_SUBSCRIPTION_ROUTE above: `if (!isWeb)
+// return <NativeFallback/>` gates the entire component before the checkout
+// handler (handleContinue/checkoutUrl/Linking.openURL) is ever defined or
+// reachable \u2014 confirmed by reading the file, not assumed from the name.
+const WEB_ONLY_BUSINESS_PORTAL_ROUTE = "app/business-portal.tsx";
 
 function isAllowedViolation(rel, label, line) {
   // This route is served by Expo Web only. On native it renders a read-only
   // fallback and never opens checkout, so it is allowed to contain web billing
   // copy and Stripe Checkout routing.
   if (rel === WEB_ONLY_SUBSCRIPTION_ROUTE) return true;
+  if (rel === WEB_ONLY_BUSINESS_PORTAL_ROUTE) return true;
 
   // The shared service exposes only the public web checkout helper. Native
   // subscription screens must not call it; this scanner still catches checkout
