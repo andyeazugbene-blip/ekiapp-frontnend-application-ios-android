@@ -470,45 +470,6 @@ export default function BuyerHomeScreen() {
           </View>
         ) : null}
 
-        {vendors.length > 0 ? (
-          <View style={styles.supportSection}>
-            <View style={styles.supportHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.supportTitle}>Support new vendors</Text>
-                <Text style={styles.supportSubtitle}>Discover new stores and help them get their first order</Text>
-              </View>
-              <View style={styles.supportIcon}>
-                <Ionicons name="thumbs-up" size={18} color="#FFFFFF" />
-              </View>
-            </View>
-
-            {vendors.slice(0, 2).map((vendor) => (
-              <TouchableOpacity
-                key={vendor.id}
-                onPress={() => handleOpenVendor(vendor.id)}
-                activeOpacity={0.86}
-                style={styles.supportStoreRow}
-              >
-                <RemoteImage uri={vendor.coverImage || vendor.avatar} style={styles.supportStoreImage} borderRadius={12} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.supportStoreName}>{vendor.storeName}</Text>
-                  <Text style={styles.supportStoreMeta} numberOfLines={1}>
-                    {vendor.description || "Authentic African ingredients"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-
-            <TouchableOpacity
-              onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "vendors", sort: "newest" } } as any)}
-              activeOpacity={0.86}
-              style={styles.supportButton}
-            >
-              <Text style={styles.supportButtonText}>Support new vendors</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
         {loading ? (
           <View style={styles.loaderBlock}>
             <ActivityIndicator color="#076B51" />
@@ -613,6 +574,45 @@ export default function BuyerHomeScreen() {
             <Ionicons name="storefront-outline" size={34} color="#9AA3A0" />
             <Text style={styles.emptyTitle}>No foodstuff available yet</Text>
             <Text style={styles.emptyText}>Fresh products will appear here as soon as vendors publish them.</Text>
+          </View>
+        ) : null}
+
+        {vendors.length > 0 ? (
+          <View style={styles.supportSection}>
+            <View style={styles.supportHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.supportTitle}>Support new vendors</Text>
+                <Text style={styles.supportSubtitle}>Discover new stores and help them get their first order</Text>
+              </View>
+              <View style={styles.supportIcon}>
+                <Ionicons name="thumbs-up" size={18} color="#FFFFFF" />
+              </View>
+            </View>
+
+            {vendors.slice(0, 2).map((vendor) => (
+              <TouchableOpacity
+                key={vendor.id}
+                onPress={() => handleOpenVendor(vendor.id)}
+                activeOpacity={0.86}
+                style={styles.supportStoreRow}
+              >
+                <RemoteImage uri={vendor.coverImage || vendor.avatar} style={styles.supportStoreImage} borderRadius={12} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.supportStoreName}>{vendor.storeName}</Text>
+                  <Text style={styles.supportStoreMeta} numberOfLines={1}>
+                    {vendor.description || "Authentic African ingredients"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "vendors", sort: "newest" } } as any)}
+              activeOpacity={0.86}
+              style={styles.supportButton}
+            >
+              <Text style={styles.supportButtonText}>Support new vendors</Text>
+            </TouchableOpacity>
           </View>
         ) : null}
       </ScrollView>
