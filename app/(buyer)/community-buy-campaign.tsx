@@ -222,8 +222,16 @@ export default function CommunityBuyCampaignScreen() {
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Organiser</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>{campaign.organiserDisplayName ?? "Verified organiser"}</Text>
+              <Text style={styles.infoValue} numberOfLines={1}>
+                {campaign.organiserDisplayName ?? "Community organiser"}{campaign.organiserVerified ? " · Verified organiser" : ""}
+              </Text>
             </View>
+            {campaign.quantityPerOrder && campaign.unit ? (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Quantity per slot</Text>
+                <Text style={styles.infoValue}>{campaign.quantityPerOrder} {campaign.unit}</Text>
+              </View>
+            ) : null}
             {/* M4 (spec §14.2): show who receives delivery data before joining. */}
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Delivery</Text>

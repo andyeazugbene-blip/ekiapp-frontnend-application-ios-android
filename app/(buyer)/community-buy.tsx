@@ -232,17 +232,28 @@ export default function CommunityBuyDiscoveryScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={`${c.title}, ${countryDisplayName(c.country)}, ${daysLeft(c.deadline)}`}
                 >
-                  <FloatingCard style={{ gap: 10 }}>
+                  <FloatingCard style={{ gap: 8 }}>
                     <View style={styles.cardTop}>
                       <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
                       <View style={styles.countryPill}><Text style={styles.countryPillText}>{countryDisplayName(c.country)}</Text></View>
                     </View>
-                    <Text style={styles.cardVendor}>{c.supplier?.vendor?.storeName ?? "Community Buy"}</Text>
+                    <Text style={styles.cardVendor}>
+                      Organised by {c.organiserDisplayName ?? "Community organiser"}{c.organiserVerified ? " · Verified" : ""}
+                    </Text>
+                    {c.pricePerShareMinor != null ? (
+                      <Text style={styles.cardMetaText}>
+                        {c.quantityPerOrder && c.unit ? `${c.quantityPerOrder} ${c.unit} per slot · ` : ""}
+                        {formatDisplayMoney(c.pricePerShareMinor / 100, c.currency, selectedCurrency)} per slot
+                      </Text>
+                    ) : null}
                     <RangeProgressBar value={c.confirmedShares} min={c.minimumShares!} goal={c.goalShares!} max={c.maximumShares!} />
                     <View style={styles.cardMetaRow}>
-                      <Text style={styles.cardMetaText}>Target {formatDisplayMoney(c.targetAmount / 100, c.currency, selectedCurrency)}</Text>
+                      <Text style={styles.cardMetaText}>
+                        {c.minimumShares} minimum · {Math.max(0, c.maximumShares! - c.confirmedShares)} spaces left
+                      </Text>
                       <Text style={styles.cardMetaText}>{daysLeft(c.deadline)}</Text>
                     </View>
+                    {c.collectionCity ? <Text style={styles.cardMetaText}>Collection in {c.collectionCity}</Text> : null}
                   </FloatingCard>
                 </TouchableOpacity>
               ))}

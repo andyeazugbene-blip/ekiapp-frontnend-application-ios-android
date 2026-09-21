@@ -313,6 +313,7 @@ export interface Campaign {
   confirmedShares: number;
   fundingOutcome: FundingOutcome;
   supplierCommitted: boolean;
+  supplierCommittedAt?: string | null;
   supplierDeclinedAt?: string | null;
   supplierDeclineReason?: string | null;
   rescueEndsAt?: string | null;
@@ -355,6 +356,7 @@ export interface Campaign {
   // organiser?.user?.name, which is only ever present on organiser-owned
   // reads (never a buyer-facing one).
   organiserDisplayName?: string;
+  organiserVerified?: boolean;
   // Diaspora escrow reconciliation (final V1 settlement doc, required buyer
   // disclosure) — PER-SHARE preview of Eki's buyer service fee at the
   // market's CURRENT rate; a client multiplies by chosen quantity for the
@@ -563,6 +565,9 @@ export interface SupplierPayment {
   wholesaleAmount?: number | null;
   feeAmount?: number | null;
   netAmount?: number | null;
+  // Figma S30 "provider reference" — the real Stripe transfer id, only
+  // ever set once a transfer actually succeeded (releaseSupplierPayment()).
+  stripeTransferId?: string | null;
 }
 
 // Diaspora escrow reconciliation — the organiser's own settlement record,

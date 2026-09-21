@@ -39,6 +39,19 @@ const UPDATE_POSTABLE_STATUSES = ["LIVE", "PAUSED", "RESCUE_WINDOW", "SUCCEEDED"
 // to the campaign closing out, not only while it's still in draft/review.
 const SUPPLIER_RESPONSE_STATUSES = ["DRAFT", "CHANGES_REQUIRED", "UNDER_REVIEW", "APPROVED", "LIVE", "PAUSED", "RESCUE_WINDOW"];
 
+// Figma S15 — declineSupplierCommitment() already persists any string as
+// declineReason; this is a fixed vocabulary sent through that same
+// existing call, not a new backend enum.
+const DECLINE_REASONS = [
+  "I don't have enough capacity",
+  "Product unavailable",
+  "Pricing doesn't work",
+  "I can't meet the date",
+  "Delivery requirements",
+  "Outside my coverage",
+  "Other",
+] as const;
+
 // Workstream 3 — every state that still shows the campaign dashboard (the
 // account has, at some point, been approved and isn't currently blocked).
 // PAUSED/RESTRICTED both keep existing obligations visible (restriction
@@ -87,6 +100,10 @@ export default function VendorCommunityBuySupplierScreen() {
   const [declining, setDeclining] = useState<string | null>(null);
   const [showDeclineFormId, setShowDeclineFormId] = useState<string | null>(null);
   const [declineReasonById, setDeclineReasonById] = useState<Record<string, string>>({});
+  // Figma S15 — a fixed reason list, not free text alone; declineSupplierCommitment()
+  // already accepts any string, so the chosen label + optional note is sent as-is,
+  // no backend change needed.
+  const [declineReasonChoiceById, setDeclineReasonChoiceById] = useState<Record<string, string>>({});
   const [showUpdateFormId, setShowUpdateFormId] = useState<string | null>(null);
   const [updateTitleById, setUpdateTitleById] = useState<Record<string, string>>({});
   const [updateMessageById, setUpdateMessageById] = useState<Record<string, string>>({});
@@ -194,9 +211,12 @@ export default function VendorCommunityBuySupplierScreen() {
   };
 
   const handleDeclineCampaign = async (campaignId: string) => {
+    const reasonChoice = declineReasonChoiceById[campaignId];
+    const note = declineReasonById[campaignId]?.trim();
+    const reason = [reasonChoice, note].filter(Boolean).join(": ") || undefined;
     setDeclining(campaignId);
     try {
-      await communityBuyService.declineSupplierCommitment(campaignId, declineReasonById[campaignId]?.trim() || undefined);
+      await communityBuyService.declineSupplierCommitment(campaignId, reason);
       setShowDeclineFormId(null);
       await load();
     } catch (err) {
@@ -495,14 +515,33 @@ export default function VendorCommunityBuySupplierScreen() {
                           </View>
                           {showDeclineFormId === c.id ? (
                             <View style={styles.inlineForm}>
+                              <Text style={styles.hint}>Why are you declining?</Text>
+                              {DECLINE_REASONS.map((reason) => (
+                                <TouchableOpacity
+                                  key={reason}
+                                  onPress={() => setDeclineReasonChoiceById((prev) => ({ ...prev, [c.id]: reason }))}
+                                  activeOpacity={0.85}
+                                  style={styles.declineReasonRow}
+                                  accessibilityRole="radio"
+                                  accessibilityLabel={reason}
+                                  accessibilityState={{ selected: declineReasonChoiceById[c.id] === reason }}
+                                >
+                                  <Ionicons
+                                    name={declineReasonChoiceById[c.id] === reason ? "radio-button-on" : "radio-button-off"}
+                                    size={16}
+                                    color={declineReasonChoiceById[c.id] === reason ? "#076B51" : "#8AA194"}
+                                  />
+                                  <Text style={styles.declineReasonText}>{reason}</Text>
+                                </TouchableOpacity>
+                              ))}
                               <TextInput
                                 style={[styles.input, styles.inputMultiline]}
-                                placeholder="Why are you declining? (optional)"
+                                placeholder="Add a note (optional)"
                                 placeholderTextColor="#8AA194"
                                 value={declineReasonById[c.id] ?? ""}
                                 onChangeText={(text) => setDeclineReasonById((prev) => ({ ...prev, [c.id]: text }))}
                                 multiline
-                                accessibilityLabel="Reason for declining"
+                                accessibilityLabel="Additional note for declining"
                               />
                               <Text style={styles.hint}>The organiser will be notified and will need to choose a different supplier.</Text>
                               <TouchableOpacity
@@ -512,12 +551,12 @@ export default function VendorCommunityBuySupplierScreen() {
                                     { text: "Decline", style: "destructive", onPress: () => void handleDeclineCampaign(c.id) },
                                   ]);
                                 }}
-                                disabled={declining === c.id}
+                                disabled={declining === c.id || !declineReasonChoiceById[c.id]}
                                 activeOpacity={0.88}
-                                style={styles.declineConfirmBtn}
+                                style={[styles.declineConfirmBtn, !declineReasonChoiceById[c.id] && { opacity: 0.5 }]}
                                 accessibilityRole="button"
                                 accessibilityLabel="Confirm decline"
-                                accessibilityState={{ busy: declining === c.id, disabled: declining === c.id }}
+                                accessibilityState={{ busy: declining === c.id, disabled: declining === c.id || !declineReasonChoiceById[c.id] }}
                               >
                                 {declining === c.id ? <ActivityIndicator size="small" color="#D6552F" /> : <Text style={styles.declineBtnText}>Confirm decline</Text>}
                               </TouchableOpacity>
@@ -530,10 +569,21 @@ export default function VendorCommunityBuySupplierScreen() {
                           <Text style={styles.declinedText}>You declined this campaign{c.supplierDeclineReason ? `: ${c.supplierDeclineReason}` : ""}</Text>
                         </View>
                       ) : c.supplierCommitted ? (
-                        <View style={styles.committedRow}>
-                          <Ionicons name="checkmark-circle" size={14} color="#076B51" />
-                          <Text style={styles.committedText}>You've accepted this campaign</Text>
-                        </View>
+                        <FloatingCard style={styles.acceptedCard}>
+                          <View style={styles.committedRow}>
+                            <Ionicons name="checkmark-circle" size={14} color="#076B51" />
+                            <Text style={styles.committedText}>Campaign accepted — you are confirmed as the supplier</Text>
+                          </View>
+                          {c.organiser?.user?.name ? <Text style={styles.acceptedMeta}>Organised by {c.organiser.user.name}</Text> : null}
+                          {c.supplierCommittedAt ? <Text style={styles.acceptedMeta}>Terms accepted {formatDeadline(c.supplierCommittedAt)}</Text> : null}
+                          <Text style={styles.acceptedMeta}>
+                            Next milestone: {["DRAFT", "CHANGES_REQUIRED", "UNDER_REVIEW", "APPROVED"].includes(c.status)
+                              ? "Eki review"
+                              : ["LIVE", "PAUSED", "RESCUE_WINDOW"].includes(c.status)
+                                ? `Campaign closes ${formatDeadline(c.deadline)}`
+                                : CAMPAIGN_STATUS_LABELS[c.status]}
+                          </Text>
+                        </FloatingCard>
                       ) : null}
 
                       {/* Phase 5 (organiser<->supplier negotiation) — separate from the
@@ -667,6 +717,8 @@ const styles = StyleSheet.create({
   proposeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", marginTop: 6 },
   proposeBtnText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   committedRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+  acceptedCard: { gap: 4, marginTop: 6 },
+  acceptedMeta: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72" },
   committedText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#076B51" },
   declinedRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 4 },
   declinedText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", lineHeight: 16 },
@@ -678,5 +730,7 @@ const styles = StyleSheet.create({
   input: { backgroundColor: "#F4F6F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 13, fontFamily: "Outfit-Regular", color: "#151E1B" },
   inputMultiline: { minHeight: 60, textAlignVertical: "top" },
   hint: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194" },
+  declineReasonRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 },
+  declineReasonText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#151E1B" },
   linkText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
 });

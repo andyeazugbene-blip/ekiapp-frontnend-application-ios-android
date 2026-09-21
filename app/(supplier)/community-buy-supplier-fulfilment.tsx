@@ -444,6 +444,12 @@ export default function CommunityBuySupplierFulfilmentScreen() {
                     <Text style={styles.payoutTotalValue}>{formatDisplayMoney(netAmount / 100, payment.currency, selectedCurrency)}</Text>
                   </View>
                   {payment.holdReason ? <Text style={styles.holdReason}>{payment.holdReason}</Text> : null}
+                  {payment.stripeTransferId ? (
+                    <View style={styles.paymentRow}>
+                      <Text style={styles.paymentLabel}>Provider reference</Text>
+                      <Text style={styles.paymentValue} numberOfLines={1}>{payment.stripeTransferId}</Text>
+                    </View>
+                  ) : null}
                 </FloatingCard>
               );
             })() : (
