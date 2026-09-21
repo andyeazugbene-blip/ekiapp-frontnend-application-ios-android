@@ -43,6 +43,7 @@ export default function BuyerNotificationsScreen() {
   const [error, setError] = useState("");
   const [smsMarketing, setSmsMarketing] = useState(false);
   const [smsTransactional, setSmsTransactional] = useState(true);
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,6 +56,7 @@ export default function BuyerNotificationsScreen() {
       setItems(list ?? []);
       setSmsMarketing(preferences.smsMarketing);
       setSmsTransactional(preferences.smsTransactional);
+      setMarketingConsent(preferences.marketingConsent);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load notifications.");
     } finally {
@@ -86,13 +88,15 @@ export default function BuyerNotificationsScreen() {
 
   const hasUnread = items.some((n) => !n.read);
 
-  const updatePreferences = async (next: { smsMarketing?: boolean; smsTransactional?: boolean }) => {
+  const updatePreferences = async (next: { smsMarketing?: boolean; smsTransactional?: boolean; marketingConsent?: boolean }) => {
     if (next.smsMarketing !== undefined) setSmsMarketing(next.smsMarketing);
     if (next.smsTransactional !== undefined) setSmsTransactional(next.smsTransactional);
+    if (next.marketingConsent !== undefined) setMarketingConsent(next.marketingConsent);
     try {
       const saved = await notificationService.updatePreferences(next);
       setSmsMarketing(saved.smsMarketing);
       setSmsTransactional(saved.smsTransactional);
+      setMarketingConsent(saved.marketingConsent);
     } catch {
       await load();
     }
@@ -137,6 +141,18 @@ export default function BuyerNotificationsScreen() {
             onValueChange={(value) => void updatePreferences({ smsMarketing: value })}
             trackColor={{ true: "#85C5AE" }}
             thumbColor={smsMarketing ? "#076B51" : "#F4F4F4"}
+          />
+        </View>
+        <View style={styles.preferenceCard}>
+          <View style={styles.preferenceCopy}>
+            <Text style={styles.preferenceTitle}>Marketing push &amp; email</Text>
+            <Text style={styles.preferenceBody}>Cart reminders, win-back offers, reorder and review prompts, and referral nudges. Order and account updates are never affected by this.</Text>
+          </View>
+          <Switch
+            value={marketingConsent}
+            onValueChange={(value) => void updatePreferences({ marketingConsent: value })}
+            trackColor={{ true: "#85C5AE" }}
+            thumbColor={marketingConsent ? "#076B51" : "#F4F4F4"}
           />
         </View>
         {loading && items.length === 0 ? (

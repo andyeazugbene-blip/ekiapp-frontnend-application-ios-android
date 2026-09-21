@@ -43,6 +43,7 @@ export default function NotificationsScreen() {
   const [error, setError] = useState("");
   const [smsMarketing, setSmsMarketing] = useState(false);
   const [smsTransactional, setSmsTransactional] = useState(true);
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,6 +56,7 @@ export default function NotificationsScreen() {
       setItems(list ?? []);
       setSmsMarketing(preferences.smsMarketing);
       setSmsTransactional(preferences.smsTransactional);
+      setMarketingConsent(preferences.marketingConsent);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load notifications.");
     } finally {
@@ -86,13 +88,15 @@ export default function NotificationsScreen() {
 
   const hasUnread = items.some((n) => !n.read);
 
-  const updatePreferences = async (next: { smsMarketing?: boolean; smsTransactional?: boolean }) => {
+  const updatePreferences = async (next: { smsMarketing?: boolean; smsTransactional?: boolean; marketingConsent?: boolean }) => {
     if (next.smsMarketing !== undefined) setSmsMarketing(next.smsMarketing);
     if (next.smsTransactional !== undefined) setSmsTransactional(next.smsTransactional);
+    if (next.marketingConsent !== undefined) setMarketingConsent(next.marketingConsent);
     try {
       const saved = await notificationService.updatePreferences(next);
       setSmsMarketing(saved.smsMarketing);
       setSmsTransactional(saved.smsTransactional);
+      setMarketingConsent(saved.marketingConsent);
     } catch {
       await load();
     }

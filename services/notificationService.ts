@@ -60,12 +60,17 @@ export const notificationService = {
     await apiClient.patch<void>("/api/notifications/read-all", {});
   },
 
-  async getPreferences(): Promise<{ smsMarketing: boolean; smsTransactional: boolean }> {
+  async getPreferences(): Promise<{ smsMarketing: boolean; smsTransactional: boolean; marketingConsent: boolean }> {
     return apiClient.get("/api/notifications/preferences");
   },
 
-  async updatePreferences(input: { smsMarketing?: boolean; smsTransactional?: boolean }): Promise<{ smsMarketing: boolean; smsTransactional: boolean }> {
+  async updatePreferences(input: { smsMarketing?: boolean; smsTransactional?: boolean; marketingConsent?: boolean }): Promise<{ smsMarketing: boolean; smsTransactional: boolean; marketingConsent: boolean }> {
     return apiClient.patch("/api/notifications/preferences", input);
+  },
+
+  async getUnreadCount(): Promise<number> {
+    const res = await apiClient.get<{ count: number }>("/api/notifications/unread-count");
+    return res.count ?? 0;
   },
 };
 
