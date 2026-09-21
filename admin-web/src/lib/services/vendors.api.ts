@@ -141,18 +141,18 @@ export const vendorsAPI = {
     return (res.markets ?? []).map(normalizeVendorMarket);
   },
 
-  async addVendorMarket(vendorId: string, market: string, reason?: string): Promise<VendorMarket> {
-    const res = await apiClient.post<{ market: any }>(`/admin/vendors/${vendorId}/markets`, { market, reason });
+  async addVendorMarket(vendorId: string, market: string, reason?: string, twoFactorCode?: string): Promise<VendorMarket> {
+    const res = await apiClient.post<{ market: any }>(`/admin/vendors/${vendorId}/markets`, { market, reason }, { twoFactorCode });
     return normalizeVendorMarket(res.market);
   },
 
-  async setVendorMarketEnabled(vendorId: string, marketCode: string, enabled: boolean, reason?: string): Promise<VendorMarket> {
-    const res = await apiClient.patch<{ market: any }>(`/admin/vendors/${vendorId}/markets/${marketCode}`, { enabled, reason });
+  async setVendorMarketEnabled(vendorId: string, marketCode: string, enabled: boolean, reason?: string, twoFactorCode?: string): Promise<VendorMarket> {
+    const res = await apiClient.patch<{ market: any }>(`/admin/vendors/${vendorId}/markets/${marketCode}`, { enabled, reason }, { twoFactorCode });
     return normalizeVendorMarket(res.market);
   },
 
-  async removeVendorMarket(vendorId: string, marketCode: string): Promise<void> {
-    await apiClient.delete(`/admin/vendors/${vendorId}/markets/${marketCode}`);
+  async removeVendorMarket(vendorId: string, marketCode: string, twoFactorCode?: string): Promise<void> {
+    await apiClient.delete(`/admin/vendors/${vendorId}/markets/${marketCode}`, { twoFactorCode });
   },
 };
 

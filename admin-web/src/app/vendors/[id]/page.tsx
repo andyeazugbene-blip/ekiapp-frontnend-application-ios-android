@@ -194,6 +194,11 @@ function VendorMarketsCard({ vendorId }: { vendorId: string }) {
   const [error, setError] = useState("");
   const [busyCode, setBusyCode] = useState<string | null>(null);
   const [addValue, setAddValue] = useState("");
+  // Phase 8 — add/toggle/remove are all 2FA-gated server-side (require2fa),
+  // but this card never had a retry path. Own hook instance since this is
+  // a self-contained child component the parent's twoFactor isn't passed
+  // into.
+  const twoFactor = useTwoFactorAction();
 
   const load = useCallback(async () => {
     try {
@@ -215,18 +220,15 @@ function VendorMarketsCard({ vendorId }: { vendorId: string }) {
 
   const handleAdd = async () => {
     if (!addValue) return;
+    const reason = prompt("Reason for adding this market (for the audit log):") ?? undefined;
     setBusyCode("adding");
     setError("");
-    try {
-      const reason = prompt("Reason for adding this market (for the audit log):") ?? undefined;
-      await vendorsAPI.addVendorMarket(vendorId, addValue, reason);
+    await twoFactor.run(async (code) => {
+      await vendorsAPI.addVendorMarket(vendorId, addValue, reason, code);
       setAddValue("");
       await load();
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Could not add market");
-    } finally {
-      setBusyCode(null);
-    }
+    });
+    setBusyCode(null);
   };
 
   const handleToggle = async (market: VendorMarket) => {
@@ -234,17 +236,14 @@ function VendorMarketsCard({ vendorId }: { vendorId: string }) {
       alert("A vendor must have at least one active market — add another market before disabling this one.");
       return;
     }
+    const reason = prompt(`Reason for ${market.enabled ? "disabling" : "enabling"} ${market.countryName} (for the audit log):`) ?? undefined;
     setBusyCode(market.marketCode);
     setError("");
-    try {
-      const reason = prompt(`Reason for ${market.enabled ? "disabling" : "enabling"} ${market.countryName} (for the audit log):`) ?? undefined;
-      await vendorsAPI.setVendorMarketEnabled(vendorId, market.marketCode, !market.enabled, reason);
+    await twoFactor.run(async (code) => {
+      await vendorsAPI.setVendorMarketEnabled(vendorId, market.marketCode, !market.enabled, reason, code);
       await load();
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Could not update market");
-    } finally {
-      setBusyCode(null);
-    }
+    });
+    setBusyCode(null);
   };
 
   const handleRemove = async (market: VendorMarket) => {
@@ -255,14 +254,11 @@ function VendorMarketsCard({ vendorId }: { vendorId: string }) {
     if (!confirm(`Remove ${market.countryName} from this vendor's markets? This cannot be undone from here.`)) return;
     setBusyCode(market.marketCode);
     setError("");
-    try {
-      await vendorsAPI.removeVendorMarket(vendorId, market.marketCode);
+    await twoFactor.run(async (code) => {
+      await vendorsAPI.removeVendorMarket(vendorId, market.marketCode, code);
       await load();
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Could not remove market");
-    } finally {
-      setBusyCode(null);
-    }
+    });
+    setBusyCode(null);
   };
 
   return (
@@ -272,6 +268,7 @@ function VendorMarketsCard({ vendorId }: { vendorId: string }) {
         Each market resolves its own currency independently. The vendor&apos;s primary market/currency above is unaffected by these.
       </p>
       {error ? <ErrorPanel message={error} onRetry={load} /> : null}
+      {twoFactor.error ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{twoFactor.error}</div> : null}
       {loading ? (
         <p className="text-sm text-gray-500">Loading...</p>
       ) : (
@@ -315,6 +312,16 @@ function VendorMarketsCard({ vendorId }: { vendorId: string }) {
           </Button>
         </div>
       ) : null}
+
+      <TwoFactorModal
+        open={twoFactor.show2FAModal}
+        code={twoFactor.code}
+        onCodeChange={twoFactor.setCode}
+        onSubmit={() => void twoFactor.submit2FA()}
+        onCancel={twoFactor.cancel2FA}
+        loading={twoFactor.loading}
+        error={twoFactor.error}
+      />
     </Card>
   );
 }

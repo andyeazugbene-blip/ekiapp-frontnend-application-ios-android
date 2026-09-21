@@ -110,12 +110,16 @@ export const ordersAPI = {
     await apiClient.prefetch(`/admin/orders/${orderId}`);
   },
 
-  async completeOrder(orderId: string): Promise<void> {
-    await apiClient.patch(`/admin/orders/${orderId}/complete`, {});
+  // Phase 8 — 2FA-gated server-side (require2fa); no admin-web page calls
+  // this yet, but the method itself should carry the param so a future
+  // caller doesn't reintroduce the same missing-retry bug fixed elsewhere
+  // this phase (community-campaigns cancel, refunds, supplier-accounts).
+  async completeOrder(orderId: string, twoFactorCode?: string): Promise<void> {
+    await apiClient.patch(`/admin/orders/${orderId}/complete`, {}, { twoFactorCode });
   },
 
-  async forceProcessOrder(orderId: string): Promise<any> {
-    return apiClient.post(`/admin/orders/${orderId}/force-process`, {});
+  async forceProcessOrder(orderId: string, twoFactorCode?: string): Promise<any> {
+    return apiClient.post(`/admin/orders/${orderId}/force-process`, {}, { twoFactorCode });
   },
 
   /**
