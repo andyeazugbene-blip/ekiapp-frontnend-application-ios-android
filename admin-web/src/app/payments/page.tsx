@@ -75,7 +75,7 @@ export default function PaymentsPage() {
             </select>
           </div>
 
-          <div className="overflow-hidden rounded-lg bg-white shadow">
+          <div className="overflow-x-auto rounded-lg bg-white shadow">
             {payments.length === 0 ? (
               <div className="py-12 text-center text-gray-500">No payments found.</div>
             ) : (

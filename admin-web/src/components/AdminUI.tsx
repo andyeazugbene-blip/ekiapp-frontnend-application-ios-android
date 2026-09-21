@@ -174,6 +174,41 @@ export function ErrorPanel({ message, onRetry }: { message: string; onRetry?: ()
   );
 }
 
+/** Pairs with useTwoFactorAction() — the one 2FA step-up prompt shared by
+ * every admin mutation that needs it, instead of a hand-rolled copy per page. */
+export function TwoFactorModal({
+  open, code, onCodeChange, onSubmit, onCancel, loading, error,
+}: {
+  open: boolean;
+  code: string;
+  onCodeChange: (value: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  loading?: boolean;
+  error?: string;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+      <Card className="w-full max-w-md">
+        <h3 className="text-xl font-black text-[#101820]">2FA Required</h3>
+        <p className="mt-2 text-sm text-slate-500">Enter your 6-digit authenticator code (or a backup code) to continue.</p>
+        {error ? <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</div> : null}
+        <input
+          value={code}
+          onChange={(e) => onCodeChange(e.target.value)}
+          placeholder="000000"
+          className="mt-4 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-[#096B4A]"
+        />
+        <div className="mt-4 flex gap-3">
+          <Button className="flex-1" disabled={loading || !code} onClick={onSubmit}>{loading ? "Submitting..." : "Submit"}</Button>
+          <Button className="flex-1" variant="ghost" disabled={loading} onClick={onCancel}>Cancel</Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export function TextLink({ href, children }: { href: string; children: ReactNode }) {
   return <Link href={href} className="inline-flex items-center gap-2 text-sm font-bold text-[#096B4A] hover:underline">{children}</Link>;
 }

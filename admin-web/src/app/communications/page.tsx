@@ -299,7 +299,7 @@ export default function CommunicationsPage() {
                 </select>
               </div>
 
-              <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+              <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -427,7 +427,7 @@ export default function CommunicationsPage() {
                 </button>
               </div>
 
-              <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+              <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>

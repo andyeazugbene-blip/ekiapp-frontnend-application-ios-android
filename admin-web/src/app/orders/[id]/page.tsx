@@ -197,6 +197,7 @@ export default function OrderDetailPage() {
               </SectionCard>
 
               <SectionCard title="Items Ordered">
+                <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100">
@@ -217,6 +218,7 @@ export default function OrderDetailPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </SectionCard>
             </div>
 

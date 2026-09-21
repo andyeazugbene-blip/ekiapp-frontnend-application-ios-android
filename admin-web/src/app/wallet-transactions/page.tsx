@@ -76,7 +76,7 @@ export default function WalletTransactionsPage() {
             </select>
           </div>
 
-          <div className="overflow-hidden rounded-lg bg-white shadow">
+          <div className="overflow-x-auto rounded-lg bg-white shadow">
             {transactions.length === 0 ? (
               <div className="py-12 text-center text-gray-500">No wallet transactions found.</div>
             ) : (

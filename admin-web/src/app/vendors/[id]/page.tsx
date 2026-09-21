@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader, TextLink } from "@/components/AdminUI";
+import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader, TextLink, TwoFactorModal } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
 import { vendorsAPI, type VendorMarket } from "@/lib/services/vendors.api";
 import { ordersAPI } from "@/lib/services/orders.api";
 import { COUNTRIES, countryDisplayName } from "@/lib/countries";
+import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
 
 export default function VendorDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,12 @@ export default function VendorDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency("EUR");
+  // Acceptance audit fix: this page's own admin actions (suspend/unsuspend/
+  // delete are 2FA-gated on the backend) had no try/catch at all — a
+  // required-2FA response was an unhandled promise rejection with no
+  // modal, no message, no state refresh. Mirrors the same handling
+  // vendors/page.tsx's list view already has for the identical mutations.
+  const twoFactor = useTwoFactorAction();
 
   const load = useCallback(async () => {
     try { setLoading(true); setError("");
@@ -133,20 +140,31 @@ export default function VendorDetailPage() {
       <VendorMarketsCard vendorId={data.id} />
 
       <Card><h2 className="text-lg font-bold mb-4">Admin Actions</h2>
+        {twoFactor.error ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{twoFactor.error}</div> : null}
         <div className="flex flex-wrap gap-3">
           {data.adminStatus === "pending" && <>
-            <Button onClick={async () => { await vendorsAPI.approveVendor(data.id); await load(); }}>Approve</Button>
-            <Button variant="danger" onClick={async () => { if (!confirm("Reject this vendor?")) return; await vendorsAPI.rejectVendor(data.id); await load(); }}>Reject</Button>
+            <Button disabled={twoFactor.loading} onClick={() => void twoFactor.run(async () => { await vendorsAPI.approveVendor(data.id); await load(); })}>Approve</Button>
+            <Button variant="danger" disabled={twoFactor.loading} onClick={() => { if (!confirm("Reject this vendor?")) return; void twoFactor.run(async () => { await vendorsAPI.rejectVendor(data.id); await load(); }); }}>Reject</Button>
           </>}
-          {data.adminStatus === "active" && <Button variant="danger" onClick={async () => { if (!confirm("Suspend this vendor?")) return; await vendorsAPI.suspendVendor(data.id); await load(); }}>Suspend</Button>}
-          {data.adminStatus === "suspended" && <Button onClick={async () => { await vendorsAPI.unsuspendVendor(data.id); await load(); }}>Reactivate</Button>}
+          {data.adminStatus === "active" && <Button variant="danger" disabled={twoFactor.loading} onClick={() => { if (!confirm("Suspend this vendor?")) return; void twoFactor.run(async (code) => { await vendorsAPI.suspendVendor(data.id, code); await load(); }); }}>Suspend</Button>}
+          {data.adminStatus === "suspended" && <Button disabled={twoFactor.loading} onClick={() => void twoFactor.run(async (code) => { await vendorsAPI.unsuspendVendor(data.id, code); await load(); })}>Reactivate</Button>}
           <Button variant="secondary" onClick={() => router.push(`/communication?vendorId=${data.id}`)}>Send Message</Button>
           <Button variant="secondary" onClick={() => router.push(`/orders?vendorId=${data.id}`)}>View Orders</Button>
           <Button variant="secondary" onClick={() => router.push(`/disputes?vendorId=${data.id}`)}>View Disputes</Button>
           <Button variant="secondary" onClick={() => router.push(`/verification?vendorId=${data.id}`)}>View Verification</Button>
-          <Button variant="danger" onClick={async () => { if (!confirm("Permanently delete this vendor account? This cannot be undone.")) return; try { const result = await vendorsAPI.deleteVendor(data.id); alert(result.message); router.push("/vendors"); } catch (err) { alert(err instanceof APIError ? err.message : "Delete failed"); } }}>Delete Vendor</Button>
+          <Button variant="danger" disabled={twoFactor.loading} onClick={() => { if (!confirm("Permanently delete this vendor account? This cannot be undone.")) return; void twoFactor.run(async (code) => { const result = await vendorsAPI.deleteVendor(data.id, code); alert(result.message); router.push("/vendors"); }); }}>Delete Vendor</Button>
         </div>
       </Card>
+
+      <TwoFactorModal
+        open={twoFactor.show2FAModal}
+        code={twoFactor.code}
+        onCodeChange={twoFactor.setCode}
+        onSubmit={() => void twoFactor.submit2FA()}
+        onCancel={twoFactor.cancel2FA}
+        loading={twoFactor.loading}
+        error={twoFactor.error}
+      />
     </div></AdminLayout></ProtectedRoute>
   );
 }

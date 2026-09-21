@@ -52,7 +52,8 @@ export default function VendorsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [show2FAModal, setShow2FAModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<{ vendorId: string; action: "approve" | "reject" | "suspend" | "unsuspend" } | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ vendorId: string; action: "approve" | "reject" | "suspend" | "unsuspend" | "delete" } | null>(null);
+  const [deleteResultMsg, setDeleteResultMsg] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -109,20 +110,33 @@ export default function VendorsPage() {
 
   const countries = useMemo(() => [...new Set(vendors.map(v => v.country).filter(Boolean))].sort(), [vendors]);
 
-  const performAction = async (vendorId: string, action: "approve" | "reject" | "suspend" | "unsuspend", code?: string) => {
+  const performAction = async (vendorId: string, action: "approve" | "reject" | "suspend" | "unsuspend" | "delete", code?: string) => {
     if (action === "approve") await vendorsAPI.approveVendor(vendorId);
     if (action === "reject") await vendorsAPI.rejectVendor(vendorId);
     if (action === "suspend") await vendorsAPI.suspendVendor(vendorId, code);
     if (action === "unsuspend") await vendorsAPI.unsuspendVendor(vendorId, code);
+    if (action === "delete") {
+      const result = await vendorsAPI.deleteVendor(vendorId, code);
+      setDeleteResultMsg(result.message);
+    }
   };
 
-  const handleAction = async (vendorId: string, action: "approve" | "reject" | "suspend" | "unsuspend") => {
-    if (!confirm(`Are you sure you want to ${action} this vendor?`)) return;
+  const handleAction = async (vendorId: string, action: "approve" | "reject" | "suspend" | "unsuspend" | "delete") => {
+    const confirmMsg = action === "delete"
+      ? "Permanently delete this vendor account? This cannot be undone."
+      : `Are you sure you want to ${action} this vendor?`;
+    if (!confirm(confirmMsg)) return;
     try {
       setActionLoading(vendorId);
       await performAction(vendorId, action);
       await loadVendors();
+      if (action === "delete" && deleteResultMsg) { alert(deleteResultMsg); setDeleteResultMsg(""); }
     } catch (err) {
+      // Acceptance audit fix: this delete-vendor button previously had no
+      // 2FA handling at all, even though DELETE /vendors/:id requires it —
+      // it always failed with an unhandled/generic error once the acting
+      // admin had 2FA enabled. Now routes through the same modal as
+      // suspend/unsuspend.
       if (err instanceof API2FARequiredError) { setPendingAction({ vendorId, action }); setShow2FAModal(true); }
       else alert(err instanceof APIError ? err.message : `Failed to ${action} vendor`);
     } finally { setActionLoading(null); }
@@ -134,6 +148,7 @@ export default function VendorsPage() {
       setActionLoading(pendingAction.vendorId);
       await performAction(pendingAction.vendorId, pendingAction.action, twoFactorCode);
       await loadVendors();
+      if (pendingAction.action === "delete" && deleteResultMsg) { alert(deleteResultMsg); setDeleteResultMsg(""); }
       setShow2FAModal(false); setTwoFactorCode(""); setPendingAction(null);
     } catch (err) { alert(err instanceof APIError ? err.message : "2FA action failed"); }
     finally { setActionLoading(null); }
@@ -303,17 +318,9 @@ export default function VendorsPage() {
                           <td className="px-4 py-3.5 text-right">
                             <button
                               disabled={actionLoading === vendor.id}
-                              onClick={async (e) => {
+                              onClick={(e) => {
                                 e.stopPropagation();
-                                if (!confirm(`Permanently delete vendor "${vendor.storeName}"? This cannot be undone.`)) return;
-                                try {
-                                  setActionLoading(vendor.id);
-                                  const result = await vendorsAPI.deleteVendor(vendor.id);
-                                  alert(result.message);
-                                  await loadVendors();
-                                } catch (err) {
-                                  alert(err instanceof APIError ? err.message : "Delete failed");
-                                } finally { setActionLoading(null); }
+                                void handleAction(vendor.id, "delete");
                               }}
                               className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-red-500 hover:bg-red-50 disabled:opacity-40"
                             >

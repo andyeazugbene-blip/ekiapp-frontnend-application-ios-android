@@ -14,14 +14,6 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("General");
   const [apiStatus, setApiStatus] = useState<"checking" | "connected" | "error">("checking");
-  const [saved, setSaved] = useState("");
-  const [toggles, setToggles] = useState({
-    vendorRegistration: true,
-    autoApprove: false,
-    requireVerification: true,
-    autoPayoutReview: false,
-    enableMarketplace: true,
-  });
 
   const checkAPIStatus = async () => {
     try {
@@ -37,10 +29,12 @@ export default function SettingsPage() {
     void checkAPIStatus();
   }, []);
 
-  const save = (section: string) => {
-    setSaved(`${section} saved in this admin session. Add the platform settings endpoint to persist this globally.`);
-    setTimeout(() => setSaved(""), 5000);
-  };
+  // Acceptance audit fix: no backend endpoint exists for these
+  // platform-level settings — the fields below used to accept edits and
+  // show a "saved" confirmation that persisted nothing at all. Disabled
+  // (with an honest reason) rather than faked, matching the pattern
+  // already used elsewhere on this page (brand asset upload, danger zone).
+  const NOT_WIRED = "Not yet configurable — no backend settings endpoint exists for this.";
 
   return (
     <ProtectedRoute>
@@ -56,32 +50,30 @@ export default function SettingsPage() {
             ))}
           </div>
 
-          {saved ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-bold text-amber-800">{saved}</div> : null}
-
           {activeTab === "General" ? (
             <>
               <div className="grid gap-6 xl:grid-cols-2">
                 <Card>
                   <h2 className="text-xl font-black">Platform information</h2>
-                  <p className="mt-2 text-slate-500">Update your platform details.</p>
+                  <p className="mt-2 text-slate-500">Reference only — not yet editable from here.</p>
                   <div className="mt-8 space-y-6">
-                    <Field label="Platform name" defaultValue="Eki Marketplace" />
-                    <Field label="Support email" defaultValue="support@eki.com" />
-                    <Select label="Timezone" options={["(UTC+01:00) West Africa Time (WAT)", "(UTC+00:00) United Kingdom"]} />
-                    <Select label="Language" options={["English", "French"]} />
+                    <Field label="Platform name" defaultValue="Eki Marketplace" disabled />
+                    <Field label="Support email" defaultValue="support@eki.com" disabled />
+                    <Select label="Timezone" options={["(UTC+01:00) West Africa Time (WAT)", "(UTC+00:00) United Kingdom"]} disabled />
+                    <Select label="Language" options={["English", "French"]} disabled />
                   </div>
-                  <div className="mt-6 text-right"><Button onClick={() => save("Platform information")}>Save changes</Button></div>
+                  <div className="mt-6 text-right"><Button disabled title={NOT_WIRED}>Save changes</Button></div>
                 </Card>
 
                 <Card>
                   <h2 className="text-xl font-black">Business settings</h2>
-                  <p className="mt-2 text-slate-500">Configure marketplace business preferences.</p>
+                  <p className="mt-2 text-slate-500">Reference only — not yet editable from here.</p>
                   <div className="mt-8 divide-y divide-slate-100">
-                    <ToggleRow icon="vendors" title="Vendor registration" subtitle="Allow new vendors to register" value={toggles.vendorRegistration} onChange={() => setToggles((s) => ({ ...s, vendorRegistration: !s.vendorRegistration }))} />
-                    <ToggleRow icon="verification" title="Auto approve vendors" subtitle="Automatically approve new vendor registrations" value={toggles.autoApprove} onChange={() => setToggles((s) => ({ ...s, autoApprove: !s.autoApprove }))} />
-                    <ToggleRow icon="settings" title="Require verification" subtitle="Require document verification for vendors" value={toggles.requireVerification} onChange={() => setToggles((s) => ({ ...s, requireVerification: !s.requireVerification }))} />
-                    <ToggleRow icon="money" title="Auto payout review" subtitle="Automatically queue eligible payouts after delivery confirmation" value={toggles.autoPayoutReview} onChange={() => setToggles((s) => ({ ...s, autoPayoutReview: !s.autoPayoutReview }))} />
-                    <ToggleRow icon="overview" title="Enable marketplace" subtitle="Make the marketplace live for all users" value={toggles.enableMarketplace} onChange={() => setToggles((s) => ({ ...s, enableMarketplace: !s.enableMarketplace }))} />
+                    <ToggleRow icon="vendors" title="Vendor registration" subtitle="Allow new vendors to register" value={true} disabled reason={NOT_WIRED} />
+                    <ToggleRow icon="verification" title="Auto approve vendors" subtitle="Automatically approve new vendor registrations" value={false} disabled reason={NOT_WIRED} />
+                    <ToggleRow icon="settings" title="Require verification" subtitle="Require document verification for vendors" value={true} disabled reason={NOT_WIRED} />
+                    <ToggleRow icon="money" title="Auto payout review" subtitle="Automatically queue eligible payouts after delivery confirmation" value={false} disabled reason={NOT_WIRED} />
+                    <ToggleRow icon="overview" title="Enable marketplace" subtitle="Make the marketplace live for all users" value={true} disabled reason={NOT_WIRED} />
                   </div>
                 </Card>
               </div>
@@ -89,26 +81,26 @@ export default function SettingsPage() {
               <div className="grid gap-6 xl:grid-cols-2">
                 <Card>
                   <h2 className="text-xl font-black">Default commission</h2>
-                  <p className="mt-2 text-slate-500">Set your default marketplace commission.</p>
+                  <p className="mt-2 text-slate-500">Reference only — not yet editable from here.</p>
                   <div className="mt-8 grid gap-6 md:grid-cols-2">
-                    <Select label="Commission type" options={["Percentage (%)", "Fixed amount"]} />
-                    <Field label="Commission rate" defaultValue="5" suffix="%" />
+                    <Select label="Commission type" options={["Percentage (%)", "Fixed amount"]} disabled />
+                    <Field label="Commission rate" defaultValue="5" suffix="%" disabled />
                   </div>
                   <p className="mt-4 text-sm text-slate-500">Plan-specific platform fees are managed in Seller Plans.</p>
-                  <div className="mt-6 text-right"><Button onClick={() => save("Default commission")}>Save changes</Button></div>
+                  <div className="mt-6 text-right"><Button disabled title={NOT_WIRED}>Save changes</Button></div>
                 </Card>
                 <Card>
                   <h2 className="text-xl font-black">Branding</h2>
-                  <p className="mt-2 text-slate-500">Customize your marketplace branding.</p>
+                  <p className="mt-2 text-slate-500">Reference only — not yet editable from here.</p>
                   <div className="mt-8 flex items-center justify-between border-b border-slate-200 pb-6">
                     <div className="flex items-center gap-4 text-3xl font-black"><span className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#096B4A] text-white"><Icon name="orders" /></span>Eki</div>
-                    <Button variant="secondary" disabled title="Brand asset upload needs a backend settings endpoint."><Icon name="export" /> Upload new</Button>
+                    <Button variant="secondary" disabled title={NOT_WIRED}><Icon name="export" /> Upload new</Button>
                   </div>
                   <div className="mt-8 grid gap-6 md:grid-cols-2">
                     <Color label="Primary color" value="#096B4A" />
                     <Color label="Secondary color" value="#F3F4F6" />
                   </div>
-                  <div className="mt-6 text-right"><Button onClick={() => save("Branding")}>Save changes</Button></div>
+                  <div className="mt-6 text-right"><Button disabled title={NOT_WIRED}>Save changes</Button></div>
                 </Card>
               </div>
 
@@ -135,16 +127,16 @@ export default function SettingsPage() {
   );
 }
 
-function Field({ label, defaultValue, suffix }: { label: string; defaultValue: string; suffix?: string }) {
-  return <label className="block"><span className="text-sm font-bold text-slate-700">{label}</span><div className="mt-2 flex h-12 items-center rounded-xl border border-slate-300 bg-white px-4"><input defaultValue={defaultValue} className="w-full bg-transparent outline-none" />{suffix ? <span className="font-bold text-slate-500">{suffix}</span> : null}</div></label>;
+function Field({ label, defaultValue, suffix, disabled }: { label: string; defaultValue: string; suffix?: string; disabled?: boolean }) {
+  return <label className="block"><span className="text-sm font-bold text-slate-700">{label}</span><div className={`mt-2 flex h-12 items-center rounded-xl border border-slate-300 px-4 ${disabled ? "bg-slate-50" : "bg-white"}`}><input defaultValue={defaultValue} disabled={disabled} className="w-full bg-transparent outline-none disabled:text-slate-400" />{suffix ? <span className="font-bold text-slate-500">{suffix}</span> : null}</div></label>;
 }
 
-function Select({ label, options }: { label: string; options: string[] }) {
-  return <label className="block"><span className="text-sm font-bold text-slate-700">{label}</span><select className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-4 outline-none">{options.map((option) => <option key={option}>{option}</option>)}</select></label>;
+function Select({ label, options, disabled }: { label: string; options: string[]; disabled?: boolean }) {
+  return <label className="block"><span className="text-sm font-bold text-slate-700">{label}</span><select disabled={disabled} className={`mt-2 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none ${disabled ? "bg-slate-50 text-slate-400" : "bg-white"}`}>{options.map((option) => <option key={option}>{option}</option>)}</select></label>;
 }
 
-function ToggleRow({ icon, title, subtitle, value, onChange }: { icon: string; title: string; subtitle: string; value: boolean; onChange: () => void }) {
-  return <div className="flex items-center gap-5 py-5"><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-[#096B4A]"><Icon name={icon} className="h-6 w-6" /></div><div className="flex-1"><p className="font-bold">{title}</p><p className="text-sm text-slate-500">{subtitle}</p></div><button onClick={onChange} className={`flex h-7 w-12 items-center rounded-full p-1 transition ${value ? "justify-end bg-[#096B4A]" : "justify-start bg-slate-300"}`}><span className="h-5 w-5 rounded-full bg-white" /></button></div>;
+function ToggleRow({ icon, title, subtitle, value, onChange, disabled, reason }: { icon: string; title: string; subtitle: string; value: boolean; onChange?: () => void; disabled?: boolean; reason?: string }) {
+  return <div className="flex items-center gap-5 py-5" title={disabled ? reason : undefined}><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-[#096B4A]"><Icon name={icon} className="h-6 w-6" /></div><div className="flex-1"><p className="font-bold">{title}</p><p className="text-sm text-slate-500">{subtitle}</p></div><button onClick={onChange} disabled={disabled} className={`flex h-7 w-12 items-center rounded-full p-1 transition ${value ? "justify-end bg-[#096B4A]" : "justify-start bg-slate-300"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}><span className="h-5 w-5 rounded-full bg-white" /></button></div>;
 }
 
 function Color({ label, value }: { label: string; value: string }) {

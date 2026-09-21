@@ -97,7 +97,7 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-white rounded-lg shadow overflow-x-auto">
             {products.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500">No products found</p>

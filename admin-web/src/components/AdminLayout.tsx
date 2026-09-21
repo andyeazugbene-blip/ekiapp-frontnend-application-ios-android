@@ -81,6 +81,14 @@ const sections: NavSection[] = [
       { name: "Subscription Exceptions", href: "/subscription-exceptions" },
     ],
   },
+  {
+    label: "SYSTEM",
+    items: [
+      { name: "Gift Cards", href: "/gift-cards" },
+      { name: "Gifts & Rewards", href: "/gifts" },
+      { name: "Settings", href: "/settings" },
+    ],
+  },
 ];
 
 const allNavItems = sections.flatMap((s) => s.items);
@@ -100,6 +108,11 @@ function SidebarCurrency() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
+      {selectedCurrency !== "GBP" ? (
+        <p className="mt-1.5 px-1 text-[10px] leading-snug text-white/50" title="Converted using a fixed reference rate, not a live feed. Figures shown in this currency are approximate.">
+          Approximate — fixed reference rate, not live
+        </p>
+      ) : null}
       {open && (
         <div className="absolute bottom-full left-5 right-5 mb-1 rounded-xl border border-white/10 bg-[#0a3d2a] p-2 shadow-lg">
           {currencyOptions.map((code) => (
