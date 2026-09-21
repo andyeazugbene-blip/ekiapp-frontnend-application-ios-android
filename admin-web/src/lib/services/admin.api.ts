@@ -336,7 +336,24 @@ export const adminAPI = {
   async runScheduledCommunications(): Promise<{ processed: number; sent: number; failed: number }> {
     return apiClient.post("/admin/communications/run-scheduled", {});
   },
+
+  // Client decision (2026-09-22) — real, admin-editable operational
+  // thresholds, replacing what used to be .env-only values.
+  async getOperationalThresholds(): Promise<{ settings: OperationalThresholdSetting[] }> {
+    return apiClient.get("/admin/settings/operational-thresholds");
+  },
+
+  async updateOperationalThreshold(key: string, value: number, reason?: string): Promise<{ setting: OperationalThresholdSetting }> {
+    return apiClient.patch(`/admin/settings/operational-thresholds/${encodeURIComponent(key)}`, { value, reason });
+  },
 };
+
+export interface OperationalThresholdSetting {
+  key: "PRICE_APPROVAL_TIMEOUT_HOURS" | "FULFILMENT_STALE_THRESHOLD_HOURS" | "PAYOUT_STUCK_THRESHOLD_HOURS";
+  value: number | null;
+  updatedById: string | null;
+  updatedAt: string | null;
+}
 
 export interface CommunicationLogEntry {
   id: string;

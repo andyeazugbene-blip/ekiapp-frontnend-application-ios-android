@@ -7,6 +7,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { APIError } from "@/lib/api";
 import { AdminRoleRecord, rolesAPI } from "@/lib/services/roles.api";
+import { adminAPI, OperationalThresholdSetting } from "@/lib/services/admin.api";
 
 const tabs = ["General", "Notifications", "Security", "Users & Roles", "Integration", "System"];
 
@@ -111,6 +112,18 @@ export default function SettingsPage() {
             </>
           ) : activeTab === "Users & Roles" ? (
             <RoleManager />
+          ) : activeTab === "System" ? (
+            <div className="space-y-6">
+              <Card>
+                <h2 className="text-xl font-black">{activeTab}</h2>
+                <div className="mt-6 grid gap-5 md:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 p-5"><p className="font-bold">Signed in admin</p><p className="mt-2 text-slate-500">{user?.name} · {user?.email}</p></div>
+                  <div className="rounded-2xl border border-slate-200 p-5"><p className="font-bold">Backend API</p><p className="mt-2"><Badge tone={apiStatus === "connected" ? "green" : apiStatus === "error" ? "red" : "amber"}>{apiStatus}</Badge></p></div>
+                </div>
+                <Button onClick={() => void checkAPIStatus()} className="mt-6">Recheck backend</Button>
+              </Card>
+              <OperationalThresholdsManager currentAdminId={user?.id} />
+            </div>
           ) : (
             <Card>
               <h2 className="text-xl font-black">{activeTab}</h2>
@@ -141,6 +154,147 @@ function ToggleRow({ icon, title, subtitle, value, onChange, disabled, reason }:
 
 function Color({ label, value }: { label: string; value: string }) {
   return <label className="block"><span className="text-sm font-bold text-slate-700">{label}</span><div className="mt-2 flex h-12 items-center gap-3 rounded-xl border border-slate-300 px-4"><span className="h-6 w-6 rounded" style={{ background: value }} /><span className="font-semibold">{value}</span></div></label>;
+}
+
+const OPERATIONAL_THRESHOLD_LABELS: Record<OperationalThresholdSetting["key"], { title: string; description: string }> = {
+  PRICE_APPROVAL_TIMEOUT_HOURS: {
+    title: "Price approval timeout",
+    description: "How many hours a buyer has to approve a Regular Deliveries price change before the renewal expires automatically.",
+  },
+  FULFILMENT_STALE_THRESHOLD_HOURS: {
+    title: "Fulfilment stale threshold",
+    description: "How many hours a Community Buy supplier fulfilment with no estimated-ready date can go without progress before it's flagged for review.",
+  },
+  PAYOUT_STUCK_THRESHOLD_HOURS: {
+    title: "Payout stuck threshold",
+    description: "How many hours a Community Buy payout can sit in Pending/In Transit before ops is alerted that it may be stuck.",
+  },
+};
+
+/**
+ * Client decision (2026-09-22) — these three used to be .env values an
+ * admin needed file/redeploy access to change. Real API calls only: no
+ * local-only "saved" state, no fabricated success. A setting with no value
+ * yet is shown as "Not configured" (never a guessed default), matching
+ * exactly what the affected backend job does when it's unset.
+ */
+function OperationalThresholdsManager({ currentAdminId }: { currentAdminId?: string }) {
+  const [settings, setSettings] = useState<OperationalThresholdSetting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const [rowSuccess, setRowSuccess] = useState<Record<string, string>>({});
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      setLoadError("");
+      const { settings: loaded } = await adminAPI.getOperationalThresholds();
+      setSettings(loaded);
+      setDrafts(Object.fromEntries(loaded.map((s) => [s.key, s.value != null ? String(s.value) : ""])));
+    } catch (err) {
+      setLoadError(err instanceof APIError ? err.message : "Failed to load operational thresholds");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const save = async (key: OperationalThresholdSetting["key"]) => {
+    const raw = drafts[key]?.trim() ?? "";
+    const value = Number(raw);
+    setRowErrors((prev) => ({ ...prev, [key]: "" }));
+    setRowSuccess((prev) => ({ ...prev, [key]: "" }));
+    if (!raw || !Number.isFinite(value) || value <= 0) {
+      setRowErrors((prev) => ({ ...prev, [key]: "Enter a number greater than zero." }));
+      return;
+    }
+    setSavingKey(key);
+    try {
+      const { setting } = await adminAPI.updateOperationalThreshold(key, value, reasons[key]?.trim() || undefined);
+      setSettings((prev) => prev.map((s) => (s.key === key ? setting : s)));
+      setRowSuccess((prev) => ({ ...prev, [key]: "Saved." }));
+      setReasons((prev) => ({ ...prev, [key]: "" }));
+    } catch (err) {
+      setRowErrors((prev) => ({ ...prev, [key]: err instanceof APIError ? err.message : "Failed to save — the value was not changed." }));
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  if (loading) {
+    return <Card><div className="py-12 text-center font-bold text-slate-500">Loading operational thresholds...</div></Card>;
+  }
+
+  return (
+    <Card>
+      <h2 className="text-xl font-black">Operational thresholds</h2>
+      <p className="mt-2 text-slate-500">Real, admin-managed settings — changing one takes effect on the very next scheduled check, no redeploy needed.</p>
+      {loadError ? <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{loadError}</div> : null}
+
+      <div className="mt-6 divide-y divide-slate-100">
+        {settings.map((setting) => {
+          const labels = OPERATIONAL_THRESHOLD_LABELS[setting.key];
+          return (
+            <div key={setting.key} className="py-6 first:pt-0 last:pb-0">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold">{labels.title}</p>
+                  <p className="mt-1 max-w-xl text-sm text-slate-500">{labels.description}</p>
+                </div>
+                {setting.value == null ? (
+                  <Badge tone="amber">Not configured</Badge>
+                ) : (
+                  <Badge tone="green">{setting.value} hour{setting.value === 1 ? "" : "s"}</Badge>
+                )}
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-end gap-3">
+                <label className="w-40">
+                  <span className="text-xs font-bold text-slate-500">Hours</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={drafts[setting.key] ?? ""}
+                    onChange={(e) => setDrafts((prev) => ({ ...prev, [setting.key]: e.target.value }))}
+                    placeholder="Not set"
+                    className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-[#096B4A]"
+                  />
+                </label>
+                <label className="min-w-[220px] flex-1">
+                  <span className="text-xs font-bold text-slate-500">Reason (optional, recorded in the audit log)</span>
+                  <input
+                    value={reasons[setting.key] ?? ""}
+                    onChange={(e) => setReasons((prev) => ({ ...prev, [setting.key]: e.target.value }))}
+                    className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-[#096B4A]"
+                  />
+                </label>
+                <Button disabled={savingKey === setting.key} onClick={() => void save(setting.key)}>
+                  {savingKey === setting.key ? "Saving..." : "Save"}
+                </Button>
+              </div>
+
+              {rowErrors[setting.key] ? <p className="mt-2 text-sm font-bold text-red-600">{rowErrors[setting.key]}</p> : null}
+              {rowSuccess[setting.key] ? <p className="mt-2 text-sm font-bold text-[#096B4A]">{rowSuccess[setting.key]}</p> : null}
+
+              <p className="mt-3 text-xs text-slate-400">
+                {setting.updatedAt
+                  ? `Last updated ${new Date(setting.updatedAt).toLocaleString()} by ${setting.updatedById === currentAdminId ? "you" : setting.updatedById}`
+                  : "Never configured."}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
 }
 
 function RoleManager() {
