@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { APIError } from "@/lib/api";
+import { API2FARequiredError, APIError } from "@/lib/api";
 import { communityBuyAdminAPI, type AdminDataAccessLogEntry } from "@/lib/services/communityBuy.api";
 
 /**
@@ -38,6 +38,12 @@ export default function CommunityDataAccessPage() {
   const [disclosureReason, setDisclosureReason] = useState("");
   const [requestingDisclosure, setRequestingDisclosure] = useState(false);
   const [disclosureMessage, setDisclosureMessage] = useState("");
+  // Phase 8 — the disclosure request itself is 2FA-gated server-side
+  // (require2fa), on top of the separate four-eyes approval a different
+  // admin later decides. Without this, a 2FA-enabled admin's click just
+  // 403'd with no recovery.
+  const [pendingDisclosure, setPendingDisclosure] = useState<{ campaignId: string; contributionId: string; reason: string } | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
 
   const load = async (bypassCache = false) => {
     try {
@@ -57,22 +63,25 @@ export default function CommunityDataAccessPage() {
 
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
-  const requestDisclosure = async () => {
-    const campaignId = disclosureCampaignId.trim();
-    const contributionId = disclosureContributionId.trim();
-    const reason = disclosureReason.trim();
+  const requestDisclosure = async (override?: { campaignId: string; contributionId: string; reason: string }, code?: string) => {
+    const campaignId = override?.campaignId ?? disclosureCampaignId.trim();
+    const contributionId = override?.contributionId ?? disclosureContributionId.trim();
+    const reason = override?.reason ?? disclosureReason.trim();
     if (!campaignId || !contributionId || !reason) return;
-    if (!confirm("Request emergency contact disclosure? This requires a second, different admin's approval, and the resulting access expires automatically.")) return;
+    if (!code && !confirm("Request emergency contact disclosure? This requires a second, different admin's approval, and the resulting access expires automatically.")) return;
     setRequestingDisclosure(true);
     setDisclosureMessage("");
     try {
-      const result = await communityBuyAdminAPI.requestEmergencyDisclosure(campaignId, contributionId, reason);
+      const result = await communityBuyAdminAPI.requestEmergencyDisclosure(campaignId, contributionId, reason, code);
       setDisclosureMessage(result.message);
       setDisclosureCampaignId("");
       setDisclosureContributionId("");
       setDisclosureReason("");
+      setPendingDisclosure(null);
+      setTwoFactorCode("");
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to request emergency disclosure");
+      if (err instanceof API2FARequiredError) setPendingDisclosure({ campaignId, contributionId, reason });
+      else alert(err instanceof APIError ? err.message : "Failed to request emergency disclosure");
     } finally {
       setRequestingDisclosure(false);
     }
@@ -168,6 +177,35 @@ export default function CommunityDataAccessPage() {
             </Card>
           </div>
         )}
+
+        {pendingDisclosure ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+            <Card className="w-full max-w-md">
+              <h3 className="text-xl font-black text-[#101820]">Enter 2FA code</h3>
+              <p className="mt-2 text-sm text-slate-500">Confirm requesting emergency contact disclosure. A second, different admin must still approve it.</p>
+              <input
+                autoFocus
+                inputMode="numeric"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value)}
+                placeholder="6-digit code"
+                className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none"
+              />
+              <div className="mt-4 flex gap-3">
+                <Button
+                  disabled={requestingDisclosure || !twoFactorCode.trim()}
+                  onClick={() => void requestDisclosure(pendingDisclosure, twoFactorCode.trim())}
+                  className="flex-1"
+                >
+                  Confirm
+                </Button>
+                <Button variant="ghost" className="flex-1" onClick={() => { setPendingDisclosure(null); setTwoFactorCode(""); }}>
+                  Cancel
+                </Button>
+              </div>
+            </Card>
+          </div>
+        ) : null}
       </AdminLayout>
     </ProtectedRoute>
   );

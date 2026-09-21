@@ -713,9 +713,9 @@ export const communityBuyAdminAPI = {
     const res = await apiClient.get<{ items?: AdminDataAccessLogEntry[] }>(`/admin/community-buy/data-access-log${qs ? `?${qs}` : ""}`, opts);
     return res.items ?? [];
   },
-  // M4 (spec §14.3, AT-42) — always four-eyes gated; this only ever creates the pending approval, never the disclosure itself. A second, different admin decides it from the Approvals queue.
-  async requestEmergencyDisclosure(campaignId: string, contributionId: string, reason: string): Promise<{ pendingApproval: unknown; message: string }> {
-    return apiClient.post<{ pendingApproval: unknown; message: string }>(`/admin/community-campaigns/${campaignId}/contributions/${contributionId}/emergency-disclosure`, { reason });
+  // M4 (spec §14.3, AT-42) — always four-eyes gated; this only ever creates the pending approval, never the disclosure itself. A second, different admin decides it from the Approvals queue. Also 2FA-gated on the requesting admin (require2fa).
+  async requestEmergencyDisclosure(campaignId: string, contributionId: string, reason: string, twoFactorCode?: string): Promise<{ pendingApproval: unknown; message: string }> {
+    return apiClient.post<{ pendingApproval: unknown; message: string }>(`/admin/community-campaigns/${campaignId}/contributions/${contributionId}/emergency-disclosure`, { reason }, { twoFactorCode });
   },
 
   // ─── M6 — CommunityBuyPayout (M2 AUTHORISE_THEN_CAPTURE Direct Charge
