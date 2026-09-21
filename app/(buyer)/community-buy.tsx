@@ -23,10 +23,9 @@ import {
   CONTRIBUTION_STATUS_LABELS,
   CONTRIBUTION_STATUS_TONE,
   type Campaign,
-  type MarketConfig,
   type MyCommunityBuy,
 } from "../../services/communityBuyService";
-import { countryCodeForName, countryDisplayName } from "../../utils/countries";
+import { countryDisplayName } from "../../utils/countries";
 import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 import { useAuthStore } from "../../stores/authStore";
 
@@ -57,24 +56,18 @@ const DRAFT_STATUSES = new Set(["DRAFT", "CHANGES_REQUIRED"]);
 export default function CommunityBuyDiscoveryScreen() {
   const router = useRouter();
   const { selectedCurrency } = useCurrencyStore();
-  const user = useAuthStore((s) => s.user);
-  const deliveryCountry = user && "country" in user ? user.country : undefined;
   const [activeTab, setActiveTab] = useState<HomeTab>("discover");
 
-  const [markets, setMarkets] = useState<MarketConfig[]>([]);
-  // Defaults to the buyer's own market, matching Buyer Home's preview
-  // filter — without this, Discover's default "All markets" view could
-  // show a live campaign from an unrelated country while Home (which is
-  // always scoped to the buyer's own country) correctly says there are
-  // none, which read as a contradiction rather than two different scopes.
-  // The existing "All markets" chip still lets a buyer broaden this
-  // themselves at any time. user.country is free text ("United Kingdom",
-  // "uk", ...) while MarketConfig.countryCode is always the ISO code
-  // ("GB") — this must go through countryCodeForName() (this app's single
-  // authoritative resolver) or the default silently matches no market for
-  // almost every real buyer, since the chips below compare against the
-  // ISO code once a market is selected.
-  const [countryFilter, setCountryFilter] = useState<string | null>(countryCodeForName(deliveryCountry));
+  // Client correction: "Community Buy is not categorised by country...
+  // the function cannot be: I am looking for Community Buy, I am in
+  // Italy, I click Italy and see all Community Buys there." Discover
+  // shows every live campaign across every enabled market by default —
+  // no country filter, no chip row. Market/country eligibility (whether a
+  // country has Community Buy switched on at all) is already fully
+  // enforced server-side at campaign-creation time (a campaign can't go
+  // LIVE in a disabled market), so nothing further needs to gate this
+  // list. Figma "Search yam, garri, location" is one combined field —
+  // the backend matches title/description/collectionCity for it.
   const [searchQuery, setSearchQuery] = useState("");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
@@ -94,18 +87,13 @@ export default function CommunityBuyDiscoveryScreen() {
     setDiscoverLoading(true);
     setDiscoverError("");
     try {
-      const [marketList, campaignList] = await Promise.all([
-        communityBuyService.listMarketConfigs().catch(() => [] as MarketConfig[]),
-        communityBuyService.listLiveCampaigns(countryFilter ?? undefined, searchQuery || undefined),
-      ]);
-      setMarkets(marketList.filter((m) => m.communityBuyEnabled));
-      setCampaigns(campaignList);
+      setCampaigns(await communityBuyService.listLiveCampaigns(undefined, searchQuery || undefined));
     } catch (err) {
       setDiscoverError(err instanceof Error ? err.message : "Could not load Community Buy campaigns.");
     } finally {
       setDiscoverLoading(false);
     }
-  }, [countryFilter, searchQuery]);
+  }, [searchQuery]);
 
   const loadJoined = useCallback(async () => {
     setJoinedLoading(true);
@@ -153,8 +141,8 @@ export default function CommunityBuyDiscoveryScreen() {
   return (
     <View style={premiumStyles.page}>
       <PremiumHeader
-        title="Community Buy"
-        subtitle="Bulk-buy together, unlock better prices"
+        title={activeTab === "discover" ? "Explore Community Buys" : "Community Buy"}
+        subtitle={activeTab === "discover" ? "Find campaigns in your area." : "Bulk-buy together, unlock better prices"}
         onBack={() => goBackOrReplace(router, "/(buyer)/profile" as any)}
         right={
           <View style={{ flexDirection: "row", gap: 8 }}>
@@ -206,48 +194,19 @@ export default function CommunityBuyDiscoveryScreen() {
         </View>
 
         {activeTab === "discover" ? (
-          <>
-            <View style={styles.searchRow}>
-              <Ionicons name="search-outline" size={16} color="rgba(255,255,255,0.7)" />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search campaigns"
-                placeholderTextColor="rgba(255,255,255,0.6)"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onSubmitEditing={() => void loadDiscover()}
-                returnKeyType="search"
-                accessibilityLabel="Search campaigns"
-              />
-            </View>
-            {markets.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                <TouchableOpacity
-                  onPress={() => setCountryFilter(null)}
-                  activeOpacity={0.85}
-                  style={[styles.chip, !countryFilter && styles.chipActive]}
-                  accessibilityRole="button"
-                  accessibilityLabel="All markets"
-                  accessibilityState={{ selected: !countryFilter }}
-                >
-                  <Text style={[styles.chipText, !countryFilter && styles.chipTextActive]}>All markets</Text>
-                </TouchableOpacity>
-                {markets.map((m) => (
-                  <TouchableOpacity
-                    key={m.countryCode}
-                    onPress={() => setCountryFilter(m.countryCode)}
-                    activeOpacity={0.85}
-                    style={[styles.chip, countryFilter === m.countryCode && styles.chipActive]}
-                    accessibilityRole="button"
-                    accessibilityLabel={countryDisplayName(m.countryCode)}
-                    accessibilityState={{ selected: countryFilter === m.countryCode }}
-                  >
-                    <Text style={[styles.chipText, countryFilter === m.countryCode && styles.chipTextActive]}>{countryDisplayName(m.countryCode)}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            ) : null}
-          </>
+          <View style={styles.searchRow}>
+            <Ionicons name="search-outline" size={16} color="rgba(255,255,255,0.7)" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search yam, garri, location"
+              placeholderTextColor="rgba(255,255,255,0.6)"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={() => void loadDiscover()}
+              returnKeyType="search"
+              accessibilityLabel="Search yam, garri, location"
+            />
+          </View>
         ) : null}
       </PremiumHeader>
 
@@ -407,11 +366,6 @@ const styles = StyleSheet.create({
   tabTextActive: { color: "#076B51" },
   searchRow: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, marginTop: 12 },
   searchInput: { flex: 1, fontSize: 13, fontFamily: "Outfit-Regular", color: "#FFFFFF", padding: 0 },
-  filterRow: { gap: 8, paddingTop: 12, paddingRight: 12 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.14)" },
-  chipActive: { backgroundColor: "#FFFFFF" },
-  chipText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
-  chipTextActive: { color: "#076B51" },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   cardTitle: { flex: 1, fontSize: 15, fontFamily: "Manrope-Bold", color: "#151E1B" },
   countryPill: { backgroundColor: "#F4F6F5", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },

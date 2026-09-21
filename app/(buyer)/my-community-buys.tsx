@@ -39,6 +39,15 @@ function daysLeft(deadline: string): string {
   return days === 1 ? "1 day left" : `${days} days left`;
 }
 
+// Figma "Refund ref: RF-xxx" — a short, quotable display of the real
+// CampaignRefund id (never a fabricated sequence), for the buyer to give
+// support. Alphanumeric-only tail so a cuid's own dashes/case don't leak
+// through as visual noise.
+function formatRefundReference(refundId: string): string {
+  const tail = refundId.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase();
+  return `RF-${tail}`;
+}
+
 export default function MyCommunityBuysScreen() {
   const router = useRouter();
   const { selectedCurrency } = useCurrencyStore();
@@ -64,6 +73,7 @@ export default function MyCommunityBuysScreen() {
     <View style={premiumStyles.page}>
       <PremiumHeader
         title="My Community Buys"
+        subtitle="Track current and past Community Buy orders."
         onBack={() => goBackOrReplace(router, "/(buyer)/community-buy" as any)}
         right={
           <TouchableOpacity
@@ -91,7 +101,7 @@ export default function MyCommunityBuysScreen() {
                 icon="people-circle-outline"
                 title="No contributions yet"
                 body="Campaigns you contribute to will show up here."
-                actionLabel="Explore Campaigns"
+                actionLabel="Explore Community Buys"
                 onAction={() => router.push("/(buyer)/community-buy" as any)}
               />
             </FloatingCard>
@@ -122,7 +132,10 @@ export default function MyCommunityBuysScreen() {
                   <Text style={styles.cardVendor}>{item.campaign.supplier?.vendor?.storeName ?? "Community Buy"}</Text>
 
                   {item.refundStatus ? (
-                    <StatusPill label={CONTRIBUTION_STATUS_LABELS[item.refundStatus]} tone={CONTRIBUTION_STATUS_TONE[item.refundStatus]} />
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <StatusPill label={CONTRIBUTION_STATUS_LABELS[item.refundStatus]} tone={CONTRIBUTION_STATUS_TONE[item.refundStatus]} />
+                      {item.refundId ? <Text style={styles.cardMetaText}>Refund ref: {formatRefundReference(item.refundId)}</Text> : null}
+                    </View>
                   ) : null}
 
                   {item.campaign.status === "LIVE" || item.campaign.status === "RESCUE_WINDOW" || item.campaign.status === "PAUSED" ? (
@@ -156,6 +169,15 @@ export default function MyCommunityBuysScreen() {
               </TouchableOpacity>
               );
             })}
+            <TouchableOpacity
+              onPress={() => router.push("/(buyer)/community-buy" as any)}
+              activeOpacity={0.85}
+              style={styles.exploreButton}
+              accessibilityRole="button"
+              accessibilityLabel="Explore Community Buys"
+            >
+              <Text style={styles.exploreButtonText}>Explore Community Buys</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -165,6 +187,8 @@ export default function MyCommunityBuysScreen() {
 
 const styles = StyleSheet.create({
   headerIconBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
+  exploreButton: { marginTop: 4, height: 48, borderRadius: 16, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  exploreButtonText: { color: "#FFFFFF", fontSize: 14, fontFamily: "Manrope-Bold" },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   cardTitle: { flex: 1, fontSize: 15, fontFamily: "Manrope-Bold", color: "#151E1B" },
   cardVendor: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },

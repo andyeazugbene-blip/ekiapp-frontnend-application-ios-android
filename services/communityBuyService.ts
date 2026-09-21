@@ -390,7 +390,7 @@ export interface Contribution {
   deliveryAddressLine2?: string | null;
   deliveryCity?: string | null;
   deliveryPostcode?: string | null;
-  refund?: { status: string; amount: number } | null;
+  refund?: { id: string; status: string; amount: number } | null;
   createdAt: string;
 }
 
@@ -422,6 +422,7 @@ export interface MyCommunityBuy {
   totalPledged: number;
   latestContribution: Contribution;
   refundStatus: "REFUND_PENDING" | "REFUND_PROCESSING" | "REFUNDED" | "REFUND_FAILED" | null;
+  refundId: string | null;
 }
 
 export interface CampaignUpdate {

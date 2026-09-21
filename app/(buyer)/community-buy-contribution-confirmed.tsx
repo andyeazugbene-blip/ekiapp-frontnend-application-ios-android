@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { ErrorState, FloatingCard, IconAvatar, LoadingBlock, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
@@ -47,7 +46,7 @@ export default function CommunityBuyContributionConfirmedScreen() {
   if (loading) {
     return (
       <View style={premiumStyles.page}>
-        <PremiumHeader title="Pledge confirmed" />
+        <PremiumHeader title="You're in the Community Buy" />
         <LoadingBlock />
       </View>
     );
@@ -56,7 +55,7 @@ export default function CommunityBuyContributionConfirmedScreen() {
   if (error || !campaign || !contribution) {
     return (
       <View style={premiumStyles.page}>
-        <PremiumHeader title="Pledge confirmed" />
+        <PremiumHeader title="You're in the Community Buy" />
         <View style={premiumStyles.block}>
           <ErrorState message={error || "Something went wrong loading your pledge."} onRetry={() => void load()} />
           <TouchableOpacity
@@ -86,14 +85,12 @@ export default function CommunityBuyContributionConfirmedScreen() {
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title="Pledge confirmed" />
+      <PremiumHeader title="You're in the Community Buy" />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         <View style={[premiumStyles.block, { gap: 16, alignItems: "center" }]}>
           <IconAvatar icon="bookmark-outline" tone="success" size={64} />
-          <Text style={styles.title}>Your pledge is recorded</Text>
-          <Text style={styles.body}>
-            {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} of "{campaign.title}" — your payment method is saved for {formatDisplayMoney(maxTotal / 100, contribution.currency, selectedCurrency)} (including Eki's service fee{isDelivery ? " and delivery fee" : ""}). You will only be charged if this campaign reaches its minimum required quantity.
-          </Text>
+          <Text style={styles.title}>{contribution.quantity} share{contribution.quantity === 1 ? "" : "s"} reserved</Text>
+          <Text style={styles.body}>We'll update you as the campaign progresses.</Text>
 
           <FloatingCard style={{ width: "100%", gap: 8 }}>
             <View style={styles.row}><Text style={styles.label}>Campaign</Text><Text style={styles.value} numberOfLines={1}>{campaign.title}</Text></View>
@@ -108,28 +105,30 @@ export default function CommunityBuyContributionConfirmedScreen() {
             <View style={styles.row}><Text style={styles.label}>Status</Text><Text style={styles.value}>Not charged yet</Text></View>
           </FloatingCard>
 
-          <FloatingCard style={{ width: "100%", flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-            <Ionicons name="information-circle-outline" size={18} color="#076B51" />
-            <Text style={styles.infoText}>Track this campaign's progress and your pledge status any time from My Community Buys.</Text>
+          <FloatingCard style={{ width: "100%", gap: 6, backgroundColor: "#FFF8E1" }}>
+            <Text style={styles.whatsNextTitle}>What happens next</Text>
+            <Text style={styles.infoText}>
+              Your payment is confirmed only once the campaign reaches its target. If it does, you'll be charged {formatDisplayMoney(maxTotal / 100, contribution.currency, selectedCurrency)} (including Eki's service fee{isDelivery ? " and delivery fee" : ""}). If it doesn't, you're never charged.
+            </Text>
           </FloatingCard>
 
           <TouchableOpacity
-            onPress={goToDashboard}
+            onPress={goToCampaign}
             activeOpacity={0.88}
             style={styles.primaryBtn}
             accessibilityRole="button"
-            accessibilityLabel="Go to my Community Buys"
+            accessibilityLabel="View campaign progress"
           >
-            <Text style={styles.primaryBtnText}>Go to my Community Buys</Text>
+            <Text style={styles.primaryBtnText}>View campaign progress</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={goToCampaign}
+            onPress={goToDashboard}
             activeOpacity={0.85}
             style={styles.secondaryBtn}
             accessibilityRole="button"
-            accessibilityLabel="Back to campaign"
+            accessibilityLabel="Go to my Community Buys"
           >
-            <Text style={styles.secondaryBtnText}>Back to campaign</Text>
+            <Text style={styles.secondaryBtnText}>Go to my Community Buys</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -144,6 +143,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
   value: { flex: 1, fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B", textAlign: "right" },
   infoText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#4A5A52", lineHeight: 17 },
+  whatsNextTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
   primaryBtn: { width: "100%", minHeight: 52, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
   primaryBtnText: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
   secondaryBtn: { width: "100%", minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: "#076B51", alignItems: "center", justifyContent: "center" },

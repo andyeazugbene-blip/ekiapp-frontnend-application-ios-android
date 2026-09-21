@@ -117,6 +117,7 @@ export default function CommunityBuyShareScreen() {
               <ShareButton label="SMS" icon="chatbox-ellipses-outline" tone="darkGreen" onPress={handleSms} />
               <ShareButton label="More" icon="share-social-outline" tone="gray" onPress={handleMore} />
             </View>
+            <Text style={styles.footerNote}>We'll include the campaign link and a short invitation message.</Text>
           </FloatingCard>
         </View>
       </ScrollView>
@@ -152,6 +153,7 @@ function ShareButton({
 const styles = StyleSheet.create({
   title: { fontSize: 16, fontFamily: "Manrope-ExtraBold", color: "#151E1B" },
   body: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: -6 },
+  footerNote: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194" },
   linkRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   linkText: { flex: 1, minHeight: 44, borderRadius: 12, backgroundColor: "#F4F6F5", paddingHorizontal: 12, paddingVertical: 12, fontSize: 12, fontFamily: "Outfit-Medium", color: "#076B51" },
   copyButton: { minWidth: 72, height: 44, borderRadius: 12, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
