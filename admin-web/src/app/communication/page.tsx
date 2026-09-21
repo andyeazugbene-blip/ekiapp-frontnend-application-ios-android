@@ -30,6 +30,9 @@ export default function CommunicationPage() {
   const [body, setBody] = useState("");
   const [channels, setChannels] = useState<BroadcastChannel[]>(["in_app"]);
   const [sending, setSending] = useState(false);
+  const [testSending, setTestSending] = useState(false);
+  const [audienceCount, setAudienceCount] = useState<number | null>(null);
+  const [audienceCountLoading, setAudienceCountLoading] = useState(false);
 
   const loadVendors = useCallback(async () => {
     try {
@@ -53,6 +56,29 @@ export default function CommunicationPage() {
     const term = search.toLowerCase();
     return vendors.filter((vendor) => `${vendor.storeName} ${vendor.ownerName} ${vendor.city} ${vendor.country}`.toLowerCase().includes(term)).slice(0, 8);
   }, [search, vendors]);
+
+  useEffect(() => {
+    if (audience === "individual_vendor" && !selectedVendorId) {
+      setAudienceCount(null);
+      return;
+    }
+    let cancelled = false;
+    setAudienceCountLoading(true);
+    communicationsAPI
+      .getAudienceCount({ audience, vendorId: audience === "individual_vendor" ? selectedVendorId : undefined })
+      .then((result) => {
+        if (!cancelled) setAudienceCount(result.audienceCount);
+      })
+      .catch(() => {
+        if (!cancelled) setAudienceCount(null);
+      })
+      .finally(() => {
+        if (!cancelled) setAudienceCountLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [audience, selectedVendorId]);
 
   const toggleChannel = (channel: BroadcastChannel) => {
     setChannels((current) => current.includes(channel) ? current.filter((item) => item !== channel) : [...current, channel]);
@@ -83,13 +109,41 @@ export default function CommunicationPage() {
         channels,
         vendorId: audience === "individual_vendor" ? selectedVendorId : undefined,
       });
-      setSuccess(`Message sent to ${result.sent ?? result.recipients ?? "selected"} recipient(s). SMS queued: ${result.smsQueued ?? 0}; skipped without consent: ${result.smsSkipped ?? 0}.`);
+      const parts = [`Message sent to ${result.sent ?? result.recipients ?? "selected"} recipient(s).`];
+      if (channels.includes("sms")) parts.push(`SMS queued: ${result.smsQueued ?? 0}, skipped without consent: ${result.smsSkipped ?? 0}.`);
+      if (channels.includes("email")) parts.push(`Email queued: ${result.emailQueued ?? 0}, skipped without consent: ${result.emailSkipped ?? 0}.`);
+      setSuccess(parts.join(" "));
       setTitle("");
       setBody("");
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to send admin communication");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleTestSend = async () => {
+    if (!title.trim() || !body.trim()) {
+      setError("Message title and body are required.");
+      return;
+    }
+    if (channels.length === 0) {
+      setError("Select at least one delivery channel.");
+      return;
+    }
+    try {
+      setTestSending(true);
+      setError("");
+      setSuccess("");
+      const result = await communicationsAPI.testSend({
+        title, body, audience, channels,
+        vendorId: audience === "individual_vendor" ? selectedVendorId : undefined,
+      });
+      setSuccess(`Test message sent to you (${result.sentTo}) via ${result.channels.join(", ")}.`);
+    } catch (err) {
+      setError(err instanceof APIError ? err.message : "Failed to send test message");
+    } finally {
+      setTestSending(false);
     }
   };
 
@@ -154,14 +208,20 @@ export default function CommunicationPage() {
                   <ChannelCard active={channels.includes("in_app")} title="In-app" text="Creates app notification and admin message" icon="messages" onClick={() => toggleChannel("in_app")} />
                   <ChannelCard active={channels.includes("push")} title="Push" text="Sends Expo push to registered devices" icon="communication" onClick={() => toggleChannel("push")} />
                   <ChannelCard active={channels.includes("sms")} title="SMS" text="Africa's Talking, opted-in users only" icon="messages" onClick={() => toggleChannel("sms")} />
-                  <ChannelCard disabled title="Email" text="Provider endpoint not enabled yet" icon="messages" onClick={() => undefined} />
+                  <ChannelCard active={channels.includes("email")} title="Email" text="Opted-in users only" icon="messages" onClick={() => toggleChannel("email")} />
                 </div>
+                <p className="mt-5 text-sm font-bold text-slate-600">
+                  {audienceCountLoading ? "Counting audience…" : audienceCount === null ? "Select an audience to see how many people this reaches." : `This reaches ${audienceCount} recipient${audienceCount === 1 ? "" : "s"}.`}
+                </p>
               </div>
               <div>
                 <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Message title" className="mb-3 h-12 w-full rounded-xl border border-slate-300 px-4 outline-none focus:border-[#096B4A]" />
                 <textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Write your message here..." className="h-32 w-full resize-none rounded-xl border border-slate-300 p-4 outline-none focus:border-[#096B4A]" maxLength={1000} />
                 <div className="mt-3 flex items-center justify-between text-sm text-slate-500"><span>Attach file (optional)</span><span>{body.length} / 1000</span></div>
-                <Button disabled={sending} onClick={() => void handleSend()} className="mt-4 w-full"><Icon name="arrow" /> {sending ? "Sending..." : "Send Message"}</Button>
+                <div className="mt-4 flex gap-3">
+                  <Button variant="ghost" disabled={testSending} onClick={() => void handleTestSend()} className="flex-1">{testSending ? "Sending test…" : "Send test to me"}</Button>
+                  <Button disabled={sending} onClick={() => void handleSend()} className="flex-1"><Icon name="arrow" /> {sending ? "Sending..." : "Send Message"}</Button>
+                </div>
               </div>
             </Card>
           </div>
