@@ -518,12 +518,14 @@ export const communityBuyAdminAPI = {
     const res = await apiClient.get<{ items?: AdminCampaignRefund[] }>("/admin/community-buy/refunds", opts);
     return res.items ?? [];
   },
-  async requeryRefund(id: string): Promise<AdminCampaignRefund> {
-    const res = await apiClient.post<{ refund: AdminCampaignRefund }>(`/admin/community-buy/refunds/${id}/requery`, {});
+  /** Phase 8 — 2FA-gated server-side (require2fa). */
+  async requeryRefund(id: string, twoFactorCode?: string): Promise<AdminCampaignRefund> {
+    const res = await apiClient.post<{ refund: AdminCampaignRefund }>(`/admin/community-buy/refunds/${id}/requery`, {}, { twoFactorCode });
     return res.refund;
   },
-  async escalateRefund(id: string, note?: string): Promise<{ id: string; escalated: boolean }> {
-    const res = await apiClient.post<{ supportCase: { id: string; escalated: boolean } }>(`/admin/community-buy/refunds/${id}/escalate`, { note });
+  /** Phase 8 — 2FA-gated server-side (require2fa). */
+  async escalateRefund(id: string, note?: string, twoFactorCode?: string): Promise<{ id: string; escalated: boolean }> {
+    const res = await apiClient.post<{ supportCase: { id: string; escalated: boolean } }>(`/admin/community-buy/refunds/${id}/escalate`, { note }, { twoFactorCode });
     return res.supportCase;
   },
 
@@ -681,23 +683,23 @@ export const communityBuyAdminAPI = {
     return res.account;
   },
   // M5 — always revokes data access; 2FA-gated on the backend.
-  async suspendSupplierAccount(id: string, reason: string): Promise<AdminSupplierAccount> {
-    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/suspend`, { reason });
+  async suspendSupplierAccount(id: string, reason: string, twoFactorCode?: string): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/suspend`, { reason }, { twoFactorCode });
     return res.account;
   },
   // M5 — permanent, terminal; 2FA-gated on the backend.
-  async closeSupplierAccount(id: string, reason: string): Promise<AdminSupplierAccount> {
-    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/close`, { reason });
+  async closeSupplierAccount(id: string, reason: string, twoFactorCode?: string): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/close`, { reason }, { twoFactorCode });
     return res.account;
   },
   // M5 — the equally-guarded (2FA) reversal for suspend(); never unrestrict().
-  async unsuspendSupplierAccount(id: string): Promise<AdminSupplierAccount> {
-    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/unsuspend`, {});
+  async unsuspendSupplierAccount(id: string, twoFactorCode?: string): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/unsuspend`, {}, { twoFactorCode });
     return res.account;
   },
-  // M4 — manual, admin-initiated revoke for investigation cases (spec §19).
-  async revokeSupplierDataAccess(id: string, reason: string): Promise<{ revokedCount: number }> {
-    return apiClient.post<{ revokedCount: number }>(`/admin/community-buy/supplier-accounts/${id}/revoke-data-access`, { reason });
+  // M4 — manual, admin-initiated revoke for investigation cases (spec §19). 2FA-gated on the backend.
+  async revokeSupplierDataAccess(id: string, reason: string, twoFactorCode?: string): Promise<{ revokedCount: number }> {
+    return apiClient.post<{ revokedCount: number }>(`/admin/community-buy/supplier-accounts/${id}/revoke-data-access`, { reason }, { twoFactorCode });
   },
   // M4 — data-access audit search (spec §19, AT-43).
   async getDataAccessLog(filters?: { campaignId?: string; supplierAccountId?: string; accessorUserId?: string; dataCategory?: string; action?: string }, opts?: ReadOptions): Promise<AdminDataAccessLogEntry[]> {

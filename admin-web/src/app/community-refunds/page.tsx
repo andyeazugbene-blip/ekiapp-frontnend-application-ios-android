@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader, TextLink } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { APIError } from "@/lib/api";
+import { API2FARequiredError, APIError } from "@/lib/api";
 import { communityBuyAdminAPI, type AdminCampaignRefund } from "@/lib/services/communityBuy.api";
 import { countryDisplayName } from "@/lib/countries";
 
@@ -30,6 +30,11 @@ export default function CommunityRefundsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [escalatedIds, setEscalatedIds] = useState<Set<string>>(new Set());
   const [escalationNoteById, setEscalationNoteById] = useState<Record<string, string>>({});
+  // Phase 8 — requery/escalate are both 2FA-gated server-side; without this
+  // a 2FA-enabled admin's click just 403'd with no way to recover. Same
+  // retry pattern as community-campaigns/page.tsx's pendingPaymentAction.
+  const [pendingAction, setPendingAction] = useState<{ id: string; kind: "recheck" | "escalate" } | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
 
   const load = async (bypassCache = false) => {
     try {
@@ -46,28 +51,32 @@ export default function CommunityRefundsPage() {
 
   useEffect(() => { void load(); }, []);
 
-  const recheck = async (id: string) => {
-    if (!confirm("Recheck this refund with the payment provider? This re-attempts the refund if it hasn't completed yet.")) return;
+  const recheck = async (id: string, code?: string) => {
     setBusyId(id);
     try {
-      const updated = await communityBuyAdminAPI.requeryRefund(id);
+      const updated = await communityBuyAdminAPI.requeryRefund(id, code);
       setItems((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      setPendingAction(null);
+      setTwoFactorCode("");
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to recheck refund");
+      if (err instanceof API2FARequiredError) setPendingAction({ id, kind: "recheck" });
+      else alert(err instanceof APIError ? err.message : "Failed to recheck refund");
     } finally {
       setBusyId(null);
     }
   };
 
-  const escalate = async (id: string) => {
-    if (!confirm("Escalate this refund? A support case will be opened for the affected participant.")) return;
+  const escalate = async (id: string, code?: string) => {
     setBusyId(id);
     try {
-      await communityBuyAdminAPI.escalateRefund(id, escalationNoteById[id]?.trim() || undefined);
+      await communityBuyAdminAPI.escalateRefund(id, escalationNoteById[id]?.trim() || undefined, code);
       setEscalatedIds((prev) => new Set(prev).add(id));
+      setPendingAction(null);
+      setTwoFactorCode("");
       alert("Escalated — a support case has been opened for this refund.");
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to escalate refund");
+      if (err instanceof API2FARequiredError) setPendingAction({ id, kind: "escalate" });
+      else alert(err instanceof APIError ? err.message : "Failed to escalate refund");
     } finally {
       setBusyId(null);
     }
@@ -131,8 +140,24 @@ export default function CommunityRefundsPage() {
                             {r.status !== "REFUNDED" ? (
                               <div className="flex flex-col items-start gap-2">
                                 <div className="flex gap-2">
-                                  <Button variant="ghost" disabled={busyId === r.id} onClick={() => void recheck(r.id)}>Recheck</Button>
-                                  <Button variant="ghost" disabled={busyId === r.id || escalatedIds.has(r.id)} onClick={() => void escalate(r.id)}>Escalate</Button>
+                                  <Button
+                                    variant="ghost"
+                                    disabled={busyId === r.id}
+                                    onClick={() => {
+                                      if (confirm("Recheck this refund with the payment provider? This re-attempts the refund if it hasn't completed yet.")) void recheck(r.id);
+                                    }}
+                                  >
+                                    Recheck
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    disabled={busyId === r.id || escalatedIds.has(r.id)}
+                                    onClick={() => {
+                                      if (confirm("Escalate this refund? A support case will be opened for the affected participant.")) void escalate(r.id);
+                                    }}
+                                  >
+                                    Escalate
+                                  </Button>
                                 </div>
                                 {!escalatedIds.has(r.id) ? (
                                   <input
@@ -154,6 +179,40 @@ export default function CommunityRefundsPage() {
             </Card>
           </div>
         )}
+
+        {pendingAction ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+            <Card className="w-full max-w-md">
+              <h3 className="text-xl font-black text-[#101820]">Enter 2FA code</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                {pendingAction.kind === "recheck" ? "Confirm rechecking this refund with the payment provider." : "Confirm escalating this refund to a support case."}
+              </p>
+              <input
+                autoFocus
+                inputMode="numeric"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value)}
+                placeholder="6-digit code"
+                className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none"
+              />
+              <div className="mt-4 flex gap-3">
+                <Button
+                  disabled={busyId === pendingAction.id || !twoFactorCode.trim()}
+                  onClick={() => {
+                    if (pendingAction.kind === "recheck") void recheck(pendingAction.id, twoFactorCode.trim());
+                    else void escalate(pendingAction.id, twoFactorCode.trim());
+                  }}
+                  className="flex-1"
+                >
+                  Confirm
+                </Button>
+                <Button variant="ghost" className="flex-1" onClick={() => { setPendingAction(null); setTwoFactorCode(""); }}>
+                  Cancel
+                </Button>
+              </div>
+            </Card>
+          </div>
+        ) : null}
       </AdminLayout>
     </ProtectedRoute>
   );

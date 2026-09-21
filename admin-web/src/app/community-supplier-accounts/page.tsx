@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { APIError } from "@/lib/api";
+import { API2FARequiredError, APIError } from "@/lib/api";
 import { communityBuyAdminAPI, type AdminSupplierAccount } from "@/lib/services/communityBuy.api";
 import { countryDisplayName } from "@/lib/countries";
 
@@ -49,6 +49,12 @@ export default function CommunitySupplierAccountsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [restrictReasonById, setRestrictReasonById] = useState<Record<string, string>>({});
   const [preserveAccessById, setPreserveAccessById] = useState<Record<string, boolean>>({});
+  // Phase 8 — suspend/unsuspend/close/revoke-data-access are all 2FA-gated
+  // server-side (require2fa), but this page never had a retry path — a
+  // 2FA-enabled admin's click just 403'd with no recovery. Same pattern as
+  // community-campaigns/page.tsx's pendingPaymentAction.
+  const [pendingAction, setPendingAction] = useState<{ id: string; kind: "suspend" | "unsuspend" | "close" | "revokeDataAccess"; reason?: string } | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
 
   const load = async (bypassCache = false) => {
     try {
@@ -128,45 +134,54 @@ export default function CommunitySupplierAccountsPage() {
   };
 
   // M5 — always revokes data access; harder to reverse than restrict, so 2FA-gated on the backend.
-  const suspend = async (id: string) => {
-    const reason = prompt("Reason for suspending this supplier account (required):")?.trim();
+  const suspend = async (id: string, reasonArg?: string, code?: string) => {
+    const reason = reasonArg ?? prompt("Reason for suspending this supplier account (required):")?.trim();
     if (!reason) return;
-    if (!confirm("Suspend this supplier account? This immediately and atomically revokes their access to participant delivery data across every assigned campaign.")) return;
+    if (!code && !confirm("Suspend this supplier account? This immediately and atomically revokes their access to participant delivery data across every assigned campaign.")) return;
     setBusyId(id);
     try {
-      await communityBuyAdminAPI.suspendSupplierAccount(id, reason);
+      await communityBuyAdminAPI.suspendSupplierAccount(id, reason, code);
+      setPendingAction(null);
+      setTwoFactorCode("");
       await load();
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to suspend supplier account");
+      if (err instanceof API2FARequiredError) setPendingAction({ id, kind: "suspend", reason });
+      else alert(err instanceof APIError ? err.message : "Failed to suspend supplier account");
     } finally {
       setBusyId(null);
     }
   };
 
-  const unsuspend = async (id: string) => {
-    if (!confirm("Lift this suspension? The account returns to its prior approved/under-review state.")) return;
+  const unsuspend = async (id: string, code?: string) => {
+    if (!code && !confirm("Lift this suspension? The account returns to its prior approved/under-review state.")) return;
     setBusyId(id);
     try {
-      await communityBuyAdminAPI.unsuspendSupplierAccount(id);
+      await communityBuyAdminAPI.unsuspendSupplierAccount(id, code);
+      setPendingAction(null);
+      setTwoFactorCode("");
       await load();
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to lift suspension");
+      if (err instanceof API2FARequiredError) setPendingAction({ id, kind: "unsuspend" });
+      else alert(err instanceof APIError ? err.message : "Failed to lift suspension");
     } finally {
       setBusyId(null);
     }
   };
 
   // M5 — permanent, terminal; no reversal exists.
-  const close = async (id: string) => {
-    const reason = prompt("Reason for permanently closing this supplier account (required):")?.trim();
+  const close = async (id: string, reasonArg?: string, code?: string) => {
+    const reason = reasonArg ?? prompt("Reason for permanently closing this supplier account (required):")?.trim();
     if (!reason) return;
-    if (!confirm("Permanently close this supplier account? This cannot be undone.")) return;
+    if (!code && !confirm("Permanently close this supplier account? This cannot be undone.")) return;
     setBusyId(id);
     try {
-      await communityBuyAdminAPI.closeSupplierAccount(id, reason);
+      await communityBuyAdminAPI.closeSupplierAccount(id, reason, code);
+      setPendingAction(null);
+      setTwoFactorCode("");
       await load();
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to close supplier account");
+      if (err instanceof API2FARequiredError) setPendingAction({ id, kind: "close", reason });
+      else alert(err instanceof APIError ? err.message : "Failed to close supplier account");
     } finally {
       setBusyId(null);
     }
@@ -175,15 +190,18 @@ export default function CommunitySupplierAccountsPage() {
   // M4 — manual data-access revoke (spec §19 "attribution/solicitation
   // investigation"), independent of restrict/suspend — for cases where the
   // supplier's state hasn't changed but access still needs cutting off now.
-  const revokeDataAccess = async (id: string) => {
-    const reason = prompt("Reason for revoking this supplier's data access (required):")?.trim();
+  const revokeDataAccess = async (id: string, reasonArg?: string, code?: string) => {
+    const reason = reasonArg ?? prompt("Reason for revoking this supplier's data access (required):")?.trim();
     if (!reason) return;
     setBusyId(id);
     try {
-      const { revokedCount } = await communityBuyAdminAPI.revokeSupplierDataAccess(id, reason);
+      const { revokedCount } = await communityBuyAdminAPI.revokeSupplierDataAccess(id, reason, code);
+      setPendingAction(null);
+      setTwoFactorCode("");
       alert(`Revoked data access for ${revokedCount} campaign${revokedCount === 1 ? "" : "s"}.`);
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to revoke data access");
+      if (err instanceof API2FARequiredError) setPendingAction({ id, kind: "revokeDataAccess", reason });
+      else alert(err instanceof APIError ? err.message : "Failed to revoke data access");
     } finally {
       setBusyId(null);
     }
@@ -327,6 +345,49 @@ export default function CommunitySupplierAccountsPage() {
             </Card>
           </div>
         )}
+
+        {pendingAction ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+            <Card className="w-full max-w-md">
+              <h3 className="text-xl font-black text-[#101820]">Enter 2FA code</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                {pendingAction.kind === "suspend"
+                  ? "Confirm suspending this supplier account. This immediately revokes their access to participant delivery data across every assigned campaign."
+                  : pendingAction.kind === "unsuspend"
+                    ? "Confirm lifting this suspension."
+                    : pendingAction.kind === "close"
+                      ? "Confirm permanently closing this supplier account. This cannot be undone."
+                      : "Confirm revoking this supplier's data access now."}
+              </p>
+              <input
+                autoFocus
+                inputMode="numeric"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value)}
+                placeholder="6-digit code"
+                className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none"
+              />
+              <div className="mt-4 flex gap-3">
+                <Button
+                  disabled={busyId === pendingAction.id || !twoFactorCode.trim()}
+                  onClick={() => {
+                    const code = twoFactorCode.trim();
+                    if (pendingAction.kind === "suspend") void suspend(pendingAction.id, pendingAction.reason, code);
+                    else if (pendingAction.kind === "unsuspend") void unsuspend(pendingAction.id, code);
+                    else if (pendingAction.kind === "close") void close(pendingAction.id, pendingAction.reason, code);
+                    else void revokeDataAccess(pendingAction.id, pendingAction.reason, code);
+                  }}
+                  className="flex-1"
+                >
+                  Confirm
+                </Button>
+                <Button variant="ghost" className="flex-1" onClick={() => { setPendingAction(null); setTwoFactorCode(""); }}>
+                  Cancel
+                </Button>
+              </div>
+            </Card>
+          </div>
+        ) : null}
       </AdminLayout>
     </ProtectedRoute>
   );
