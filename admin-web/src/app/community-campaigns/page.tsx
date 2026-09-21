@@ -71,6 +71,11 @@ export default function CommunityCampaignsPage() {
   // exact modal pattern already working on payout-requests/page.tsx.
   const [pendingPaymentAction, setPendingPaymentAction] = useState<{ payment: AdminSupplierPayment; kind: "release" | "hold"; reason?: string } | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
+  // Phase 8 — cancel/end now requires 2FA server-side too (it can trigger a
+  // real refund under AT-25). Same retry pattern as pendingPaymentAction
+  // above, kept as its own state since the shape (campaignId/reason vs. a
+  // full AdminSupplierPayment) doesn't fit that union cleanly.
+  const [pendingCancelAction, setPendingCancelAction] = useState<{ campaignId: string; reason: string; title: string } | null>(null);
 
   const load = async (bypassCache = false) => {
     try {
@@ -243,13 +248,19 @@ export default function CommunityCampaignsPage() {
     }
   };
 
-  const runCancelAction = async (campaignId: string, reason: string) => {
+  const runCancelAction = async (campaignId: string, reason: string, title: string, code?: string) => {
     setBusyId(campaignId);
     try {
-      await communityBuyAdminAPI.cancelCampaign(campaignId, reason);
+      await communityBuyAdminAPI.cancelCampaign(campaignId, reason, code);
+      setPendingCancelAction(null);
+      setTwoFactorCode("");
       await load();
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Action failed");
+      if (err instanceof API2FARequiredError) {
+        setPendingCancelAction({ campaignId, reason, title });
+      } else {
+        alert(err instanceof APIError ? err.message : "Action failed");
+      }
     } finally {
       setBusyId(null);
     }
@@ -446,7 +457,7 @@ export default function CommunityCampaignsPage() {
                               disabled={busyId === c.id || !cancelReasonById[c.id]?.trim()}
                               onClick={() => {
                                 if (confirm(`End "${c.title}" now? This cannot be undone. The organiser and every participant will be notified; no one is charged.`)) {
-                                  void runCancelAction(c.id, cancelReasonById[c.id]!.trim());
+                                  void runCancelAction(c.id, cancelReasonById[c.id]!.trim(), c.title);
                                 }
                               }}
                             >
@@ -695,6 +706,37 @@ export default function CommunityCampaignsPage() {
                   Confirm
                 </Button>
                 <Button variant="ghost" className="flex-1" onClick={() => { setPendingPaymentAction(null); setTwoFactorCode(""); }}>
+                  Cancel
+                </Button>
+              </div>
+            </Card>
+          </div>
+        ) : null}
+
+        {pendingCancelAction ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+            <Card className="w-full max-w-md">
+              <h3 className="text-xl font-black text-[#101820]">Enter 2FA code</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                Confirm ending <span className="font-bold">{pendingCancelAction.title}</span>. This cannot be undone.
+              </p>
+              <input
+                autoFocus
+                inputMode="numeric"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value)}
+                placeholder="6-digit code"
+                className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none"
+              />
+              <div className="mt-4 flex gap-3">
+                <Button
+                  disabled={busyId === pendingCancelAction.campaignId || !twoFactorCode.trim()}
+                  onClick={() => void runCancelAction(pendingCancelAction.campaignId, pendingCancelAction.reason, pendingCancelAction.title, twoFactorCode.trim())}
+                  className="flex-1"
+                >
+                  Confirm
+                </Button>
+                <Button variant="ghost" className="flex-1" onClick={() => { setPendingCancelAction(null); setTwoFactorCode(""); }}>
                   Cancel
                 </Button>
               </div>

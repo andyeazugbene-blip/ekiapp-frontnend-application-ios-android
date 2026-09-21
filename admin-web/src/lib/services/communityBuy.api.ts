@@ -477,9 +477,9 @@ export const communityBuyAdminAPI = {
     const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/issue-notes`, { notes });
     return res.campaign;
   },
-  /** Phase 9 — only reachable pre-charge (DRAFT..RESCUE_WINDOW); the backend 409s for anything past that. */
-  async cancelCampaign(id: string, reason: string): Promise<AdminCampaign> {
-    const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/cancel`, { reason });
+  /** Phase 9 — reachable pre-charge AND from PAYMENT_CAPTURE (AT-25), which can already hold PAID contributions; the backend 409s once a campaign has actually succeeded/ended. 2FA-gated (Phase 8) since it can trigger a real refund. */
+  async cancelCampaign(id: string, reason: string, twoFactorCode?: string): Promise<AdminCampaign> {
+    const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/cancel`, { reason }, { twoFactorCode });
     return res.campaign;
   },
   /** Phase 9 (REQ-CB-A-004) — every contribution/pledge for a campaign, with participant identity, regardless of status. */

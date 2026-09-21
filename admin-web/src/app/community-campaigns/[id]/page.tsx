@@ -55,7 +55,7 @@ export default function CommunityCampaignDetailPage() {
   const [notes, setNotes] = useState("");
   const [holdReason, setHoldReason] = useState("");
   const [cancelReason, setCancelReason] = useState("");
-  const [pendingAction, setPendingAction] = useState<"release" | "hold" | null>(null);
+  const [pendingAction, setPendingAction] = useState<"release" | "hold" | "cancel" | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
   // Phase 2 (admin ops) — the unified operations view's one shared
   // issue/notes field. Independent of every existing review/payment/
@@ -129,14 +129,17 @@ export default function CommunityCampaignDetailPage() {
     }
   };
 
-  const runCancelAction = async () => {
+  const runCancelAction = async (code?: string) => {
     if (!campaign) return;
     setBusy(true);
     try {
-      await communityBuyAdminAPI.cancelCampaign(campaign.id, cancelReason.trim());
+      await communityBuyAdminAPI.cancelCampaign(campaign.id, cancelReason.trim(), code);
+      setPendingAction(null);
+      setTwoFactorCode("");
       await load();
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Action failed");
+      if (err instanceof API2FARequiredError) setPendingAction("cancel");
+      else alert(err instanceof APIError ? err.message : "Action failed");
     } finally {
       setBusy(false);
     }
@@ -398,7 +401,9 @@ export default function CommunityCampaignDetailPage() {
               <p className="mt-2 text-sm text-slate-500">
                 {pendingAction === "release" && payment
                   ? <>Confirm the release of <span className="font-bold">{centsToUnit(payment.amount).toFixed(2)} {payment.currency}</span> to the supplier.</>
-                  : "Confirm placing this supplier payment on hold."}
+                  : pendingAction === "hold"
+                    ? "Confirm placing this supplier payment on hold."
+                    : <>Confirm ending <span className="font-bold">{campaign?.title}</span>. This cannot be undone.</>}
               </p>
               <input
                 autoFocus
@@ -413,7 +418,8 @@ export default function CommunityCampaignDetailPage() {
                   disabled={busy || !twoFactorCode.trim()}
                   onClick={() => {
                     if (pendingAction === "release") void runReleaseAction(twoFactorCode.trim());
-                    else void runHoldAction(twoFactorCode.trim());
+                    else if (pendingAction === "hold") void runHoldAction(twoFactorCode.trim());
+                    else void runCancelAction(twoFactorCode.trim());
                   }}
                   className="flex-1"
                 >
