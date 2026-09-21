@@ -166,7 +166,6 @@ export default function VendorLayout() {
       <Tabs.Screen name="message-chat" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="publish-check" options={{ href: null, tabBarStyle: { display: "none" } }} />
-      <Tabs.Screen name="accept-order" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="mark-shipped" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="order-completed" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="upgrade-prompt" options={{ href: null, tabBarStyle: { display: "none" } }} />

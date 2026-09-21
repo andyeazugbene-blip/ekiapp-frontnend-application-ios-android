@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export type DeliveryCountry = "UK" | "US" | "Canada" | "Europe";
 export type VerificationStatus = "not_started" | "pending" | "approved" | "rejected";
@@ -82,8 +84,10 @@ const initialState = {
   hasSharedLink: false,
 };
 
-export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
-  ...initialState,
+export const useOnboardingStore = create<OnboardingStore>()(
+  persist(
+    (set, get) => ({
+      ...initialState,
 
   setOtpVerified: (verified) => set({ otpVerified: verified }),
   setVerificationStatus: (status) => set({ verificationStatus: status }),
@@ -132,4 +136,17 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
       ? `/(vendor-onboarding)/delivery-${next.toLowerCase()}`
       : "/(vendor-onboarding)/delivery-summary";
   },
-}));
+    }),
+    {
+      // Acceptance audit fix: onboarding draft state used to live only in
+      // React/Zustand runtime memory — backgrounding the app long enough to
+      // be killed, or a crash mid-flow (which can span 5+ screens: store
+      // setup → business info → first product → delivery countries), lost
+      // all progress with no way to recover it. Persists the whole draft
+      // (every field above is real form-in-progress state worth restoring;
+      // nothing here is ephemeral/UI-only) and rehydrates automatically.
+      name: "eki_vendor_onboarding_draft",
+      storage: createJSONStorage(() => AsyncStorage),
+    },
+  ),
+);

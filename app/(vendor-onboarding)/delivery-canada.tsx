@@ -1,6 +1,7 @@
 import React from "react";
 import { useRouter } from "expo-router";
 import DeliveryCountryForm from "../../components/vendor/DeliveryCountryForm";
+import { goBackOrReplace } from "../../utils/navigation";
 
 export default function DeliveryCanadaScreen() {
   const router = useRouter();
@@ -12,7 +13,7 @@ export default function DeliveryCanadaScreen() {
       title="Set Canada delivery"
       saveLabel="Save Canada Delivery"
       onSaved={(next) => router.push(next as any)}
-      onBack={() => router.replace("/(vendor-onboarding)/delivery-countries" as any)}
+      onBack={() => goBackOrReplace(router, "/(vendor-onboarding)/delivery-countries" as any)}
       afterCountry="Canada"
     />
   );
