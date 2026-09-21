@@ -18,9 +18,12 @@ import {
   communityBuyService,
   type Campaign,
   type CampaignFulfilment,
+  type CommunityBuyPayout,
+  type FulfilmentDelivery,
   type FulfilmentEvent,
   type FulfilmentMethod,
   type MarketConfig,
+  type PaymentProgress,
   type SupplierPayment,
 } from "../../services/communityBuyService";
 import { calculateSupplierCommission } from "../../utils/communityBuyFees";
@@ -65,6 +68,33 @@ const PAYMENT_LABEL: Record<SupplierPayment["status"], string> = {
   FAILED: "Failed",
 };
 
+// Figma S29/S30 — AUTHORISE_THEN_CAPTURE mode's real payout lifecycle
+// (backend campaign-payout.service.ts's triggerManualPayout(), a genuine
+// stripe.payouts.create() call moving your captured balance to your bank).
+const PAYOUT_TONE: Record<CommunityBuyPayout["status"], Tone> = {
+  HELD: "warning",
+  READY: "info",
+  PENDING: "warning",
+  IN_TRANSIT: "warning",
+  PAID: "success",
+  FAILED: "error",
+  REVERSED: "error",
+  CANCELLED: "neutral",
+  MANUAL_REVIEW: "warning",
+};
+
+const PAYOUT_LABEL: Record<CommunityBuyPayout["status"], string> = {
+  HELD: "Held",
+  READY: "Ready",
+  PENDING: "Submitted",
+  IN_TRANSIT: "On the way",
+  PAID: "Completed",
+  FAILED: "Failed",
+  REVERSED: "Reversed",
+  CANCELLED: "Cancelled",
+  MANUAL_REVIEW: "Under review",
+};
+
 function stepIndex(status: string): number {
   const order = ["AWAITING_INVENTORY_CONFIRMATION", "INVENTORY_CONFIRMED", "PACKING", "READY_FOR_DISPATCH_OR_COLLECTION", "DISPATCHED", "COLLECTED", "COMPLETED"];
   return order.indexOf(status);
@@ -78,6 +108,9 @@ export default function CommunityBuySupplierFulfilmentScreen() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [fulfilment, setFulfilment] = useState<CampaignFulfilment | null>(null);
   const [payment, setPayment] = useState<SupplierPayment | null>(null);
+  const [payout, setPayout] = useState<CommunityBuyPayout | null>(null);
+  const [paymentProgress, setPaymentProgress] = useState<PaymentProgress | null>(null);
+  const [deliveries, setDeliveries] = useState<FulfilmentDelivery[] | null>(null);
   const [marketConfig, setMarketConfig] = useState<MarketConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -105,7 +138,18 @@ export default function CommunityBuySupplierFulfilmentScreen() {
       setFulfilment(f);
       setNotes(f.notes ?? "");
       if (f.method) setMethod(f.method);
-      setPayment(await communityBuyService.getMySupplierPayment(id).catch(() => null));
+      if (c.paymentMode === "AUTHORISE_THEN_CAPTURE") {
+        setPaymentProgress(await communityBuyService.getMyPaymentProgress(id).catch(() => null));
+        setPayout(await communityBuyService.getMyCampaignPayout(id).catch(() => null));
+      } else {
+        setPayment(await communityBuyService.getMySupplierPayment(id).catch(() => null));
+      }
+      // Figma S25 — only fetched (and only ever real data if so) when
+      // deliveryResponsibility genuinely names this supplier; a 403 here
+      // just means "not your responsibility," not an error to surface.
+      if (c.deliveryPreference === "DELIVERY" && (c.deliveryResponsibility === "SUPPLIER" || c.deliveryResponsibility === "SHARED")) {
+        setDeliveries(await communityBuyService.getFulfilmentDeliveries(id).catch(() => null));
+      }
       setEvents(await communityBuyService.getFulfilmentEvents(id).catch(() => []));
       if (c.country) setMarketConfig(await communityBuyService.getMarketConfig(c.country).catch(() => null));
     } catch (err) {
@@ -393,6 +437,27 @@ export default function CommunityBuySupplierFulfilmentScreen() {
             </View>
           ) : null}
 
+          {deliveries && deliveries.length > 0 ? (
+            <View>
+              <Text style={styles.section}>Home deliveries</Text>
+              <Text style={styles.paymentPlaceholder}>You are responsible for delivering these orders. Only use this information to complete delivery.</Text>
+              <View style={{ gap: 8, marginTop: 8 }}>
+                {deliveries.map((d) => (
+                  <FloatingCard key={d.contributionId} style={{ gap: 4 }}>
+                    <View style={styles.paymentRow}>
+                      <Text style={styles.paymentLabel}>{d.recipientName ?? "—"}</Text>
+                      <Text style={styles.paymentValue}>{d.quantity} unit{d.quantity === 1 ? "" : "s"}</Text>
+                    </View>
+                    <Text style={styles.eventTimestamp}>{[d.addressLine1, d.addressLine2, d.city, d.postcode].filter(Boolean).join(", ")}</Text>
+                    {d.phone ? <Text style={styles.eventTimestamp}>{d.phone}</Text> : null}
+                    {d.instructions ? <Text style={styles.eventTimestamp}>{d.instructions}</Text> : null}
+                    <StatusPill label={d.deliveryStatus} tone={d.deliveryStatus === "DELIVERED" ? "success" : d.deliveryStatus === "EXCEPTION" ? "error" : "neutral"} />
+                  </FloatingCard>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
           {events.length > 0 ? (
             <View>
               <Text style={styles.section}>Evidence timeline</Text>
@@ -410,6 +475,73 @@ export default function CommunityBuySupplierFulfilmentScreen() {
             </View>
           ) : null}
 
+          {campaign.paymentMode === "AUTHORISE_THEN_CAPTURE" ? (
+            <View>
+              <Text style={styles.section}>Payment confirmation progress</Text>
+              {paymentProgress ? (
+                <FloatingCard style={{ gap: 8 }}>
+                  <View style={styles.paymentRow}><Text style={styles.paymentLabel}>Committed</Text><Text style={styles.paymentValue}>{paymentProgress.committed}</Text></View>
+                  <View style={styles.paymentRow}><Text style={styles.paymentLabel}>Payment methods confirmed</Text><Text style={styles.paymentValue}>{paymentProgress.paymentMethodsConfirmed}</Text></View>
+                  <View style={styles.paymentRow}><Text style={styles.paymentLabel}>Action required</Text><Text style={styles.paymentValue}>{paymentProgress.actionRequired}</Text></View>
+                  <View style={styles.paymentRow}><Text style={styles.paymentLabel}>Declined</Text><Text style={styles.paymentValue}>{paymentProgress.declined}</Text></View>
+                  <View style={styles.paymentRow}><Text style={styles.paymentLabel}>Payment completed</Text><Text style={styles.paymentValue}>{paymentProgress.captured}</Text></View>
+                  {paymentProgress.captureFailedRetrying > 0 ? (
+                    <View style={styles.paymentRow}><Text style={styles.paymentLabel}>Payment recovery in progress</Text><Text style={styles.paymentValue}>{paymentProgress.captureFailedRetrying}</Text></View>
+                  ) : null}
+                  <View style={styles.paymentRow}><Text style={styles.paymentLabel}>Ready for fulfilment</Text><Text style={styles.paymentValue}>{paymentProgress.readyForFulfilment}</Text></View>
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>Payment-release status</Text>
+                    <Text style={styles.paymentValue}>{paymentProgress.releaseStatus === "PENDING_CAMPAIGN_OUTCOME" ? "Pending campaign outcome" : PAYOUT_LABEL[paymentProgress.releaseStatus]}</Text>
+                  </View>
+                </FloatingCard>
+              ) : (
+                <FloatingCard><Text style={styles.paymentPlaceholder}>Payment progress will appear here once participants start confirming their payment method.</Text></FloatingCard>
+              )}
+
+              <Text style={[styles.section, { marginTop: 14 }]}>Payout</Text>
+              {payout ? (
+                <FloatingCard style={{ gap: 8 }}>
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>Status</Text>
+                    <StatusPill label={PAYOUT_LABEL[payout.status]} tone={PAYOUT_TONE[payout.status]} />
+                  </View>
+                  <View style={styles.paymentRow}><Text style={styles.paymentLabel}>Captured gross amount</Text><Text style={styles.paymentValue}>{formatDisplayMoney(payout.capturedGrossAmount / 100, payout.currency, selectedCurrency)}</Text></View>
+                  <View style={styles.paymentRow}><Text style={styles.paymentLabel}>Eki fee</Text><Text style={styles.paymentValue}>-{formatDisplayMoney(payout.ekiFeeAmount / 100, payout.currency, selectedCurrency)}</Text></View>
+                  {payout.refundDeductionAmount > 0 ? (
+                    <View style={styles.paymentRow}><Text style={styles.paymentLabel}>Refund deductions</Text><Text style={styles.paymentValue}>-{formatDisplayMoney(payout.refundDeductionAmount / 100, payout.currency, selectedCurrency)}</Text></View>
+                  ) : null}
+                  {payout.disputeDeductionAmount > 0 ? (
+                    <View style={styles.paymentRow}><Text style={styles.paymentLabel}>Dispute deductions</Text><Text style={styles.paymentValue}>-{formatDisplayMoney(payout.disputeDeductionAmount / 100, payout.currency, selectedCurrency)}</Text></View>
+                  ) : null}
+                  {payout.reserveAmount > 0 ? (
+                    <View style={styles.paymentRow}><Text style={styles.paymentLabel}>Reserve</Text><Text style={styles.paymentValue}>-{formatDisplayMoney(payout.reserveAmount / 100, payout.currency, selectedCurrency)}</Text></View>
+                  ) : null}
+                  <View style={[styles.paymentRow, styles.payoutTotalRow]}>
+                    <Text style={styles.payoutTotalLabel}>Net payout</Text>
+                    <Text style={styles.payoutTotalValue}>{formatDisplayMoney(payout.netPayoutAmount / 100, payout.currency, selectedCurrency)}</Text>
+                  </View>
+                  {/* Direct Charge — the captured amount already sits in this
+                      supplier's own connected Stripe balance; this status is
+                      about Eki releasing it onward to their bank, not a claim
+                      the money hasn't reached the supplier yet. */}
+                  <Text style={styles.holdReason}>
+                    {payout.status === "HELD" || payout.status === "READY"
+                      ? "Your captured payments are already in your Stripe balance. This status tracks Eki's release of that balance to your bank."
+                      : ""}
+                  </Text>
+                  {payout.holdReasonCodes.length > 0 ? <Text style={styles.holdReason}>{payout.holdReasonCodes.join(", ")}</Text> : null}
+                  {payout.providerPayoutId ? (
+                    <View style={styles.paymentRow}>
+                      <Text style={styles.paymentLabel}>Provider reference</Text>
+                      <Text style={styles.paymentValue} numberOfLines={1}>{payout.providerPayoutId}</Text>
+                    </View>
+                  ) : null}
+                </FloatingCard>
+              ) : (
+                <FloatingCard><Text style={styles.paymentPlaceholder}>Your payout will appear here once the first participant payment is captured.</Text></FloatingCard>
+              )}
+            </View>
+          ) : (
           <View>
             <Text style={styles.section}>Your payment</Text>
             {payment ? (() => {
@@ -458,6 +590,7 @@ export default function CommunityBuySupplierFulfilmentScreen() {
               </FloatingCard>
             )}
           </View>
+          )}
         </View>
       </ScrollView>
     </View>

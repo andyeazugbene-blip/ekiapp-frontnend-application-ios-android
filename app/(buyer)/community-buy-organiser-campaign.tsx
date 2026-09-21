@@ -155,6 +155,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [qualityNotes, setQualityNotes] = useState("");
   // Delivery step (spec §7 step 5) — organiser intent only.
   const [deliveryPreference, setDeliveryPreference] = useState<"COLLECTION" | "DELIVERY">("COLLECTION");
+  // Figma S35 "Delivery Arrangement" — only meaningful when this campaign
+  // has a supplier at all; a SELF-fulfilled campaign is always ORGANISER.
+  const [deliveryResponsibility, setDeliveryResponsibility] = useState<"ORGANISER" | "SUPPLIER" | "SHARED">("ORGANISER");
   // A fresh organiser (no profile yet) must be able to pick a market for
   // their very first draft — createCampaign() only needs title+country.
   const [marketOptions, setMarketOptions] = useState<MarketConfig[]>([]);
@@ -252,6 +255,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         setQuantityPerOrder(existing.quantityPerOrder != null ? String(existing.quantityPerOrder) : "");
         setQualityNotes(existing.qualityNotes ?? "");
         setDeliveryPreference(existing.deliveryPreference ?? "COLLECTION");
+        setDeliveryResponsibility(existing.deliveryResponsibility ?? "ORGANISER");
         setParticipants(await communityBuyService.listCampaignParticipants(id).catch(() => []));
         if (existing.status === "RESCUE_WINDOW") {
           const methods = await regularDeliveriesService.listPaymentMethods().catch(() => [] as BuyerPaymentMethod[]);
@@ -363,6 +367,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       quantityPerOrder: quantityPerOrder.trim() ? Math.round(Number(quantityPerOrder)) : undefined,
       qualityNotes: qualityNotes.trim() || undefined,
       deliveryPreference,
+      deliveryResponsibility: deliveryPreference === "DELIVERY" ? deliveryResponsibility : undefined,
       collectionAddressLine1: collectionAddressLine1.trim() || undefined,
       collectionAddressLine2: collectionAddressLine2.trim() || undefined,
       collectionCity: collectionCity.trim() || undefined,
@@ -1267,6 +1272,33 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                   <Text style={styles.label}>Delivery fee</Text>
                   <Text style={styles.fieldHint}>Charged once per pledge, on top of Eki's service fee — never included inside it. Enter 0 for free delivery.</Text>
                   <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder={`0.00 ${currency}`} placeholderTextColor="#8AA194" value={deliveryFeeAmount} onChangeText={setDeliveryFeeAmount} keyboardType="decimal-pad" accessibilityLabel="Delivery fee" />
+
+                  {fulfilmentOwner === "SUPPLIER" ? (
+                    <>
+                      <Text style={styles.label}>Delivery arrangement</Text>
+                      <Text style={styles.fieldHint}>Who is responsible for getting orders to buyers? This determines who can see a buyer's delivery address.</Text>
+                      {([
+                        ["ORGANISER", "I deliver / coordinate delivery"],
+                        ["SUPPLIER", "The supplier delivers to buyers"],
+                        ["SHARED", "Shared between us"],
+                      ] as const).map(([value, label]) => (
+                        <TouchableOpacity
+                          key={value}
+                          onPress={() => setDeliveryResponsibility(value)}
+                          disabled={financialFieldsLocked}
+                          activeOpacity={0.85}
+                          accessibilityRole="radio"
+                          accessibilityLabel={label}
+                          accessibilityState={{ selected: deliveryResponsibility === value }}
+                        >
+                          <FloatingCard style={[styles.optionRow, deliveryResponsibility === value && styles.optionRowActive]}>
+                            <Ionicons name={deliveryResponsibility === value ? "radio-button-on" : "radio-button-off"} size={18} color={deliveryResponsibility === value ? "#076B51" : "#8AA194"} />
+                            <Text style={styles.optionText}>{label}</Text>
+                          </FloatingCard>
+                        </TouchableOpacity>
+                      ))}
+                    </>
+                  ) : null}
                 </FloatingCard>
               ) : null}
             </View>

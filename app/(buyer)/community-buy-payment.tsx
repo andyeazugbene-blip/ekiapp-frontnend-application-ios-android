@@ -34,6 +34,9 @@ export default function CommunityBuyPaymentScreen() {
   const [addressLine2, setAddressLine2] = useState("");
   const [city, setCity] = useState("");
   const [postcode, setPostcode] = useState("");
+  // Figma S25 "Prepare Home Deliveries" — optional, not required for pledging.
+  const [phone, setPhone] = useState("");
+  const [instructions, setInstructions] = useState("");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -98,7 +101,10 @@ export default function CommunityBuyPaymentScreen() {
     setContributeError("");
     try {
       const deliveryAddress = campaign?.deliveryPreference === "DELIVERY"
-        ? { recipientName: recipientName.trim(), addressLine1: addressLine1.trim(), addressLine2: addressLine2.trim() || undefined, city: city.trim(), postcode: postcode.trim() }
+        ? {
+            recipientName: recipientName.trim(), addressLine1: addressLine1.trim(), addressLine2: addressLine2.trim() || undefined, city: city.trim(), postcode: postcode.trim(),
+            phone: phone.trim() || undefined, instructions: instructions.trim() || undefined,
+          }
         : undefined;
       const pledge = await communityBuyService.pledgeContribution(id, quantity, paymentMethodId, deliveryAddress);
       router.replace({ pathname: "/(buyer)/community-buy-contribution-confirmed", params: { id, contributionId: pledge.contributionId } } as any);
@@ -183,7 +189,13 @@ export default function CommunityBuyPaymentScreen() {
           {isDelivery ? (
             <FloatingCard style={{ gap: 10 }}>
               <Text style={styles.section}>Delivery address</Text>
-              <Text style={styles.disclosureText}>Required for this campaign. Only you and the campaign organiser can see this — never the supplier.</Text>
+              <Text style={styles.disclosureText}>
+                Required for this campaign. {campaign.deliveryResponsibility === "SUPPLIER"
+                  ? "Shared only with the supplier responsible for delivering your order."
+                  : campaign.deliveryResponsibility === "SHARED"
+                    ? "Shared with the campaign organiser and the supplier responsible for delivering your order."
+                    : "Only you and the campaign organiser can see this — never the supplier."}
+              </Text>
               <TextInput style={styles.input} placeholder="Recipient name" placeholderTextColor="#8AA194" value={recipientName} onChangeText={setRecipientName} accessibilityLabel="Recipient name" />
               <TextInput style={styles.input} placeholder="Address line 1" placeholderTextColor="#8AA194" value={addressLine1} onChangeText={setAddressLine1} accessibilityLabel="Address line 1" />
               <TextInput style={styles.input} placeholder="Address line 2 (optional)" placeholderTextColor="#8AA194" value={addressLine2} onChangeText={setAddressLine2} accessibilityLabel="Address line 2" />
@@ -195,6 +207,8 @@ export default function CommunityBuyPaymentScreen() {
                   <TextInput style={styles.input} placeholder="Postcode" placeholderTextColor="#8AA194" value={postcode} onChangeText={setPostcode} accessibilityLabel="Postcode" autoCapitalize="characters" />
                 </View>
               </View>
+              <TextInput style={styles.input} placeholder="Phone (optional)" placeholderTextColor="#8AA194" value={phone} onChangeText={setPhone} accessibilityLabel="Phone number" keyboardType="phone-pad" />
+              <TextInput style={styles.input} placeholder="Delivery instructions (optional)" placeholderTextColor="#8AA194" value={instructions} onChangeText={setInstructions} accessibilityLabel="Delivery instructions" />
             </FloatingCard>
           ) : null}
 

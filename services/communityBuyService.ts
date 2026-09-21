@@ -265,6 +265,8 @@ export interface CampaignDraftInput {
   deliveryCoverageAreas?: string[];
   // Phase 6 (delivery + collection/tracking) — required once deliveryPreference is DELIVERY; 0 is a valid "free delivery" choice.
   deliveryFeeAmountMinor?: number;
+  // Figma S35 — see Campaign.deliveryResponsibility's own doc comment.
+  deliveryResponsibility?: "ORGANISER" | "SUPPLIER" | "SHARED";
 }
 
 export interface Campaign {
@@ -312,6 +314,10 @@ export interface Campaign {
   agreedReadyByDate?: string | null;
   confirmedShares: number;
   fundingOutcome: FundingOutcome;
+  // M2 — snapshotted once at creation, never re-read afterward; determines
+  // whether this campaign's payment views should call getMySupplierPayment
+  // (escrow) or getMyPaymentProgress()/getMyCampaignPayout() (Direct Charge).
+  paymentMode: "PLEDGE_THEN_CHARGE" | "AUTHORISE_THEN_CAPTURE";
   supplierCommitted: boolean;
   supplierCommittedAt?: string | null;
   supplierDeclinedAt?: string | null;
@@ -350,6 +356,10 @@ export interface Campaign {
   // configured yet (a live DELIVERY campaign always has one; submit()
   // requires it). 0 is a valid, explicit "free delivery" choice.
   deliveryFeeAmountMinor?: number | null;
+  // Figma S35 "Delivery Arrangement" — who is responsible for actually
+  // getting orders to buyers on a DELIVERY campaign. Only meaningful when
+  // deliveryPreference is DELIVERY; irrelevant for COLLECTION.
+  deliveryResponsibility?: "ORGANISER" | "SUPPLIER" | "SHARED";
   // Phase 2 (organiser identity display preference) — server-computed
   // display name (first name only, or full name, per the organiser's own
   // preference). Buyer-facing surfaces should always prefer this over
@@ -402,6 +412,10 @@ export interface DeliveryAddressInput {
   addressLine2?: string;
   city: string;
   postcode: string;
+  // Figma S25 "Prepare Home Deliveries" — optional, not part of the
+  // required-field validation server-side.
+  phone?: string;
+  instructions?: string;
 }
 
 export interface MyCommunityBuy {
@@ -551,6 +565,21 @@ export interface MyDeliveryReference {
   collectionCodeRedeemedAt: string | null;
 }
 
+// Figma S25 — real per-order home-delivery detail, only ever returned when
+// deliveryResponsibility genuinely names this supplier (SUPPLIER or SHARED).
+export interface FulfilmentDelivery {
+  contributionId: string;
+  quantity: number;
+  recipientName: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  postcode: string | null;
+  phone: string | null;
+  instructions: string | null;
+  deliveryStatus: string;
+}
+
 export type SupplierPaymentStatus = "NOT_RELEASED" | "PROCESSING" | "PAID" | "ON_HOLD" | "FAILED";
 
 export interface SupplierPayment {
@@ -568,6 +597,45 @@ export interface SupplierPayment {
   // Figma S30 "provider reference" — the real Stripe transfer id, only
   // ever set once a transfer actually succeeded (releaseSupplierPayment()).
   stripeTransferId?: string | null;
+}
+
+// M2 — AUTHORISE_THEN_CAPTURE mode's own payout record (Direct Charges):
+// the supplier's net share already landed in their own connected Stripe
+// account at capture time — this row tracks Eki's internal fulfilment/
+// dispute review, not a fund transfer still in flight (see backend
+// campaign-authorisation.service.ts's own doc comment on why this differs
+// from the escrow-model SupplierPayment above).
+export type CommunityBuyPayoutStatus = "HELD" | "READY" | "PENDING" | "IN_TRANSIT" | "PAID" | "FAILED" | "REVERSED" | "CANCELLED" | "MANUAL_REVIEW";
+
+export interface CommunityBuyPayout {
+  campaignId: string;
+  currency: string;
+  capturedGrossAmount: number;
+  providerFeeAmount: number;
+  supplierPayableAmount: number;
+  ekiFeeAmount: number;
+  refundDeductionAmount: number;
+  disputeDeductionAmount: number;
+  reserveAmount: number;
+  netPayoutAmount: number;
+  status: CommunityBuyPayoutStatus;
+  holdReasonCodes: string[];
+  providerPayoutId?: string | null;
+}
+
+// Figma S17/S18/S22 — real per-buyer AUTHORISE_THEN_CAPTURE counts.
+export interface PaymentProgress {
+  committed: number;
+  paymentMethodsConfirmed: number;
+  actionRequired: number;
+  declined: number;
+  captured: number;
+  captureFailedRetrying: number;
+  readyForFulfilment: number;
+  releaseStatus: CommunityBuyPayoutStatus | "PENDING_CAMPAIGN_OUTCOME";
+  supplierPayableAmount: number;
+  netPayoutAmount: number;
+  currency: string;
 }
 
 // Diaspora escrow reconciliation — the organiser's own settlement record,
@@ -1156,9 +1224,27 @@ export const communityBuyService = {
     return res.supportCase;
   },
 
+  /** Figma S25 — real home-delivery address/phone/instructions, only ever returned when this supplier is genuinely the responsible party (backend 403s otherwise with NOT_RESPONSIBLE_FOR_DELIVERY). */
+  async getFulfilmentDeliveries(campaignId: string): Promise<FulfilmentDelivery[]> {
+    const res = await apiClient.get<{ deliveries: FulfilmentDelivery[] }>(`/api/supplier/campaigns/${campaignId}/fulfilment/deliveries`);
+    return res.deliveries;
+  },
+
   async getMySupplierPayment(campaignId: string): Promise<SupplierPayment> {
     const res = await apiClient.get<{ payment: SupplierPayment }>(`/api/supplier/campaigns/${campaignId}/payment`);
     return res.payment;
+  },
+
+  /** M2 — the AUTHORISE_THEN_CAPTURE-mode twin of getMySupplierPayment() above. */
+  async getMyCampaignPayout(campaignId: string): Promise<CommunityBuyPayout> {
+    const res = await apiClient.get<{ payout: CommunityBuyPayout }>(`/api/supplier/campaigns/${campaignId}/payout`);
+    return res.payout;
+  },
+
+  /** Figma S17/S18/S22 — real per-buyer authorisation counts for an AUTHORISE_THEN_CAPTURE campaign; throws NOT_AUTHORISE_THEN_CAPTURE_MODE for a PLEDGE_THEN_CHARGE one. */
+  async getMyPaymentProgress(campaignId: string): Promise<PaymentProgress> {
+    const res = await apiClient.get<{ progress: PaymentProgress }>(`/api/supplier/campaigns/${campaignId}/payment-progress`);
+    return res.progress;
   },
 
   // ─── Organiser fulfilment coordination ─────────────────────────────────
