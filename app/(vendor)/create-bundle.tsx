@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -8,8 +8,7 @@ import { productService } from "../../services/productService";
 import { marketingService } from "../../services/marketingService";
 import { Product } from "../../types/product";
 import { goBackOrReplace } from "../../utils/navigation";
-
-const CURRENCY_SYMBOL: Record<string, string> = { GBP: "£", USD: "$", EUR: "€" };
+import { getCurrencySymbol } from "../../utils/currency";
 
 export default function CreateBundleScreen() {
   const router = useRouter();
@@ -35,7 +34,7 @@ export default function CreateBundleScreen() {
   }, [vendor]);
 
   const currency = products[0]?.currency ?? "GBP";
-  const symbol = CURRENCY_SYMBOL[currency] ?? "£";
+  const symbol = getCurrencySymbol(currency);
   const parsedPrice = Number(bundlePrice) || 0;
   const parsedQuantity = Math.round(Number(quantityAvailable));
   const regularTotal = products.filter((p) => selectedIds.includes(p.id)).reduce((sum, p) => sum + p.price, 0);
@@ -95,8 +94,12 @@ export default function CreateBundleScreen() {
   return (
     <View style={styles.scrim}>
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent} 
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -229,7 +232,7 @@ export default function CreateBundleScreen() {
                 <TextInput
                   value={bundlePrice}
                   onChangeText={setBundlePrice}
-                  placeholder="e.g £ 5.00"
+                  placeholder={`e.g ${symbol} 5.00`}
                   placeholderTextColor="#858585"
                   keyboardType="decimal-pad"
                   style={styles.input}
@@ -276,6 +279,7 @@ export default function CreateBundleScreen() {
           </View>
           )}
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );

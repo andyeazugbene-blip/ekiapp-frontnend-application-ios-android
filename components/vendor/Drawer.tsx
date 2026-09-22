@@ -28,6 +28,7 @@ const MENU_ITEMS: MenuEntry[] = [
   { icon: "link-outline", label: "Share store", route: "/(vendor)/promo-link" },
   { icon: "eye-outline", label: "View orders", route: "/(vendor)/orders" },
   { icon: "cash-outline", label: "Withdraw payout", route: "/(vendor)/earnings" },
+  { icon: "settings-outline", label: "Settings", route: "/(vendor)/settings" },
 ];
 
 interface DrawerProps {

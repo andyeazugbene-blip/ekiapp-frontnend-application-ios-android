@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -8,8 +8,7 @@ import { productService } from "../../services/productService";
 import { marketingService } from "../../services/marketingService";
 import { Product } from "../../types/product";
 import { goBackOrReplace } from "../../utils/navigation";
-
-const CURRENCY_SYMBOL: Record<string, string> = { GBP: "£", USD: "$", EUR: "€" };
+import { getCurrencySymbol } from "../../utils/currency";
 
 export default function CreateFlashSaleScreen() {
   const router = useRouter();
@@ -40,7 +39,7 @@ export default function CreateFlashSaleScreen() {
   }, [vendor]);
 
   const selectedProduct = products.find((p) => p.id === productId) ?? null;
-  const symbol = CURRENCY_SYMBOL[selectedProduct?.currency ?? "GBP"] ?? "£";
+  const symbol = getCurrencySymbol(selectedProduct?.currency);
 
   const handleSubmit = async () => {
     setError("");
@@ -103,8 +102,12 @@ export default function CreateFlashSaleScreen() {
   return (
     <View style={styles.scrim}>
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent} 
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -217,6 +220,7 @@ export default function CreateFlashSaleScreen() {
                   onChangeText={setDiscountValue}
                   placeholder="e.g 5%"
                   placeholderTextColor="#858585"
+                  keyboardType="decimal-pad"
                   style={styles.input}
                 />
               </View>
@@ -231,6 +235,7 @@ export default function CreateFlashSaleScreen() {
                   onChangeText={setDuration}
                   placeholder="e.g 2 hours"
                   placeholderTextColor="#858585"
+                  keyboardType="decimal-pad"
                   style={styles.input}
                 />
                 <Ionicons name="calendar-outline" size={16} color="#858585" style={styles.inputIcon} />
@@ -254,6 +259,7 @@ export default function CreateFlashSaleScreen() {
           </View>
           )}
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );

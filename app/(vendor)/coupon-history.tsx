@@ -20,15 +20,14 @@ import type { VendorProfile } from "../../types/auth";
 import type { Product } from "../../types/product";
 import { getPublicStoreUrl } from "../../utils/shareLinks";
 import { goBackOrReplace } from "../../utils/navigation";
+import { getCurrencySymbol } from "../../utils/currency";
 
-const CURRENCY_SYMBOL = "\u00A3";
-
-function formatDiscountValue(discount: Discount) {
+function formatDiscountValue(discount: Discount, currency?: string) {
   if (discount.kind === "percentage") {
     return `${discount.value}% off`;
   }
 
-  return `${CURRENCY_SYMBOL}${discount.value.toFixed(2)} off`;
+  return `${getCurrencySymbol(currency)}${discount.value.toFixed(2)} off`;
 }
 
 function formatDateRange(discount: Discount) {
@@ -198,7 +197,7 @@ export default function CouponHistoryScreen() {
                 <View style={styles.cardTop}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.couponCode}>{discount.code ?? "No code"}</Text>
-                    <Text style={styles.couponMeta}>{formatDiscountValue(discount)} · {formatDateRange(discount)}</Text>
+                    <Text style={styles.couponMeta}>{formatDiscountValue(discount, vendor?.currency)} · {formatDateRange(discount)}</Text>
                   </View>
                   <View
                     style={[

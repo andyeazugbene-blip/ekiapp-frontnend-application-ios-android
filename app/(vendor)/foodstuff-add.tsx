@@ -66,7 +66,9 @@ export default function FoodstuffAddScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [hasDelivery, setHasDelivery] = useState(false);
-  const [vendorCurrency, setVendorCurrency] = useState("GBP");
+  // Default to the vendor's own configured market currency (never a fixed
+  // literal) — still freely overridable via the picker below, same as before.
+  const [vendorCurrency, setVendorCurrency] = useState(vendor?.currency ?? "GBP");
 
   useEffect(() => {
     deliveryService.listZones()

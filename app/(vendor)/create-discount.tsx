@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -8,6 +8,7 @@ import { productService } from "../../services/productService";
 import { marketingService } from "../../services/marketingService";
 import { Product } from "../../types/product";
 import { goBackOrReplace } from "../../utils/navigation";
+import { getCurrencySymbol } from "../../utils/currency";
 
 export default function CreateDiscountScreen() {
   const router = useRouter();
@@ -68,17 +69,13 @@ export default function CreateDiscountScreen() {
         startsAt: startDate || undefined,
         endsAt: endDate || undefined,
       });
-      const selectedProduct = products.find((item) => item.id === productId);
-      router.push({
-        pathname: "/(vendor)/promo-link",
-        params: {
-          promo: created.code ?? name.trim(),
-          url: created.shareUrl ?? undefined,
-          productId: productId !== "__all__" ? productId : undefined,
-          productName: selectedProduct?.name,
-          campaignType: "discount",
-        },
-      } as any);
+      // Land on the Coupons list, not the share screen — replace (not push) so
+      // this review step is gone from history and can't be resubmitted by
+      // navigating back into it. coupon-history re-fetches from the backend
+      // on focus, so the just-created coupon (with its own Copy/Share actions)
+      // is immediately visible there.
+      void created;
+      router.replace("/(vendor)/coupon-history" as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create discount.");
     } finally {
@@ -102,10 +99,19 @@ export default function CreateDiscountScreen() {
 
   const selectedProductForReview = products.find((item) => item.id === productId);
   const reviewDiscountLabel = reviewHasCurrencyMarker ? value.trim() : `${reviewValue}%`;
+  // Placeholder-only hint — a specific product's own currency when one is
+  // chosen, otherwise currency-neutral (a PromoCode has no currency of its
+  // own; a fixed amount is applied against whichever product it discounts).
+  const amountPlaceholderSymbol =
+    productId !== "__all__" ? getCurrencySymbol(products.find((item) => item.id === productId)?.currency) : "";
 
   return (
     <View style={styles.scrim}>
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -193,7 +199,7 @@ export default function CreateDiscountScreen() {
                 <TextInput
                   value={value}
                   onChangeText={setValue}
-                  placeholder="e.g 10% or £5"
+                  placeholder={amountPlaceholderSymbol ? `e.g 10% or ${amountPlaceholderSymbol}5` : "e.g 10% or 5"}
                   placeholderTextColor="#858585"
                   style={styles.input}
                 />
@@ -278,6 +284,7 @@ export default function CreateDiscountScreen() {
           </View>
           )}
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
 
       <DatePickerModal

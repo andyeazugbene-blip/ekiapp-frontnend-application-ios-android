@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
@@ -814,7 +814,13 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       ) : error ? (
         <View style={premiumStyles.block}><ErrorState message={error} onRetry={() => void load()} /></View>
       ) : (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={[premiumStyles.block, { gap: 14 }]}>
             {(!showTabs || activeTab === "overview") ? (
             <>
@@ -1099,7 +1105,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
               <View>
                 <Text style={styles.label}>Images (optional — one URL per line)</Text>
-                <TextInput style={[styles.input, styles.inputMultiline]} editable={!isLocked} placeholder={"https://...\nhttps://..."} placeholderTextColor="#8AA194" value={imagesText} onChangeText={setImagesText} multiline autoCapitalize="none" accessibilityLabel="Image URLs, one per line" />
+                <TextInput style={[styles.input, styles.inputMultiline]} editable={!isLocked} placeholder={"https://...\nhttps://..."} placeholderTextColor="#8AA194" value={imagesText} onChangeText={setImagesText} multiline autoCapitalize="none" keyboardType="url" accessibilityLabel="Image URLs, one per line" />
               </View>
 
               <View style={{ flexDirection: "row", gap: 12 }}>
@@ -1252,7 +1258,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                       <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="City" placeholderTextColor="#8AA194" value={collectionCity} onChangeText={setCollectionCity} accessibilityLabel="Collection city" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="Postcode" placeholderTextColor="#8AA194" value={collectionPostcode} onChangeText={setCollectionPostcode} accessibilityLabel="Collection postcode" />
+                      <TextInput style={styles.input} editable={!financialFieldsLocked} placeholder="Postcode" placeholderTextColor="#8AA194" value={collectionPostcode} onChangeText={setCollectionPostcode} autoCapitalize="characters" accessibilityLabel="Collection postcode" />
                     </View>
                   </View>
                 </FloatingCard>
@@ -1874,6 +1880,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
             ) : null}
           </View>
         </ScrollView>
+        </KeyboardAvoidingView>
       )}
     </View>
   );
