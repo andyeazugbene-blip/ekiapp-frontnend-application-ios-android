@@ -22,6 +22,7 @@ import {
   premiumStyles,
 } from "../../components/shared/PremiumBlocks";
 import { DatePickerField } from "../../components/shared/DatePickerField";
+import { CountrySelectField } from "../../components/shared/CountrySelectField";
 import {
   communityBuyService,
   CAMPAIGN_STATUS_LABELS,
@@ -1072,23 +1073,14 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 {marketOptions.length === 0 ? (
                   <FloatingCard><Text style={styles.emptyText}>Community Buy isn't enabled in any market yet.</Text></FloatingCard>
                 ) : (
-                  <View style={{ gap: 8 }}>
-                    {marketOptions.map((m) => (
-                      <TouchableOpacity
-                        key={m.countryCode}
-                        onPress={() => void applyCountrySelection(m.countryCode, marketOptions)}
-                        activeOpacity={0.85}
-                        accessibilityRole="radio"
-                        accessibilityLabel={countryDisplayName(m.countryCode)}
-                        accessibilityState={{ selected: country === m.countryCode }}
-                      >
-                        <FloatingCard style={[styles.optionRow, country === m.countryCode && styles.optionRowActive]}>
-                          <Ionicons name={country === m.countryCode ? "radio-button-on" : "radio-button-off"} size={18} color={country === m.countryCode ? "#076B51" : "#8AA194"} />
-                          <Text style={styles.optionText}>{countryDisplayName(m.countryCode)}</Text>
-                        </FloatingCard>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                  <CountrySelectField
+                    options={marketOptions.map((m) => ({ code: m.countryCode, name: countryDisplayName(m.countryCode) }))}
+                    value={country || null}
+                    onSelect={(code) => void applyCountrySelection(code, marketOptions)}
+                    placeholder="Choose a market"
+                    sheetTitle="Select market"
+                    accessibilityLabel={country ? `Market: ${countryDisplayName(country)}` : "Choose a market"}
+                  />
                 )}
               </View>
             ) : null}

@@ -1,18 +1,17 @@
 /**
- * Country / city dataset for vendor onboarding selectors.
+ * Country / city dataset for vendor onboarding selectors, and (via
+ * countryDisplayName()) the display-name resolver for every Community Buy
+ * market picker in the app.
  *
- * Scoped to EXACTLY Eki's 10 currently approved launch markets — the same
- * set the backend enforces (see ekiapp-backend-main/src/shared/currency.ts,
+ * Scoped to EXACTLY Eki's approved launch markets — the same set the
+ * backend enforces (see ekiapp-backend-main/src/shared/currency.ts,
  * MARKET_CODE_COUNTRY_NAMES / LAUNCH_MARKET_COUNTRIES, itself derived from
- * MarketConfiguration's INITIAL_MARKETS seed). This list previously
- * included 12 African countries plus Germany/Netherlands/Ireland (none
- * approved for launch) and was MISSING two approved markets (Switzerland,
- * Croatia) entirely — a vendor could select an unsupported country in the
- * app with no backend backstop at the time. The backend now independently
- * rejects any vendor country outside this same set (vendorsService
- * .createVendor/updateOwnVendor), so this list existing is a UX
- * convenience, not the only gate — but it must never offer more than the
- * backend allows.
+ * MarketConfiguration's INITIAL_MARKETS seed: GB/US/CA + every country
+ * classified as Europe, client decision 2026-09-22 "EKI — FINAL PRODUCTION
+ * CLOSURE"). The backend independently rejects any country outside this
+ * same set, so this list existing is a UX convenience, not the only gate —
+ * but it must never offer more than the backend allows, and (per that same
+ * decision) must never fall behind it either.
  *
  * If Eki launches a new market, add it here AND get the corresponding
  * MarketConfiguration row created on the backend first — the two must stay
@@ -36,6 +35,39 @@ export const COUNTRIES: CountryEntry[] = [
   { code: "BE", name: "Belgium", cities: ["Brussels", "Antwerp", "Ghent"] },
   { code: "IT", name: "Italy", cities: ["Rome", "Milan", "Naples", "Turin", "Florence", "Bologna"] },
   { code: "HR", name: "Croatia", cities: ["Zagreb", "Split", "Rijeka", "Osijek"] },
+  { code: "DE", name: "Germany", cities: ["Berlin", "Munich", "Hamburg", "Frankfurt", "Cologne"] },
+  { code: "NL", name: "Netherlands", cities: ["Amsterdam", "Rotterdam", "The Hague", "Utrecht"] },
+  { code: "AT", name: "Austria", cities: ["Vienna", "Graz", "Salzburg"] },
+  { code: "IE", name: "Ireland", cities: ["Dublin", "Cork", "Galway"] },
+  { code: "LU", name: "Luxembourg", cities: ["Luxembourg City"] },
+  { code: "GR", name: "Greece", cities: ["Athens", "Thessaloniki"] },
+  { code: "CY", name: "Cyprus", cities: ["Nicosia", "Limassol"] },
+  { code: "MT", name: "Malta", cities: ["Valletta"] },
+  { code: "SI", name: "Slovenia", cities: ["Ljubljana"] },
+  { code: "SK", name: "Slovakia", cities: ["Bratislava"] },
+  { code: "EE", name: "Estonia", cities: ["Tallinn"] },
+  { code: "LV", name: "Latvia", cities: ["Riga"] },
+  { code: "LT", name: "Lithuania", cities: ["Vilnius"] },
+  { code: "FI", name: "Finland", cities: ["Helsinki", "Tampere"] },
+  { code: "PL", name: "Poland", cities: ["Warsaw", "Krakow", "Wroclaw"] },
+  { code: "CZ", name: "Czechia", cities: ["Prague", "Brno"] },
+  { code: "HU", name: "Hungary", cities: ["Budapest"] },
+  { code: "RO", name: "Romania", cities: ["Bucharest", "Cluj-Napoca"] },
+  { code: "BG", name: "Bulgaria", cities: ["Sofia", "Plovdiv"] },
+  { code: "DK", name: "Denmark", cities: ["Copenhagen", "Aarhus"] },
+  { code: "SE", name: "Sweden", cities: ["Stockholm", "Gothenburg"] },
+  { code: "NO", name: "Norway", cities: ["Oslo", "Bergen"] },
+  { code: "IS", name: "Iceland", cities: ["Reykjavik"] },
+  { code: "LI", name: "Liechtenstein", cities: ["Vaduz"] },
+  { code: "MC", name: "Monaco", cities: ["Monaco"] },
+  { code: "AD", name: "Andorra", cities: ["Andorra la Vella"] },
+  { code: "SM", name: "San Marino", cities: ["San Marino"] },
+  { code: "BA", name: "Bosnia and Herzegovina", cities: ["Sarajevo"] },
+  { code: "RS", name: "Serbia", cities: ["Belgrade", "Novi Sad"] },
+  { code: "ME", name: "Montenegro", cities: ["Podgorica"] },
+  { code: "MK", name: "North Macedonia", cities: ["Skopje"] },
+  { code: "AL", name: "Albania", cities: ["Tirana"] },
+  { code: "MD", name: "Moldova", cities: ["Chisinau"] },
 ];
 
 export const COUNTRY_NAMES: string[] = COUNTRIES.map((c) => c.name);
@@ -47,7 +79,7 @@ export function getCitiesForCountry(country: string | null | undefined): string[
   return entry?.cities ?? [];
 }
 
-/** True only for one of the 10 approved launch markets (case-insensitive). */
+/** True only for one of the approved launch markets (case-insensitive). */
 export function isApprovedLaunchCountry(country: string | null | undefined): boolean {
   if (!country) return false;
   return COUNTRY_NAMES.some((name) => name.toLowerCase() === country.trim().toLowerCase());
@@ -80,7 +112,7 @@ export function countryDisplayName(value: string | null | undefined): string {
   return trimmed;
 }
 
-/** ISO code for a launch-market country name/alias, or null if not one of the 10. */
+/** ISO code for an approved launch market's country name/alias, or null if not one of them. */
 export function countryCodeForName(value: string | null | undefined): string | null {
   if (!value) return null;
   const lower = value.trim().toLowerCase();
@@ -90,4 +122,20 @@ export function countryCodeForName(value: string | null | undefined): string | n
   if (lower === "usa") return "US";
   const byCode = COUNTRIES.find((c) => c.code.toLowerCase() === lower);
   return byCode?.code ?? null;
+}
+
+/**
+ * Flag emoji for an ISO 3166-1 alpha-2 code, computed from the two
+ * Regional Indicator Symbol code points (the standard technique — no
+ * per-country asset/lookup table to keep in sync). Renders natively on
+ * iOS/Android via the system emoji font. Accepts a raw code or a full/
+ * alias country name (resolved through countryCodeForName() first) so
+ * callers can pass whatever they already have on hand.
+ */
+export function countryFlagEmoji(value: string | null | undefined): string {
+  const code = (value && value.length === 2 ? value : countryCodeForName(value)) ?? "";
+  if (code.length !== 2) return "🏳️";
+  const upper = code.toUpperCase();
+  const points = [...upper].map((char) => 0x1f1e6 + (char.charCodeAt(0) - 65));
+  return String.fromCodePoint(...points);
 }
