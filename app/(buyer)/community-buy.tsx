@@ -58,16 +58,20 @@ export default function CommunityBuyDiscoveryScreen() {
   const { selectedCurrency } = useCurrencyStore();
   const [activeTab, setActiveTab] = useState<HomeTab>("discover");
 
-  // Client correction: "Community Buy is not categorised by country...
-  // the function cannot be: I am looking for Community Buy, I am in
-  // Italy, I click Italy and see all Community Buys there." Discover
-  // shows every live campaign across every enabled market by default —
-  // no country filter, no chip row. Market/country eligibility (whether a
-  // country has Community Buy switched on at all) is already fully
-  // enforced server-side at campaign-creation time (a campaign can't go
-  // LIVE in a disabled market), so nothing further needs to gate this
-  // list. Figma "Search yam, garri, location" is one combined field —
-  // the backend matches title/description/collectionCity for it.
+  // Client correction (original, still true for the UI itself): "Community
+  // Buy is not categorised by country... the function cannot be: I am
+  // looking for Community Buy, I am in Italy, I click Italy and see all
+  // Community Buys there." There is still no clickable browse-by-country
+  // chip row here — that part never changed.
+  //
+  // Client decision (2026-09-22, buyer-country acceptance fix): what DID
+  // change is that Discover is no longer cross-border. The backend now
+  // scopes every result to the authenticated buyer's own registered
+  // country (server-side, from their real profile — never a value this
+  // screen could send), so this call carries no country param at all
+  // anymore; there is nothing left here to pass. Figma "Search yam, garri,
+  // location" is one combined field — the backend matches title/
+  // description/collectionCity for it.
   const [searchQuery, setSearchQuery] = useState("");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
@@ -87,7 +91,7 @@ export default function CommunityBuyDiscoveryScreen() {
     setDiscoverLoading(true);
     setDiscoverError("");
     try {
-      setCampaigns(await communityBuyService.listLiveCampaigns(undefined, searchQuery || undefined));
+      setCampaigns(await communityBuyService.listLiveCampaigns(searchQuery || undefined));
     } catch (err) {
       setDiscoverError(err instanceof Error ? err.message : "Could not load Community Buy campaigns.");
     } finally {

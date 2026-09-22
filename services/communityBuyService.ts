@@ -823,18 +823,25 @@ export const communityBuyService = {
     return res.config;
   },
 
-  // ─── Public discovery ────────────────────────────────────────────────────
-  async listLiveCampaigns(country?: string, q?: string): Promise<Campaign[]> {
+  // ─── Discovery — country-restricted ────────────────────────────────────
+  // Client decision (2026-09-22, buyer-country acceptance fix): the backend
+  // now derives the buyer's market from their own authenticated User.country
+  // and ignores any country sent on the query string entirely — these two
+  // calls must be authenticated (no more skipAuth) or every request 401s.
+  // The `country` param is kept only for the (still-supported) admin/internal
+  // callers of getMarketConfig-style lookups elsewhere; it is never read by
+  // the backend for this endpoint anymore, so it is dropped here rather than
+  // sent for no effect.
+  async listLiveCampaigns(q?: string): Promise<Campaign[]> {
     const params = new URLSearchParams();
-    if (country) params.set("country", country);
     if (q?.trim()) params.set("q", q.trim());
     const qs = params.toString() ? `?${params.toString()}` : "";
-    const res = await apiClient.get<Items<Campaign>>(`/api/community-buy/campaigns${qs}`, { skipAuth: true });
+    const res = await apiClient.get<Items<Campaign>>(`/api/community-buy/campaigns${qs}`);
     return res.items ?? [];
   },
 
   async getCampaign(id: string): Promise<Campaign> {
-    const res = await apiClient.get<{ campaign: Campaign }>(`/api/community-buy/campaigns/${id}`, { skipAuth: true });
+    const res = await apiClient.get<{ campaign: Campaign }>(`/api/community-buy/campaigns/${id}`);
     return res.campaign;
   },
 
