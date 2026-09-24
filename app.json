@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ekiapp.mobilee",
-      "buildNumber": "121",
+      "buildNumber": "122",
       "usesAppleSignIn": true,
       "splash": {
         "image": "./assets/splash-icon.png",
@@ -35,7 +35,7 @@
     "android": {
       "package": "com.ekiapp.mobile",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 109,
+      "versionCode": 110,
       "splash": {
         "image": "./assets/splash-icon.png",
         "resizeMode": "contain",
