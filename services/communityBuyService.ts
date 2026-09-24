@@ -938,6 +938,11 @@ export const communityBuyService = {
     return res.campaign;
   },
 
+  /** Permanently discards the organiser's own draft (DRAFT / CHANGES_REQUIRED only — the backend refuses anything else). */
+  async deleteDraft(id: string): Promise<void> {
+    await apiClient.delete(`/api/organiser/campaigns/${id}`);
+  },
+
   /**
    * Throws ApiRequestError with `.code === "SUBMIT_REQUIREMENTS_NOT_MET"`
    * and `.details === { missing: string[] }` when the draft isn't ready —

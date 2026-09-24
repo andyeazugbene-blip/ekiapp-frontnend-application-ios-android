@@ -1,10 +1,11 @@
-import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
+import { getDraftProgress, type DraftStepKey } from "../../utils/campaignDraftProgress";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { presentSetupIntent } from "../../services/stripePayment";
 import { countryCodeForName, countryDisplayName } from "../../utils/countries";
@@ -165,6 +166,14 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [submitMissing, setSubmitMissing] = useState<string[] | null>(null);
 
   const [saving, setSaving] = useState(false);
+  // Draft resume/continue support — see the "Draft resume" block below handleSave.
+  const pendingBaseline = useRef(false);
+  const savingRef = useRef(false);
+  const baselineRef = useRef<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const sectionRefs = useRef<Partial<Record<DraftStepKey, View | null>>>({});
+  const resumeScrolledFor = useRef<string | null>(null);
+  const [deletingDraft, setDeletingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [publishing, setPublishing] = useState(false);
   // Phase 2 (organiser controls) — pause/resume + general change request.
@@ -218,13 +227,25 @@ export default function CommunityBuyOrganiserCampaignScreen() {
     setSuppliers(await communityBuyService.listVerifiedSuppliers(selected).catch(() => []));
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  // `silent` is a background refresh on returning to this screen (e.g. after
+  // switching tabs): it refreshes the campaign and its secondary data but
+  // NEVER re-populates the form fields or swaps the form for a spinner/error
+  // screen — otherwise coming back would silently wipe whatever the
+  // organiser had typed but not yet saved. The first load (and any explicit
+  // retry) is non-silent and populates the form from what's persisted.
+  const load = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError("");
+      // A fresh open of a draft — allow the "jump to where you left off"
+      // scroll to fire again for it.
+      resumeScrolledFor.current = null;
+    }
     try {
       if (id) {
         const existing = await communityBuyService.getCampaign(id);
         setCampaign(existing);
+        if (!silent) {
         // Community Buy Workstream 2: these are nullable on a real,
         // still-in-progress draft — "" is the honest "not chosen yet"
         // state for a text field, not a fabricated value.
@@ -257,6 +278,14 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         setQualityNotes(existing.qualityNotes ?? "");
         setDeliveryPreference(existing.deliveryPreference ?? "COLLECTION");
         setDeliveryResponsibility(existing.deliveryResponsibility ?? "ORGANISER");
+        pendingBaseline.current = true;
+        // A reopened draft must be able to continue at the Fulfilment step
+        // too — the picker below is shown for drafts, so it needs the
+        // market's approved-supplier list, same as when creating.
+        if (["DRAFT", "CHANGES_REQUIRED"].includes(existing.status) && existing.country) {
+          setSuppliers(await communityBuyService.listVerifiedSuppliers(existing.country).catch(() => []));
+        }
+        }
         setParticipants(await communityBuyService.listCampaignParticipants(id).catch(() => []));
         if (existing.status === "RESCUE_WINDOW") {
           const methods = await regularDeliveriesService.listPaymentMethods().catch(() => [] as BuyerPaymentMethod[]);
@@ -299,18 +328,35 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         const availableMarkets = markets.filter((m) => m.communityBuyEnabled);
         setMarketOptions(availableMarkets);
         const defaultCountry = profile?.country ?? "";
-        if (defaultCountry) {
+        // Only default the market on the first load — a silent refresh must
+        // never overwrite a market the organiser has since picked.
+        if (defaultCountry && !silent) {
           await applyCountrySelection(defaultCountry, availableMarkets);
         }
+        if (!silent) pendingBaseline.current = true;
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load this campaign.");
+      if (!silent) setError(err instanceof Error ? err.message : "Could not load this campaign.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [id]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // Returning to this screen only skips re-populating the form when the
+  // organiser has unsaved edits sitting in it (e.g. they switched tabs and
+  // came back) — that's the one case where a reload would destroy real work.
+  // Every other focus is a fresh open (a different draft, a draft reopened
+  // after leaving it, or the replace() right after creating one), and
+  // populates the form from what's persisted on the server.
+  const loadedKey = useRef<string | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const key = id ?? "__new__";
+      const preserveUnsavedEdits = loadedKey.current === key && isDirtyNowRef.current();
+      loadedKey.current = key;
+      void load(preserveUnsavedEdits);
+    }, [load, id]),
+  );
 
   // Community Buy Workstream 2: create()/update() only require title (+
   // country at create) now — every other field is optional and saved
@@ -320,9 +366,151 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   // duplicates that as a client-side blocking gate, since a genuinely
   // partial draft must be saveable without the whole form being valid
   // yet — submit() is where completeness is actually required.
-  const handleSave = async () => {
-    if (!title.trim()) return Alert.alert("Title required", "Give this campaign a name.");
-    if (!isEdit && !country) return Alert.alert("Market required", "Choose which market this campaign is in.");
+  // ─── Draft resume ────────────────────────────────────────────────────
+  // Everything the organiser can type into the draft form, as one comparable
+  // string — the baseline is captured once the form has been populated from
+  // the server (or last saved), so "dirty" means "differs from what's
+  // persisted", never "user touched a field".
+  const formSnapshot = JSON.stringify([
+    country, title, description, minimumShares, goalShares, maximumShares, perBuyerMinShares, perBuyerMaxShares,
+    pricePerShare, deadline, scheduledOpenAt, collectionAddressLine1, collectionAddressLine2, collectionCity,
+    collectionPostcode, deliveryCoverageAreasText, deliveryFeeAmount, imagesText, unit, quantityPerOrder,
+    qualityNotes, deliveryPreference, deliveryResponsibility, fulfilmentOwner, supplierAccountId,
+  ]);
+  useEffect(() => {
+    if (pendingBaseline.current && !loading) {
+      baselineRef.current = formSnapshot;
+      pendingBaseline.current = false;
+    }
+  }, [loading, formSnapshot]);
+  // Only an editable draft (or a brand-new one) can hold unsaved work worth
+  // protecting; live/locked campaigns are handled by their own controls.
+  const draftEditable = campaign ? ["DRAFT", "CHANGES_REQUIRED"].includes(campaign.status) : true;
+  // Evaluated at the moment it's needed, NOT during render: the baseline lives
+  // in a ref that the effect above updates *after* the render that loaded the
+  // draft, so a value derived in render would stay stale ("dirty") until some
+  // unrelated re-render happened — which showed up as a spurious "Save your
+  // draft?" prompt right after creating one.
+  const isDirtyNow = () => draftEditable && baselineRef.current !== null && baselineRef.current !== formSnapshot;
+  const isDirtyNowRef = useRef(isDirtyNow);
+  isDirtyNowRef.current = isDirtyNow;
+
+  const leaveScreen = () => goBackOrReplace(router, "/(buyer)/community-buy-organiser" as any);
+
+  const handleBack = () => {
+    if (!isDirtyNow() || savingRef.current) return leaveScreen();
+    Alert.alert("Save your draft?", "You have changes that haven't been saved yet.", [
+      { text: "Keep editing", style: "cancel" },
+      {
+        text: "Discard",
+        style: "destructive",
+        onPress: () => {
+          // The typed-but-unsaved values are being thrown away on purpose —
+          // make the next open of this screen re-populate from the server.
+          loadedKey.current = null;
+          leaveScreen();
+        },
+      },
+      { text: "Save draft", onPress: () => void handleSave({ leaveAfter: true }) },
+    ]);
+  };
+
+  // Android's hardware back button bypasses the header button, so route it
+  // through the same unsaved-changes prompt while there's unsaved work.
+  // (iOS has no equivalent gesture on this Tabs-hosted screen — the header
+  // back button is its only way out.)
+  const handleBackRef = useRef(handleBack);
+  handleBackRef.current = handleBack;
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== "android") return undefined;
+      const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (!isDirtyNowRef.current() || savingRef.current) return false;
+        handleBackRef.current();
+        return true;
+      });
+      return () => subscription.remove();
+    }, []),
+  );
+
+  // "Continue where you left off": jump to the first section that still
+  // needs something. Measured against the ScrollView's own content so it is
+  // correct however deeply the section is nested; runs once per opened draft.
+  const scrollToStep = useCallback((key: DraftStepKey) => {
+    const node = sectionRefs.current[key];
+    // Native: the Fabric host ref from getNativeScrollRef() (same pattern as
+    // login.tsx). Web: react-native-web also exposes getNativeScrollRef, but
+    // it doesn't return the DOM scroller measureLayout needs — use
+    // getScrollableNode() there.
+    const scroller = scrollRef.current as any;
+    const scrollNode = Platform.OS === "web" ? scroller?.getScrollableNode?.() : scroller?.getNativeScrollRef?.();
+    if (!node || !scrollNode) return;
+    node.measureLayout(
+      scrollNode as any,
+      (_x: number, y: number) => scrollRef.current?.scrollTo({ y: Math.max(y - 16, 0), animated: true }),
+      () => {},
+    );
+  }, []);
+  const draftProgress = campaign && ["DRAFT", "CHANGES_REQUIRED"].includes(campaign.status) ? getDraftProgress(campaign) : null;
+  const resumeStepKey = draftProgress?.next?.key ?? null;
+  // Fires once per opened draft. The timer is deliberately NOT cancelled when
+  // this effect re-runs (a background refresh swaps `campaign` for a new
+  // object): the guard above already blocks a second schedule, so cancelling
+  // would just mean the jump never happens. Cleared only on unmount.
+  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (resumeTimer.current) clearTimeout(resumeTimer.current); }, []);
+  useEffect(() => {
+    if (loading || !campaign || !resumeStepKey || resumeScrolledFor.current === campaign.id) return;
+    resumeScrolledFor.current = campaign.id;
+    // "Product details" is already at the top of the form — nothing to jump to.
+    if (resumeStepKey === "product") return;
+    resumeTimer.current = setTimeout(() => scrollToStep(resumeStepKey), 500);
+  }, [loading, campaign, resumeStepKey, scrollToStep]);
+
+  const handleDeleteDraft = () => {
+    if (!campaign || deletingDraft || savingRef.current) return;
+    Alert.alert(
+      "Delete this draft?",
+      `"${campaign.title || "Untitled draft"}" will be permanently deleted. This can't be undone.`,
+      [
+        { text: "Keep draft", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeletingDraft(true);
+            try {
+              await communityBuyService.deleteDraft(campaign.id);
+              // Back to the Drafts list — it refreshes on focus, so the
+              // deleted draft is gone from it by the time it's visible.
+              goBackOrReplace(router, "/(buyer)/community-buy?tab=drafts" as any);
+            } catch (err) {
+              Alert.alert("Couldn't delete draft", err instanceof Error ? err.message : "Please try again.");
+              setDeletingDraft(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // Returns true when the save actually went through. `leaveAfter` (used by
+  // the unsaved-changes prompt) saves and then returns to the previous screen
+  // instead of staying/redirecting.
+  const handleSave = async (opts?: { leaveAfter?: boolean }): Promise<boolean> => {
+    // Re-entrancy lock: a second tap while the first request is still in
+    // flight must never fire a second create — that would be a duplicate
+    // campaign. A ref (not the `saving` state) so it holds even between two
+    // taps landing before React re-renders.
+    if (savingRef.current) return false;
+    if (!title.trim()) {
+      Alert.alert("Title required", "Give this campaign a name.");
+      return false;
+    }
+    if (!isEdit && !country) {
+      Alert.alert("Market required", "Choose which market this campaign is in.");
+      return false;
+    }
 
     const isLiveLike = campaign ? ["LIVE", "PAUSED", "RESCUE_WINDOW"].includes(campaign.status) : false;
 
@@ -330,6 +518,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
     // are locked once contributions begin, so those fields aren't sent at
     // all in that case.
     if (isLiveLike) {
+      savingRef.current = true;
       setSaving(true);
       try {
         setCampaign(await communityBuyService.updateCampaign(campaign!.id, {
@@ -337,24 +526,33 @@ export default function CommunityBuyOrganiserCampaignScreen() {
           description: description.trim() || undefined,
         }));
         Alert.alert("Saved", "Campaign updated.");
+        return true;
       } catch (err) {
         Alert.alert("Couldn't save", err instanceof Error ? err.message : "Please try again.");
+        return false;
       } finally {
+        savingRef.current = false;
         setSaving(false);
       }
-      return;
     }
 
     if (deadline.trim() && Number.isNaN(new Date(deadline).getTime())) {
-      return Alert.alert("Invalid date", "Enter a valid date (YYYY-MM-DD).");
+      Alert.alert("Invalid date", "Enter a valid date (YYYY-MM-DD).");
+      return false;
     }
     if (scheduledOpenAt.trim() && Number.isNaN(new Date(scheduledOpenAt).getTime())) {
-      return Alert.alert("Invalid date", "Enter a valid scheduled opening date (YYYY-MM-DD).");
+      Alert.alert("Invalid date", "Enter a valid scheduled opening date (YYYY-MM-DD).");
+      return false;
     }
 
     const images = imagesText.split("\n").map((s) => s.trim()).filter(Boolean);
     const sharedFields = {
-      description: description.trim() || undefined,
+      // On an existing draft, a text field the organiser deliberately emptied
+      // must be sent as "" — `undefined` is dropped from the PATCH body, so
+      // the old saved value would silently come back on the next open. (The
+      // collection address fields are excluded on purpose: the backend
+      // rejects blanking those, by design.)
+      description: description.trim() || (isEdit ? "" : undefined),
       minimumShares: minimumShares.trim() ? Math.round(Number(minimumShares)) : undefined,
       goalShares: goalShares.trim() ? Math.round(Number(goalShares)) : undefined,
       maximumShares: maximumShares.trim() ? Math.round(Number(maximumShares)) : undefined,
@@ -364,9 +562,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       deadline: deadline.trim() ? new Date(deadline).toISOString() : undefined,
       scheduledOpenAt: scheduledOpenAt.trim() ? new Date(scheduledOpenAt).toISOString() : undefined,
       images,
-      unit: unit.trim() || undefined,
+      unit: unit.trim() || (isEdit ? "" : undefined),
       quantityPerOrder: quantityPerOrder.trim() ? Math.round(Number(quantityPerOrder)) : undefined,
-      qualityNotes: qualityNotes.trim() || undefined,
+      qualityNotes: qualityNotes.trim() || (isEdit ? "" : undefined),
       deliveryPreference,
       deliveryResponsibility: deliveryPreference === "DELIVERY" ? deliveryResponsibility : undefined,
       collectionAddressLine1: collectionAddressLine1.trim() || undefined,
@@ -375,24 +573,32 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       collectionPostcode: collectionPostcode.trim() || undefined,
       deliveryCoverageAreas: deliveryCoverageAreasText.trim()
         ? deliveryCoverageAreasText.split(",").map((a) => a.trim()).filter(Boolean)
-        : undefined,
+        : isEdit ? [] : undefined,
       deliveryFeeAmountMinor: deliveryPreference === "DELIVERY" && deliveryFeeAmount.trim() ? Math.round(Number(deliveryFeeAmount) * 100) : undefined,
       ...(fulfilmentOwner ? { fulfilmentOwner, ...(fulfilmentOwner === "SUPPLIER" ? { supplierAccountId: supplierAccountId ?? undefined } : {}) } : {}),
     };
 
+    savingRef.current = true;
     setSaving(true);
     try {
       if (isEdit && campaign) {
         const updated = await communityBuyService.updateCampaign(campaign.id, { title: title.trim(), ...sharedFields });
         setCampaign(updated);
-        Alert.alert("Saved", "Campaign updated.");
+        baselineRef.current = formSnapshot;
+        if (opts?.leaveAfter) leaveScreen();
+        else Alert.alert("Saved", "Campaign updated.");
       } else {
         const created = await communityBuyService.createCampaign({ title: title.trim(), country, currency: currency || undefined, ...sharedFields });
-        router.replace({ pathname: "/(buyer)/community-buy-organiser-campaign", params: { id: created.id } } as any);
+        baselineRef.current = formSnapshot;
+        if (opts?.leaveAfter) leaveScreen();
+        else router.replace({ pathname: "/(buyer)/community-buy-organiser-campaign", params: { id: created.id } } as any);
       }
+      return true;
     } catch (err) {
       Alert.alert("Couldn't save", err instanceof Error ? err.message : "Please try again.");
+      return false;
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -763,7 +969,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
     <View style={premiumStyles.page}>
       <PremiumHeader
         title={isEdit ? "Campaign" : "New campaign"}
-        onBack={() => goBackOrReplace(router, "/(buyer)/community-buy-organiser" as any)}
+        onBack={handleBack}
         right={
           isEdit && campaign?.status === "LIVE" ? (
             <View style={{ flexDirection: "row", gap: 6 }}>
@@ -816,6 +1022,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       ) : (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
+          ref={scrollRef}
           style={{ flex: 1 }}
           contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]}
           showsVerticalScrollIndicator={false}
@@ -824,6 +1031,33 @@ export default function CommunityBuyOrganiserCampaignScreen() {
           <View style={[premiumStyles.block, { gap: 14 }]}>
             {(!showTabs || activeTab === "overview") ? (
             <>
+            {draftProgress ? (
+              <FloatingCard style={{ gap: 10 }}>
+                <View style={styles.resumeHeader}>
+                  <Ionicons name="bookmark-outline" size={18} color="#076B51" />
+                  <Text style={styles.resumeTitle}>Continue your draft</Text>
+                </View>
+                <Text style={styles.fieldHint}>
+                  Everything you've entered is saved to this draft.{" "}
+                  {draftProgress.next ? `Next up: ${draftProgress.next.label}.` : "All sections are filled in — review and submit whenever you're ready."}
+                </Text>
+                <View style={styles.resumeSteps}>
+                  {draftProgress.steps.map((step) => (
+                    <TouchableOpacity
+                      key={step.key}
+                      onPress={() => scrollToStep(step.key)}
+                      activeOpacity={0.85}
+                      style={[styles.resumeStep, step.done && styles.resumeStepDone]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${step.label}, ${step.done ? "complete" : "still needed"}. Jump to this section`}
+                    >
+                      <Ionicons name={step.done ? "checkmark-circle" : "ellipse-outline"} size={14} color={step.done ? "#076B51" : "#8AA194"} />
+                      <Text style={[styles.resumeStepText, step.done && styles.resumeStepTextDone]}>{step.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </FloatingCard>
+            ) : null}
             {campaign?.status === "CHANGES_REQUIRED" && campaign.reviewNotes ? (
               <FloatingCard style={styles.noticeCard}>
                 <Ionicons name="alert-circle-outline" size={18} color="#B48A00" />
@@ -1093,7 +1327,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
 
             <FloatingCard style={{ gap: 12 }}>
               <Text style={styles.sectionOutside}>Product</Text>
-              <View>
+              <View ref={(node) => { sectionRefs.current.product = node; }}>
                 <Text style={styles.label}>Title</Text>
                 <TextInput style={styles.input} editable={!isLocked} placeholder="Campaign title" placeholderTextColor="#8AA194" value={title} onChangeText={setTitle} accessibilityLabel="Campaign title" />
               </View>
@@ -1124,7 +1358,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <TextInput style={[styles.input, styles.inputMultiline]} editable={!financialFieldsLocked} placeholder="e.g. brand may vary by availability" placeholderTextColor="#8AA194" value={qualityNotes} onChangeText={setQualityNotes} multiline accessibilityLabel="Quality or substitution notes" />
               </View>
 
-              <View style={styles.thresholdGroup}>
+              <View ref={(node) => { sectionRefs.current.quantities = node; }} style={styles.thresholdGroup}>
                 <View style={styles.thresholdRow}>
                   <View style={[styles.thresholdDot, { backgroundColor: "#D6552F" }]} />
                   <View style={{ flex: 1 }}>
@@ -1212,7 +1446,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               />
             </FloatingCard>
 
-            <View style={{ gap: 10 }}>
+            <View ref={(node) => { sectionRefs.current.delivery = node; }} style={{ gap: 10 }}>
               <Text style={styles.sectionOutside}>Delivery</Text>
               <TouchableOpacity
                 onPress={() => setDeliveryPreference("COLLECTION")}
@@ -1303,8 +1537,13 @@ export default function CommunityBuyOrganiserCampaignScreen() {
             </>
             ) : null}
 
-            {!isEdit ? (
-              <View style={{ gap: 10 }}>
+            {/* Shown for a brand-new campaign AND for a reopened draft — the
+                backend keeps the supply step editable while a campaign is
+                still DRAFT/CHANGES_REQUIRED (update() only blocks it once
+                live), so hiding it on reopen made "continue at Fulfilment"
+                impossible for anyone who saved before choosing. */}
+            {!isEdit || isDraftLike ? (
+              <View ref={(node) => { sectionRefs.current.fulfilment = node; }} style={{ gap: 10 }}>
                 <Text style={styles.sectionOutside}>Fulfilment</Text>
                 <TouchableOpacity
                   onPress={() => setFulfilmentOwner("SELF")}
@@ -1751,6 +1990,18 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 >
                   {submitting ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Submit for review</Text>}
                 </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleDeleteDraft}
+                  disabled={deletingDraft || saving || submitting}
+                  activeOpacity={0.85}
+                  style={styles.deleteDraftBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete this draft"
+                  accessibilityState={{ busy: deletingDraft, disabled: deletingDraft || saving || submitting }}
+                >
+                  {deletingDraft ? <ActivityIndicator size="small" color="#D6552F" /> : <Ionicons name="trash-outline" size={16} color="#D6552F" />}
+                  <Text style={styles.deleteDraftText}>{deletingDraft ? "Deleting draft" : "Delete draft"}</Text>
+                </TouchableOpacity>
               </View>
             ) : null}
 
@@ -1929,6 +2180,15 @@ const styles = StyleSheet.create({
   input: { backgroundColor: "#F4F6F5", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: "Outfit-Regular", color: "#151E1B" },
   inputMultiline: { minHeight: 70, textAlignVertical: "top" },
   sectionOutside: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 10 },
+  resumeHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  resumeTitle: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
+  resumeSteps: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  resumeStep: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: "#F4F6F5", borderWidth: 1, borderColor: "transparent" },
+  resumeStepDone: { backgroundColor: "#EFF7F3", borderColor: "#CFE6DB" },
+  resumeStepText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#6A7B72" },
+  resumeStepTextDone: { color: "#076B51" },
+  deleteDraftBtn: { minHeight: 46, borderRadius: 14, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#F2D7D7", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  deleteDraftText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#D6552F" },
   linkText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   updateTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
   updateDate: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 2 },

@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
@@ -27,6 +27,7 @@ import {
 } from "../../services/communityBuyService";
 import { countryDisplayName } from "../../utils/countries";
 import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
+import { getDraftProgress } from "../../utils/campaignDraftProgress";
 import { useAuthStore } from "../../stores/authStore";
 
 function daysLeft(deadline: string | null): string {
@@ -56,7 +57,11 @@ const DRAFT_STATUSES = new Set(["DRAFT", "CHANGES_REQUIRED"]);
 export default function CommunityBuyDiscoveryScreen() {
   const router = useRouter();
   const { selectedCurrency } = useCurrencyStore();
-  const [activeTab, setActiveTab] = useState<HomeTab>("discover");
+  // `?tab=` lets another screen land here on a specific tab (e.g. right after
+  // deleting a draft from inside the campaign form → back on Drafts).
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+  const initialTab: HomeTab = tabParam === "drafts" || tabParam === "organised" || tabParam === "joined" ? tabParam : "discover";
+  const [activeTab, setActiveTab] = useState<HomeTab>(initialTab);
 
   // Client correction (original, still true for the UI itself): "Community
   // Buy is not categorised by country... the function cannot be: I am
@@ -86,6 +91,8 @@ export default function CommunityBuyDiscoveryScreen() {
   const [organisedLoading, setOrganisedLoading] = useState(false);
   const [organisedError, setOrganisedError] = useState("");
   const [organisedLoaded, setOrganisedLoaded] = useState(false);
+  const organisedLoadedRef = useRef(false);
+  const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
 
   const loadDiscover = useCallback(async () => {
     setDiscoverLoading(true);
@@ -112,18 +119,63 @@ export default function CommunityBuyDiscoveryScreen() {
     }
   }, []);
 
-  const loadOrganised = useCallback(async () => {
-    setOrganisedLoading(true);
-    setOrganisedError("");
+  // `silent` refreshes an already-shown list in place (no spinner swap, no
+  // error banner replacing rows the user can already see) — used when
+  // coming back to this screen after creating/editing/deleting a draft.
+  const loadOrganised = useCallback(async (silent = false) => {
+    if (!silent) {
+      setOrganisedLoading(true);
+      setOrganisedError("");
+    }
     try {
       setMyCampaigns(await communityBuyService.listMyOrganiserCampaigns());
       setOrganisedLoaded(true);
+      organisedLoadedRef.current = true;
     } catch (err) {
-      setOrganisedError(err instanceof Error ? err.message : "Could not load your campaigns.");
+      if (!silent) setOrganisedError(err instanceof Error ? err.message : "Could not load your campaigns.");
     } finally {
-      setOrganisedLoading(false);
+      if (!silent) setOrganisedLoading(false);
     }
   }, []);
+
+  // The 30s stale-gate in useFocusRefresh is right for Discover, but wrong for
+  // drafts: creating, editing or deleting one happens on the *next* screen, so
+  // a list fetched a few seconds earlier is already out of date the moment
+  // the user comes back. Refresh it on every return instead.
+  useFocusEffect(
+    useCallback(() => {
+      if (organisedLoadedRef.current) void loadOrganised(true);
+    }, [loadOrganised]),
+  );
+
+  const handleDeleteDraft = (draft: Campaign) => {
+    if (deletingDraftId) return;
+    Alert.alert(
+      "Delete this draft?",
+      `"${draft.title || "Untitled draft"}" will be permanently deleted. This can't be undone.`,
+      [
+        { text: "Keep draft", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeletingDraftId(draft.id);
+            try {
+              await communityBuyService.deleteDraft(draft.id);
+              setMyCampaigns((prev) => prev.filter((c) => c.id !== draft.id));
+            } catch (err) {
+              Alert.alert("Couldn't delete draft", err instanceof Error ? err.message : "Please try again.");
+              // The failure may mean it's already gone or has moved on
+              // (e.g. submitted elsewhere) — re-sync rather than leave a stale row.
+              void loadOrganised(true);
+            } finally {
+              setDeletingDraftId(null);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const refreshActiveTab = useCallback(() => {
     if (activeTab === "discover") return loadDiscover();
@@ -138,6 +190,11 @@ export default function CommunityBuyDiscoveryScreen() {
     if (tab === "joined" && !joinedLoaded) void loadJoined();
     if ((tab === "organised" || tab === "drafts") && !organisedLoaded) void loadOrganised();
   };
+
+  useEffect(() => {
+    if (tabParam === "drafts" || tabParam === "organised" || tabParam === "joined") handleTabPress(tabParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabParam]);
 
   const organisedCampaigns = myCampaigns.filter((c) => !DRAFT_STATUSES.has(c.status));
   const draftCampaigns = myCampaigns.filter((c) => DRAFT_STATUSES.has(c.status));
@@ -342,28 +399,80 @@ export default function CommunityBuyDiscoveryScreen() {
             </View>
           ) : (
             <View style={[premiumStyles.block, { gap: 10 }]}>
-              {(activeTab === "organised" ? organisedCampaigns : draftCampaigns).map((c) => (
-                <TouchableOpacity
-                  key={c.id}
-                  activeOpacity={0.85}
-                  onPress={() => router.push({ pathname: "/(buyer)/community-buy-organiser-campaign", params: { id: c.id } } as any)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${c.title || "Untitled draft"}, ${CAMPAIGN_STATUS_LABELS[c.status]}`}
-                >
-                  <FloatingCard style={{ gap: 8 }}>
-                    <View style={styles.cardTop}>
-                      <Text style={styles.cardTitle} numberOfLines={1}>{c.title || "Untitled draft"}</Text>
-                      <StatusPill label={CAMPAIGN_STATUS_LABELS[c.status]} tone={CAMPAIGN_STATUS_TONE[c.status]} />
-                    </View>
-                    {c.minimumShares != null && c.maximumShares != null ? (
-                      <Text style={styles.cardMetaText}>{c.confirmedShares} of {c.maximumShares} shares · minimum {c.minimumShares}</Text>
-                    ) : (
-                      <Text style={styles.cardMetaText}>Quantities not yet set</Text>
-                    )}
-                    <Text style={styles.cardMetaText}>{c.deadline ? `Closes ${formatDate(c.deadline)}` : "Deadline not yet set"}</Text>
-                  </FloatingCard>
-                </TouchableOpacity>
-              ))}
+              {(activeTab === "organised" ? organisedCampaigns : draftCampaigns).map((c) => {
+                const isDraftCard = activeTab === "drafts";
+                const openCampaign = () => router.push({ pathname: "/(buyer)/community-buy-organiser-campaign", params: { id: c.id } } as any);
+                const progress = isDraftCard ? getDraftProgress(c) : null;
+                const deleting = deletingDraftId === c.id;
+                // Real product info from what's been saved so far — only the
+                // parts that exist, never a placeholder standing in for a
+                // value the organiser hasn't entered yet.
+                const productBits = [
+                  c.country ? countryDisplayName(c.country) : null,
+                  c.pricePerShareMinor ? `${formatDisplayMoney(c.pricePerShareMinor / 100, c.currency, selectedCurrency)} / share` : null,
+                  c.unit ? `per ${c.unit}` : null,
+                ].filter(Boolean);
+                return (
+                  <View key={c.id}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={openCampaign}
+                      disabled={deleting}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${c.title || "Untitled draft"}, ${CAMPAIGN_STATUS_LABELS[c.status]}${isDraftCard ? ", continue editing" : ""}`}
+                    >
+                      <FloatingCard style={{ gap: 8, opacity: deleting ? 0.5 : 1 }}>
+                        <View style={styles.cardTop}>
+                          <Text style={styles.cardTitle} numberOfLines={1}>{c.title || "Untitled draft"}</Text>
+                          <StatusPill label={CAMPAIGN_STATUS_LABELS[c.status]} tone={CAMPAIGN_STATUS_TONE[c.status]} />
+                        </View>
+                        {isDraftCard && productBits.length > 0 ? (
+                          <Text style={styles.cardMetaText} numberOfLines={1}>{productBits.join(" · ")}</Text>
+                        ) : null}
+                        {c.minimumShares != null && c.maximumShares != null ? (
+                          <Text style={styles.cardMetaText}>{isDraftCard ? `${c.minimumShares}–${c.maximumShares} shares` : `${c.confirmedShares} of ${c.maximumShares} shares · minimum ${c.minimumShares}`}</Text>
+                        ) : (
+                          <Text style={styles.cardMetaText}>Quantities not yet set</Text>
+                        )}
+                        <Text style={styles.cardMetaText}>{c.deadline ? `Closes ${formatDate(c.deadline)}` : "Deadline not yet set"}</Text>
+                        {progress ? (
+                          <Text style={styles.draftNextText}>
+                            {progress.next ? `Next: ${progress.next.label}` : "All sections filled in — ready to review and submit"}
+                            {c.status === "CHANGES_REQUIRED" && c.reviewNotes ? " · changes requested" : ""}
+                          </Text>
+                        ) : null}
+                      </FloatingCard>
+                    </TouchableOpacity>
+                    {isDraftCard ? (
+                      <View style={styles.draftActions}>
+                        <TouchableOpacity
+                          onPress={openCampaign}
+                          disabled={deleting}
+                          activeOpacity={0.85}
+                          style={styles.draftContinueBtn}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Continue editing ${c.title || "untitled draft"}`}
+                        >
+                          <Ionicons name="create-outline" size={16} color="#FFFFFF" />
+                          <Text style={styles.draftContinueText}>Continue</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteDraft(c)}
+                          disabled={Boolean(deletingDraftId)}
+                          activeOpacity={0.85}
+                          style={[styles.draftDeleteBtn, Boolean(deletingDraftId) && !deleting && { opacity: 0.5 }]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Delete ${c.title || "untitled draft"}`}
+                          accessibilityState={{ busy: deleting, disabled: Boolean(deletingDraftId) }}
+                        >
+                          {deleting ? <ActivityIndicator size="small" color="#D6552F" /> : <Ionicons name="trash-outline" size={16} color="#D6552F" />}
+                          <Text style={styles.draftDeleteText}>{deleting ? "Deleting" : "Delete"}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
             </View>
           )
         )}
@@ -388,4 +497,10 @@ const styles = StyleSheet.create({
   cardVendor: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: -4 },
   cardMetaRow: { flexDirection: "row", justifyContent: "space-between" },
   cardMetaText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#151E1B" },
+  draftNextText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  draftActions: { flexDirection: "row", gap: 8, marginTop: 8 },
+  draftContinueBtn: { flex: 1, minHeight: 42, borderRadius: 12, backgroundColor: "#076B51", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  draftContinueText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
+  draftDeleteBtn: { minHeight: 42, paddingHorizontal: 16, borderRadius: 12, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#F2D7D7", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  draftDeleteText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#D6552F" },
 });
