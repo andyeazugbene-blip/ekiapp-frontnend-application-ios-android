@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -11,10 +11,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/authStore";
-import { marketingService } from "../../services/marketingService";
-import { payoutMethodService } from "../../services/payoutMethodService";
 import type { VendorProfile } from "../../types/auth";
 import { goBackOrReplace } from "../../utils/navigation";
 
@@ -49,33 +47,6 @@ export default function VendorSettingsScreen() {
   const vendor = user as VendorProfile | null;
 
   const [signingOut, setSigningOut] = useState(false);
-  const [loadingCounts, setLoadingCounts] = useState(true);
-  const [discountCount, setDiscountCount] = useState(0);
-  const [payoutMethodCount, setPayoutMethodCount] = useState(0);
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      setLoadingCounts(true);
-
-      Promise.all([
-        marketingService.listDiscounts().catch(() => []),
-        payoutMethodService.list().catch(() => []),
-      ])
-        .then(([discounts, payoutMethods]) => {
-          if (!active) return;
-          setDiscountCount(discounts.length);
-          setPayoutMethodCount(payoutMethods.length);
-        })
-        .finally(() => {
-          if (active) setLoadingCounts(false);
-        });
-
-      return () => {
-        active = false;
-      };
-    }, []),
-  );
 
   const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out of the vendor panel?", [
@@ -135,8 +106,6 @@ export default function VendorSettingsScreen() {
     }
   };
 
-  const payoutValue = loadingCounts ? "..." : `${payoutMethodCount}`;
-
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -156,19 +125,21 @@ export default function VendorSettingsScreen() {
         <View style={styles.profileCard}>
           <View style={styles.profileRow}>
             <View style={styles.avatar}>
-              {vendor?.avatar ? (
-                <Image source={{ uri: vendor.avatar }} style={styles.avatarImage} />
-              ) : (
-                <Text style={styles.avatarText}>{(vendor?.storeName || vendor?.name || "S").charAt(0).toUpperCase()}</Text>
-              )}
+              <View style={styles.avatarCircle}>
+                {vendor?.avatar ? (
+                  <Image source={{ uri: vendor.avatar }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarText}>{(vendor?.storeName || vendor?.name || "S").charAt(0).toUpperCase()}</Text>
+                )}
+              </View>
               <View style={styles.avatarBadge}>
                 <Ionicons name="storefront" size={10} color="#FFFFFF" />
               </View>
             </View>
             <View style={styles.profileDetails}>
-              <Text style={styles.storeName}>{vendor?.storeName ?? "My Store"}</Text>
-              <Text style={styles.ownerText}>Owner: {vendor?.name ?? "Vendor"}</Text>
-              <Text style={styles.emailText}>{vendor?.email ?? ""}</Text>
+              <Text style={styles.storeName} numberOfLines={1}>{vendor?.storeName ?? "My Store"}</Text>
+              <Text style={styles.ownerText} numberOfLines={1}>Owner: {vendor?.name ?? "Vendor"}</Text>
+              <Text style={styles.emailText} numberOfLines={1}>{vendor?.email ?? ""}</Text>
 
               <View style={styles.badgeRow}>
                 <View style={styles.planBadge}>
@@ -226,85 +197,11 @@ export default function VendorSettingsScreen() {
           />
         </View>
 
-        <Text style={styles.sectionTitle}>Marketing</Text>
-        <View style={styles.card}>
-          <SettingRow
-            icon="megaphone-outline"
-            label="Marketing Tools"
-            description="Create coupons, message buyers, and share store links"
-            onPress={() => router.push("/(vendor)/grow-sales" as any)}
-          />
-          <SettingRow
-            icon="bar-chart-outline"
-            label="Store Link Analytics"
-            description="Track store visits, checkout starts, and web-store orders"
-            onPress={() => router.push("/(vendor)/analytics" as any)}
-          />
-          <SettingRow
-            icon="pricetag-outline"
-            label="Coupons"
-            description="Review created coupon codes, linked products, dates, and share links"
-            value={loadingCounts ? "..." : String(discountCount)}
-            onPress={() => router.push("/(vendor)/coupon-history" as any)}
-          />
-          <SettingRow
-            icon="layers-outline"
-            label="Bundles"
-            description="Manage your product bundles"
-            onPress={() => router.push("/(vendor)/bundle-history" as any)}
-          />
-          <SettingRow
-            icon="flash-outline"
-            label="Flash Sales"
-            description="Review and manage your flash sales"
-            onPress={() => router.push("/(vendor)/flash-sale-history" as any)}
-          />
-          <SettingRow
-            icon="chatbubble-ellipses-outline"
-            label="Buyer Messaging"
-            description="Send private offers and follow-ups to past buyers"
-            onPress={() => router.push("/(vendor)/send-offer" as any)}
-          />
-        </View>
-
-        <Text style={styles.sectionTitle}>Payments & Wallet</Text>
-        <View style={styles.card}>
-          <SettingRow
-            icon="wallet-outline"
-            label="Earnings & Wallet"
-            description="View protected balance, releases, and payout requests"
-            onPress={() => router.push("/(vendor)/earnings" as any)}
-          />
-          <SettingRow
-            icon="card-outline"
-            label="Payout Methods"
-            description="Add the bank, Stripe, or PayPal account used for withdrawals"
-            value={payoutValue}
-            onPress={() => router.push("/(vendor)/payout-mode" as any)}
-          />
-          <SettingRow
-            icon="receipt-outline"
-            label="Payout History"
-            description="View all past and pending payout requests"
-            onPress={() => router.push("/(vendor)/payout-history" as any)}
-          />
-        </View>
-
-        <Text style={styles.sectionTitle}>Vendor Account</Text>
-        <View style={styles.card}>
-          <SettingRow
-            icon="briefcase-outline"
-            label="Vendor Account"
-            description="View account status, limits, and vendor services."
-            onPress={() => router.push("/(vendor)/subscription-plans" as any)}
-          />
-          <SettingRow
-            icon="globe-outline"
-            label="View Website"
-            description="Open your public store link and sharing tools"
-            onPress={() => router.push("/(vendor)/share-store-link" as any)}
-          />
-        </View>
+        {/* Marketing, Payments & Wallet, and Vendor Account moved to their
+            own standalone sidebar entries (components/vendor/Drawer.tsx) —
+            grow-sales.tsx, earnings.tsx, and subscription-plans.tsx are each
+            already the canonical hub for that area, so Settings no longer
+            duplicates them. */}
 
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.card}>
@@ -428,14 +325,21 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   profileRow: { flexDirection: "row", alignItems: "center" },
+  // Outer wrapper is NOT clipped — the storefront badge is positioned at its
+  // corner and would otherwise be cut off by the inner circle's own
+  // overflow:hidden (needed to round off the avatar image/initial).
   avatar: {
+    width: 68,
+    height: 68,
+    position: "relative",
+  },
+  avatarCircle: {
     width: 68,
     height: 68,
     borderRadius: 34,
     backgroundColor: "#076B5115",
     alignItems: "center",
     justifyContent: "center",
-    position: "relative",
     overflow: "hidden",
   },
   avatarImage: { width: "100%", height: "100%" },

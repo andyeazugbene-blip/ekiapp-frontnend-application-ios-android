@@ -63,7 +63,7 @@ export default function PaymentDetailsScreen() {
         email: email.trim() || undefined,
         isDefault: makeDefault,
       });
-      goBackOrReplace(router, "/(vendor)/settings" as any);
+      goBackOrReplace(router, "/(vendor)/payout-mode" as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save payout method.");
     } finally {
@@ -74,7 +74,7 @@ export default function PaymentDetailsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/payout-mode" as any)} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
           <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Add payout method</Text>

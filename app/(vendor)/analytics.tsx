@@ -542,7 +542,7 @@ export default function VendorAnalyticsScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)}
+          onPress={() => goBackOrReplace(router, "/(vendor)/grow-sales" as any)}
           activeOpacity={0.85}
           style={styles.backButton}
         >

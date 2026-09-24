@@ -52,6 +52,12 @@ const GRID_TOOLS = [
   },
 ] as const;
 
+const MANAGE_LINKS = [
+  { icon: "pricetag-outline", title: "Coupons", route: "/(vendor)/coupon-history" },
+  { icon: "cube-outline", title: "Bundles", route: "/(vendor)/bundle-history" },
+  { icon: "flash-outline", title: "Flash Sales", route: "/(vendor)/flash-sale-history" },
+] as const;
+
 type ActivityKind = "Discount" | "Bundle" | "Flash Sale";
 
 interface ActivityItem {
@@ -93,7 +99,7 @@ export default function GrowSalesScreen() {
       <PremiumHeader
         title="Grow your sales"
         subtitle="Bring back past buyers and get more orders"
-        onBack={() => goBackOrReplace(router, "/(vendor)/settings" as any)}
+        onBack={() => goBackOrReplace(router, "/(vendor)" as any)}
       />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
@@ -116,6 +122,22 @@ export default function GrowSalesScreen() {
             <Text style={styles.sendOfferText}>Send offer to buyers</Text>
             <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
           </TouchableOpacity>
+
+          <Text style={styles.sectionTitle}>Manage existing</Text>
+          <FloatingCard style={{ padding: 4 }}>
+            {MANAGE_LINKS.map((link, index) => (
+              <TouchableOpacity
+                key={link.title}
+                onPress={() => router.push(link.route as any)}
+                activeOpacity={0.85}
+                style={[styles.manageRow, index < MANAGE_LINKS.length - 1 && styles.manageRowDivider]}
+              >
+                <IconAvatar icon={link.icon as any} tone="success" size={36} />
+                <Text style={styles.manageLabel}>{link.title}</Text>
+                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+              </TouchableOpacity>
+            ))}
+          </FloatingCard>
 
           <Text style={styles.sectionTitle}>Recent marketing activity</Text>
           {loadingActivity ? (
@@ -173,6 +195,9 @@ const styles = StyleSheet.create({
   tipBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.75)", lineHeight: 19 },
   emptyActivityCard: { alignItems: "center", paddingVertical: 20 },
   emptyActivityText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", textAlign: "center" },
+  manageRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingHorizontal: 10 },
+  manageRowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#EEF1EF" },
+  manageLabel: { flex: 1, fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
   activityRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
   activityTitle: { fontSize: 13.5, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
   activitySubtitle: { fontSize: 11.5, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: 2 },

@@ -22,11 +22,22 @@ interface MenuEntry {
   route: string;
 }
 
+// Marketing / Payments & Wallet / Vendor Account / Community Buy / Messages
+// are standalone top-level entries here rather than buried inside Settings —
+// each routes to the existing screen that's already the canonical hub for
+// that area (grow-sales, earnings, subscription-plans, the Community Buy
+// organiser hub, and vendor messages), so there is no new page and no
+// second entry point for the same feature.
 const MENU_ITEMS: MenuEntry[] = [
   { icon: "cart-outline", label: "Add foodstuff", route: "/(vendor)/foodstuff-add" },
   { icon: "car-outline", label: "Edit delivery", route: "/(vendor)/delivery" },
-  { icon: "link-outline", label: "Share store", route: "/(vendor)/promo-link" },
   { icon: "eye-outline", label: "View orders", route: "/(vendor)/orders" },
+  { icon: "megaphone-outline", label: "Marketing", route: "/(vendor)/grow-sales" },
+  { icon: "wallet-outline", label: "Payments & Wallet", route: "/(vendor)/earnings" },
+  { icon: "briefcase-outline", label: "Vendor Account", route: "/(vendor)/subscription-plans" },
+  { icon: "people-circle-outline", label: "Community Buy", route: "/(buyer)/community-buy-organiser?from=vendor" },
+  { icon: "chatbubble-ellipses-outline", label: "Messages", route: "/(vendor)/messages" },
+  { icon: "link-outline", label: "Share store", route: "/(vendor)/promo-link" },
   { icon: "cash-outline", label: "Withdraw payout", route: "/(vendor)/earnings" },
   { icon: "settings-outline", label: "Settings", route: "/(vendor)/settings" },
 ];

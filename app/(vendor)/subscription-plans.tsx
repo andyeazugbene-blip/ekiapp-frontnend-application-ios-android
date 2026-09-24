@@ -81,7 +81,7 @@ export default function VendorAccountScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)/settings" as any)} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
+        <TouchableOpacity onPress={() => goBackOrReplace(router, "/(vendor)" as any)} activeOpacity={0.85} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
           <Ionicons name="chevron-back" size={22} color="#282828" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -198,6 +198,24 @@ export default function VendorAccountScreen() {
                 <UsageTile label="Coupons" value={account.usage.coupons} icon="pricetag-outline" />
               </View>
             </View>
+
+            {/* ── Public store link ────────────────────────────── */}
+            <TouchableOpacity
+              onPress={() => router.push("/(vendor)/share-store-link" as any)}
+              activeOpacity={0.85}
+              style={styles.sectionCard}
+            >
+              <View style={[styles.serviceRow, { marginBottom: 0 }]}>
+                <View style={styles.serviceIcon}>
+                  <Ionicons name="globe-outline" size={20} color="#076B51" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.serviceName}>View Website</Text>
+                  <Text style={styles.serviceLevel}>Open your public store link and sharing tools</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+              </View>
+            </TouchableOpacity>
           </>
         ) : null}
       </ScrollView>
