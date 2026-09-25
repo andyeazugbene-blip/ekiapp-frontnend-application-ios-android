@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../stores/authStore";
+import { resolveHomeRoute } from "../utils/homeRoute";
 
 /**
  * Entry route. While the auth store rehydrates from secure storage we show
@@ -31,17 +32,10 @@ export default function Index() {
 
       if (state.isAuthenticated) {
         hasNavigated.current = true;
-        if (state.user?.role === "admin") { router.replace("/(admin)" as any); return; }
-        // Community Buy Workstream 9 (universal account): lastDestination
-        // is a pure preference (never an authority) — Vendor access itself
-        // is gated purely on hasVendor inside (vendor)/_layout.tsx, so
-        // landing there when it isn't the preference is still safe.
-        if (state.lastDestination === "sell") { router.replace("/(vendor)" as any); return; }
-        if (state.lastDestination === "supply") { router.replace("/(supplier)/community-buy-supplier" as any); return; }
-        if (state.lastDestination === "community_buy") { router.replace("/(buyer)/community-buy" as any); return; }
-        if (state.lastDestination === "buy") { router.replace("/(buyer)" as any); return; }
-        if (state.user?.hasVendor) { router.replace("/(vendor)" as any); return; }
-        router.replace("/(buyer)" as any);
+        // Home first: the remembered destination only chooses which Home
+        // (Buyer / Vendor) to open — never a feature screen like Community
+        // Buy. See utils/homeRoute.ts.
+        router.replace(resolveHomeRoute(state.user, state.lastDestination) as any);
         return;
       }
 

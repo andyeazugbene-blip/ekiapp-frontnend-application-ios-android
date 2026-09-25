@@ -51,11 +51,22 @@ if (!source.includes('router.push("/(buyer)/community-buy"')) {
   );
   process.exit(1);
 }
-if (!source.includes('pathname: "/(auth)/register", params: { role: "buyer", redirect: "/(buyer)/community-buy"')) {
+// A logged-out user choosing Community Buy registers as a plain buyer (no
+// vendor detour) — and, like every other registration, lands on Home. It must
+// NOT carry a redirect straight into Community Buy: registration never
+// deep-links into a feature screen (client rule: Home first).
+if (!source.includes('pathname: "/(auth)/register", params: { role: "buyer", ...refParams }')) {
   console.error(
-    "FAIL check-hero-four-entry-points: a logged-out user choosing Community Buy no longer registers straight into " +
-      "it (role=buyer + redirect=/(buyer)/community-buy) — this is what lets someone organise a Community Buy " +
-      "without first becoming a foodstuff vendor.",
+    "FAIL check-hero-four-entry-points: a logged-out user choosing Community Buy no longer registers as a plain " +
+      "buyer (role=buyer, no vendor detour) — this is what lets someone organise a Community Buy without first " +
+      "becoming a foodstuff vendor.",
+  );
+  process.exit(1);
+}
+if (/params:\s*\{\s*role:\s*"buyer",\s*redirect:\s*"\/\(buyer\)\/community-buy"/.test(source)) {
+  console.error(
+    "FAIL check-hero-four-entry-points: Community Buy registration carries redirect=/(buyer)/community-buy again — " +
+      "after registering the user must land on Home, not be deep-linked into Community Buy.",
   );
   process.exit(1);
 }

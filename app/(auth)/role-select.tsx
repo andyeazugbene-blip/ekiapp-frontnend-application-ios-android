@@ -72,8 +72,11 @@ export default function RoleSelectScreen() {
 
     if (selected === "community_buy") {
       // No vendor detour, no marketing splash — straight to account
-      // creation, landing directly on Community Buy afterward.
-      router.push({ pathname: "/(auth)/register", params: { role: "buyer", redirect: "/(buyer)/community-buy", ...refParams } });
+      // creation as a buyer (Community Buy needs no vendor role). After
+      // registering the user lands on Buyer Home like everyone else, and
+      // reaches Community Buy from the card there — registration never
+      // deep-links into a feature screen.
+      router.push({ pathname: "/(auth)/register", params: { role: "buyer", ...refParams } });
       return;
     }
     if (selected === "supplier") {

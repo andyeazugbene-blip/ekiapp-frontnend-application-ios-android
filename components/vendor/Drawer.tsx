@@ -4,6 +4,7 @@ import {
   Dimensions,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/authStore";
 import { VendorProfile } from "../../types/auth";
+import { TAB_BAR_RESERVED_SPACE } from "../layout/tabBarConstants";
 
 interface MenuEntry {
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -146,59 +148,69 @@ export function VendorDrawer({ visible, onClose }: DrawerProps) {
         />
 
         <SafeAreaView edges={["top", "bottom"]} style={styles.panel}>
-          {/* ── Header: avatar + greeting + close ─────────────────────── */}
-          <View style={styles.profileRow}>
-            <View style={styles.avatar}>
-              {vendor?.avatar ? (
-                <Image source={{ uri: vendor.avatar }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.avatarFallback}>
-                  <Text style={styles.avatarInitial}>{firstName.charAt(0).toUpperCase()}</Text>
-                </View>
-              )}
+          {/* The whole menu scrolls (header, items, logout) so every entry is
+              reachable on short screens / with large text — nothing is pinned
+              or clipped. Horizontal padding lives on the content container so
+              the scroll indicator/edges sit flush with the panel. */}
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* ── Header: avatar + greeting + close ─────────────────────── */}
+            <View style={styles.profileRow}>
+              <View style={styles.avatar}>
+                {vendor?.avatar ? (
+                  <Image source={{ uri: vendor.avatar }} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.avatarFallback}>
+                    <Text style={styles.avatarInitial}>{firstName.charAt(0).toUpperCase()}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.profileText}>
+                <Text style={styles.greeting}>{greeting}</Text>
+                <Text style={styles.name} numberOfLines={1}>
+                  {firstName}
+                </Text>
+              </View>
             </View>
-            <View style={styles.profileText}>
-              <Text style={styles.greeting}>{greeting}</Text>
-              <Text style={styles.name} numberOfLines={1}>
-                {firstName}
-              </Text>
+
+            {/* ── Menu items ─────────────────────────────────────────────── */}
+            <View style={styles.menuList}>
+              {MENU_ITEMS.map((item) => {
+                const isActive = item.route === activeRoute;
+                return (
+                  <TouchableOpacity
+                    key={item.label}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
+                    activeOpacity={0.78}
+                    onPress={() => navigate(item.route)}
+                    style={[styles.menuItem, isActive && styles.menuItemActive]}
+                  >
+                    <Ionicons name={item.icon} size={21} color="#FFFFFF" />
+                    <Text style={styles.menuLabel}>{item.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </View>
 
-          {/* ── Menu items ─────────────────────────────────────────────── */}
-          <View style={styles.menuList}>
-            {MENU_ITEMS.map((item) => {
-              const isActive = item.route === activeRoute;
-              return (
-                <TouchableOpacity
-                  key={item.label}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isActive }}
-                  activeOpacity={0.78}
-                  onPress={() => navigate(item.route)}
-                  style={[styles.menuItem, isActive && styles.menuItemActive]}
-                >
-                  <Ionicons name={item.icon} size={21} color="#FFFFFF" />
-                  <Text style={styles.menuLabel}>{item.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* ── Logout (extra spacing above) ───────────────────────────── */}
-          <View style={styles.logoutWrap}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              activeOpacity={0.78}
-              onPress={handleLogout}
-              style={styles.menuItem}
-            >
-              <Ionicons name="log-out-outline" size={21} color="#FFFFFF" />
-              <Text style={styles.menuLabel}>Logout</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ flex: 1 }} />
+            {/* ── Logout (extra spacing above) ───────────────────────────── */}
+            <View style={styles.logoutWrap}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.78}
+                onPress={handleLogout}
+                style={styles.menuItem}
+              >
+                <Ionicons name="log-out-outline" size={21} color="#FFFFFF" />
+                <Text style={styles.menuLabel}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </SafeAreaView>
       </Animated.View>
 
@@ -231,7 +243,15 @@ const styles = StyleSheet.create({
   },
   panel: {
     flex: 1,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 20,
+    // The floating vendor tab bar is drawn above this screen-level overlay,
+    // so leave room to scroll the last entry (Logout) clear of it.
+    paddingBottom: TAB_BAR_RESERVED_SPACE + 24,
   },
 
   // ── Profile header ─────────────────────────────────────────────────
