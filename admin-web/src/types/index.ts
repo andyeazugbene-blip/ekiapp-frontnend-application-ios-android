@@ -158,6 +158,8 @@ export interface VerificationDocSummary {
   total: number;
 }
 
+export type VerificationMethod = "STRIPE_IDENTITY" | "MANUAL_DOCUMENTS" | "BOTH";
+
 export interface VerificationQueueItem {
   vendorId: string;
   storeName: string;
@@ -165,6 +167,7 @@ export interface VerificationQueueItem {
   email: string;
   phone?: string | null;
   verificationStatus: "PENDING" | "VERIFIED" | "REJECTED";
+  verificationMethod: VerificationMethod;
   latestSubmissionDate: string;
   uploadedDocSummary: VerificationDocSummary;
   docsAlreadyDeleted: boolean;
@@ -184,6 +187,9 @@ export interface VerificationReviewDetails {
     joinedAt: string;
   };
   verificationStatus: "PENDING" | "VERIFIED" | "REJECTED";
+  verificationMethod: VerificationMethod;
+  stripeVerificationSessionId?: string | null;
+  verifiedAt?: string | null;
   uploadedDocSummary: VerificationDocSummary;
   docsAlreadyDeleted: boolean;
   latestSubmissionDate?: string | null;

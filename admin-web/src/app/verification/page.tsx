@@ -38,6 +38,16 @@ function docIndicators(item: VerificationQueueItem) {
   ].filter(Boolean).join(" / ") || "None";
 }
 
+function methodLabel(method: string): string {
+  if (method === "STRIPE_IDENTITY") return "Stripe Identity";
+  if (method === "BOTH") return "Stripe + Documents";
+  return "Manual Documents";
+}
+
+function methodTone(method: string): "blue" | "gray" {
+  return method === "MANUAL_DOCUMENTS" ? "gray" : "blue";
+}
+
 export default function VerificationPage() {
   const [items, setItems] = useState<VerificationQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,7 +148,7 @@ export default function VerificationPage() {
         <div className="space-y-6">
           <PageHeader
             title="Verification Review"
-            subtitle="New vendors verify via Stripe Identity. Legacy document submissions shown below for review."
+            subtitle="Every vendor who has attempted verification — through Stripe Identity or the legacy document upload — appears here."
             actions={<Button variant="ghost" onClick={() => void load()} disabled={loading}>Refresh</Button>}
           />
 
@@ -186,6 +196,7 @@ export default function VerificationPage() {
                       <th className="px-5 py-4 text-left text-xs font-black uppercase text-slate-500">Store</th>
                       <th className="px-5 py-4 text-left text-xs font-black uppercase text-slate-500">Vendor</th>
                       <th className="px-5 py-4 text-left text-xs font-black uppercase text-slate-500">Status</th>
+                      <th className="px-5 py-4 text-left text-xs font-black uppercase text-slate-500">Method</th>
                       <th className="px-5 py-4 text-left text-xs font-black uppercase text-slate-500">Submitted</th>
                       <th className="px-5 py-4 text-left text-xs font-black uppercase text-slate-500">Proofs</th>
                       <th className="px-5 py-4 text-right text-xs font-black uppercase text-slate-500">Action</th>
@@ -203,6 +214,7 @@ export default function VerificationPage() {
                           <p className="text-xs text-slate-500">{item.email}{item.phone ? ` / ${item.phone}` : ""}</p>
                         </td>
                         <td className="px-5 py-4"><Badge tone={statusTone(item.verificationStatus)}>{item.verificationStatus}</Badge></td>
+                        <td className="px-5 py-4"><Badge tone={methodTone(item.verificationMethod)}>{methodLabel(item.verificationMethod)}</Badge></td>
                         <td className="px-5 py-4 text-sm font-semibold text-slate-600">{formatDate(item.latestSubmissionDate)}</td>
                         <td className="px-5 py-4 text-sm font-bold text-slate-700">{docIndicators(item)}</td>
                         <td className="px-5 py-4 text-right">
@@ -238,16 +250,28 @@ export default function VerificationPage() {
                   <div className="space-y-4">
                     <div className="grid gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-2">
                       <Info label="Status" value={<Badge tone={statusTone(selected.verificationStatus)}>{selected.verificationStatus}</Badge>} />
+                      <Info label="Method" value={<Badge tone={methodTone(selected.verificationMethod)}>{methodLabel(selected.verificationMethod)}</Badge>} />
                       <Info label="Submitted" value={formatDate(selected.latestSubmissionDate)} />
                       <Info label="Reviewed" value={formatDate(selected.reviewedAt)} />
                       <Info label="Files" value={selected.docsAlreadyDeleted ? "Deleted" : "Available"} />
                       <Info label="Phone" value={selected.vendor.phone || "-"} />
                       <Info label="Location" value={[selected.vendor.city, selected.vendor.country].filter(Boolean).join(", ") || "-"} />
+                      {selected.stripeVerificationSessionId ? (
+                        <Info label="Stripe session" value={<span className="font-mono text-xs">{selected.stripeVerificationSessionId}</span>} />
+                      ) : null}
                     </div>
 
                     {selected.rejectionReason ? (
                       <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700">
                         {selected.rejectionReason}
+                      </div>
+                    ) : null}
+
+                    {selected.proofs.length === 0 ? (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">
+                        {selected.verificationMethod === "STRIPE_IDENTITY"
+                          ? "This vendor verified through Stripe Identity — no documents were uploaded to Eki directly. The ID and selfie Stripe collected aren't stored here; use the Stripe session above to look them up in the Stripe dashboard if needed."
+                          : "No documents submitted yet."}
                       </div>
                     ) : null}
 

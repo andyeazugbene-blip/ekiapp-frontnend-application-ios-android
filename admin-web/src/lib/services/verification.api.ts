@@ -1,6 +1,7 @@
 import { apiClient } from "../api";
 import {
   VerificationDocument,
+  VerificationMethod,
   VerificationQueueItem,
   VerificationReviewDetails,
   VerificationStatus,
@@ -36,6 +37,12 @@ function normalizeStatus(raw: any): "PENDING" | "VERIFIED" | "REJECTED" {
   return "PENDING";
 }
 
+function normalizeMethod(raw: any): VerificationMethod {
+  const value = (raw ?? "").toString().toUpperCase();
+  if (value === "STRIPE_IDENTITY" || value === "BOTH") return value;
+  return "MANUAL_DOCUMENTS";
+}
+
 function normalizeQueueItem(raw: any): VerificationQueueItem {
   return {
     vendorId: raw.vendorId,
@@ -44,6 +51,7 @@ function normalizeQueueItem(raw: any): VerificationQueueItem {
     email: raw.email ?? "",
     phone: raw.phone ?? "",
     verificationStatus: normalizeStatus(raw.verificationStatus),
+    verificationMethod: normalizeMethod(raw.verificationMethod),
     latestSubmissionDate: raw.latestSubmissionDate ?? raw.latestSubmissionAt ?? raw.createdAt ?? "",
     uploadedDocSummary: {
       governmentId: raw.uploadedDocSummary?.governmentId ?? 0,
@@ -62,6 +70,9 @@ function normalizeDetails(raw: any): VerificationReviewDetails {
       verificationStatus: normalizeStatus(raw.vendor?.verificationStatus ?? raw.verificationStatus),
     },
     verificationStatus: normalizeStatus(raw.verificationStatus),
+    verificationMethod: normalizeMethod(raw.verificationMethod),
+    stripeVerificationSessionId: raw.stripeVerificationSessionId ?? null,
+    verifiedAt: raw.verifiedAt ?? null,
     uploadedDocSummary: {
       governmentId: raw.uploadedDocSummary?.governmentId ?? 0,
       businessRegistration: raw.uploadedDocSummary?.businessRegistration ?? 0,
