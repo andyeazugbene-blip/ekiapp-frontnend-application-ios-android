@@ -160,4 +160,19 @@ export const messageService = {
   async markAsRead(conversationId: string): Promise<void> {
     await apiClient.patch<void>(`/api/conversations/${conversationId}/read`, {});
   },
+
+  /**
+   * In-app support messaging (2026-09-22 client decision) — "Contact us"
+   * inside the app instead of email. Deliberately a dedicated endpoint
+   * rather than createConversation(participantId) — the client never
+   * supplies or even knows an admin's user id; the backend resolves who
+   * "Eki Support" is (see messages.service.ts's resolveSupportAdminId()).
+   * Calling this again reuses the same thread (server-side dedup), so
+   * tapping "Contact us" a second time just reopens the existing
+   * conversation rather than starting a new one.
+   */
+  async startSupportConversation(message: string): Promise<Conversation> {
+    const response = await apiClient.post<ConversationResponse>("/api/conversations/support", { message });
+    return normalizeConversation(response.conversation);
+  },
 };

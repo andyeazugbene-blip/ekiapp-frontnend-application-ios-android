@@ -56,6 +56,7 @@ interface MessageStore {
   stopPolling: () => void;
   markRead: (conversationId: string) => void;
   createConversation: (participantId: string, orderId?: string) => Promise<Conversation>;
+  startSupportConversation: (message: string) => Promise<Conversation>;
 
   // Legacy compat
   setSelectedConversation: (conv: Conversation | null) => void;
@@ -300,6 +301,12 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
 
   createConversation: async (participantId, orderId) => {
     const conv = await messageService.createConversation(participantId, orderId);
+    set((s) => ({ conversations: sortConversations([conv, ...s.conversations.filter((item) => item.id !== conv.id)]) }));
+    return conv;
+  },
+
+  startSupportConversation: async (message) => {
+    const conv = await messageService.startSupportConversation(message);
     set((s) => ({ conversations: sortConversations([conv, ...s.conversations.filter((item) => item.id !== conv.id)]) }));
     return conv;
   },

@@ -9,14 +9,57 @@ export type OrderStatus = "pending" | "confirmed" | "shipped" | "delivered" | "c
 export type ProductStatus = "active" | "disabled" | "out_of_stock";
 export type VerificationStatus = "pending" | "approved" | "rejected";
 
+export interface UserOrderSummary {
+  id: string;
+  orderNumber: string;
+  status: string;
+  totalAmount: number;
+  currency: string;
+  createdAt: string;
+}
+
+export interface UserVendorSnapshot {
+  id: string;
+  storeName: string;
+  verificationStatus: string;
+  isSuspended: boolean;
+  country: string;
+}
+
+export interface UserOrganiserSnapshot {
+  id: string;
+  isVerified: boolean;
+  isRestricted: boolean;
+  country: string;
+}
+
+export interface UserSupplierSnapshot {
+  id: string;
+  supplierState: string;
+  chargesEnabled: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
+  phone?: string | null;
+  country?: string | null;
   role: UserRole;
   status: UserStatus;
+  trustScore?: number;
+  emailVerifiedAt?: string | null;
   createdAt: string;
+  updatedAt?: string;
   suspendedReason?: string | null;
+  // Investigation context (getUser() enrichment) — undefined on the list
+  // endpoint's rows, always present (possibly empty/null) on getUser().
+  vendor?: UserVendorSnapshot | null;
+  organiserProfile?: UserOrganiserSnapshot | null;
+  supplierAccount?: UserSupplierSnapshot | null;
+  recentOrders?: UserOrderSummary[];
+  orderCount?: number;
+  supportConversationId?: string | null;
 }
 
 export interface Vendor {

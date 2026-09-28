@@ -110,7 +110,13 @@ export default function BuyerMessagesScreen() {
                 <Text style={styles.convoName} numberOfLines={1}>{convo.participantName}</Text>
                 <View style={[styles.messageTypePill, convo.orderId ? styles.orderTypePill : styles.vendorTypePill]}>
                   <Text style={[styles.messageTypeText, convo.orderId ? styles.orderTypeText : styles.vendorTypeText]}>
-                    {convo.orderNumber ? `Order ${convo.orderNumber}` : convo.orderId ? "Order chat" : "Vendor chat"}
+                    {convo.orderNumber
+                      ? `Order ${convo.orderNumber}`
+                      : convo.orderId
+                        ? "Order chat"
+                        : convo.participantRole === "admin"
+                          ? "Support"
+                          : "Vendor chat"}
                   </Text>
                 </View>
                 <Text style={styles.convoMessage} numberOfLines={1}>

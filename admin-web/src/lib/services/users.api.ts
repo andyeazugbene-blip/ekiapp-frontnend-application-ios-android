@@ -6,10 +6,24 @@ function normalizeUser(raw: any): User {
     id: raw.id,
     name: raw.name ?? "",
     email: raw.email ?? "",
+    phone: raw.phone ?? null,
+    country: raw.country ?? null,
     role: (raw.role ?? "BUYER").toString().toUpperCase() as UserRole,
     status: raw.isSuspended ? "suspended" : "active",
+    trustScore: typeof raw.trustScore === "number" ? raw.trustScore : undefined,
+    emailVerifiedAt: raw.emailVerifiedAt ?? null,
     createdAt: raw.createdAt ?? "",
+    updatedAt: raw.updatedAt ?? undefined,
     suspendedReason: raw.suspendedReason ?? null,
+    // Only present on the single-user read (getUser) — the list endpoint's
+    // rows don't carry these, so they stay undefined there, which the user
+    // detail page relies on to know it has the fuller record.
+    vendor: raw.vendor ?? undefined,
+    organiserProfile: raw.organiserProfile ?? undefined,
+    supplierAccount: raw.supplierAccount ?? undefined,
+    recentOrders: raw.recentOrders ?? undefined,
+    orderCount: typeof raw.orderCount === "number" ? raw.orderCount : undefined,
+    supportConversationId: raw.supportConversationId !== undefined ? raw.supportConversationId : undefined,
   };
 }
 

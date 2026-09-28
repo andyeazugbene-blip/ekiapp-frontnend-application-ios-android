@@ -16,7 +16,6 @@ interface MenuItem {
   target?: string;
 }
 
-const SUPPORT_EMAIL = "adminandy@eki.app";
 const HELP_URL = "https://culinarytales.app/support";
 
 export default function ProfileScreen() {
@@ -99,7 +98,11 @@ export default function ProfileScreen() {
     { icon: "people-outline", label: "Refer a Friend", action: "navigate", target: "/(buyer)/referral-program" },
     ...(user?.hasVendor ? [{ icon: "storefront-outline", label: "Switch to Vendor", action: "navigate", target: "/(vendor)" } as MenuItem] : []),
     { icon: "warning-outline", label: "Report an issue", action: "navigate", target: "/(buyer)/report-issue" },
-    { icon: "mail-outline", label: "Email support", action: "external", target: `mailto:${SUPPORT_EMAIL}` },
+    // Client decision (2026-09-22): in-app messaging replaces email as the
+    // primary support entry point here, so support doesn't have to work
+    // out of an inbox — a real, threaded conversation the buyer can keep
+    // reading replies to inside the app.
+    { icon: "chatbubble-ellipses-outline", label: "Message support", action: "navigate", target: "/(buyer)/contact-support" },
     { icon: "help-circle-outline", label: "How Eki Works", action: "navigate", target: "/how-eki-works" },
     { icon: "shield-checkmark-outline", label: "Privacy Policy", action: "navigate", target: "/privacy" },
     { icon: "document-text-outline", label: "Terms & Conditions", action: "navigate", target: "/terms" },
