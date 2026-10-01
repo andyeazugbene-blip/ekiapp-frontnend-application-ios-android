@@ -32,6 +32,13 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="ekiapp"/>
+        <!-- expo-auth-session's Google provider (node_modules/expo-auth-session/build/providers/Google.js)
+             does not use the app's own "ekiapp" scheme for its native redirect — it defaults to
+             `${Application.applicationId}:/oauthredirect`, i.e. "com.ekiapp.mobile:/oauthredirect" on
+             Android, matching Google's own documented convention of using the app's package name as
+             the native OAuth redirect scheme. Without this second <data> entry, the Google Sign-In
+             browser tab has nowhere to deliver the response: this intent-filter was missing it. -->
+        <data android:scheme="com.ekiapp.mobile"/>
       </intent-filter>
       <intent-filter android:autoVerify="true" data-generated="true">
         <action android:name="android.intent.action.VIEW"/>

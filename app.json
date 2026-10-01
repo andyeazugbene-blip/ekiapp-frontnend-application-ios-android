@@ -4,7 +4,7 @@
     "slug": "eki-app",
     "version": "1.5.7",
     "orientation": "portrait",
-    "scheme": "ekiapp",
+    "scheme": ["ekiapp", "com.ekiapp.mobile"],
     "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
     "splash": {
@@ -35,7 +35,7 @@
     "android": {
       "package": "com.ekiapp.mobile",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 111,
+      "versionCode": 112,
       "splash": {
         "image": "./assets/splash-icon.png",
         "resizeMode": "contain",
