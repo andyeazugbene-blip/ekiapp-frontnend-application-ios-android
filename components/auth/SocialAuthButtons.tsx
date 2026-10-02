@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
+import { GoogleSignin, isErrorWithCode, statusCodes } from "@react-native-google-signin/google-signin";
 
 import { authService } from "../../services/authService";
 import { GOOGLE_ANDROID_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "../../services/api/config";
@@ -12,6 +13,36 @@ import type { OAuthOutcome } from "../../types/auth";
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_CONFIGURED = Boolean(GOOGLE_IOS_CLIENT_ID || GOOGLE_ANDROID_CLIENT_ID || GOOGLE_WEB_CLIENT_ID);
+
+// Android root cause (confirmed against Google's own docs and reproduced
+// independently of any device — see git history for this file): Google has
+// removed support for the custom-URI-scheme browser redirect that
+// expo-auth-session's Google provider uses for native/installed apps —
+// "Custom URI schemes are no longer supported on Android and Chrome apps"
+// (developers.google.com/identity/protocols/oauth2/native-app). No amount of
+// SHA-1/package/manifest configuration on our side can make that flow work
+// on Android; it's a platform policy, not a bug. iOS is unaffected — that
+// flow is still supported there, which is why only Android ever showed
+// "Error 400: invalid_request — Custom URI scheme is not enabled for your
+// Android client."
+//
+// Fix: Android now signs in with @react-native-google-signin/google-signin
+// (the native, Play-Services-backed picker — no browser, no redirect URI at
+// all, so this class of error can't happen) instead of expo-auth-session.
+// It's configured with the WEB client id (GOOGLE_WEB_CLIENT_ID), not the
+// Android client id — the Android-type client that produced the broken
+// redirect is no longer used anywhere. The backend already accepts the web
+// client id as a valid token audience (verifyGoogleIdToken's
+// allowedAudiences includes it), so POST /api/auth/oauth/google needs no
+// changes: Android now simply arrives with a token whose `aud` is the web
+// client instead of the Android client, exactly like it already does for a
+// person who signs in via the web dashboard.
+//
+// iOS keeps using expo-auth-session exactly as before — untouched.
+function configureAndroidGoogleSignIn(): void {
+  if (Platform.OS !== "android" || !GOOGLE_WEB_CLIENT_ID) return;
+  GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
+}
 
 const BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -64,6 +95,7 @@ export function SocialAuthButtons({ onOutcome, onError, disabled }: SocialAuthBu
     if (Platform.OS === "ios") {
       AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => setAppleAvailable(false));
     }
+    configureAndroidGoogleSignIn();
   }, []);
 
   // useAuthRequest validates synchronously per-platform and THROWS if the
@@ -123,8 +155,55 @@ export function SocialAuthButtons({ onOutcome, onError, disabled }: SocialAuthBu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleResponse]);
 
+  // Android: native picker via @react-native-google-signin/google-signin —
+  // see configureAndroidGoogleSignIn() above for why. Same outcome shape
+  // (OAuthOutcome via authService.continueWithGoogle) as the iOS path below,
+  // so onOutcome/onError and the screens that use this component need no
+  // changes at all.
+  const handleAndroidGooglePress = async () => {
+    setBusyProvider("google");
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      if (response.type === "cancelled") {
+        // User cancelled — not an error, nothing to show (matches the
+        // existing Apple cancellation handling below).
+        return;
+      }
+      const idToken = response.data.idToken;
+      if (!idToken) {
+        onError("Google did not return a valid identity token. Please try again.");
+        return;
+      }
+      // The native SDK already gives us the display name directly —
+      // decodeNameClaim stays only as a fallback for parity with the iOS path.
+      const name = response.data.user.name ?? decodeNameClaim(idToken);
+      const outcome = await authService.continueWithGoogle(idToken, name ?? undefined);
+      onOutcome(outcome);
+    } catch (err) {
+      if (isErrorWithCode(err)) {
+        if (err.code === statusCodes.SIGN_IN_CANCELLED || err.code === statusCodes.IN_PROGRESS) {
+          // Cancelled, or a previous sign-in attempt is still resolving —
+          // neither is a real error.
+        } else if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          onError("Google Play Services isn't available or needs an update on this device.");
+        } else {
+          onError("Google sign-in failed. Please try again.");
+        }
+      } else {
+        onError(err instanceof Error ? err.message : "Google sign-in failed. Please try again.");
+      }
+    } finally {
+      setBusyProvider(null);
+    }
+  };
+
   const handleGooglePress = () => {
     if (!GOOGLE_CONFIGURED || disabled || busyProvider) return;
+    if (Platform.OS === "android") {
+      void handleAndroidGooglePress();
+      return;
+    }
     setBusyProvider("google");
     promptGoogleAsync().catch((err) => {
       setBusyProvider(null);

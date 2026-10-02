@@ -22,6 +22,7 @@
     "check:supplier-routing-and-copy": "node scripts/check-supplier-routing-and-copy.js",
     "check:home-first-routing": "node scripts/check-home-first-routing.js",
     "check:android-oauth-redirect-scheme": "node scripts/check-android-oauth-redirect-scheme.js",
+    "check:android-native-google-signin": "node scripts/check-android-native-google-signin.js",
     "check:domains": "node scripts/check-domain-links.js",
     "k6:smoke": "k6 run performance/k6/smoke.js",
     "k6:buyer": "k6 run performance/k6/buyer-flow.js",
@@ -35,6 +36,7 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-google-signin/google-signin": "16.1.5",
     "@sentry/react-native": "~7.11.0",
     "@stripe/react-stripe-js": "^6.5.0",
     "@stripe/stripe-js": "^9.7.0",
