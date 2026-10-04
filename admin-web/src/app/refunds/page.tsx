@@ -8,7 +8,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { ordersAPI, AdminRefundListItem } from "@/lib/services/orders.api";
 
-type TabKey = "all" | "requested" | "completed" | "rejected";
+type TabKey = "all" | "requested" | "processing" | "completed" | "failed" | "rejected";
 
 function StatCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
@@ -21,6 +21,8 @@ function StatCard({ label, value, color }: { label: string; value: string | numb
 
 function RefundStatusBadge({ status }: { status: AdminRefundListItem["status"] }) {
   if (status === "REQUESTED") return <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600">Awaiting 2nd admin</span>;
+  if (status === "PROCESSING") return <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-bold text-sky-600">Processing at Stripe</span>;
+  if (status === "FAILED") return <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600">Failed</span>;
   if (status === "COMPLETED") return <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600">Completed</span>;
   return <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-500">Rejected</span>;
 }
@@ -38,7 +40,7 @@ function RefundStatusBadge({ status }: { status: AdminRefundListItem["status"] }
  */
 export default function RefundsPage() {
   const [items, setItems] = useState<AdminRefundListItem[]>([]);
-  const [counts, setCounts] = useState({ requested: 0, rejected: 0, completed: 0 });
+  const [counts, setCounts] = useState({ requested: 0, rejected: 0, completed: 0, processing: 0, failed: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
@@ -66,7 +68,7 @@ export default function RefundsPage() {
     let list = items;
     if (activeTab !== "all") {
       const statusFor: Record<Exclude<TabKey, "all">, AdminRefundListItem["status"]> = {
-        requested: "REQUESTED", completed: "COMPLETED", rejected: "REJECTED",
+        requested: "REQUESTED", processing: "PROCESSING", completed: "COMPLETED", failed: "FAILED", rejected: "REJECTED",
       };
       list = list.filter((i) => i.status === statusFor[activeTab]);
     }
@@ -86,8 +88,10 @@ export default function RefundsPage() {
 
   const tabs: { key: TabKey; label: string; count: number }[] = [
     { key: "all", label: "All", count: items.length },
-    { key: "requested", label: "Requested", count: counts.requested },
+    { key: "requested", label: "Awaiting approval", count: counts.requested },
+    { key: "processing", label: "Processing at Stripe", count: counts.processing },
     { key: "completed", label: "Completed", count: counts.completed },
+    { key: "failed", label: "Failed", count: counts.failed },
     { key: "rejected", label: "Rejected", count: counts.rejected },
   ];
 

@@ -62,7 +62,7 @@ export interface AdminRefundListItem {
   amount: number | null;
   currency: string | null;
   reason: string | null;
-  status: "REQUESTED" | "REJECTED" | "COMPLETED";
+  status: "REQUESTED" | "PROCESSING" | "REJECTED" | "COMPLETED" | "FAILED";
   requestedBy: { id: string; name: string; email: string } | null;
   decidedBy: { id: string; name: string; email: string } | null;
   createdAt: string;
@@ -143,7 +143,7 @@ export const ordersAPI = {
     );
   },
 
-  async listRefunds(): Promise<{ items: AdminRefundListItem[]; counts: { requested: number; rejected: number; completed: number } }> {
+  async listRefunds(): Promise<{ items: AdminRefundListItem[]; counts: { requested: number; rejected: number; completed: number; processing: number; failed: number } }> {
     return apiClient.get(`/admin/refunds`);
   },
 };
