@@ -160,3 +160,46 @@ export function failureCopy(code: string | null, message: string | null): { titl
   if (table[c]) return table[c];
   return { title: message ? "Payment failed" : "Payment failed (reason not recorded)", hint: message ?? "Open the payment in Stripe for the full reason." };
 }
+
+// ─── Disputes (Handbook 11 L455) ────────────────────────────────────────────
+
+export type DisputeStatus = "OPEN" | "RESOLVED_VENDOR" | "RESOLVED_BUYER" | "RESOLVED_PARTIAL";
+
+export interface DisputeRow {
+  id: string; orderId: string; status: DisputeStatus; reason: string; createdAt: string;
+  resolution: string | null; fraudulent: boolean; refundAmount: number | null; resolvedAt: string | null;
+  buyerName: string | null; buyerEmail: string | null; vendorName: string | null;
+  order: { orderNumber: string; totalAmount: number; currency: string } | null;
+}
+
+export interface DisputeDetail extends Omit<DisputeRow, "order"> {
+  buyerId: string; vendorId: string;
+  buyer: { id: string; name: string; email: string } | null;
+  vendor: { id: string; storeName: string } | null;
+  order: {
+    id: string; orderNumber: string; totalAmount: number; currency: string; deliveryAddress: string | null; createdAt: string;
+    items: Array<{ productTitle: string | null; quantity: number; totalAmount: number }>;
+  } | null;
+}
+
+export const disputeStatusLabel: Record<DisputeStatus, string> = {
+  OPEN: "Open - needs a decision",
+  RESOLVED_BUYER: "Resolved - buyer refunded",
+  RESOLVED_VENDOR: "Resolved - released to vendor",
+  RESOLVED_PARTIAL: "Resolved - partial refund",
+};
+
+export const disputesAPI2 = {
+  async list(f: { q?: string; status?: string; vendorId?: string; cursor?: string | null; limit?: number }): Promise<PageResult<DisputeRow>> {
+    return apiClient.get(`/admin/disputes${qs({ ...f, limit: f.limit ?? 20 })}`, { bypassCache: true });
+  },
+  async get(id: string): Promise<DisputeDetail> {
+    const res = await apiClient.get<any>(`/admin/disputes/${id}`, { bypassCache: true });
+    return res.dispute ?? res;
+  },
+  async resolve(id: string, body: { resolution: "buyer" | "vendor" | "partial"; note: string; refundAmountMinor?: number; fraudulent?: boolean }, twoFactorCode?: string) {
+    return apiClient.patch(`/admin/disputes/${id}/resolve`, {
+      resolution: body.resolution, note: body.note, refundAmount: body.refundAmountMinor, fraudulent: body.fraudulent ?? false,
+    }, { twoFactorCode });
+  },
+};

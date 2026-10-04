@@ -47,22 +47,23 @@ export const payoutRequestsAPI = {
     return (res.payoutRequests ?? res.items ?? []).map(normalizePayoutRequest);
   },
 
-  async approvePayoutRequest(payoutRequestId: string): Promise<AdminPayoutRequest> {
-    const res = await apiClient.patch<any>(`/admin/payout-requests/${payoutRequestId}/approve`, {});
+  async approvePayoutRequest(payoutRequestId: string, reason: string, twoFactorCode?: string): Promise<AdminPayoutRequest> {
+    const res = await apiClient.patch<any>(`/admin/payout-requests/${payoutRequestId}/approve`, { reason }, { twoFactorCode });
     return normalizePayoutRequest(res.payoutRequest ?? res);
   },
 
-  async rejectPayoutRequest(payoutRequestId: string, reason?: string): Promise<AdminPayoutRequest> {
-    const res = await apiClient.patch<any>(`/admin/payout-requests/${payoutRequestId}/reject`, { reason });
+  async rejectPayoutRequest(payoutRequestId: string, reason: string, twoFactorCode?: string): Promise<AdminPayoutRequest> {
+    const res = await apiClient.patch<any>(`/admin/payout-requests/${payoutRequestId}/reject`, { reason }, { twoFactorCode });
     return normalizePayoutRequest(res.payoutRequest ?? res);
   },
 
   async markPayoutRequestPaid(
     payoutRequestId: string,
+    reason: string,
     twoFactorCode?: string,
     transferProof?: string,
   ): Promise<AdminPayoutRequest> {
-    const body: Record<string, unknown> = {};
+    const body: Record<string, unknown> = { reason };
     if (transferProof) body.transferProof = transferProof;
     const res = await apiClient.patch<any>(
       `/admin/payout-requests/${payoutRequestId}/mark-paid`,

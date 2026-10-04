@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, ErrorPanel, LoadingPanel } from "@/components/AdminUI";
+import { useConfirm } from "@/components/AdminKit";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { API2FARequiredError, APIError } from "@/lib/api";
 import { convertMoney, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
@@ -35,6 +36,8 @@ export default function PayoutRequestsPage() {
   const [transferProofUrl, setTransferProofUrl] = useState("");
   const [rejectingRequest, setRejectingRequest] = useState<AdminPayoutRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [paidReason, setPaidReason] = useState("");
+  const confirm = useConfirm();
   const [page, setPage] = useState(1);
   const perPage = 6;
   const { selectedCurrency } = useAdminDisplayCurrency(items[0]?.currency ?? "GBP");
@@ -56,24 +59,47 @@ export default function PayoutRequestsPage() {
 
   useEffect(() => { void loadData(); }, [loadData]);
 
-  const handleApprove = async (item: AdminPayoutRequest) => {
-    try { setBusyId(item.id); await payoutRequestsAPI.approvePayoutRequest(item.id); await loadData(); }
-    catch (err) { alert(err instanceof APIError ? err.message : "Failed to approve"); }
-    finally { setBusyId(null); }
-  };
+  // Handbook 5.2 / 14.12: every money action records a reason (also enforced server-side).
+  const handleApprove = (item: AdminPayoutRequest) => confirm.ask(
+    {
+      title: "Approve this payout?",
+      tone: "primary",
+      confirmLabel: "Approve payout",
+      description: "Approving does not send money by itself - Mark paid triggers the actual provider transfer.",
+      reasonLabel: "Reason / what you checked (audited)",
+    },
+    async (reason) => {
+      try { setBusyId(item.id); await payoutRequestsAPI.approvePayoutRequest(item.id, reason); await loadData(); }
+      finally { setBusyId(null); }
+    },
+  );
 
   const handleReject = async () => {
     if (!rejectingRequest) return;
-    try { setBusyId(rejectingRequest.id); await payoutRequestsAPI.rejectPayoutRequest(rejectingRequest.id, rejectionReason || undefined); setRejectingRequest(null); setRejectionReason(""); await loadData(); }
+    try { setBusyId(rejectingRequest.id); if (rejectionReason.trim().length < 5) { alert('A rejection reason of at least 5 characters is required.'); return; } await payoutRequestsAPI.rejectPayoutRequest(rejectingRequest.id, rejectionReason.trim()); setRejectingRequest(null); setRejectionReason(""); await loadData(); }
     catch (err) { alert(err instanceof APIError ? err.message : "Failed to reject"); }
     finally { setBusyId(null); }
   };
 
-  const handleMarkPaid = async (item: AdminPayoutRequest, code?: string, proof?: string) => {
-    try { setBusyId(item.id); await payoutRequestsAPI.markPayoutRequestPaid(item.id, code, proof); setPendingPaidRequest(null); setTwoFactorCode(""); setTransferProofUrl(""); await loadData(); }
-    catch (err) { if (err instanceof API2FARequiredError) setPendingPaidRequest(item); else alert(err instanceof APIError ? err.message : "Failed to mark paid"); }
+  const handleMarkPaid = async (item: AdminPayoutRequest, code?: string, proof?: string, reasonArg?: string) => {
+    const reason = reasonArg ?? paidReason;
+    try { setBusyId(item.id); await payoutRequestsAPI.markPayoutRequestPaid(item.id, reason, code, proof); setPendingPaidRequest(null); setTwoFactorCode(""); setTransferProofUrl(""); setPaidReason(""); await loadData(); }
+    catch (err) { if (err instanceof API2FARequiredError) { setPaidReason(reason); setPendingPaidRequest(item); } else alert(err instanceof APIError ? err.message : "Failed to mark paid"); }
     finally { setBusyId(null); }
   };
+
+  const askMarkPaid = (item: AdminPayoutRequest, retry = false) => confirm.ask(
+    {
+      title: retry ? "Retry the transfer?" : "Send this payout?",
+      tone: "primary",
+      confirmLabel: retry ? "Retry transfer" : "Send payout",
+      description: retry
+        ? "A duplicate transfer cannot be created - the same provider request is safely replayed."
+        : "This asks the provider to transfer real money to the vendor. The payout only shows Paid once the transfer succeeds.",
+      reasonLabel: "Reason / reference (audited)",
+    },
+    async (reason) => { await handleMarkPaid(item, undefined, undefined, reason); },
+  );
 
   // Payout requests can be in different currencies per vendor — summing raw
   // amounts and labelling the total with one fixed currency would silently
@@ -214,19 +240,17 @@ export default function PayoutRequestsPage() {
                             <div className="flex gap-2">
                               {item.status === "PENDING" && (
                                 <>
-                                  <button disabled={busyId === item.id} onClick={() => void handleApprove(item)} className="rounded-lg bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-600 hover:bg-emerald-100 transition disabled:opacity-50">Approve</button>
+                                  <button disabled={busyId === item.id} onClick={() => handleApprove(item)} className="rounded-lg bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-600 hover:bg-emerald-100 transition disabled:opacity-50">Approve</button>
                                   <button disabled={busyId === item.id} onClick={() => setRejectingRequest(item)} className="rounded-lg bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-500 hover:bg-red-100 transition disabled:opacity-50">Reject</button>
                                 </>
                               )}
                               {item.status === "APPROVED" && (
-                                <button disabled={busyId === item.id} onClick={() => void handleMarkPaid(item)} className="rounded-lg bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-blue-600 hover:bg-blue-100 transition disabled:opacity-50">Mark Paid</button>
+                                <button disabled={busyId === item.id} onClick={() => askMarkPaid(item)} className="rounded-lg bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-blue-600 hover:bg-blue-100 transition disabled:opacity-50">Mark Paid</button>
                               )}
                               {(item.status === "ON_HOLD" || item.status === "PROCESSING") && (
                                 <button
                                   disabled={busyId === item.id}
-                                  onClick={() => {
-                                    if (confirm(`Retry the transfer for this payout? A real duplicate transfer cannot be created — the same provider request is safely replayed.`)) void handleMarkPaid(item);
-                                  }}
+                                  onClick={() => askMarkPaid(item, true)}
                                   className="rounded-lg bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-600 hover:bg-amber-100 transition disabled:opacity-50"
                                 >
                                   Retry transfer
@@ -289,6 +313,7 @@ export default function PayoutRequestsPage() {
             </Card>
           </div>
         )}
+        {confirm.dialog}
       </AdminLayout>
     </ProtectedRoute>
   );

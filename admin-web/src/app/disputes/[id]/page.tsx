@@ -3,173 +3,172 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { APIError, API2FARequiredError } from "@/lib/api";
-import { disputesAPI } from "@/lib/services/disputes.api";
-import { Dispute } from "@/types";
+import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader, TextLink, TwoFactorModal } from "@/components/AdminUI";
+import { Banner, DataTable, KeyValue, formatDateTime, formatMinor, type Column } from "@/components/AdminKit";
+import { APIError } from "@/lib/api";
+import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
+import { disputeStatusLabel, disputesAPI2, type DisputeDetail } from "@/lib/services/money.api";
+
+type Item = NonNullable<DisputeDetail["order"]>["items"][number];
+type Decision = "buyer" | "vendor" | "partial";
+
+const DECISION_LABEL: Record<Decision, { title: string; hint: string }> = {
+  buyer: { title: "Refund the buyer in full", hint: "A real refund is sent through the payment provider first; the dispute only closes if it succeeds." },
+  vendor: { title: "Release to the vendor", hint: "The order completes and the vendor's earnings are released." },
+  partial: { title: "Partial refund", hint: "Refund part of the order; the rest is released to the vendor." },
+};
 
 export default function DisputeDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const params = useParams<{ id: string }>();
-  const [dispute, setDispute] = useState<Dispute | null>(null);
-  const [loading, setLoading] = useState(true);
+  const twoFactor = useTwoFactorAction();
+  const [d, setD] = useState<DisputeDetail | null>(null);
   const [error, setError] = useState("");
-  const [resolution, setResolution] = useState<"buyer" | "vendor" | "partial">("buyer");
+  const [loading, setLoading] = useState(true);
+
+  const [decision, setDecision] = useState<Decision>("buyer");
   const [note, setNote] = useState("");
-  const [refundAmount, setRefundAmount] = useState("");
-  const [resolving, setResolving] = useState(false);
-  const [twoFactorCode, setTwoFactorCode] = useState("");
-  const [show2FA, setShow2FA] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [fraud, setFraud] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    if (!params.id) return;
-    try {
-      setLoading(true);
-      setError("");
-      setDispute(await disputesAPI.getDispute(params.id));
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to load dispute");
-    } finally {
-      setLoading(false);
-    }
-  }, [params.id]);
-
+    try { setLoading(true); setError(""); setD(await disputesAPI2.get(id)); }
+    catch (e) { setError(e instanceof APIError ? e.message : "Failed to load dispute"); }
+    finally { setLoading(false); }
+  }, [id]);
   useEffect(() => { void load(); }, [load]);
 
-  const handleResolve = async (code?: string) => {
-    if (!dispute || !note.trim()) { setError("Add a resolution note."); return; }
-    try {
-      setResolving(true);
-      setError("");
-      await disputesAPI.resolveDispute(dispute.id, {
-        resolution,
-        note: note.trim(),
-        refundAmount: refundAmount ? Number(refundAmount) : undefined,
-        twoFactorCode: code,
-      });
+  if (loading && !d) return <ProtectedRoute><AdminLayout><LoadingPanel label="Loading dispute…" /></AdminLayout></ProtectedRoute>;
+  if (error || !d) return <ProtectedRoute><AdminLayout><ErrorPanel message={error || "Dispute not found"} onRetry={() => void load()} /></AdminLayout></ProtectedRoute>;
+
+  // The form shows only while the dispute is genuinely OPEN (statuses are RESOLVED_*, not "RESOLVED").
+  const isOpen = d.status === "OPEN";
+  const cur = d.order?.currency ?? "EUR";
+
+  const submit = async () => {
+    setFormError("");
+    if (note.trim().length < 10) { setFormError("Add a resolution note of at least 10 characters - both parties can see it."); return; }
+    let refundAmountMinor: number | undefined;
+    if (decision === "partial") {
+      const n = Number(amount);
+      if (!Number.isFinite(n) || n <= 0) { setFormError("Enter the refund amount for a partial refund."); return; }
+      refundAmountMinor = Math.round(n * 100);
+      if (d.order && refundAmountMinor >= d.order.totalAmount) { setFormError("A partial refund must be less than the order total. Choose 'Refund the buyer in full' instead."); return; }
+    }
+    setBusy(true);
+    await twoFactor.run(async (code) => {
+      await disputesAPI2.resolve(id, { resolution: decision, note: note.trim(), refundAmountMinor, fraudulent: fraud }, code);
+      setNote(""); setAmount(""); setFraud(false);
       await load();
-      setNote("");
-      setRefundAmount("");
-    } catch (err) {
-      if (err instanceof API2FARequiredError) { setShow2FA(true); return; }
-      setError(err instanceof APIError ? err.message : "Failed to resolve");
-    } finally { setResolving(false); }
+    });
+    setBusy(false);
   };
+
+  const itemCols: Column<Item>[] = [
+    { key: "p", header: "Item", render: (i) => <span className="font-bold">{i.productTitle ?? "—"}</span> },
+    { key: "q", header: "Qty", render: (i) => i.quantity },
+    { key: "t", header: "Total", render: (i) => formatMinor(i.totalAmount, cur) },
+  ];
+
+  // What was actually decided is read from the status, never guessed from the free-text note.
+  const decided = d.status === "RESOLVED_BUYER" ? "Buyer refunded" : d.status === "RESOLVED_VENDOR" ? "Released to vendor" : d.status === "RESOLVED_PARTIAL" ? "Partial refund" : null;
 
   return (
     <ProtectedRoute>
       <AdminLayout>
-        {loading ? <LoadingPanel label="Loading dispute..." /> : !dispute ? (
-          <div className="p-12 text-center text-slate-500">Dispute not found. <button onClick={() => router.back()} className="text-[#096B4A] underline">Go back</button></div>
-        ) : (
-          <div className="space-y-8">
-            <button onClick={() => router.back()} className="flex items-center gap-2 text-sm font-bold text-[#096B4A]"><Icon name="arrow" className="h-4 w-4 rotate-90" /> Back to disputes</button>
-
-            {error && <ErrorPanel message={error} onRetry={() => setError("")} />}
-
-            {/* Header */}
-            <div className="rounded-3xl bg-[#101820] p-8 text-white">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm text-emerald-200">Dispute #{dispute.order?.orderNumber || dispute.orderId.slice(0, 8)}</p>
-                  <h1 className="mt-2 text-3xl font-black">{dispute.reason}</h1>
-                </div>
-                <StatusBadge status={dispute.status} />
-              </div>
-              <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                <div><p className="text-sm text-emerald-200">Buyer ID</p><p className="mt-1 font-bold">{dispute.buyerId?.slice(0, 12) || "N/A"}</p></div>
-                <div><p className="text-sm text-emerald-200">Vendor ID</p><p className="mt-1 font-bold">{dispute.vendorId?.slice(0, 12) || "N/A"}</p></div>
-                <div><p className="text-sm text-emerald-200">Created</p><p className="mt-1 font-bold">{dispute.createdAt ? new Date(dispute.createdAt).toLocaleString() : "N/A"}</p></div>
-              </div>
-              {dispute.fraudulent && <div className="mt-4 rounded-xl bg-red-500/20 px-4 py-3 text-sm font-bold text-red-200">⚠ Flagged as potentially fraudulent</div>}
-            </div>
-
-            {/* Order details */}
-            {dispute.order && (
-              <Card>
-                <h2 className="text-xl font-black">Order details</h2>
-                <div className="mt-4 space-y-3">
-                  <div className="flex justify-between"><span className="text-slate-500">Order number</span><span className="font-bold">{dispute.order.orderNumber}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Total</span><span className="font-bold">{dispute.order.currency} {dispute.order.totalAmount.toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Status</span><StatusBadge status={dispute.order.status} /></div>
-                  {dispute.order.items?.map((item: any) => (
-                    <div key={item.id} className="flex justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                      <span>{item.productTitle} x{item.quantity}</span>
-                      <span className="font-bold">{dispute.order?.currency} {item.totalAmount.toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
-
-            {/* Resolution form */}
-            {dispute.status !== "RESOLVED" && (
-              <Card>
-                <h2 className="text-xl font-black">Resolve dispute</h2>
-                <div className="mt-6 space-y-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-gray-700">Resolution decision</label>
-                    <div className="flex flex-wrap gap-3">
-                      {(["buyer", "vendor", "partial"] as const).map((opt) => (
-                        <button key={opt} onClick={() => setResolution(opt)}
-                          className={`rounded-xl border px-5 py-3 text-sm font-bold transition ${resolution === opt ? "border-[#096B4A] bg-emerald-50 text-[#096B4A]" : "border-slate-200 text-slate-600"}`}>
-                          {opt === "buyer" ? "Refund buyer" : opt === "vendor" ? "Release to vendor" : "Partial refund"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {resolution === "partial" && (
-                    <div>
-                      <label className="mb-2 block text-sm font-bold text-gray-700">Refund amount</label>
-                      <input type="number" min="0" step="0.01" value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
-                    </div>
-                  )}
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-gray-700">Resolution note *</label>
-                    <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Explain the resolution decision. This will be visible to both buyer and vendor." className="w-full rounded-xl border border-slate-300 p-4 outline-none focus:border-[#096B4A]" />
-                  </div>
-                  <Button disabled={resolving || !note.trim()} onClick={() => void handleResolve()} className="w-full">{resolving ? "Resolving..." : "Resolve dispute"}</Button>
-                </div>
-              </Card>
-            )}
-
-            {dispute.resolution && (
-              <Card>
-                <h2 className="text-xl font-black">Resolution</h2>
-                <div className="mt-4 rounded-xl bg-emerald-50 p-4">
-                  <p className="font-bold text-[#096B4A]">Decided: {dispute.resolution === "buyer" ? "Refund buyer" : dispute.resolution === "vendor" ? "Release to vendor" : "Partial refund"}</p>
-                  {dispute.refundAmount ? <p className="mt-1 text-sm text-slate-600">Amount: {dispute.order?.currency} {dispute.refundAmount.toFixed(2)}</p> : null}
-                  {dispute.fraudulent ? <p className="mt-1 text-sm font-bold text-red-600">Flagged as fraudulent</p> : null}
-                  {dispute.resolvedAt ? <p className="mt-1 text-sm text-slate-500">Resolved: {new Date(dispute.resolvedAt).toLocaleString()}</p> : null}
-                </div>
-              </Card>
-            )}
-
-            {/* 2FA Modal */}
-            {show2FA && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-                <Card className="w-full max-w-md">
-                  <h3 className="text-2xl font-black">2FA Required</h3>
-                  <p className="mt-2 text-sm text-slate-500">Enter your 2FA code to resolve this dispute.</p>
-                  <input value={twoFactorCode} onChange={(e) => setTwoFactorCode(e.target.value)} placeholder="000000" className="mt-4 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
-                  <div className="mt-6 flex gap-3">
-                    <Button className="flex-1" onClick={() => void handleResolve(twoFactorCode)}>Submit</Button>
-                    <Button className="flex-1" variant="ghost" onClick={() => setShow2FA(false)}>Cancel</Button>
-                  </div>
-                </Card>
-              </div>
-            )}
+        <div className="space-y-6">
+          <PageHeader
+            title={`Dispute · ${d.order?.orderNumber ?? d.id}`}
+            subtitle={d.reason}
+            actions={
+              <>
+                <Button variant="ghost" onClick={() => router.push("/disputes")}>← All disputes</Button>
+                {d.order ? <Button variant="secondary" onClick={() => router.push(`/orders/${d.order!.id}`)}>Open order</Button> : null}
+              </>
+            }
+          />
+          {twoFactor.error ? <Banner tone="danger">{twoFactor.error}</Banner> : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={isOpen ? "red" : "green"}>{disputeStatusLabel[d.status]}</Badge>
+            {d.fraudulent ? <Badge tone="amber">Flagged as fraudulent</Badge> : null}
           </div>
-        )}
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <Card>
+              <h3 className="mb-4 text-lg font-black text-[#101820]">Parties</h3>
+              <KeyValue items={[
+                { label: "Buyer", value: d.buyer ? <TextLink href={`/users/${d.buyer.id}`}>{d.buyer.name || d.buyer.email} →</TextLink> : "Not provided" },
+                { label: "Buyer email", value: d.buyer?.email ?? "Not provided" },
+                { label: "Vendor", value: d.vendor ? <TextLink href={`/vendors/${d.vendor.id}`}>{d.vendor.storeName} →</TextLink> : "Not provided" },
+                { label: "Opened", value: formatDateTime(d.createdAt) },
+                { label: "Order total", value: d.order ? formatMinor(d.order.totalAmount, cur) : "Not provided" },
+                { label: "Delivery address", value: d.order?.deliveryAddress ?? "Not provided" },
+              ]} />
+            </Card>
+            <Card>
+              <h3 className="mb-3 text-lg font-black text-[#101820]">Items</h3>
+              <DataTable columns={itemCols} rows={d.order?.items ?? []} rowKey={(i, ) => `${i.productTitle}-${i.totalAmount}`} emptyTitle="No items recorded" />
+            </Card>
+          </div>
+
+          {decided ? (
+            <Card>
+              <h3 className="mb-2 text-lg font-black text-[#101820]">Decision</h3>
+              <Banner tone="success" title={decided}>
+                {d.refundAmount ? `Refunded ${formatMinor(d.refundAmount, cur)}. ` : ""}
+                {d.resolvedAt ? `Resolved ${formatDateTime(d.resolvedAt)}.` : ""}
+              </Banner>
+              {d.resolution ? <p className="mt-3 text-sm text-slate-700"><span className="font-bold">Note shared with both parties:</span> {d.resolution}</p> : null}
+            </Card>
+          ) : null}
+
+          {isOpen ? (
+            <Card>
+              <h3 className="mb-1 text-lg font-black text-[#101820]">Decide this dispute</h3>
+              <p className="mb-4 text-sm text-slate-500">Requires 2FA. Both the buyer and the vendor are notified and the decision is written to the audit log.</p>
+              <div className="grid gap-3 md:grid-cols-3">
+                {(Object.keys(DECISION_LABEL) as Decision[]).map((k) => (
+                  <button
+                    key={k} onClick={() => setDecision(k)} aria-pressed={decision === k}
+                    className={`rounded-2xl border p-4 text-left transition ${decision === k ? "border-[#096B4A] bg-emerald-50" : "border-slate-200 hover:bg-slate-50"}`}
+                  >
+                    <p className="font-black text-slate-900">{DECISION_LABEL[k].title}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{DECISION_LABEL[k].hint}</p>
+                  </button>
+                ))}
+              </div>
+              {decision === "partial" ? (
+                <label className="mt-4 block">
+                  <span className="text-xs font-black uppercase tracking-wide text-slate-500">Refund amount ({cur.toUpperCase()})</span>
+                  <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
+                    className="mt-1 h-11 w-full max-w-xs rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#096B4A]" />
+                </label>
+              ) : null}
+              <label className="mt-4 block">
+                <span className="text-xs font-black uppercase tracking-wide text-slate-500">Resolution note (shared with buyer and vendor)</span>
+                <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#096B4A]" />
+              </label>
+              <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <input type="checkbox" checked={fraud} onChange={(e) => setFraud(e.target.checked)} className="h-4 w-4 accent-[#096B4A]" />
+                Flag the buyer as fraudulent (lowers their trust score)
+              </label>
+              {formError ? <p className="mt-3 text-sm font-bold text-red-600">{formError}</p> : null}
+              <div className="mt-4">
+                <Button disabled={busy} onClick={() => void submit()}>{busy ? "Resolving…" : "Resolve dispute"}</Button>
+              </div>
+            </Card>
+          ) : null}
+
+          <TwoFactorModal
+            open={twoFactor.show2FAModal} code={twoFactor.code} onCodeChange={twoFactor.setCode}
+            onSubmit={() => void twoFactor.submit2FA()} onCancel={twoFactor.cancel2FA} loading={twoFactor.loading} error={twoFactor.error}
+          />
+        </div>
       </AdminLayout>
     </ProtectedRoute>
   );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const s = status?.toLowerCase() || "";
-  if (s === "resolved" || s === "completed") return <Badge tone="green">{status}</Badge>;
-  if (s === "open" || s === "investigation") return <Badge tone="red">{status}</Badge>;
-  return <Badge tone="amber">{status}</Badge>;
 }
