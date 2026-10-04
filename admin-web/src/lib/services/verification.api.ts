@@ -60,6 +60,8 @@ function normalizeQueueItem(raw: any): VerificationQueueItem {
       total: raw.uploadedDocSummary?.total ?? 0,
     },
     docsAlreadyDeleted: Boolean(raw.docsAlreadyDeleted),
+    provider: raw.provider,
+    manualReviewAllowed: Boolean(raw.manualReviewAllowed),
   };
 }
 
@@ -85,6 +87,8 @@ function normalizeDetails(raw: any): VerificationReviewDetails {
     reviewedBy: raw.reviewedBy,
     rejectionReason: raw.rejectionReason,
     proofs: (raw.proofs ?? []).map(normalizeDocument),
+    provider: raw.provider,
+    manualReviewAllowed: Boolean(raw.manualReviewAllowed),
   };
 }
 

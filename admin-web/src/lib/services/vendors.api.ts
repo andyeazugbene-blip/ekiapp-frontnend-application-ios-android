@@ -1,5 +1,5 @@
 import { apiClient } from "../api";
-import { Vendor, VendorStatus } from "@/types";
+import { Vendor, VendorStatus, VendorStripeStatus } from "@/types";
 
 function centsToUnit(value: unknown): number {
   return typeof value === "number" ? value / 100 : 0;
@@ -149,6 +149,14 @@ export const vendorsAPI = {
   async setVendorMarketEnabled(vendorId: string, marketCode: string, enabled: boolean, reason?: string, twoFactorCode?: string): Promise<VendorMarket> {
     const res = await apiClient.patch<{ market: any }>(`/admin/vendors/${vendorId}/markets/${marketCode}`, { enabled, reason }, { twoFactorCode });
     return normalizeVendorMarket(res.market);
+  },
+
+  async getStripeStatus(vendorId: string, refresh = false): Promise<VendorStripeStatus> {
+    return apiClient.get<VendorStripeStatus>(`/admin/vendors/${vendorId}/stripe-status${refresh ? "?refresh=true" : ""}`, { bypassCache: true });
+  },
+
+  async sendStripeReminder(vendorId: string): Promise<void> {
+    await apiClient.post(`/admin/vendors/${vendorId}/stripe-reminder`, {});
   },
 
   async removeVendorMarket(vendorId: string, marketCode: string, twoFactorCode?: string): Promise<void> {
