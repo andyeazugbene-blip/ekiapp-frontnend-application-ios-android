@@ -149,7 +149,14 @@ export interface PendingSupplier {
 // SupplierAccountState exactly (schema.prisma).
 export type SupplierAccountState =
   | "NOT_STARTED" | "DRAFT" | "VERIFICATION_REQUIRED" | "UNDER_REVIEW"
-  | "INFORMATION_REQUIRED" | "APPROVED" | "PAUSED" | "RESTRICTED" | "SUSPENDED" | "CLOSED";
+  | "INFORMATION_REQUIRED" | "APPROVED" | "PAUSED" | "RESTRICTED" | "SUSPENDED" | "CLOSED" | "REJECTED";
+
+// Handbook 14.11 - Application / Account / Payout status shown separately (derived server-side).
+export interface SupplierStatuses {
+  application: "DRAFT" | "UNDER_REVIEW" | "VERIFICATION_REQUIRED" | "INFORMATION_REQUIRED" | "APPROVED" | "REJECTED";
+  account: "NOT_ACTIVE" | "ACTIVE" | "PAUSED" | "RESTRICTED" | "SUSPENDED" | "CLOSED";
+  payout: "READY" | "REQUIREMENTS_DUE" | "NOT_STARTED";
+}
 
 export interface AdminSupplierAccount {
   id: string;
@@ -174,9 +181,27 @@ export interface AdminSupplierAccount {
   stripeRequirementsDue: string[];
   suspendedAt: string | null;
   closedAt: string | null;
+  rejectedAt?: string | null;
+  termsAcceptedAt?: string | null;
+  reviewedAt?: string | null;
+  statuses?: SupplierStatuses;
   createdAt: string;
   updatedAt: string;
-  user?: { name: string; email: string };
+  user?: { name: string; email: string; phone?: string | null; country?: string | null };
+}
+
+export interface SupplierAccountList {
+  items: AdminSupplierAccount[];
+  nextCursor: string | null;
+  counts: { byState: Record<string, number>; total: number };
+}
+
+export interface SupplierAccountDetail {
+  account: AdminSupplierAccount;
+  campaigns: Array<{ id: string; title: string; status: CampaignStatus; country: string | null; createdAt: string; fulfilment: { status: string } | null }>;
+  performance:
+    | { available: false }
+    | { available: true; campaignsAssigned: number; campaignsCompleted: number; cancellations: number; disputes: number; onTimeRate: number | null };
 }
 
 // M4 — data-access audit trail (spec §15.8, AT-43).
@@ -228,13 +253,33 @@ export interface MarketConfig {
   // Eki's processing fee, basis points (500 = 5%). Null blocks supplier
   // settlement release — never defaulted/invented client-side.
   communityBuyFeeBps: number | null;
+  // Handbook 14.9 - verified payment readiness (separate from the feature toggles above).
+  providerSupported?: boolean;
+  providerConfigChecked?: boolean;
+  legalApprovalRef?: string | null;
+  refundTested?: boolean;
+  testTransactionAt?: string | null;
+  readinessApprovedById?: string | null;
+  readinessApprovedAt?: string | null;
+  enablementReason?: string | null;
+  readinessUnverified?: boolean;
+  readiness?: { ready: boolean; unverified: boolean; items: Array<{ key: string; label: string; satisfied: boolean; detail?: string | null }> };
   createdAt: string;
   updatedAt: string;
 }
 
+export interface MarketHistoryEntry {
+  id: string;
+  action: string;
+  reason: string | null;
+  createdAt: string;
+  actor: { id: string; name: string | null; email: string | null };
+  beforeState: Record<string, unknown> | null;
+  afterState: Record<string, unknown> | null;
+}
+
 export type MarketConfigUpdate = Partial<{
   communityBuyEnabled: boolean;
-  communityBuyPaymentsEnabled: boolean;
   organiserApplicationsEnabled: boolean;
   supplierApplicationsEnabled: boolean;
   regularDeliveriesEnabled: boolean;
@@ -443,6 +488,18 @@ export interface AdminAttributionParticipant {
   user?: { id: string; name: string; email: string };
 }
 
+export interface CampaignAdminDetail {
+  campaign: AdminCampaign & {
+    slug?: string | null; timezone?: string | null; paymentDeadline?: string | null; fulfilmentDeadline?: string | null;
+    reviewCriteria?: Record<string, boolean> | null; publishedAt?: string | null; closedAt?: string | null;
+    supplierAccount?: { user?: { name: string; email: string } } | null;
+  };
+  progress: { confirmedShares: number; goalShares: number | null; minimumShares: number | null; maximumShares: number | null; percentOfGoal: number | null; participantCount: number; committedQuantity: number; paidQuantity: number };
+  money: { currency: string | null; pledgedAmount: number; paidAmount: number; refundedAmount: number; refundCount: number; paymentFailures: number; supplierPayment: { status: string; amount: number; currency: string } | null; organiserPayout: { status: string; amount: number } | null };
+  operations: { adminIssueNotes: string | null; fulfilment: { status: string; method: string | null; estimatedReadyAt: string | null } | null; alerts: Array<{ id: string; reason: string; status: string; createdAt: string }>; supportCases: Array<{ id: string; caseType: string; status: string; createdAt: string }> };
+  timeline: Array<{ at: string; kind: "admin" | "fulfilment"; label: string; detail: string | null }>;
+}
+
 export const communityBuyAdminAPI = {
   async getCampaignsForReview(opts?: ReadOptions): Promise<AdminCampaign[]> {
     const res = await apiClient.get<{ items?: AdminCampaign[] }>("/admin/community-campaigns/review", opts);
@@ -452,25 +509,38 @@ export const communityBuyAdminAPI = {
     const res = await apiClient.get<{ items?: AdminCampaign[] }>("/admin/community-campaigns/closed", opts);
     return res.items ?? [];
   },
-  async approveCampaign(id: string): Promise<AdminCampaign> {
-    const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/approve`, {});
+  async approveCampaign(id: string, criteria: Record<string, boolean>, notes?: string): Promise<AdminCampaign> {
+    const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/approve`, { criteria, notes });
     return res.campaign;
   },
   async requestCampaignChanges(id: string, notes: string): Promise<AdminCampaign> {
     const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/request-changes`, { notes });
     return res.campaign;
   },
-  async rejectCampaign(id: string, notes?: string): Promise<AdminCampaign> {
-    const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/reject`, { notes });
+  async rejectCampaign(id: string, notes: string, criteria?: Record<string, boolean>): Promise<AdminCampaign> {
+    const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/reject`, { notes, criteria });
     return res.campaign;
   },
-  async pauseCampaign(id: string): Promise<AdminCampaign> {
-    const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/pause`, {});
+  async pauseCampaign(id: string, reason: string): Promise<AdminCampaign> {
+    const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/pause`, { reason });
     return res.campaign;
   },
   async resumeCampaign(id: string): Promise<AdminCampaign> {
     const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/resume`, {});
     return res.campaign;
+  },
+  /** Handbook 10.3 - extend a LIVE / RESCUE_WINDOW campaign's deadline (reason required, participants notified, 2FA). */
+  async extendCampaignDeadline(id: string, newDeadline: string, reason: string): Promise<AdminCampaign> {
+    const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/extend-deadline`, { newDeadline, reason });
+    return res.campaign;
+  },
+  /** Handbook 10.3 - audited, rate-limited message to participants / organiser / supplier / all. */
+  async messageCampaignAudience(id: string, body: { audience: "participants" | "organiser" | "supplier" | "all"; title: string; message: string; reason: string }): Promise<{ sent: { participants: number; organiser: number; supplier: number } }> {
+    return apiClient.post(`/admin/community-campaigns/${id}/message`, body);
+  },
+  /** Handbook 10.1 - unified admin view (identity, timing, progress, money, operations, timeline). */
+  async getCampaignAdminDetail(id: string, opts?: ReadOptions): Promise<CampaignAdminDetail> {
+    return apiClient.get<CampaignAdminDetail>(`/admin/community-campaigns/${id}/admin-detail`, opts);
   },
   /** Phase 2 (admin ops) — the unified campaign-operations view's one shared issue/notes field. */
   async setCampaignIssueNotes(id: string, notes: string): Promise<AdminCampaign> {
@@ -509,9 +579,28 @@ export const communityBuyAdminAPI = {
     const res = await apiClient.get<{ items?: MarketConfig[] }>("/admin/community-buy/markets", opts);
     return res.items ?? [];
   },
-  async updateMarketConfig(countryCode: string, data: MarketConfigUpdate): Promise<MarketConfig> {
-    const res = await apiClient.patch<{ config: MarketConfig }>(`/admin/community-buy/markets/${countryCode}`, data);
+  async updateMarketConfig(countryCode: string, data: MarketConfigUpdate, reason: string): Promise<MarketConfig> {
+    const res = await apiClient.patch<{ config: MarketConfig }>(`/admin/community-buy/markets/${countryCode}`, { ...data, reason });
     return res.config;
+  },
+  /** Handbook 14.9 - add a market (everything off, no readiness) without a migration. */
+  async createMarket(countryCode: string, currency: string, reason: string): Promise<MarketConfig> {
+    const res = await apiClient.post<{ config: MarketConfig }>("/admin/community-buy/markets", { countryCode, currency, reason });
+    return res.config;
+  },
+  /** Super Administrator records payment readiness evidence. */
+  async updateMarketReadiness(countryCode: string, data: Partial<{ providerSupported: boolean; providerConfigChecked: boolean; legalApprovalRef: string | null; refundTested: boolean; testTransactionAt: string | null }>, reason: string): Promise<MarketConfig> {
+    const res = await apiClient.patch<{ config: MarketConfig }>(`/admin/community-buy/markets/${countryCode}/readiness`, { ...data, reason });
+    return res.config;
+  },
+  /** Enable (Super Administrator + readiness + approval reference + 2FA) or disable Community Buy payments. */
+  async setMarketPayments(countryCode: string, enabled: boolean, reason: string, approvalReference?: string): Promise<MarketConfig> {
+    const res = await apiClient.post<{ config: MarketConfig }>(`/admin/community-buy/markets/${countryCode}/payments`, { enabled, reason, approvalReference });
+    return res.config;
+  },
+  async getMarketHistory(countryCode: string, opts?: ReadOptions): Promise<MarketHistoryEntry[]> {
+    const res = await apiClient.get<{ items?: MarketHistoryEntry[] }>(`/admin/community-buy/markets/${countryCode}/history`, opts);
+    return res.items ?? [];
   },
 
   async getRefunds(opts?: ReadOptions): Promise<AdminCampaignRefund[]> {
@@ -660,13 +749,25 @@ export const communityBuyAdminAPI = {
   // ─── SupplierAccount review (Workstream 3, Set B) — the no-Vendor-
   // required supplier capability. Approve/restrict/unrestrict have existed
   // backend-side since Workstream 1 with zero admin-web UI; list is new. ──
-  async getSupplierAccounts(state?: SupplierAccountState, opts?: ReadOptions): Promise<AdminSupplierAccount[]> {
-    const qs = state ? `?state=${encodeURIComponent(state)}` : "";
-    const res = await apiClient.get<{ items?: AdminSupplierAccount[] }>(`/admin/community-buy/supplier-accounts${qs}`, opts);
-    return res.items ?? [];
+  async getSupplierAccounts(filters?: { state?: SupplierAccountState; q?: string; cursor?: string; limit?: number }, opts?: ReadOptions): Promise<SupplierAccountList> {
+    const params = new URLSearchParams();
+    if (filters?.state) params.set("state", filters.state);
+    if (filters?.q) params.set("q", filters.q);
+    if (filters?.cursor) params.set("cursor", filters.cursor);
+    if (filters?.limit) params.set("limit", String(filters.limit));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const res = await apiClient.get<Partial<SupplierAccountList>>(`/admin/community-buy/supplier-accounts${qs}`, opts);
+    return { items: res.items ?? [], nextCursor: res.nextCursor ?? null, counts: res.counts ?? { byState: {}, total: 0 } };
   },
-  async approveSupplierAccount(id: string): Promise<AdminSupplierAccount> {
-    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/approve`, {});
+  async getSupplierAccount(id: string, opts?: ReadOptions): Promise<SupplierAccountDetail> {
+    return apiClient.get<SupplierAccountDetail>(`/admin/community-buy/supplier-accounts/${id}`, opts);
+  },
+  async approveSupplierAccount(id: string, reason: string): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/approve`, { reason });
+    return res.account;
+  },
+  async rejectSupplierAccount(id: string, reason: string): Promise<AdminSupplierAccount> {
+    const res = await apiClient.post<{ account: AdminSupplierAccount }>(`/admin/community-buy/supplier-accounts/${id}/reject`, { reason });
     return res.account;
   },
   async restrictSupplierAccount(id: string, reason: string, controlScope?: "fulfilment_access_preserved"): Promise<AdminSupplierAccount> {

@@ -25,8 +25,8 @@ export const contentReportsAPI = {
     const res = await apiClient.get<{ reports: ContentReport[] }>(`/admin/reports${query}`);
     return res.reports ?? [];
   },
-  async review(id: string, status: "REVIEWED" | "DISMISSED"): Promise<ContentReport> {
-    const res = await apiClient.patch<{ report: ContentReport }>(`/admin/reports/${id}`, { status });
+  async review(id: string, status: "REVIEWED" | "DISMISSED", reason: string): Promise<ContentReport> {
+    const res = await apiClient.patch<{ report: ContentReport }>(`/admin/reports/${id}`, { status, reason });
     return res.report;
   },
 };

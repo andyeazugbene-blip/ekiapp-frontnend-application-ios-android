@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { Banner, useConfirm } from "@/components/AdminKit";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { deliveryZonesAPI, DeliveryZone } from "@/lib/services/delivery-zones.api";
 import { APIError } from "@/lib/api";
 
@@ -16,6 +18,10 @@ const EMPTY_FORM = {
 };
 
 export default function DeliveryZonesPage() {
+  const confirm = useConfirm();
+  // Backend: list = delivery_zones.read; create / edit / pause / delete / repair = delivery_zones.mutate.
+  const { has, loading: permLoading } = usePermissions();
+  const canMutate = has("delivery_zones.mutate");
   const [zones, setZones] = useState<DeliveryZone[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -49,28 +55,31 @@ export default function DeliveryZonesPage() {
       setError("Name, country, and base fee are required.");
       return;
     }
-    try {
-      setSubmitting(true);
-      setError("");
-      const payload = {
-        name: form.name.trim(),
-        country: form.country.trim(),
-        flag: form.flag.trim() || undefined,
-        baseFeeAmount: Number(form.baseFeeAmount),
-        feePerKgAmount: form.feePerKgAmount ? Number(form.feePerKgAmount) : undefined,
-      };
-      if (editingId) {
-        await deliveryZonesAPI.updateZone(editingId, payload);
-      } else {
-        await deliveryZonesAPI.createZone(payload);
-      }
-      resetForm();
-      await loadZones();
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to save delivery zone");
-    } finally {
-      setSubmitting(false);
-    }
+    setError("");
+    const payload = {
+      name: form.name.trim(),
+      country: form.country.trim(),
+      flag: form.flag.trim() || undefined,
+      baseFeeAmount: Number(form.baseFeeAmount),
+      feePerKgAmount: form.feePerKgAmount ? Number(form.feePerKgAmount) : undefined,
+    };
+    confirm.ask(
+      { title: editingId ? `Save changes to ${payload.name}?` : `Create delivery zone ${payload.name}?`, description: "Delivery fees affect checkout totals. The reason is recorded in the audit log.", confirmLabel: "Save", tone: "primary" },
+      async (reason) => {
+        setSubmitting(true);
+        try {
+          if (editingId) {
+            await deliveryZonesAPI.updateZone(editingId, payload, reason);
+          } else {
+            await deliveryZonesAPI.createZone({ ...payload, reason });
+          }
+          resetForm();
+          await loadZones();
+        } finally {
+          setSubmitting(false);
+        }
+      },
+    );
   };
 
   const handleEdit = (zone: DeliveryZone) => {
@@ -85,42 +94,49 @@ export default function DeliveryZonesPage() {
   };
 
   const handleDelete = async (zoneId: string) => {
-    if (!confirm("Delete this delivery zone?")) return;
-    try {
-      await deliveryZonesAPI.deleteZone(zoneId);
+    const zone = zones.find((z) => z.id === zoneId);
+    confirm.ask({ title: `Delete ${zone?.name ?? "this delivery zone"}?`, confirmLabel: "Delete zone" }, async (reason) => {
+      await deliveryZonesAPI.deleteZone(zoneId, reason);
       await loadZones();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to delete delivery zone");
-    }
+    });
   };
 
   const handleToggleActive = async (zone: DeliveryZone) => {
-    try {
-      await deliveryZonesAPI.updateZone(zone.id, { isActive: !zone.isActive });
-      await loadZones();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to update zone");
-    }
+    confirm.ask(
+      { title: `${zone.isActive ? "Deactivate" : "Activate"} ${zone.name}?`, confirmLabel: zone.isActive ? "Deactivate" : "Activate", tone: zone.isActive ? "danger" : "primary" },
+      async (reason) => {
+        await deliveryZonesAPI.updateZone(zone.id, { isActive: !zone.isActive }, reason);
+        await loadZones();
+      },
+    );
   };
 
   const [fixingCurrencies, setFixingCurrencies] = useState(false);
   const handleFixCurrencies = async () => {
-    try {
-      setFixingCurrencies(true);
-      const result = await deliveryZonesAPI.fixCurrencies();
-      if (result.corrected === 0) {
-        alert(`Checked ${result.checked} zones — all currencies already match their country.`);
-      } else {
-        const lines = result.corrections.map((c) => `${c.country}: ${c.from.toUpperCase()} → ${c.to}`).join("\n");
-        alert(`Checked ${result.checked} zones, fixed ${result.corrected}:\n${lines}`);
-      }
-      await loadZones();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to fix currencies");
-    } finally {
-      setFixingCurrencies(false);
-    }
+    confirm.ask(
+      { title: "Re-derive currencies from country?", description: "Corrects any zone whose stored currency does not match its country.", confirmLabel: "Run repair", tone: "primary" },
+      async (reason) => {
+        setFixingCurrencies(true);
+        try {
+          const result = await deliveryZonesAPI.fixCurrencies(reason);
+          setError(
+            result.corrected === 0
+              ? ""
+              : "",
+          );
+          setRepairNote(
+            result.corrected === 0
+              ? `Checked ${result.checked} zones: all currencies already match their country.`
+              : `Checked ${result.checked} zones, fixed ${result.corrected}: ${result.corrections.map((c) => `${c.country} ${c.from.toUpperCase()} to ${c.to}`).join(", ")}`,
+          );
+          await loadZones();
+        } finally {
+          setFixingCurrencies(false);
+        }
+      },
+    );
   };
+  const [repairNote, setRepairNote] = useState("");
 
   return (
     <ProtectedRoute>
@@ -129,20 +145,23 @@ export default function DeliveryZonesPage() {
           <LoadingPanel label="Loading delivery zones..." />
         ) : (
           <div className="space-y-8">
+            {confirm.dialog}
+            {repairNote ? <div role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">{repairNote}</div> : null}
             <PageHeader
               title="Delivery zones"
               subtitle="Manage global delivery zones and shipping fee rules."
               actions={
-                <Button variant="secondary" disabled={fixingCurrencies} onClick={() => void handleFixCurrencies()}>
+                !canMutate ? null : <Button variant="secondary" disabled={fixingCurrencies} onClick={() => void handleFixCurrencies()}>
                   {fixingCurrencies ? "Checking..." : "Fix mismatched currencies"}
                 </Button>
               }
             />
 
             {error ? <ErrorPanel message={error} onRetry={() => setError("")} /> : null}
+            {!permLoading && !canMutate ? <Banner tone="info">Your role can view delivery zones but cannot change them.</Banner> : null}
 
-            <div className="grid gap-8 lg:grid-cols-[420px,1fr]">
-              <Card>
+            <div className={canMutate ? "grid gap-8 lg:grid-cols-[420px,1fr]" : "grid gap-8"}>
+              {canMutate ? <Card>
                 <h2 className="text-xl font-black">{editingId ? "Edit zone" : "Add zone"}</h2>
                 <div className="mt-6 space-y-4">
                   <div>
@@ -179,7 +198,7 @@ export default function DeliveryZonesPage() {
                     )}
                   </div>
                 </div>
-              </Card>
+              </Card> : null}
 
               <Card className="p-0">
                 {zones.length === 0 ? (
@@ -199,7 +218,7 @@ export default function DeliveryZonesPage() {
                             {zone.currency} {zone.baseFeeAmount.toFixed(2)} base{zone.feePerKgAmount > 0 ? ` + ${zone.feePerKgAmount.toFixed(2)}/kg` : ""}
                           </p>
                         </div>
-                        <div className="flex gap-2">
+                        {canMutate ? <div className="flex gap-2">
                           <Button variant="ghost" onClick={() => handleToggleActive(zone)}>
                             {zone.isActive ? "Pause" : "Activate"}
                           </Button>
@@ -209,7 +228,7 @@ export default function DeliveryZonesPage() {
                           <Button variant="danger" onClick={() => void handleDelete(zone.id)}>
                             Delete
                           </Button>
-                        </div>
+                        </div> : null}
                       </div>
                     ))}
                   </div>

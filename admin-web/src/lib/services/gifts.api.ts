@@ -8,6 +8,7 @@ export interface Reward {
   name: string;
   description: string | null;
   type: RewardType;
+  /** Major units (backend stores minor). */
   value: number;
   currency: string;
   minOrderAmount: number | null;
@@ -15,8 +16,17 @@ export interface Reward {
   maxClaims: number | null;
   claimedCount: number;
   expiresAt: string | null;
+  archivedAt: string | null;
   createdAt: string;
   isHotDeal: boolean;
+}
+
+export type RewardLifecycle = "active" | "paused" | "archived" | "expired";
+
+export function rewardLifecycle(r: Reward): RewardLifecycle {
+  if (r.archivedAt) return "archived";
+  if (r.expiresAt && new Date(r.expiresAt).getTime() < Date.now()) return "expired";
+  return r.isActive ? "active" : "paused";
 }
 
 function normalizeReward(raw: any): Reward {
@@ -28,47 +38,58 @@ function normalizeReward(raw: any): Reward {
     description: isHotDeal ? rawDescription.replace(HOT_DEAL_MARKER, "").trim() || null : rawDescription,
     type: raw.type ?? "WALLET_BONUS",
     value: typeof raw.value === "number" ? raw.value / 100 : raw.value ?? 0,
-    currency: (raw.currency ?? "GBP").toUpperCase(),
+    currency: (raw.currency ?? "EUR").toUpperCase(),
     minOrderAmount: raw.minOrderAmount != null ? raw.minOrderAmount / 100 : null,
     isActive: raw.isActive ?? false,
     maxClaims: raw.maxClaims ?? null,
     claimedCount: raw.claimedCount ?? 0,
     expiresAt: raw.expiresAt ?? null,
+    archivedAt: raw.archivedAt ?? null,
     createdAt: raw.createdAt ?? "",
     isHotDeal,
   };
 }
 
-function denormalizeReward(input: Partial<Reward>): Record<string, unknown> {
+export interface RewardInput {
+  name: string;
+  description?: string;
+  type: RewardType;
+  value: number;
+  isHotDeal?: boolean;
+  currency?: string;
+  minOrderAmount?: number;
+  maxClaims?: number;
+  expiresAt?: string;
+}
+
+function toWire(input: Partial<RewardInput>): Record<string, unknown> {
   const data: Record<string, unknown> = { ...input };
   if (input.value != null) data.value = Math.round(Number(input.value) * 100);
   if (input.minOrderAmount != null) data.minOrderAmount = Math.round(Number(input.minOrderAmount) * 100);
-  if (input.description === "") data.description = null;
   if (input.isHotDeal) data.description = `${HOT_DEAL_MARKER} ${input.description ?? ""}`.trim();
   delete data.isHotDeal;
   return data;
 }
 
+// No delete: rewards / hot deals are paused or archived, history is kept.
 export const giftsAPI = {
-  async getGifts(): Promise<Reward[]> {
-    const res = await apiClient.get<any>("/admin/rewards");
+  async getGifts(includeArchived = true): Promise<Reward[]> {
+    const res = await apiClient.get<any>(`/admin/rewards?includeArchived=${includeArchived}`, { bypassCache: true });
     return (res.rewards ?? []).map(normalizeReward);
   },
 
-  async createGift(input: {
-    name: string; description?: string; type: RewardType; value: number; isHotDeal?: boolean;
-    currency?: string; minOrderAmount?: number; maxClaims?: number; expiresAt?: string;
-  }): Promise<Reward> {
-    const res = await apiClient.post<any>("/admin/rewards", denormalizeReward(input));
+  async createGift(input: RewardInput): Promise<Reward> {
+    const res = await apiClient.post<any>("/admin/rewards", toWire(input));
     return normalizeReward(res.reward ?? res);
   },
 
-  async updateGift(id: string, input: Partial<Reward>): Promise<Reward> {
-    const res = await apiClient.patch<any>(`/admin/rewards/${id}`, denormalizeReward(input));
+  async updateGift(id: string, input: Partial<RewardInput>, reason: string): Promise<Reward> {
+    const res = await apiClient.patch<any>(`/admin/rewards/${id}`, { ...toWire(input), reason });
     return normalizeReward(res.reward ?? res);
   },
 
-  async deleteGift(id: string): Promise<void> {
-    await apiClient.delete(`/admin/rewards/${id}`);
+  async setState(id: string, action: "pause" | "resume" | "archive", reason: string): Promise<Reward> {
+    const res = await apiClient.post<any>(`/admin/rewards/${id}/${action}`, { reason });
+    return normalizeReward(res.reward ?? res);
   },
 };

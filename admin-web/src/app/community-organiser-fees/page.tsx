@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { Banner, formatMinor } from "@/components/AdminKit";
 import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   communityBuyAdminAPI,
   type AdminCommunityBuyOrganiserFee,
@@ -22,14 +24,15 @@ const FEE_STATUS_TONE: Record<CommunityBuyOrganiserFeeStatus, "green" | "amber" 
   REVERSED: "red",
 };
 
-function money(amountMinor: number, currency: string): string {
-  return `${currency} ${(amountMinor / 100).toLocaleString("en-GB", { minimumFractionDigits: 2 })}`;
-}
+const money = (amountMinor: number, currency: string): string => formatMinor(amountMinor, currency);
 
 type FeeModal = { kind: "hold" | "release" | "settle"; campaignId: string };
 type ReviewModal = { kind: "resolve"; participantId: string };
 
 export default function CommunityOrganiserFeesPage() {
+  // Backend: lists = community_buy.read; hold / release / settle / resolve = community_buy.mutate (+2FA, prompted globally).
+  const { has, loading: permLoading } = usePermissions();
+  const canMutate = has("community_buy.mutate");
   const [fees, setFees] = useState<AdminCommunityBuyOrganiserFee[]>([]);
   const [reviews, setReviews] = useState<AdminAttributionParticipant[]>([]);
   const [reviewStatus, setReviewStatus] = useState<AttributionStatus>("UNDER_REVIEW");
@@ -120,6 +123,7 @@ export default function CommunityOrganiserFeesPage() {
           />
 
           {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+          {!permLoading && !canMutate ? <Banner tone="info">Your role can view organiser fees and attribution reviews but cannot hold, release, settle or resolve them.</Banner> : null}
 
           {loading ? (
             <LoadingPanel label="Loading..." />
@@ -146,15 +150,14 @@ export default function CommunityOrganiserFeesPage() {
                         {fees.map((f) => (
                           <tr key={f.id} className="text-sm text-slate-700">
                             <td className="px-4 py-3">
-                              <span className="font-semibold text-[#101820]">{f.campaign?.title ?? f.campaignId}</span>
-                              <span className="block text-xs text-slate-400">{f.campaignId}</span>
+                              <span className="font-semibold text-[#101820]">{f.campaign?.title ?? "Campaign title not provided"}</span>
                             </td>
-                            <td className="px-4 py-3"><Badge tone={FEE_STATUS_TONE[f.status]}>{f.status}</Badge></td>
+                            <td className="px-4 py-3"><Badge tone={FEE_STATUS_TONE[f.status]}>{f.status.replace(/_/g, " ").toLowerCase()}</Badge></td>
                             <td className="px-4 py-3">{f.capturedQuantity}</td>
                             <td className="px-4 py-3 font-semibold">{money(f.netFeeAmount, f.currency)}</td>
                             <td className="px-4 py-3">{f.settlementMethod}</td>
                             <td className="px-4 py-3">
-                              <div className="flex flex-wrap gap-2">
+                              {canMutate ? <div className="flex flex-wrap gap-2">
                                 {f.status !== "SETTLED" ? (
                                   <Button variant="ghost" disabled={busyId === f.campaignId} className="!h-8 !px-3 !text-xs" onClick={() => setFeeModal({ kind: "hold", campaignId: f.campaignId })}>Hold</Button>
                                 ) : null}
@@ -164,7 +167,7 @@ export default function CommunityOrganiserFeesPage() {
                                 {f.status === "ACCRUED" ? (
                                   <Button variant="primary" disabled={busyId === f.campaignId} className="!h-8 !px-3 !text-xs" onClick={() => setFeeModal({ kind: "settle", campaignId: f.campaignId })}>Settle</Button>
                                 ) : null}
-                              </div>
+                              </div> : null}
                             </td>
                           </tr>
                         ))}
@@ -201,12 +204,12 @@ export default function CommunityOrganiserFeesPage() {
                       <tbody className="divide-y divide-slate-100">
                         {reviews.map((r) => (
                           <tr key={r.id} className="text-sm text-slate-700 align-top">
-                            <td className="px-4 py-3">{r.campaign?.title ?? r.campaignId}</td>
-                            <td className="px-4 py-3">{r.user?.name ?? r.userId}</td>
+                            <td className="px-4 py-3">{r.campaign?.title ?? "Campaign title not provided"}</td>
+                            <td className="px-4 py-3">{r.user?.name ?? "Name not provided"}</td>
                             <td className="px-4 py-3">{r.attributionSource ?? "—"}</td>
                             <td className="px-4 py-3 text-xs text-slate-500">{r.attributionOverrideReason ?? "—"}</td>
                             <td className="px-4 py-3">
-                              {reviewStatus === "UNDER_REVIEW" ? (
+                              {canMutate && reviewStatus === "UNDER_REVIEW" ? (
                                 <Button variant="primary" disabled={busyId === r.id} className="!h-8 !px-3 !text-xs" onClick={() => setReviewModal({ kind: "resolve", participantId: r.id })}>Resolve</Button>
                               ) : null}
                             </td>
@@ -241,7 +244,7 @@ export default function CommunityOrganiserFeesPage() {
                   <input value={providerReference} onChange={(e) => setProviderReference(e.target.value)} placeholder="Reference (invoice #, note)" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" />
                 </>
               ) : null}
-              <input value={twoFactorCode} onChange={(e) => setTwoFactorCode(e.target.value)} placeholder="2FA code" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" />
+              <input value={twoFactorCode} onChange={(e) => setTwoFactorCode(e.target.value)} placeholder="2FA code (optional: you will be asked if one is needed)" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" />
               {actionError ? <p className="mt-2 text-sm text-red-600">{actionError}</p> : null}
               <div className="mt-4 flex gap-3">
                 <button onClick={() => void runFeeAction()} disabled={busyId === feeModal.campaignId} className="flex-1 rounded-xl bg-[#096B4A] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">

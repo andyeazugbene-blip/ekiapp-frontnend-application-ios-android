@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { Banner, useConfirm } from "@/components/AdminKit";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { subscriptionPlansAPI } from "@/lib/services/subscription-plans.api";
 import { AdminSubscriptionPlan } from "@/types";
 
@@ -40,6 +42,10 @@ const EMPTY_PLAN = (): AdminSubscriptionPlan => ({
 });
 
 export default function SubscriptionPlansPage() {
+  const confirmDialog = useConfirm();
+  // Backend: list = subscriptions.read; create / save / delete = subscriptions.mutate.
+  const { has, loading: permLoading } = usePermissions();
+  const canMutate = has("subscriptions.mutate");
   const [plans, setPlans] = useState<AdminSubscriptionPlan[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [draft, setDraft] = useState<AdminSubscriptionPlan>(EMPTY_PLAN());
@@ -104,47 +110,53 @@ export default function SubscriptionPlansPage() {
 
   async function deletePlan() {
     if (!draft.id) return;
-    if (!window.confirm(`Delete plan "${draft.name}"? Vendors on this plan stay on it until reassigned.`)) return;
-    setSaving(true);
     setError("");
     setMessage("");
-    try {
-      await subscriptionPlansAPI.deletePlan(draft.id);
-      setPlans((current) => current.filter((plan) => plan.id !== draft.id));
-      setMessage(`${draft.name} deleted.`);
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete plan.");
-    } finally {
-      setSaving(false);
-    }
+    confirmDialog.ask(
+      { title: `Delete plan "${draft.name}"?`, description: "Vendors on this plan stay on it until reassigned.", confirmLabel: "Delete plan" },
+      async (reason) => {
+        setSaving(true);
+        try {
+          await subscriptionPlansAPI.deletePlan(draft.id, reason);
+          setPlans((current) => current.filter((plan) => plan.id !== draft.id));
+          setMessage(`${draft.name} deleted.`);
+          await load();
+        } finally {
+          setSaving(false);
+        }
+      },
+    );
   }
 
   async function savePlan() {
-    setSaving(true);
     setError("");
     setMessage("");
-    try {
-      const saved = await subscriptionPlansAPI.savePlan(draft);
-      setPlans((current) => {
-        const without = current.filter((plan) => plan.id !== saved.id);
-        const next = saved.isDefault ? without.map((plan) => ({ ...plan, isDefault: false })) : without;
-        return [...next, saved].sort((a, b) => a.displayOrder - b.displayOrder);
-      });
-      setSelectedId(saved.id);
-      setDraft(saved);
-      setMessage(`${saved.name} saved.`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save plan.");
-    } finally {
-      setSaving(false);
-    }
+    confirmDialog.ask(
+      { title: `Save plan "${draft.name}"?`, description: "Plan pricing and limits affect vendors. The reason is recorded in the audit log.", confirmLabel: "Save plan", tone: "primary" },
+      async (reason) => {
+        setSaving(true);
+        try {
+          const saved = await subscriptionPlansAPI.savePlan(draft, reason);
+          setPlans((current) => {
+            const without = current.filter((plan) => plan.id !== saved.id);
+            const next = saved.isDefault ? without.map((plan) => ({ ...plan, isDefault: false })) : without;
+            return [...next, saved].sort((a, b) => a.displayOrder - b.displayOrder);
+          });
+          setSelectedId(saved.id);
+          setDraft(saved);
+          setMessage(`${saved.name} saved.`);
+        } finally {
+          setSaving(false);
+        }
+      },
+    );
   }
 
   return (
     <ProtectedRoute>
       <AdminLayout>
         <div className="space-y-6">
+          {confirmDialog.dialog}
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Subscription Plans</h1>
             <p className="mt-1 text-sm text-gray-600">
@@ -152,6 +164,7 @@ export default function SubscriptionPlansPage() {
             </p>
           </div>
 
+          {!permLoading && !canMutate ? <Banner tone="info">Your role can view plans but cannot change them.</Banner> : null}
           {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
           {message ? <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{message}</div> : null}
 
@@ -159,9 +172,9 @@ export default function SubscriptionPlansPage() {
             <div className="rounded-xl bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-gray-900">Plans</h2>
-                <button type="button" onClick={newPlan} className="text-xs font-semibold text-gray-900 hover:underline">
+                {canMutate ? <button type="button" onClick={newPlan} className="text-xs font-semibold text-gray-900 hover:underline">
                   + New plan
-                </button>
+                </button> : null}
               </div>
               <div className="mt-4 space-y-2">
                 {loading ? (
@@ -195,7 +208,7 @@ export default function SubscriptionPlansPage() {
               </div>
             </div>
 
-            <div className="rounded-xl bg-white p-6 shadow-sm">
+            <fieldset disabled={!canMutate} className="min-w-0 rounded-xl bg-white p-6 shadow-sm">
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Plan code (legacy, optional)" value={draft.plan} disabled={Boolean(draft.id)} onChange={(value) => setDraft((current) => ({ ...current, plan: value.toUpperCase() }))} />
                 <Field label="Slug" value={draft.slug} onChange={(value) => setDraft((current) => ({ ...current, slug: value.toLowerCase() }))} />
@@ -360,7 +373,7 @@ export default function SubscriptionPlansPage() {
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end gap-3">
+              {canMutate ? <div className="mt-6 flex justify-end gap-3">
                 {draft.id ? (
                   <button
                     type="button"
@@ -379,8 +392,8 @@ export default function SubscriptionPlansPage() {
                 >
                   {saving ? "Saving..." : "Save plan"}
                 </button>
-              </div>
-            </div>
+              </div> : null}
+            </fieldset>
           </div>
         </div>
       </AdminLayout>

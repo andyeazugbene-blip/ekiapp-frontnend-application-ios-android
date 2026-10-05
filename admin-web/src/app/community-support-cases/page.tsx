@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader, TextLink } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { Banner, Pagination, formatDateTime, useConfirm } from "@/components/AdminKit";
 import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   communityBuyAdminAPI,
   type AdminSupportCase,
@@ -34,14 +36,21 @@ const CASE_TYPE_LABEL: Record<string, string> = {
 
 const STATUS_OPTIONS: SupportCaseStatus[] = ["OPEN", "IN_PROGRESS", "ESCALATED", "RESOLVED", "CLOSED"];
 
+const PER_PAGE = 20;
+
 export default function CommunitySupportCasesPage() {
+  const confirm = useConfirm();
+  // Backend: list / read = community_buy.read; update (note, response, status, escalate) = community_buy.mutate.
+  const { has, loading: permLoading } = usePermissions();
+  const canMutate = has("community_buy.mutate");
+  const [notice, setNotice] = useState("");
+  const [page, setPage] = useState(1);
   const [cases, setCases] = useState<AdminSupportCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<SupportCaseStatus | "ALL">("ALL");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
   const [draftResponse, setDraftResponse] = useState<Record<string, string>>({});
 
@@ -63,17 +72,34 @@ export default function CommunitySupportCasesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
-  const applyUpdate = async (id: string, data: Parameters<typeof communityBuyAdminAPI.updateSupportCase>[1]) => {
-    setBusyId(id);
-    try {
-      const updated = await communityBuyAdminAPI.updateSupportCase(id, data);
-      setCases((prev) => prev.map((c) => (c.id === id ? updated : c)));
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Could not update this case.");
-    } finally {
-      setBusyId(null);
-    }
+  useEffect(() => { setPage(1); }, [filter]);
+
+  /** Throws on failure so the confirm dialog shows the error inline. */
+  const applyUpdate = async (id: string, data: Parameters<typeof communityBuyAdminAPI.updateSupportCase>[1], success: string) => {
+    const updated = await communityBuyAdminAPI.updateSupportCase(id, data);
+    setCases((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    setNotice(success);
   };
+
+  const askSaveNote = (c: AdminSupportCase) => confirm.ask(
+    { title: "Save this internal note?", tone: "primary", confirmLabel: "Save note", description: "It is never shown to the reporter.", requireReason: false },
+    () => applyUpdate(c.id, { internalNotes: draftNotes[c.id] ?? c.internalNotes ?? "" }, "Internal note saved."),
+  );
+  const askSendResponse = (c: AdminSupportCase) => confirm.ask(
+    { title: "Send this response to the reporter?", tone: "primary", confirmLabel: "Send response", description: "It will be visible to the reporter and cannot be unsent.", requireReason: false },
+    () => applyUpdate(c.id, { customerVisibleResponse: draftResponse[c.id] ?? c.customerVisibleResponse ?? "" }, "Response sent to the reporter."),
+  );
+  const askStatus = (c: AdminSupportCase, next: SupportCaseStatus) => confirm.ask(
+    { title: `Change this case to "${STATUS_LABEL[next]}"?`, tone: "primary", confirmLabel: "Change status", requireReason: false },
+    () => applyUpdate(c.id, { status: next }, `Case moved to "${STATUS_LABEL[next]}".`),
+  );
+  const askEscalate = (c: AdminSupportCase) => confirm.ask(
+    { title: c.escalated ? "Un-escalate this case?" : "Escalate this case?", tone: c.escalated ? "primary" : "danger", confirmLabel: c.escalated ? "Un-escalate" : "Escalate", requireReason: false },
+    () => applyUpdate(c.id, { escalated: !c.escalated }, c.escalated ? "Case un-escalated." : "Case escalated."),
+  );
+
+  const totalPages = Math.max(1, Math.ceil(cases.length / PER_PAGE));
+  const paged = cases.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   return (
     <ProtectedRoute>
@@ -98,6 +124,8 @@ export default function CommunitySupportCasesPage() {
           </div>
 
           {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+          {notice ? <Banner tone="success">{notice}</Banner> : null}
+          {!permLoading && !canMutate ? <Banner tone="info">Your role can read support cases but cannot update, respond to or escalate them.</Banner> : null}
 
           {loading ? (
             <LoadingPanel label="Loading support cases..." />
@@ -107,7 +135,7 @@ export default function CommunitySupportCasesPage() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {cases.map((c) => {
+              {paged.map((c) => {
                 const expanded = expandedId === c.id;
                 return (
                   <Card key={c.id}>
@@ -118,7 +146,7 @@ export default function CommunitySupportCasesPage() {
                           {c.escalated ? <Badge tone="red">Escalated</Badge> : null}
                         </div>
                         <p className="mt-1 text-sm text-slate-600">
-                          {CASE_TYPE_LABEL[c.caseType] ?? c.caseType} · {c.participant?.name ?? "Unknown"} ({c.participant?.email ?? "—"}) · {new Date(c.createdAt).toLocaleDateString()}
+                          {CASE_TYPE_LABEL[c.caseType] ?? c.caseType} · {c.participant?.name ?? "Unknown"} ({c.participant?.email ?? "—"}) · {formatDateTime(c.createdAt)}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -148,7 +176,7 @@ export default function CommunitySupportCasesPage() {
                         ) : null}
 
                         <p className="text-xs text-slate-400">
-                          Last updated {new Date(c.updatedAt).toLocaleString()} · <TextLink href={`/activity-logs?entityId=${c.id}`}>Audit history</TextLink>
+                          Last updated {formatDateTime(c.updatedAt)} · <TextLink href={`/activity-logs?entityId=${c.id}`}>Audit history</TextLink>
                         </p>
 
                         <div className="grid gap-4 md:grid-cols-2">
@@ -158,18 +186,10 @@ export default function CommunitySupportCasesPage() {
                               className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm"
                               rows={4}
                               defaultValue={c.internalNotes ?? ""}
+                              readOnly={!canMutate}
                               onChange={(e) => setDraftNotes((prev) => ({ ...prev, [c.id]: e.target.value }))}
                             />
-                            <Button
-                              variant="secondary"
-                              className="mt-2"
-                              disabled={busyId === c.id}
-                              onClick={() => {
-                                if (confirm("Save this internal note? It is never shown to the reporter.")) void applyUpdate(c.id, { internalNotes: draftNotes[c.id] ?? c.internalNotes ?? "" });
-                              }}
-                            >
-                              Save note
-                            </Button>
+                            {canMutate ? <Button variant="secondary" className="mt-2" onClick={() => askSaveNote(c)}>Save note</Button> : null}
                           </div>
                           <div>
                             <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Response to the reporter</label>
@@ -177,18 +197,10 @@ export default function CommunitySupportCasesPage() {
                               className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm"
                               rows={4}
                               defaultValue={c.customerVisibleResponse ?? ""}
+                              readOnly={!canMutate}
                               onChange={(e) => setDraftResponse((prev) => ({ ...prev, [c.id]: e.target.value }))}
                             />
-                            <Button
-                              variant="secondary"
-                              className="mt-2"
-                              disabled={busyId === c.id}
-                              onClick={() => {
-                                if (confirm("Send this response to the reporter? It will be visible to them and cannot be unsent.")) void applyUpdate(c.id, { customerVisibleResponse: draftResponse[c.id] ?? c.customerVisibleResponse ?? "" });
-                              }}
-                            >
-                              Send response
-                            </Button>
+                            {canMutate ? <Button variant="secondary" className="mt-2" onClick={() => askSendResponse(c)}>Send response</Button> : null}
                           </div>
                         </div>
 
@@ -197,34 +209,30 @@ export default function CommunitySupportCasesPage() {
                           <select
                             className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
                             value={c.status}
-                            disabled={busyId === c.id}
-                            onChange={(e) => {
-                              const next = e.target.value as SupportCaseStatus;
-                              if (confirm(`Change this case's status to "${STATUS_LABEL[next]}"?`)) void applyUpdate(c.id, { status: next });
-                            }}
+                            disabled={!canMutate}
+                            onChange={(e) => askStatus(c, e.target.value as SupportCaseStatus)}
                           >
                             {STATUS_OPTIONS.map((s) => (
                               <option key={s} value={s}>{STATUS_LABEL[s]}</option>
                             ))}
                           </select>
-                          <Button
-                            variant={c.escalated ? "secondary" : "danger"}
-                            disabled={busyId === c.id}
-                            onClick={() => {
-                              if (confirm(c.escalated ? "Un-escalate this case?" : "Escalate this case?")) void applyUpdate(c.id, { escalated: !c.escalated });
-                            }}
-                          >
+                          {canMutate ? <Button variant={c.escalated ? "secondary" : "danger"} onClick={() => askEscalate(c)}>
                             {c.escalated ? "Un-escalate" : "Escalate"}
-                          </Button>
+                          </Button> : null}
                         </div>
                       </div>
                     ) : null}
                   </Card>
                 );
               })}
+              <Pagination
+                hasPrev={page > 1} hasNext={page < totalPages} shown={paged.length} total={cases.length}
+                onPrev={() => setPage((x) => Math.max(1, x - 1))} onNext={() => setPage((x) => Math.min(totalPages, x + 1))}
+              />
             </div>
           )}
         </div>
+        {confirm.dialog}
       </AdminLayout>
     </ProtectedRoute>
   );

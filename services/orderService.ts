@@ -195,8 +195,16 @@ export const orderService = {
     return apiClient.post<ResendDeliveryOtpResponse>(`/api/orders/${orderId}/resend-delivery-otp`, {});
   },
 
-  async openBuyerDispute(orderId: string, reason: string): Promise<OpenDisputeResponse> {
-    return apiClient.post<OpenDisputeResponse>(`/api/orders/${orderId}/dispute`, { reason });
+  async openBuyerDispute(
+    orderId: string,
+    reason: string,
+    extra?: { type?: "NOT_RECEIVED" | "DAMAGED" | "WRONG_ITEM" | "QUALITY" | "OTHER"; claim?: string },
+  ): Promise<OpenDisputeResponse> {
+    return apiClient.post<OpenDisputeResponse>(`/api/orders/${orderId}/dispute`, {
+      reason,
+      ...(extra?.type ? { type: extra.type } : {}),
+      ...(extra?.claim?.trim() ? { claim: extra.claim.trim() } : {}),
+    });
   },
 
   async confirmVendorEscrowOrder(orderId: string): Promise<{ status: string }> {

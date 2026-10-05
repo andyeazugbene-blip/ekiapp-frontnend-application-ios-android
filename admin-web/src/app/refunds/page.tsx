@@ -6,9 +6,10 @@ import AdminLayout from "@/components/AdminLayout";
 import { ErrorPanel, LoadingPanel } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
+import { Pagination, formatDateTime, formatMinor } from "@/components/AdminKit";
 import { ordersAPI, AdminRefundListItem } from "@/lib/services/orders.api";
 
-type TabKey = "all" | "requested" | "completed" | "rejected";
+type TabKey = "all" | "requested" | "processing" | "completed" | "failed" | "rejected";
 
 function StatCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
@@ -21,6 +22,8 @@ function StatCard({ label, value, color }: { label: string; value: string | numb
 
 function RefundStatusBadge({ status }: { status: AdminRefundListItem["status"] }) {
   if (status === "REQUESTED") return <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600">Awaiting 2nd admin</span>;
+  if (status === "PROCESSING") return <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-bold text-sky-600">Processing at Stripe</span>;
+  if (status === "FAILED") return <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600">Failed</span>;
   if (status === "COMPLETED") return <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600">Completed</span>;
   return <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-500">Rejected</span>;
 }
@@ -38,7 +41,7 @@ function RefundStatusBadge({ status }: { status: AdminRefundListItem["status"] }
  */
 export default function RefundsPage() {
   const [items, setItems] = useState<AdminRefundListItem[]>([]);
-  const [counts, setCounts] = useState({ requested: 0, rejected: 0, completed: 0 });
+  const [counts, setCounts] = useState({ requested: 0, rejected: 0, completed: 0, processing: 0, failed: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
@@ -66,7 +69,7 @@ export default function RefundsPage() {
     let list = items;
     if (activeTab !== "all") {
       const statusFor: Record<Exclude<TabKey, "all">, AdminRefundListItem["status"]> = {
-        requested: "REQUESTED", completed: "COMPLETED", rejected: "REJECTED",
+        requested: "REQUESTED", processing: "PROCESSING", completed: "COMPLETED", failed: "FAILED", rejected: "REJECTED",
       };
       list = list.filter((i) => i.status === statusFor[activeTab]);
     }
@@ -86,8 +89,10 @@ export default function RefundsPage() {
 
   const tabs: { key: TabKey; label: string; count: number }[] = [
     { key: "all", label: "All", count: items.length },
-    { key: "requested", label: "Requested", count: counts.requested },
+    { key: "requested", label: "Awaiting approval", count: counts.requested },
+    { key: "processing", label: "Processing at Stripe", count: counts.processing },
     { key: "completed", label: "Completed", count: counts.completed },
+    { key: "failed", label: "Failed", count: counts.failed },
     { key: "rejected", label: "Rejected", count: counts.rejected },
   ];
 
@@ -161,10 +166,10 @@ export default function RefundsPage() {
                           <td className="px-4 py-3.5 text-[12px] text-slate-700">{item.vendorName || "—"}</td>
                           <td className="px-4 py-3.5 text-[12px] text-slate-500">{item.reason || "—"}</td>
                           <td className="px-4 py-3.5 text-[12px] font-medium text-slate-800">
-                            {item.amount != null ? `${(item.currency ?? "").toUpperCase()} ${(item.amount / 100).toFixed(2)}` : "—"}
+                            {item.amount != null ? formatMinor(item.amount, item.currency) : "—"}
                           </td>
                           <td className="px-4 py-3.5"><RefundStatusBadge status={item.status} /></td>
-                          <td className="px-4 py-3.5 text-[12px] text-slate-500">{new Date(item.createdAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}</td>
+                          <td className="px-4 py-3.5 text-[12px] text-slate-500">{formatDateTime(item.createdAt)}</td>
                           <td className="px-4 py-3.5 text-[12px] text-slate-500">{item.requestedBy?.name ?? "—"}</td>
                         </tr>
                       ))}
@@ -175,16 +180,10 @@ export default function RefundsPage() {
             </div>
 
             {filtered.length > 0 && (
-              <div className="flex items-center justify-between">
-                <p className="text-[12px] text-slate-400">Showing {(page - 1) * perPage + 1}-{Math.min(page * perPage, filtered.length)} of {filtered.length}</p>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded-lg px-3 py-1.5 text-[12px] font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-40">{"<"}</button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 5).map((n) => (
-                    <button key={n} onClick={() => setPage(n)} className={`h-7 w-7 rounded-lg text-[12px] font-bold ${page === n ? "bg-[#096B4A] text-white" : "text-slate-500 hover:bg-slate-100"}`}>{n}</button>
-                  ))}
-                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded-lg px-3 py-1.5 text-[12px] font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-40">Next</button>
-                </div>
-              </div>
+              <Pagination
+                hasPrev={page > 1} hasNext={page < totalPages} shown={paged.length} total={filtered.length}
+                onPrev={() => setPage((p) => Math.max(1, p - 1))} onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+              />
             )}
           </div>
         )}

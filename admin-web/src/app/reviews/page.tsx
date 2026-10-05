@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { ErrorPanel, LoadingPanel } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { formatDateTime, useConfirm } from "@/components/AdminKit";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { reviewsAPI, AdminReview, ReviewStatus } from "@/lib/services/reviews.api";
 import { APIError } from "@/lib/api";
 
@@ -40,6 +42,9 @@ function Stars({ rating }: { rating: number }) {
  * the current page.
  */
 export default function ReviewsPage() {
+  const confirmDialog = useConfirm();
+  // Backend: moderation needs reviews.mutate; the list needs reviews.read.
+  const canModerate = usePermissions().has("reviews.mutate");
   const [items, setItems] = useState<AdminReview[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -96,16 +101,18 @@ export default function ReviewsPage() {
 
   const handleModerate = async (reviewId: string, status: "APPROVED" | "HIDDEN" | "REJECTED") => {
     const verb = status === "APPROVED" ? "approve" : status === "HIDDEN" ? "hide" : "reject";
-    if (!confirm(`${verb.charAt(0).toUpperCase() + verb.slice(1)} this review?`)) return;
-    try {
-      setBusyId(reviewId);
-      await reviewsAPI.moderateReview(reviewId, status);
-      await load(cursorStack[pageIndex]);
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : `Failed to ${verb} review`);
-    } finally {
-      setBusyId(null);
-    }
+    confirmDialog.ask(
+      { title: `${verb.charAt(0).toUpperCase() + verb.slice(1)} this review?`, reasonLabel: "Reason (recorded in the audit log)", confirmLabel: verb.charAt(0).toUpperCase() + verb.slice(1), tone: status === "APPROVED" ? "primary" : "danger" },
+      async (reason) => {
+        setBusyId(reviewId);
+        try {
+          await reviewsAPI.moderateReview(reviewId, status, reason);
+          await load(cursorStack[pageIndex]);
+        } finally {
+          setBusyId(null);
+        }
+      },
+    );
   };
 
   const totalCount = Object.values(counts).reduce((s, n) => s + n, 0);
@@ -121,6 +128,7 @@ export default function ReviewsPage() {
   return (
     <ProtectedRoute>
       <AdminLayout>
+        {confirmDialog.dialog}
         <div className="space-y-5">
           {/* Header */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -186,15 +194,15 @@ export default function ReviewsPage() {
                         <td className="px-4 py-3.5 text-[12px] text-slate-600">{review.vendorName || "—"}</td>
                         <td className="px-4 py-3.5 text-[12px] text-slate-600">{review.productTitle || "—"}</td>
                         <td className="px-4 py-3.5"><Stars rating={review.rating} /></td>
-                        <td className="px-4 py-3.5 max-w-[200px]"><p className="text-[12px] text-slate-600 truncate">{review.body || "—"}</p></td>
+                        <td className="px-4 py-3.5 max-w-[200px]"><p className="text-[12px] text-slate-600 truncate" title={review.body || undefined}>{review.body || "—"}</p></td>
                         <td className="px-4 py-3.5"><ReviewStatusBadge status={review.status} /></td>
-                        <td className="px-4 py-3.5 text-[12px] text-slate-500">{review.createdAt ? new Date(review.createdAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" }) : "—"}</td>
+                        <td className="px-4 py-3.5 text-[12px] text-slate-500">{formatDateTime(review.createdAt)}</td>
                         <td className="px-4 py-3.5">
-                          <div className="flex gap-1.5">
+                          {!canModerate ? <span className="text-[11px] text-slate-300">View only</span> : <div className="flex gap-1.5">
                             <button disabled={busyId === review.id || review.status === "APPROVED"} onClick={() => void handleModerate(review.id, "APPROVED")} className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] font-bold text-emerald-600 hover:bg-emerald-100 transition disabled:opacity-40">Approve</button>
                             <button disabled={busyId === review.id || review.status === "HIDDEN"} onClick={() => void handleModerate(review.id, "HIDDEN")} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-200 transition disabled:opacity-40">Hide</button>
                             <button disabled={busyId === review.id || review.status === "REJECTED"} onClick={() => void handleModerate(review.id, "REJECTED")} className="rounded-lg bg-red-50 px-2.5 py-1.5 text-[11px] font-bold text-red-500 hover:bg-red-100 transition disabled:opacity-40">Reject</button>
-                          </div>
+                          </div>}
                         </td>
                       </tr>
                     ))}

@@ -1,143 +1,98 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
+import { DataTable, Pagination, SearchInput, StatusTabs, formatDateTime, formatMinor, type Column } from "@/components/AdminKit";
 import { APIError } from "@/lib/api";
-import { disputesAPI } from "@/lib/services/disputes.api";
-import { Dispute } from "@/types";
+import { disputeStatusLabel, disputesAPI2, type DisputeRow } from "@/lib/services/money.api";
 
-export default function DisputesPage() {
+const TABS = [
+  { key: "", label: "All" },
+  { key: "OPEN", label: "Open" },
+  { key: "RESOLVED_BUYER", label: "Buyer refunded" },
+  { key: "RESOLVED_VENDOR", label: "Released to vendor" },
+  { key: "RESOLVED_PARTIAL", label: "Partial" },
+];
+
+function DisputesInner() {
   const router = useRouter();
-  const [disputes, setDisputes] = useState<Dispute[]>([]);
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const q = params.get("q") ?? "";
+  const status = params.get("status") ?? "";
+  const vendorId = params.get("vendorId") ?? "";
+
+  const setParams = useCallback((patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(params.toString());
+    for (const [k, v] of Object.entries(patch)) { if (v == null || v === "") next.delete(k); else next.set(k, v); }
+    router.replace(`${pathname}?${next.toString()}`);
+  }, [params, pathname, router]);
+
+  const [rows, setRows] = useState<DisputeRow[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const stack = useRef<Array<string | null>>([]);
 
-  const loadDisputes = async () => {
+  const key = `${q}|${status}|${vendorId}`;
+  useEffect(() => { stack.current = []; setCursor(null); }, [key]);
+
+  const load = useCallback(async () => {
     try {
-      setLoading(true);
-      setError("");
-      setDisputes(await disputesAPI.getDisputes());
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to load disputes");
-    } finally {
-      setLoading(false);
-    }
-  };
+      setLoading(true); setError("");
+      const res = await disputesAPI2.list({ q, status, vendorId, cursor });
+      setRows(res.items); setNextCursor(res.nextCursor); setTotal(res.total);
+    } catch (e) { setError(e instanceof APIError ? e.message : "Failed to load disputes"); }
+    finally { setLoading(false); }
+  }, [q, status, vendorId, cursor]);
+  useEffect(() => { void load(); }, [load]);
 
-  useEffect(() => {
-    void loadDisputes();
-  }, []);
-
-  const summary = useMemo(() => {
-    const open = disputes.filter((d) => !d.resolvedAt && d.status.toLowerCase() !== "resolved");
-    return {
-      open: open.length,
-      urgent: open.filter((d) => d.status.toLowerCase().includes("urgent") || d.reason.toLowerCase().includes("not received")).length,
-      // Every open dispute is, by definition, awaiting an admin decision —
-      // DisputeStatus has no separate "in review"/"assigned" sub-state, so
-      // this is just open.length. (Previously filtered for a status
-      // containing "await", which no real DisputeStatus value does, then
-      // fell back to open.length anyway — always silently equal to open
-      // count, but looked like a distinct, narrower metric.)
-      awaiting: open.length,
-      hold: open.filter((d) => d.refundAmount && d.refundAmount > 0).length,
-      ready: open.filter((d) => d.status.toLowerCase().includes("ready")).length,
-    };
-  }, [disputes]);
-
-  const resolve = async (dispute: Dispute, resolution: "buyer" | "vendor") => {
-    if (!confirm(`Resolve this dispute for the ${resolution}?`)) return;
-    try {
-      setResolvingId(dispute.id);
-      await disputesAPI.resolveDispute(dispute.id, { resolution, note: `Resolved for ${resolution} from admin resolution centre.` });
-      await loadDisputes();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to resolve dispute");
-    } finally {
-      setResolvingId(null);
-    }
-  };
+  const columns: Column<DisputeRow>[] = [
+    { key: "o", header: "Order", render: (d) => <span className="font-black text-slate-900">{d.order?.orderNumber ?? "Order"}</span> },
+    { key: "who", header: "Buyer → vendor", render: (d) => <div><p className="font-semibold">{d.buyerName || d.buyerEmail || "Buyer not provided"}</p><p className="text-xs text-slate-500">→ {d.vendorName ?? "Vendor not provided"}</p></div> },
+    { key: "why", header: "Reason", render: (d) => <span className="line-clamp-2 max-w-xs text-sm">{d.reason}</span> },
+    { key: "amt", header: "Order total", render: (d) => d.order ? formatMinor(d.order.totalAmount, d.order.currency) : "—" },
+    { key: "st", header: "Status", render: (d) => <div className="space-y-1"><Badge tone={d.status === "OPEN" ? "red" : "green"}>{disputeStatusLabel[d.status]}</Badge>{d.fraudulent ? <Badge tone="amber">Flagged fraud</Badge> : null}</div> },
+    { key: "t", header: "Opened", render: (d) => <span className="text-xs font-semibold text-slate-600">{formatDateTime(d.createdAt)}</span> },
+    { key: "a", header: "", className: "text-right", render: (d) => <Button variant={d.status === "OPEN" ? "secondary" : "ghost"} className="h-9 px-3" onClick={(e) => { e.stopPropagation(); router.push(`/disputes/${d.id}`); }}>{d.status === "OPEN" ? "Decide" : "View"}</Button> },
+  ];
 
   return (
-    <ProtectedRoute>
-      <AdminLayout>
-        {loading ? <LoadingPanel label="Loading disputes..." /> : (
-          <div className="space-y-8">
-            <PageHeader title="Disputes" subtitle="Manage and resolve vendor and buyer disputes." actions={<><Button variant="ghost" disabled><Icon name="settings" /> Filters</Button><Button variant="ghost" disabled><Icon name="calendar" /> Last 30 days</Button></>} />
-            {error ? <ErrorPanel message={error} onRetry={() => void loadDisputes()} /> : null}
-
-            <div>
-              <h2 className="text-2xl font-black">Reported issues</h2>
-              <div className="mt-6 grid gap-6 md:grid-cols-3">
-                <MetricCard icon="disputes" label="Disputes" value={summary.open} tone="green" />
-                <MetricCard icon="disputes" label="Urgent" value={summary.urgent.toString().padStart(2, "0")} tone="red" />
-                <MetricCard icon="clock" label="Awaiting" value={summary.awaiting.toString().padStart(2, "0")} tone="amber" />
-              </div>
-            </div>
-
-            <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-              <Card>
-                <h2 className="text-2xl font-black">Dispute queue</h2>
-                {disputes.length === 0 ? (
-                  <p className="mt-8 text-slate-500">No disputes found. All clear.</p>
-                ) : (
-                  <div className="mt-6 space-y-5">
-                    {disputes.slice(0, 8).map((dispute) => (
-                      <div key={dispute.id} className="rounded-2xl border border-slate-200 p-5 cursor-pointer transition hover:border-[#096B4A] hover:bg-emerald-50/20" onClick={() => router.push(`/disputes/${dispute.id}`)}>
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                          <Badge tone="green">Order #{dispute.order?.orderNumber || dispute.orderId.slice(0, 8)}</Badge>
-                          <span className="text-sm text-slate-500">{dispute.createdAt ? new Date(dispute.createdAt).toLocaleString() : ""}</span>
-                        </div>
-                        <div className="mt-6 grid gap-4 md:grid-cols-[0.25fr_1fr_auto] md:items-center">
-                          <div className="space-y-3 text-sm text-slate-500"><p>Buyer:</p><p>Issue:</p><p>Status:</p></div>
-                          <div className="space-y-3 text-sm font-semibold text-[#101820]"><p>{dispute.buyerId || "Unknown buyer"}</p><p>{dispute.reason || "No reason provided"}</p><p><StatusBadge status={dispute.status} /></p></div>
-                          <div className="flex flex-wrap gap-3" onClick={(e) => e.stopPropagation()}>
-                            <Button variant="secondary" onClick={() => router.push(`/disputes/${dispute.id}`)}>View Details →</Button>
-                            {/*
-                              Label corrected to match the real backend effect
-                              (dispute.service.ts resolveDispute): resolution
-                              "buyer" refunds the buyer; resolution "vendor"
-                              completes the order and releases real payment to
-                              the vendor. These used to be labelled backwards
-                              ("Release payment" on the buyer-refund action,
-                              "Hold payment" — danger-styled — on the action
-                              that actually pays the vendor), which risked an
-                              admin sending real money to the wrong party.
-                            */}
-                            <Button variant="secondary" disabled={resolvingId === dispute.id} onClick={() => void resolve(dispute, "buyer")}>Refund buyer</Button>
-                            <Button disabled={resolvingId === dispute.id} onClick={() => void resolve(dispute, "vendor")}>Release to vendor</Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-
-              <Card>
-                <h2 className="text-2xl font-black">Payment decision summary</h2>
-                <DecisionCard icon="settings" label="Payments on hold" value={summary.hold.toString().padStart(2, "0")} />
-                <DecisionCard icon="arrow" label="Ready for release" value={summary.ready.toString().padStart(2, "0")} />
-              </Card>
-            </div>
-          </div>
+    <div className="space-y-5">
+      <PageHeader title="Disputes" subtitle="Buyer-raised disputes on escrow orders. Card chargebacks raised through Stripe are listed under Chargebacks." />
+      {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+      <Card className="space-y-4">
+        <SearchInput value={q} onChange={(v) => setParams({ q: v })} placeholder="Search order number or reason" />
+        <StatusTabs tabs={TABS} active={status} onChange={(k) => setParams({ status: k })} />
+        {vendorId ? <p className="text-xs font-semibold text-slate-500">Filtered to one vendor. <button className="underline" onClick={() => setParams({ vendorId: null })}>Clear</button></p> : null}
+        {loading && rows.length === 0 ? <LoadingPanel label="Loading disputes…" /> : (
+          <>
+            <DataTable columns={columns} rows={rows} rowKey={(d) => d.id} onRowClick={(d) => router.push(`/disputes/${d.id}`)} loading={loading} emptyTitle="No disputes match these filters" />
+            <Pagination
+              hasPrev={stack.current.length > 0} hasNext={Boolean(nextCursor)} shown={rows.length} total={total} loading={loading}
+              onPrev={() => setCursor(stack.current.pop() ?? null)}
+              onNext={() => { stack.current.push(cursor); setCursor(nextCursor); }}
+            />
+          </>
         )}
-      </AdminLayout>
-    </ProtectedRoute>
+      </Card>
+    </div>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const value = status.toLowerCase();
-  if (value.includes("resolved") || value.includes("ready")) return <Badge tone="green">{status}</Badge>;
-  if (value.includes("investigation") || value.includes("urgent")) return <Badge tone="red">{status}</Badge>;
-  return <Badge tone="amber">{status || "Awaiting review"}</Badge>;
-}
-
-function DecisionCard({ icon, label, value }: { icon: string; label: string; value: string }) {
-  return <div className="mt-6 rounded-2xl bg-slate-50 p-7"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-[#096B4A]"><Icon name={icon} className="h-8 w-8" /></div><p className="mt-8 text-lg">{label}</p><p className="mt-5 text-4xl font-black">{value}</p><p className="mt-6 font-bold text-[#096B4A]">View details</p></div>;
+export default function DisputesPage() {
+  return (
+    <ProtectedRoute>
+      <AdminLayout>
+        <Suspense fallback={<LoadingPanel label="Loading disputes…" />}>
+          <DisputesInner />
+        </Suspense>
+      </AdminLayout>
+    </ProtectedRoute>
+  );
 }

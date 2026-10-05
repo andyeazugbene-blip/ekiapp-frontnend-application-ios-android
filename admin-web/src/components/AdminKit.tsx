@@ -25,6 +25,14 @@ export function formatDateTime(value?: string | Date | null): string {
   });
 }
 
+/** Calendar date pinned to UTC (reconciliation periods, day buckets). Callers add a "UTC" label. */
+export function formatDateUtc(value?: string | Date | null): string {
+  if (!value) return "—";
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit", timeZone: "UTC" });
+}
+
 export function formatDate(value?: string | Date | null): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;
@@ -41,6 +49,26 @@ export function formatMinor(amountMinor?: number | null, currency?: string | nul
   } catch {
     return `${(amountMinor / 100).toFixed(2)} ${code}`;
   }
+}
+
+/** Same as formatMinor but for values already divided into major units by a service normaliser. */
+export function formatMajor(amountMajor?: number | null, currency?: string | null): string {
+  if (amountMajor == null || !Number.isFinite(amountMajor)) return "—";
+  return formatMinor(Math.round(amountMajor * 100), currency);
+}
+
+/** Totals per currency, e.g. "GBP 12.00 · EUR 4.00". Never sums across currencies. */
+export function sumByCurrency<T>(rows: T[], amountMinor: (r: T) => number, currency: (r: T) => string | null | undefined): Array<{ currency: string; amountMinor: number }> {
+  const m = new Map<string, number>();
+  for (const r of rows) {
+    const c = (currency(r) || "EUR").toUpperCase();
+    m.set(c, (m.get(c) ?? 0) + amountMinor(r));
+  }
+  return [...m.entries()].map(([c, a]) => ({ currency: c, amountMinor: a })).sort((a, b) => a.currency.localeCompare(b.currency));
+}
+
+export function formatTotals(totals: Array<{ currency: string; amountMinor: number }>): string {
+  return totals.length === 0 ? "—" : totals.map((t) => formatMinor(t.amountMinor, t.currency)).join(" · ");
 }
 
 export function timeAgo(value?: string | Date | null): string {

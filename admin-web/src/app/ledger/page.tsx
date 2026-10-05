@@ -3,8 +3,10 @@
 import { Fragment, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
+import { Banner, formatMinor, formatDateUtc, useConfirm } from "@/components/AdminKit";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   ledgerAdminAPI,
   type LedgerBalance,
@@ -12,9 +14,7 @@ import {
   type ReconciliationRun,
 } from "@/lib/services/ledger.api";
 
-function money(minor: number, currency: string): string {
-  return `${(minor / 100).toFixed(2)} ${currency}`;
-}
+const money = (minor: number, currency: string): string => formatMinor(minor, currency);
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -33,28 +33,7 @@ const KIND_LABEL: Record<ReconciliationDifference["kind"], string> = {
   STATUS_MISMATCH: "Status disagrees",
 };
 
-function DifferenceRow({ diff, onResolved }: { diff: ReconciliationDifference; onResolved: (updated: ReconciliationDifference) => void }) {
-  const [resolving, setResolving] = useState(false);
-  const [note, setNote] = useState("");
-  const [showResolve, setShowResolve] = useState(false);
-  const [error, setError] = useState("");
-
-  const submit = async () => {
-    if (!note.trim()) {
-      setError("A note is required to resolve a discrepancy.");
-      return;
-    }
-    setResolving(true);
-    setError("");
-    try {
-      onResolved(await ledgerAdminAPI.resolveDifference(diff.id, note.trim()));
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Could not resolve this difference.");
-    } finally {
-      setResolving(false);
-    }
-  };
-
+function DifferenceRow({ diff, onResolve }: { diff: ReconciliationDifference; onResolve?: (diff: ReconciliationDifference) => void }) {
   return (
     <tr className="text-sm text-slate-700 align-top">
       <td className="px-4 py-3"><Badge tone={diff.status === "OPEN" ? "amber" : "green"}>{diff.status === "OPEN" ? "Open" : "Resolved"}</Badge></td>
@@ -69,24 +48,10 @@ function DifferenceRow({ diff, onResolved }: { diff: ReconciliationDifference; o
       <td className="px-4 py-3">
         {diff.status === "RESOLVED" ? (
           <span className="text-xs text-slate-500">{diff.note}</span>
-        ) : showResolve ? (
-          <div className="space-y-2">
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Why this is resolved..."
-              className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs outline-none focus:border-[#096B4A]"
-            />
-            {error ? <p className="text-xs text-red-600">{error}</p> : null}
-            <div className="flex gap-2">
-              <Button variant="primary" onClick={() => void submit()} disabled={resolving} className="!h-8 !px-3 !text-xs">
-                {resolving ? "Saving..." : "Confirm"}
-              </Button>
-              <Button variant="ghost" onClick={() => setShowResolve(false)} className="!h-8 !px-3 !text-xs">Cancel</Button>
-            </div>
-          </div>
+        ) : onResolve ? (
+          <Button variant="ghost" onClick={() => onResolve(diff)} className="!h-8 !px-3 !text-xs">Resolve</Button>
         ) : (
-          <Button variant="ghost" onClick={() => setShowResolve(true)} className="!h-8 !px-3 !text-xs">Resolve</Button>
+          <span className="text-xs text-slate-400">View only</span>
         )}
       </td>
     </tr>
@@ -94,6 +59,10 @@ function DifferenceRow({ diff, onResolved }: { diff: ReconciliationDifference; o
 }
 
 export default function LedgerPage() {
+  const { has, loading: permLoading } = usePermissions();
+  const canReconcile = has("payments.mutate");
+  const canReconcileCb = has("community_buy.mutate");
+  const confirm = useConfirm();
   const [balances, setBalances] = useState<LedgerBalance[]>([]);
   const [runs, setRuns] = useState<ReconciliationRun[]>([]);
   const [differences, setDifferences] = useState<ReconciliationDifference[]>([]);
@@ -180,6 +149,17 @@ export default function LedgerPage() {
     }
   };
 
+  const askResolve = (diff: ReconciliationDifference) => confirm.ask(
+    {
+      title: "Resolve this discrepancy?",
+      tone: "primary",
+      confirmLabel: "Mark resolved",
+      description: "Resolving only records that you investigated it. It never changes a payment, refund or ledger entry.",
+      reasonLabel: "Why this is resolved (recorded in the audit log)",
+    },
+    async (note) => { markResolvedEverywhere(await ledgerAdminAPI.resolveDifference(diff.id, note)); },
+  );
+
   const markResolvedEverywhere = (updated: ReconciliationDifference) => {
     setDifferences((prev) => prev.filter((d) => d.id !== updated.id));
     setExpandedRun((prev) => prev && prev.differences
@@ -198,10 +178,11 @@ export default function LedgerPage() {
         <div className="space-y-8">
           <PageHeader
             title="Ledger Reconciliation"
-            subtitle="The real double-entry ledger — every balance below is summed live from LedgerEntry rows, never a cached or estimated number. Reconciliation compares local records against Stripe's own transaction list for a period."
+            subtitle="The real double-entry ledger — every balance below is summed live from LedgerEntry rows, never a cached or estimated number. Reconciliation compares local records against Stripe's own transaction list for a period. Periods are in UTC."
           />
 
           {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+          {!permLoading && !canReconcile ? <Banner tone="info">Your role can view the ledger but cannot run reconciliations or resolve discrepancies.</Banner> : null}
 
           {loading ? (
             <LoadingPanel label="Loading ledger..." />
@@ -243,7 +224,7 @@ export default function LedgerPage() {
                 )}
               </Card>
 
-              <Card>
+              {canReconcile ? <Card>
                 <h2 className="text-base font-bold text-[#101820]">Run a reconciliation</h2>
                 <p className="mt-1 text-sm text-slate-500">Fetches the provider&apos;s real transaction list for the period and compares it against local records. Read-only against the provider — writes only to the reconciliation tables. Max 31 days per run.</p>
                 <div className="mt-4 flex flex-wrap items-end gap-3">
@@ -267,9 +248,9 @@ export default function LedgerPage() {
                   </Button>
                 </div>
                 {runError ? <p className="mt-2 text-sm text-red-600">{runError}</p> : null}
-              </Card>
+              </Card> : null}
 
-              <Card>
+              {canReconcileCb ? <Card>
                 <h2 className="text-base font-bold text-[#101820]">Run Community Buy reconciliation</h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Community Buy&apos;s Direct Charge holds/captures, legacy PLEDGE_THEN_CHARGE transfers, and manual payouts live on the CONNECTED account&apos;s own Stripe object space — invisible to the generic list-based reconciliation above. This retrieves each record individually with the correct account context instead, writing into these same tables (tagged <code className="rounded bg-slate-100 px-1">stripe-community-buy</code>). Genuine mismatches escalate the affected payout into MANUAL_REVIEW rather than being silently corrected.
@@ -288,7 +269,7 @@ export default function LedgerPage() {
                   </Button>
                 </div>
                 {cbRunError ? <p className="mt-2 text-sm text-red-600">{cbRunError}</p> : null}
-              </Card>
+              </Card> : null}
 
               <Card>
                 <h2 className="text-base font-bold text-[#101820]">Reconciliation runs</h2>
@@ -312,7 +293,7 @@ export default function LedgerPage() {
                           <Fragment key={r.id}>
                             <tr className="text-sm text-slate-700">
                               <td className="px-4 py-3 font-semibold text-[#101820] capitalize">{r.provider}</td>
-                              <td className="px-4 py-3">{new Date(r.periodStart).toLocaleDateString()} – {new Date(r.periodEnd).toLocaleDateString()}</td>
+                              <td className="px-4 py-3">{formatDateUtc(r.periodStart)} – {formatDateUtc(r.periodEnd)} <span className="text-xs text-slate-400">UTC</span></td>
                               <td className="px-4 py-3">
                                 <Badge tone={r.status === "COMPLETED" ? "green" : r.status === "FAILED" ? "red" : "amber"}>{r.status}</Badge>
                               </td>
@@ -345,7 +326,7 @@ export default function LedgerPage() {
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                           {expandedRun.differences.map((d) => (
-                                            <DifferenceRow key={d.id} diff={d} onResolved={markResolvedEverywhere} />
+                                            <DifferenceRow key={d.id} diff={d} onResolve={canReconcile ? askResolve : undefined} />
                                           ))}
                                         </tbody>
                                       </table>
@@ -384,7 +365,7 @@ export default function LedgerPage() {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {differences.map((d) => (
-                          <DifferenceRow key={d.id} diff={d} onResolved={markResolvedEverywhere} />
+                          <DifferenceRow key={d.id} diff={d} onResolve={canReconcile ? askResolve : undefined} />
                         ))}
                       </tbody>
                     </table>
@@ -394,6 +375,7 @@ export default function LedgerPage() {
             </>
           )}
         </div>
+        {confirm.dialog}
       </AdminLayout>
     </ProtectedRoute>
   );

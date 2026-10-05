@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, downloadCsv, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader, TextLink } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { formatDateTime } from "@/components/AdminKit";
 import { APIError } from "@/lib/api";
 import { communityBuyAdminAPI, type CampaignLedger, type CampaignStatus, type FundingOutcome, type LedgerSummaryRow } from "@/lib/services/communityBuy.api";
 
@@ -190,7 +191,7 @@ export default function CommunityLedgerPage() {
                                             <Badge tone={e.direction === "CREDIT" ? "green" : "amber"}>{e.direction === "CREDIT" ? "Credit" : "Debit"}</Badge>
                                             <Badge tone="gray">{ENTRY_TYPE_LABEL[e.type] ?? e.type}</Badge>
                                             <span className="text-slate-700">{e.description}</span>
-                                            <span className="text-xs text-slate-400">{new Date(e.occurredAt).toLocaleString()}</span>
+                                            <span className="text-xs text-slate-400">{formatDateTime(e.occurredAt)}</span>
                                           </span>
                                           <span className="font-semibold text-[#101820]">{money(e.amount, r.currency)}</span>
                                         </li>

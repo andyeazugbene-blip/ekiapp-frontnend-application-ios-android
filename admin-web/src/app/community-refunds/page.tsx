@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader, TextLink } from "@/components/AdminUI";
+import { Badge, Button, Card, EmptyState, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader, TextLink } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { API2FARequiredError, APIError } from "@/lib/api";
+import { Banner, Pagination, formatDateTime, formatMinor, useConfirm } from "@/components/AdminKit";
+import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { communityBuyAdminAPI, type AdminCampaignRefund } from "@/lib/services/communityBuy.api";
 import { countryDisplayName } from "@/lib/countries";
 
-function centsToUnit(value: unknown): number {
-  return typeof value === "number" ? value / 100 : 0;
-}
+const PER_PAGE = 25;
 
 function tone(status: AdminCampaignRefund["status"]): "green" | "amber" | "red" {
   if (status === "REFUNDED") return "green";
@@ -27,14 +27,13 @@ export default function CommunityRefundsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
   const [escalatedIds, setEscalatedIds] = useState<Set<string>>(new Set());
-  const [escalationNoteById, setEscalationNoteById] = useState<Record<string, string>>({});
-  // Phase 8 — requery/escalate are both 2FA-gated server-side; without this
-  // a 2FA-enabled admin's click just 403'd with no way to recover. Same
-  // retry pattern as community-campaigns/page.tsx's pendingPaymentAction.
-  const [pendingAction, setPendingAction] = useState<{ id: string; kind: "recheck" | "escalate" } | null>(null);
-  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [page, setPage] = useState(1);
+  const confirm = useConfirm();
+  // Backend: list = community_buy.read; recheck / escalate = community_buy.mutate (+2FA, prompted globally).
+  const { has, loading: permLoading } = usePermissions();
+  const canMutate = has("community_buy.mutate");
 
   const load = async (bypassCache = false) => {
     try {
@@ -51,40 +50,40 @@ export default function CommunityRefundsPage() {
 
   useEffect(() => { void load(); }, []);
 
-  const recheck = async (id: string, code?: string) => {
-    setBusyId(id);
-    try {
-      const updated = await communityBuyAdminAPI.requeryRefund(id, code);
-      setItems((prev) => prev.map((r) => (r.id === id ? updated : r)));
-      setPendingAction(null);
-      setTwoFactorCode("");
-    } catch (err) {
-      if (err instanceof API2FARequiredError) setPendingAction({ id, kind: "recheck" });
-      else alert(err instanceof APIError ? err.message : "Failed to recheck refund");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const askRecheck = (r: AdminCampaignRefund) => confirm.ask(
+    {
+      title: "Recheck this refund with the payment provider?",
+      tone: "primary",
+      confirmLabel: "Recheck refund",
+      description: `${formatMinor(r.amount, r.currency)} for ${r.contribution.participant.user.name}. This re-attempts the refund if it has not completed yet. Requires a 2FA code.`,
+      requireReason: false,
+    },
+    async () => {
+      const updated = await communityBuyAdminAPI.requeryRefund(r.id);
+      setItems((prev) => prev.map((x) => (x.id === r.id ? updated : x)));
+      setNotice("Refund rechecked with the payment provider.");
+    },
+  );
 
-  const escalate = async (id: string, code?: string) => {
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.escalateRefund(id, escalationNoteById[id]?.trim() || undefined, code);
-      setEscalatedIds((prev) => new Set(prev).add(id));
-      setPendingAction(null);
-      setTwoFactorCode("");
-      alert("Escalated — a support case has been opened for this refund.");
-    } catch (err) {
-      if (err instanceof API2FARequiredError) setPendingAction({ id, kind: "escalate" });
-      else alert(err instanceof APIError ? err.message : "Failed to escalate refund");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const askEscalate = (r: AdminCampaignRefund) => confirm.ask(
+    {
+      title: "Escalate this refund?",
+      confirmLabel: "Escalate refund",
+      description: `A support case is opened for ${r.contribution.participant.user.name}. Requires a 2FA code.`,
+      reasonLabel: "Escalation note (recorded on the support case and in the audit log)",
+    },
+    async (note) => {
+      await communityBuyAdminAPI.escalateRefund(r.id, note);
+      setEscalatedIds((prev) => new Set(prev).add(r.id));
+      setNotice("Escalated. A support case has been opened for this refund.");
+    },
+  );
 
   const pending = items.filter((i) => i.status === "REFUND_PENDING" || i.status === "REFUND_PROCESSING").length;
   const failed = items.filter((i) => i.status === "REFUND_FAILED").length;
   const completed = items.filter((i) => i.status === "REFUNDED").length;
+  const totalPages = Math.max(1, Math.ceil(items.length / PER_PAGE));
+  const paged = items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   return (
     <ProtectedRoute>
@@ -97,6 +96,8 @@ export default function CommunityRefundsPage() {
               actions={<Button variant="ghost" disabled={refreshing} onClick={() => void load(true)}><Icon name="refresh" className="h-4 w-4" />{refreshing ? "Refreshing..." : "Refresh"}</Button>}
             />
             {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+            {notice ? <Banner tone="success">{notice}</Banner> : null}
+            {!permLoading && !canMutate ? <Banner tone="info">Your role can view refunds but cannot recheck or escalate them.</Banner> : null}
 
             <div className="grid gap-6 md:grid-cols-3">
               <MetricCard icon="clock" label="Pending / processing" value={pending} tone="amber" />
@@ -107,7 +108,7 @@ export default function CommunityRefundsPage() {
             <Card>
               <h2 className="text-2xl font-black">Refund records</h2>
               {items.length === 0 ? (
-                <p className="mt-8 text-slate-500">No refunds have been created yet.</p>
+                <div className="mt-6"><EmptyState title="No refunds have been created yet." /></div>
               ) : (
                 <div className="mt-6 overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -122,51 +123,25 @@ export default function CommunityRefundsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map((r) => (
+                      {paged.map((r) => (
                         <tr key={r.id} className="border-b border-slate-100">
                           <td className="py-3 font-semibold text-[#101820]">
                             {r.contribution.campaign.title} <span className="text-slate-400">({countryDisplayName(r.contribution.campaign.country)})</span>
                             <div><TextLink href={`/activity-logs?entityId=${r.id}`}>Audit history</TextLink></div>
                           </td>
                           <td className="py-3 text-slate-600">{r.contribution.participant.user.name} <span className="text-slate-400">({r.contribution.participant.user.email})</span></td>
-                          <td className="py-3 font-semibold">{centsToUnit(r.amount).toFixed(2)} {r.currency}</td>
+                          <td className="py-3 font-semibold">{formatMinor(r.amount, r.currency)}</td>
                           <td className="py-3">
                             <Badge tone={tone(r.status)}>{REFUND_STATUS_LABEL[r.status]}</Badge>
                             {escalatedIds.has(r.id) ? <Badge tone="blue">Escalated</Badge> : null}
                             {r.failureReason ? <p className="mt-1 text-xs text-red-500">{r.failureReason}</p> : null}
                           </td>
-                          <td className="py-3 text-slate-500">{new Date(r.createdAt).toLocaleString()}</td>
+                          <td className="py-3 text-slate-500">{formatDateTime(r.createdAt)}</td>
                           <td className="py-3">
-                            {r.status !== "REFUNDED" ? (
-                              <div className="flex flex-col items-start gap-2">
-                                <div className="flex gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    disabled={busyId === r.id}
-                                    onClick={() => {
-                                      if (confirm("Recheck this refund with the payment provider? This re-attempts the refund if it hasn't completed yet.")) void recheck(r.id);
-                                    }}
-                                  >
-                                    Recheck
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    disabled={busyId === r.id || escalatedIds.has(r.id)}
-                                    onClick={() => {
-                                      if (confirm("Escalate this refund? A support case will be opened for the affected participant.")) void escalate(r.id);
-                                    }}
-                                  >
-                                    Escalate
-                                  </Button>
-                                </div>
-                                {!escalatedIds.has(r.id) ? (
-                                  <input
-                                    placeholder="Escalation note (optional)"
-                                    value={escalationNoteById[r.id] ?? ""}
-                                    onChange={(e) => setEscalationNoteById((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                                    className="w-56 rounded-lg border border-slate-200 p-1.5 text-xs"
-                                  />
-                                ) : null}
+                            {canMutate && r.status !== "REFUNDED" ? (
+                              <div className="flex gap-2">
+                                <Button variant="ghost" onClick={() => askRecheck(r)}>Recheck</Button>
+                                <Button variant="ghost" disabled={escalatedIds.has(r.id)} onClick={() => askEscalate(r)}>Escalate</Button>
                               </div>
                             ) : null}
                           </td>
@@ -174,45 +149,16 @@ export default function CommunityRefundsPage() {
                       ))}
                     </tbody>
                   </table>
+                  <Pagination
+                    hasPrev={page > 1} hasNext={page < totalPages} shown={paged.length} total={items.length}
+                    onPrev={() => setPage((p) => Math.max(1, p - 1))} onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  />
                 </div>
               )}
             </Card>
           </div>
         )}
-
-        {pendingAction ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-            <Card className="w-full max-w-md">
-              <h3 className="text-xl font-black text-[#101820]">Enter 2FA code</h3>
-              <p className="mt-2 text-sm text-slate-500">
-                {pendingAction.kind === "recheck" ? "Confirm rechecking this refund with the payment provider." : "Confirm escalating this refund to a support case."}
-              </p>
-              <input
-                autoFocus
-                inputMode="numeric"
-                value={twoFactorCode}
-                onChange={(e) => setTwoFactorCode(e.target.value)}
-                placeholder="6-digit code"
-                className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none"
-              />
-              <div className="mt-4 flex gap-3">
-                <Button
-                  disabled={busyId === pendingAction.id || !twoFactorCode.trim()}
-                  onClick={() => {
-                    if (pendingAction.kind === "recheck") void recheck(pendingAction.id, twoFactorCode.trim());
-                    else void escalate(pendingAction.id, twoFactorCode.trim());
-                  }}
-                  className="flex-1"
-                >
-                  Confirm
-                </Button>
-                <Button variant="ghost" className="flex-1" onClick={() => { setPendingAction(null); setTwoFactorCode(""); }}>
-                  Cancel
-                </Button>
-              </div>
-            </Card>
-          </div>
-        ) : null}
+        {confirm.dialog}
       </AdminLayout>
     </ProtectedRoute>
   );

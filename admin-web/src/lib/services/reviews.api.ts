@@ -59,7 +59,7 @@ export const reviewsAPI = {
     };
   },
 
-  async moderateReview(reviewId: string, status: "APPROVED" | "HIDDEN" | "REJECTED"): Promise<void> {
-    await apiClient.patch(`/admin/reviews/${reviewId}/moderate`, { status });
+  async moderateReview(reviewId: string, status: "APPROVED" | "HIDDEN" | "REJECTED", reason: string): Promise<void> {
+    await apiClient.patch(`/admin/reviews/${reviewId}/moderate`, { status, reason });
   },
 };

@@ -24,15 +24,18 @@ import {
 } from "../../services/escrowStatus";
 import { orderService, type Shipment } from "../../services/orderService";
 import type { Order } from "../../types/order";
+import { disputeService, type DeliveryProofItem, type DisputeType } from "../../services/disputeService";
+import { classifyFailure } from "../../utils/disputeHelpers";
+import { DeliveryProofList } from "../../components/shared/DeliveryProofList";
 import { openConversationThread } from "../../utils/messaging";
 import { vendorService } from "../../services/vendorService";
 import { goBackOrReplace } from "../../utils/navigation";
 
-const DISPUTE_OPTIONS = [
-  { id: "not_received", label: "Order not received" },
-  { id: "wrong_item", label: "Wrong item" },
-  { id: "damaged", label: "Damaged item" },
-  { id: "other", label: "Other" },
+const DISPUTE_OPTIONS: { id: string; label: string; type: DisputeType }[] = [
+  { id: "not_received", label: "Order not received", type: "NOT_RECEIVED" },
+  { id: "wrong_item", label: "Wrong item", type: "WRONG_ITEM" },
+  { id: "damaged", label: "Damaged item", type: "DAMAGED" },
+  { id: "other", label: "Other", type: "OTHER" },
 ];
 
 import { useCurrencyStore } from "../../stores/currencyStore";
@@ -80,6 +83,8 @@ export default function TrackOrderScreen() {
   const [disputeModalVisible, setDisputeModalVisible] = useState(false);
   const [disputeReason, setDisputeReason] = useState<string>(DISPUTE_OPTIONS[0].id);
   const [disputeSubmitting, setDisputeSubmitting] = useState(false);
+  const [proofItems, setProofItems] = useState<DeliveryProofItem[]>([]);
+  const [proofError, setProofError] = useState("");
 
   const load = useCallback(async () => {
     if (!resolvedOrderId) {
@@ -98,6 +103,14 @@ export default function TrackOrderScreen() {
       ]);
       setOrder(nextOrder);
       setShipment(nextShipment);
+      // Delivery proof is supplementary: a failure here must not hide the order itself.
+      disputeService
+        .listDeliveryProofAsBuyer(resolvedOrderId)
+        .then((items) => {
+          setProofItems(items);
+          setProofError("");
+        })
+        .catch((proofErr) => setProofError(classifyFailure(proofErr).message));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load order details.");
     } finally {
@@ -115,6 +128,7 @@ export default function TrackOrderScreen() {
   const timeline = useMemo(() => getEscrowTimeline(order), [order]);
   const confirmDeliveryEnabled = canBuyerConfirmDelivery(order);
   const disputeEnabled = canBuyerOpenDispute(order);
+  const hasDispute = Boolean(order?.dispute) || order?.status === "disputed";
   const isEscrowOrder = (order?.escrowType ?? "").toLowerCase() === "domestic_africa";
 
   const handleConfirmDelivery = async () => {
@@ -157,6 +171,11 @@ export default function TrackOrderScreen() {
   const handleDisputePress = () => {
     if (!order) return;
 
+    if (hasDispute) {
+      router.push({ pathname: "/(buyer)/dispute-detail", params: { orderId: order.id } } as any);
+      return;
+    }
+
     if (!disputeEnabled) {
       Alert.alert(
         "Report unavailable",
@@ -196,7 +215,7 @@ export default function TrackOrderScreen() {
 
     setDisputeSubmitting(true);
     try {
-      await orderService.openBuyerDispute(order.id, selectedIssue.label);
+      await orderService.openBuyerDispute(order.id, selectedIssue.label, { type: selectedIssue.type });
       setDisputeModalVisible(false);
       await load();
       Alert.alert("Dispute opened", "The issue is now recorded and payment protection remains active while support reviews it.");
@@ -373,6 +392,21 @@ export default function TrackOrderScreen() {
           </View>
         ) : null}
 
+        {proofItems.length > 0 ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Delivery proof</Text>
+            <DeliveryProofList items={proofItems} byLabel="Seller" />
+          </View>
+        ) : proofError ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Delivery proof</Text>
+            <Text style={styles.helperText}>{proofError}</Text>
+            <TouchableOpacity onPress={() => void load()} activeOpacity={0.86} accessibilityRole="button">
+              <Text style={styles.modalLinkButtonText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Delivery details</Text>
           <Text style={styles.deliveryText}>
@@ -431,7 +465,7 @@ export default function TrackOrderScreen() {
 
         <TouchableOpacity activeOpacity={0.86} onPress={handleDisputePress}>
           <Text style={[styles.disputeText, !disputeEnabled && styles.disputeTextMuted]}>
-            {disputeEnabled ? "Open Dispute / Report Issue" : "Report Issue"}
+            {hasDispute ? "View dispute" : disputeEnabled ? "Open Dispute / Report Issue" : "Report Issue"}
           </Text>
         </TouchableOpacity>
       </View>

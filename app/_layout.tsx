@@ -8,6 +8,7 @@ import * as Notifications from "expo-notifications";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { StripeProvider } from "../components/providers/StripeProvider";
 import { useAuthStore } from "../stores/authStore";
+import { resolveBroadcastLink } from "../utils/broadcastLink";
 import { pushTokenService } from "../services/notificationService";
 import { initMonitoring } from "../services/monitoring";
 import "../global.css";
@@ -340,8 +341,10 @@ export default function RootLayout() {
           router.push(`/(vendor-verification)/approved`);
         } else if (type === "vendor_verification_rejected") {
           router.push(`/(vendor-verification)/rejected`);
-        } else if (type === "admin_broadcast") {
-          // Default: no specific deep link for broadcasts
+        } else if (type === "admin_broadcast" || type === "admin_broadcast_test") {
+          // Admin Communication Center broadcast: open the allow-listed route it carries (data.link), if any.
+          const link = resolveBroadcastLink(data, useAuthStore.getState().user?.role);
+          if (link) router.push(link as any);
         }
       } catch {
         // Router not ready yet — ignore

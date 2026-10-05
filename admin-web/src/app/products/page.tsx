@@ -1,147 +1,168 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { productsAPI } from "@/lib/services/products.api";
-import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
-import { Product } from "@/types";
+import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
+import { DataTable, FilterSelect, Pagination, SearchInput, StatusTabs, formatDate, formatMinor, type Column } from "@/components/AdminKit";
+import { NoAccess } from "@/components/PageStates";
 import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
+import { formatApproxMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
+import { PRODUCT_TYPE_LABEL, productsAPI, type AdminProductList, type AdminProductRow } from "@/lib/services/products.api";
 
-export default function ProductsPage() {
+const TYPE_OPTIONS = [
+  { value: "", label: "All product types" },
+  { value: "STANDARD", label: PRODUCT_TYPE_LABEL.STANDARD },
+  { value: "COMMUNITY_BUY", label: PRODUCT_TYPE_LABEL.COMMUNITY_BUY },
+  { value: "REGULAR_DELIVERY", label: PRODUCT_TYPE_LABEL.REGULAR_DELIVERY },
+];
+
+function ProductStatusBadge({ status }: { status: AdminProductRow["status"] }) {
+  if (status === "ACTIVE") return <Badge tone="green">Active</Badge>;
+  if (status === "DISABLED") return <Badge tone="red">Disabled</Badge>;
+  return <Badge tone="gray">Draft</Badge>;
+}
+
+function ProductsInner() {
   const router = useRouter();
-  const [products, setProducts] = useState<Product[]>([]);
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const perms = usePermissions();
+  const { selectedCurrency } = useAdminDisplayCurrency("EUR");
+
+  const q = params.get("q") ?? "";
+  const status = params.get("status") ?? "";
+  const category = params.get("category") ?? "";
+  const productType = params.get("productType") ?? "";
+
+  const setParams = useCallback((patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(params.toString());
+    for (const [k, v] of Object.entries(patch)) { if (v == null || v === "") next.delete(k); else next.set(k, v); }
+    router.replace(`${pathname}?${next.toString()}`);
+  }, [params, pathname, router]);
+
+  const [data, setData] = useState<AdminProductList | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency(products[0]?.currency ?? "GBP");
+  const [cursor, setCursor] = useState<string | null>(null);
+  const stack = useRef<Array<string | null>>([]);
 
-  const loadProducts = useCallback(async () => {
+  const key = `${q}|${status}|${category}|${productType}`;
+  useEffect(() => { stack.current = []; setCursor(null); }, [key]);
+
+  const load = useCallback(async () => {
     try {
-      setLoading(true);
-      setError("");
-      const data = await productsAPI.getProducts({
-        status: statusFilter === "all" ? undefined : statusFilter,
-      });
-      setProducts(data);
-    } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
-      } else {
-        setError("Failed to load products");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter]);
+      setLoading(true); setError("");
+      setData(await productsAPI.list({ q, status, category, productType, cursor }));
+    } catch (e) {
+      setError(e instanceof APIError ? e.message : "Failed to load products");
+    } finally { setLoading(false); }
+  }, [q, status, category, productType, cursor]);
+  useEffect(() => { if (perms.loading || perms.has("products.read")) void load(); }, [load, perms]);
 
-  useEffect(() => {
-    void loadProducts();
-  }, [loadProducts]);
+  if (!perms.loading && !perms.has("products.read")) return <NoAccess what="products" />;
 
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <AdminLayout>
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+  const columns: Column<AdminProductRow>[] = [
+    {
+      key: "product", header: "Product",
+      render: (p) => (
+        <div className="flex items-center gap-3">
+          {p.image
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={p.image} alt="" className="h-12 w-12 rounded-xl border border-slate-200 object-cover" />
+            : <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-[10px] font-black uppercase text-slate-400" aria-label="No image">No image</span>}
+          <div className="min-w-0">
+            <p className="truncate font-black text-slate-900">{p.title}</p>
+            <p className="text-xs font-semibold text-slate-500">{p.productCode ?? "No code"}</p>
           </div>
-        </AdminLayout>
-      </ProtectedRoute>
-    );
-  }
+        </div>
+      ),
+    },
+    { key: "vendor", header: "Vendor", render: (p) => <span className="font-semibold text-slate-700">{p.vendorName ?? "Not provided"}</span> },
+    { key: "cat", header: "Category", render: (p) => <span className="text-slate-600">{p.category ?? "Not provided"}</span> },
+    { key: "type", header: "Type", render: (p) => <Badge tone={p.productType === "STANDARD" ? "gray" : "blue"}>{PRODUCT_TYPE_LABEL[p.productType]}</Badge> },
+    {
+      key: "price", header: "Price",
+      render: (p) => {
+        const approx = formatApproxMoney(p.priceInCents / 100, p.currency, selectedCurrency);
+        return (
+          <div>
+            <p className="font-black text-slate-900">{formatMinor(p.priceInCents, p.currency)}</p>
+            {approx ? <p className="text-xs font-semibold text-slate-500">{approx}</p> : null}
+          </div>
+        );
+      },
+    },
+    { key: "stock", header: "Stock", render: (p) => <span className={p.stock === 0 ? "font-black text-red-600" : "font-bold"}>{p.stock}</span> },
+    {
+      key: "status", header: "Status",
+      render: (p) => (
+        <div className="space-y-1">
+          <ProductStatusBadge status={p.status} />
+          {p.notPurchasableReason ? <p><Badge tone="amber">Not purchasable: seller payment setup incomplete</Badge></p> : null}
+        </div>
+      ),
+    },
+    { key: "created", header: "Created", render: (p) => <span className="text-xs font-semibold text-slate-600">{formatDate(p.createdAt)}</span> },
+    {
+      key: "act", header: "", className: "text-right",
+      render: (p) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" className="h-9 px-3" onClick={() => router.push(`/products/${p.id}`)}>View</Button>
+        </div>
+      ),
+    },
+  ];
 
+  const tabs = [
+    { key: "", label: "All", count: data?.counts.total ?? null },
+    { key: "active", label: "Active", count: data?.counts.active ?? null },
+    { key: "disabled", label: "Disabled", count: data?.counts.disabled ?? null },
+    { key: "draft", label: "Draft", count: data?.counts.draft ?? null },
+  ];
+  const categoryOptions = [{ value: "", label: "All categories" }, ...(data?.categories ?? []).map((c) => ({ value: c, label: c }))];
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title="Products"
+        subtitle="Search and moderate vendor products. Prices are shown in the product's own currency; converted amounts are labelled Approx."
+      />
+      {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+      <Card className="space-y-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <SearchInput value={q} onChange={(v) => setParams({ q: v })} placeholder="Search product, product code or vendor" />
+          <FilterSelect label="Category" value={category} onChange={(v) => setParams({ category: v })} options={categoryOptions} />
+          <FilterSelect label="Product type" value={productType} onChange={(v) => setParams({ productType: v })} options={TYPE_OPTIONS} />
+        </div>
+        <StatusTabs tabs={tabs} active={status} onChange={(k) => setParams({ status: k })} />
+        {productType === "COMMUNITY_BUY" ? (
+          <p className="text-xs font-semibold text-slate-500">Community Buy campaigns carry their own product details and are not catalogue products, so none are listed here. Review them under Community Buy.</p>
+        ) : null}
+        {loading && !data ? <LoadingPanel label="Loading products…" /> : (
+          <>
+            <DataTable columns={columns} rows={data?.items ?? []} rowKey={(p) => p.id} onRowClick={(p) => router.push(`/products/${p.id}`)} loading={loading} emptyTitle="No products match these filters" />
+            <Pagination
+              hasPrev={stack.current.length > 0} hasNext={Boolean(data?.nextCursor)} shown={data?.items.length ?? 0} total={status === "" && !q && !category && !productType ? data?.counts.total : null} loading={loading}
+              onPrev={() => setCursor(stack.current.pop() ?? null)}
+              onNext={() => { stack.current.push(cursor); setCursor(data?.nextCursor ?? null); }}
+            />
+          </>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+export default function ProductsPage() {
   return (
     <ProtectedRoute>
       <AdminLayout>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Products</h1>
-            <p className="mt-1 text-sm text-gray-600">Manage marketplace products</p>
-          </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-              <button onClick={loadProducts} className="ml-4 underline">Retry</button>
-            </div>
-          )}
-
-          <div className="bg-white p-4 rounded-lg shadow flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-              >
-                <option value="all">All Products</option>
-                <option value="active">Active</option>
-                <option value="disabled">Disabled</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Display Currency</label>
-              <select
-                value={selectedCurrency}
-                onChange={(event) => setSelectedCurrency(event.target.value as (typeof SUPPORTED_CURRENCIES)[number])}
-                className="w-full md:w-40 px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-              >
-                {SUPPORTED_CURRENCIES.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow overflow-x-auto">
-            {products.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500">No products found</p>
-              </div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {products.map((product) => (
-                    <tr key={product.id} onClick={() => router.push(`/products/${product.id}`)} onMouseEnter={() => productsAPI.preloadProduct(product.id)} className="hover:bg-gray-50 cursor-pointer">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{product.title}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{product.vendorName || "N/A"}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {formatDisplayMoney(product.price, product.currency, selectedCurrency)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{product.stock}</td>
-                      <td className="px-6 py-4 text-sm">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          product.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                        }`}>
-                          {product.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(product.createdAt).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          <div className="text-sm text-gray-500">Showing {products.length} products</div>
-        </div>
+        <Suspense fallback={<LoadingPanel label="Loading products…" />}>
+          <ProductsInner />
+        </Suspense>
       </AdminLayout>
     </ProtectedRoute>
   );

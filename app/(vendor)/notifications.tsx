@@ -5,6 +5,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { goBackOrReplace } from "../../utils/navigation";
 import { Ionicons } from "@expo/vector-icons";
 import { notificationService, type AppNotification } from "../../services/notificationService";
+import { resolveBroadcastLink } from "../../utils/broadcastLink";
 
 const ICON_FOR_TYPE: Record<AppNotification["type"], React.ComponentProps<typeof Ionicons>["name"]> = {
   order: "cart-outline",
@@ -143,8 +144,17 @@ export default function NotificationsScreen() {
                 key={notif.id}
                 onPress={() => {
                   if (!notif.read) handleMarkAsRead(notif.id);
+                  const broadcastLink = resolveBroadcastLink(notif.data, "vendor");
+                  if (broadcastLink) {
+                    router.push(broadcastLink as any);
+                    return;
+                  }
                   if (notif.type === "order") {
                     router.push("/(vendor)/orders" as any);
+                  } else if (notif.type === "message" && notif.data?.conversationId) {
+                    router.push({ pathname: "/(vendor)/messages", params: { conversationId: notif.data.conversationId } } as any);
+                  } else if (notif.type === "message") {
+                    router.push("/(vendor)/messages" as any);
                   } else if (notif.type === "payout") {
                     router.push("/(vendor)/earnings" as any);
                   } else if (notif.type === "verification") {

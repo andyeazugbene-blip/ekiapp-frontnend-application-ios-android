@@ -118,6 +118,20 @@ export default function OrdersScreen() {
                     <Text style={styles.orderAmount}>{formatDisplayMoney(order.total, order.currency, selectedCurrency)}</Text>
                   </View>
                   {isEscrowOrder ? <Text style={styles.escrowHint}>Protected payment</Text> : null}
+                  {order.status === "disputed" || order.dispute ? (
+                    <TouchableOpacity
+                      onPress={(event) => {
+                        event.stopPropagation?.();
+                        router.push({ pathname: "/(buyer)/dispute-detail", params: { orderId: order.id } } as any);
+                      }}
+                      activeOpacity={0.85}
+                      style={[styles.reviewBtn, styles.disputeBtn]}
+                      accessibilityRole="button"
+                    >
+                      <Ionicons name="alert-circle-outline" size={14} color="#FB6363" />
+                      <Text style={[styles.reviewBtnText, { color: "#FB6363" }]}>View dispute</Text>
+                    </TouchableOpacity>
+                  ) : null}
                   {(order.status === "delivered" || order.status === "completed") && (
                     <TouchableOpacity
                       onPress={(event) => {
@@ -166,5 +180,6 @@ const styles = StyleSheet.create({
   orderAmount: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828" },
   escrowHint: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#076B51", marginTop: 8 },
   reviewBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10, alignSelf: "flex-start", backgroundColor: "rgba(7,107,81,0.08)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
+  disputeBtn: { backgroundColor: "rgba(251,99,99,0.08)" },
   reviewBtnText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
 });

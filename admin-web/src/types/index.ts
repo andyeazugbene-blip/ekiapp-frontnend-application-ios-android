@@ -171,6 +171,52 @@ export interface VerificationQueueItem {
   latestSubmissionDate: string;
   uploadedDocSummary: VerificationDocSummary;
   docsAlreadyDeleted: boolean;
+  provider?: ProviderReadiness;
+  manualReviewAllowed?: boolean;
+}
+
+export type ProviderStage = "NOT_STARTED" | "PENDING" | "REQUIREMENTS_DUE" | "RESTRICTED" | "VERIFIED";
+export type ProviderIdentityState =
+  | "NOT_STARTED" | "PROCESSING" | "PENDING" | "NEEDS_INPUT" | "VERIFIED"
+  | "FAILED" | "CANCELED" | "REDACTED" | "LEGACY_MANUAL";
+
+/** Provider-owned state (Stripe). Identity, charges and payouts are separate facts. */
+export interface ProviderReadiness {
+  managedBy: "STRIPE" | "LEGACY_MANUAL" | "NONE";
+  stage: ProviderStage;
+  pendingOn: "PROVIDER" | "VENDOR" | null;
+  summary: string;
+  identity: {
+    state: ProviderIdentityState;
+    providerStatus: string | null;
+    sessionId: string | null;
+    verifiedAt: string | null;
+    failureReason: string | null;
+    updatedAt: string | null;
+  };
+  connect: {
+    accountId: string | null;
+    status: string | null;
+    chargesEnabled: boolean;
+    payoutsEnabled: boolean;
+    requirementsCurrentlyDue: string[];
+    requirementsPastDue: string[];
+    requirementsEventuallyDue: string[];
+    requirementsCategories: string[];
+    disabledReason: string | null;
+    requirementsDeadline: string | null;
+    onboardedAt: string | null;
+    fetchedAt: string | null;
+  };
+}
+
+export interface VendorStripeStatus extends ProviderReadiness {
+  vendorId: string;
+  storeName: string;
+  reminderLastSentAt: string | null;
+  legacyDocumentCount: number;
+  links: { account: string | null; identitySession: string | null };
+  refreshWarning?: string;
 }
 
 export interface VerificationReviewDetails {
@@ -197,6 +243,8 @@ export interface VerificationReviewDetails {
   reviewedBy?: string | null;
   rejectionReason?: string | null;
   proofs: VerificationDocument[];
+  provider?: ProviderReadiness;
+  manualReviewAllowed?: boolean;
 }
 
 export interface DashboardStats {
@@ -303,6 +351,8 @@ export interface PromoCode {
 export interface AdminPayoutRequest {
   id: string;
   vendorId: string;
+  /** Store name from the API join; null when the API did not include it. */
+  vendorName?: string | null;
   payoutMethodId: string;
   amount: number;
   currency: string;

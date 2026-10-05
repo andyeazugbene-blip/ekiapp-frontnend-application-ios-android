@@ -136,6 +136,7 @@ export default function BuyerLayout() {
       <Tabs.Screen name="message-chat" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="track-order" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="report-issue" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="dispute-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="contact-support" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="delivery-unavailable" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="referral-program" options={{ href: null, tabBarStyle: { display: "none" } }} />

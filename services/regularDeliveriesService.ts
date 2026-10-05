@@ -168,6 +168,8 @@ export interface BuyerSubscription {
   paymentMethodId: string;
   nextRenewalAt?: string | null;
   pausedUntil?: string | null;
+  /** "payment_failed" when paused by the payment-recovery flow; "buyer" / "admin" otherwise. */
+  pausedReason?: string | null;
   items: SubscriptionItem[];
   renewals?: Renewal[];
   createdAt: string;
@@ -274,8 +276,21 @@ export const regularDeliveriesService = {
     return res.subscription;
   },
 
-  async cancelSubscription(id: string): Promise<BuyerSubscription> {
-    const res = await apiClient.post<{ subscription: BuyerSubscription }>(`/api/buyer/subscriptions/${id}/cancel`, {});
+  /** cancelReason is optional (a reason chip or free text, max 300 chars). */
+  async cancelSubscription(id: string, cancelReason?: string): Promise<BuyerSubscription> {
+    const res = await apiClient.post<{ subscription: BuyerSubscription }>(`/api/buyer/subscriptions/${id}/cancel`, cancelReason ? { cancelReason } : {});
+    return res.subscription;
+  },
+
+  /** "Choose a new date for next delivery" - date is an ISO string, 1h to 90 days ahead. */
+  async rescheduleNextDelivery(id: string, dateIso: string): Promise<BuyerSubscription> {
+    const res = await apiClient.post<{ subscription: BuyerSubscription }>(`/api/buyer/subscriptions/${id}/reschedule-next`, { date: dateIso });
+    return res.subscription;
+  },
+
+  /** Switch the saved card used for renewals (recovery from a failed payment; restarts a payment-paused subscription). */
+  async updateSubscriptionPaymentMethod(id: string, paymentMethodId: string): Promise<BuyerSubscription> {
+    const res = await apiClient.post<{ subscription: BuyerSubscription }>(`/api/buyer/subscriptions/${id}/payment-method`, { paymentMethodId });
     return res.subscription;
   },
 

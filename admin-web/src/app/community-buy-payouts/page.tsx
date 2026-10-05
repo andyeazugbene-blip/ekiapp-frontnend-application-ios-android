@@ -4,7 +4,9 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { Banner, formatMinor } from "@/components/AdminKit";
 import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   communityBuyAdminAPI,
   isPendingCommunityBuyPayoutApproval,
@@ -36,9 +38,7 @@ const BLOCKER_LABEL: Record<string, string> = {
   dispute_or_refund_exposure: "Open dispute or refund exposure on this campaign's captured holds",
 };
 
-function money(amountMinor: number, currency: string): string {
-  return `${currency} ${(amountMinor / 100).toLocaleString("en-GB", { minimumFractionDigits: 2 })}`;
-}
+const money = (amountMinor: number, currency: string): string => formatMinor(amountMinor, currency);
 
 type ModalAction = { kind: "mark-ready" | "hold" | "release"; campaignId: string };
 
@@ -73,6 +73,9 @@ function EligibilityPanel({ campaignId }: { campaignId: string }) {
 }
 
 export default function CommunityBuyPayoutsPage() {
+  // Backend: list / eligibility = community_buy.read; mark ready / hold / release = community_buy.mutate (+2FA, prompted globally).
+  const { has, loading: permLoading } = usePermissions();
+  const canMutate = has("community_buy.mutate");
   const [payouts, setPayouts] = useState<AdminCommunityBuyPayout[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -147,6 +150,7 @@ export default function CommunityBuyPayoutsPage() {
           />
 
           {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+          {!permLoading && !canMutate ? <Banner tone="info">Your role can view payouts and check eligibility but cannot mark ready, hold or release them.</Banner> : null}
           {pendingApprovalMessage ? (
             <Card className="border-amber-200 bg-amber-50">
               <p className="text-sm font-semibold text-amber-800">{pendingApprovalMessage}</p>
@@ -176,10 +180,9 @@ export default function CommunityBuyPayoutsPage() {
                       <Fragment key={p.id}>
                         <tr className="text-sm text-slate-700 align-top">
                           <td className="px-4 py-3">
-                            <span className="font-semibold text-[#101820]">{p.campaign?.title ?? p.campaignId}</span>
-                            <span className="block text-xs text-slate-400">{p.campaignId}</span>
+                            <span className="font-semibold text-[#101820]">{p.campaign?.title ?? "Campaign title not provided"}</span>
                           </td>
-                          <td className="px-4 py-3"><Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge></td>
+                          <td className="px-4 py-3"><Badge tone={STATUS_TONE[p.status]}>{p.status.replace(/_/g, " ").toLowerCase()}</Badge></td>
                           <td className="px-4 py-3 font-semibold">{money(p.netPayoutAmount, p.currency)}</td>
                           <td className="px-4 py-3">{money(p.ekiFeeAmount, p.currency)}</td>
                           <td className="px-4 py-3">
@@ -194,13 +197,13 @@ export default function CommunityBuyPayoutsPage() {
                               <Button variant="ghost" className="!h-8 !px-3 !text-xs" onClick={() => setExpandedCampaignId(expandedCampaignId === p.campaignId ? null : p.campaignId)}>
                                 {expandedCampaignId === p.campaignId ? "Hide eligibility" : "Check eligibility"}
                               </Button>
-                              {p.status === "HELD" ? (
+                              {canMutate && p.status === "HELD" ? (
                                 <Button variant="primary" disabled={busyCampaignId === p.campaignId} className="!h-8 !px-3 !text-xs" onClick={() => setModal({ kind: "mark-ready", campaignId: p.campaignId })}>Mark ready</Button>
                               ) : null}
-                              {p.status !== "PAID" && p.status !== "CANCELLED" ? (
+                              {canMutate && p.status !== "PAID" && p.status !== "CANCELLED" ? (
                                 <Button variant="ghost" disabled={busyCampaignId === p.campaignId} className="!h-8 !px-3 !text-xs" onClick={() => setModal({ kind: "hold", campaignId: p.campaignId })}>Hold</Button>
                               ) : null}
-                              {p.status === "READY" || p.status === "FAILED" ? (
+                              {canMutate && (p.status === "READY" || p.status === "FAILED") ? (
                                 <Button variant="primary" disabled={busyCampaignId === p.campaignId} className="!h-8 !px-3 !text-xs" onClick={() => setModal({ kind: "release", campaignId: p.campaignId })}>
                                   {p.status === "FAILED" ? "Retry release" : "Release"}
                                 </Button>
@@ -248,7 +251,7 @@ export default function CommunityBuyPayoutsPage() {
               <input
                 value={twoFactorCode}
                 onChange={(e) => setTwoFactorCode(e.target.value)}
-                placeholder="2FA code"
+                placeholder="2FA code (optional: you will be asked if one is needed)"
                 className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none"
               />
               {actionError ? <p className="mt-2 text-sm text-red-600">{actionError}</p> : null}

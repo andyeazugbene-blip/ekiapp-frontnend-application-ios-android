@@ -1,214 +1,324 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
-import { Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { apiClient, APIError } from "@/lib/api";
-import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
-import { giftsAPI, Reward } from "@/lib/services/gifts.api";
+import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
+import {
+  Banner, DataTable, ExternalLink, KeyValue, Pagination, SearchInput, StatusTabs, formatDate, formatDateTime, formatMinor,
+  stripeDashboardUrl, useConfirm, type Column,
+} from "@/components/AdminKit";
+import { Field, FormModal, inputClass, textareaClass } from "@/components/FormModal";
+import { NoAccess } from "@/components/PageStates";
+import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
+import { SUPPORTED_CURRENCIES, formatApproxMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
+import {
+  giftCardsAPI, type GiftCardTemplate, type PurchasedGiftCardDetail, type PurchasedGiftCardRow, type PurchasedStatus,
+} from "@/lib/services/gift-cards.api";
 
-interface GiftCard { id: string; title: string; description: string | null; priceAmount: number; currency: string; imageUrl: string | null; isActive: boolean; createdAt: string; }
+const STATUS_TONE: Record<PurchasedStatus, "green" | "amber" | "red" | "blue" | "gray"> = {
+  PENDING_PAYMENT: "gray", ACTIVE: "green", PAUSED: "amber", REDEEMED: "blue", EXPIRED: "gray", CANCELLED: "red",
+};
+const STATUS_LABEL: Record<PurchasedStatus, string> = {
+  PENDING_PAYMENT: "Awaiting payment", ACTIVE: "Active", PAUSED: "Paused", REDEEMED: "Redeemed", EXPIRED: "Expired", CANCELLED: "Cancelled",
+};
+const PURCHASED_TABS = [
+  { key: "", label: "All paid" },
+  { key: "ACTIVE", label: "Active" },
+  { key: "PAUSED", label: "Paused" },
+  { key: "REDEEMED", label: "Redeemed" },
+  { key: "EXPIRED", label: "Expired" },
+  { key: "CANCELLED", label: "Cancelled" },
+  { key: "PENDING_PAYMENT", label: "Awaiting payment" },
+];
 
-export default function GiftCardsPage() {
-  const [cards, setCards] = useState<GiftCard[]>([]);
-  const [hotDeals, setHotDeals] = useState<Reward[]>([]);
-  const [loading, setLoading] = useState(true); const [error, setError] = useState("");
-  const [showDealForm, setShowDealForm] = useState(false);
-  const [savingDeal, setSavingDeal] = useState(false);
-  const [dealForm, setDealForm] = useState({ name: "", description: "", value: "", currency: "GBP", expiresAt: "", minOrderAmount: "" });
-  const [editCard, setEditCard] = useState<GiftCard | null>(null);
-  const [editForm, setEditForm] = useState({ title: "", priceAmount: "", currency: "GBP", isActive: true });
-  const [savingCard, setSavingCard] = useState(false);
-  const { selectedCurrency } = useAdminDisplayCurrency("EUR");
+function Money({ minor, currency, display }: { minor: number; currency: string; display: string }) {
+  const approx = formatApproxMoney(minor / 100, currency, display);
+  return (
+    <div>
+      <p className="font-black text-slate-900">{formatMinor(minor, currency)}</p>
+      {approx ? <p className="text-xs font-semibold text-slate-500">{approx}</p> : null}
+    </div>
+  );
+}
+
+// ─── Catalogue ──────────────────────────────────────────────────────────────
+
+function CatalogueTab({ canMutate, display }: { canMutate: boolean; display: string }) {
+  const [cards, setCards] = useState<GiftCardTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const confirm = useConfirm();
+  const [form, setForm] = useState<{ id: string | null; title: string; description: string; price: string; currency: string; imageUrl: string; reason: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const [d, rewards] = await Promise.all([
-        apiClient.get<{ giftCards: GiftCard[] }>("/admin/gift-cards"),
-        giftsAPI.getGifts(),
-      ]);
-      setCards(d.giftCards ?? []);
-      setHotDeals(rewards.filter((reward) => reward.isHotDeal));
-    }
-    catch (err) { setError(err instanceof APIError ? err.message : "Failed to load"); } finally { setLoading(false); }
+    try { setLoading(true); setError(""); setCards(await giftCardsAPI.listCatalogue(true)); }
+    catch (e) { setError(e instanceof APIError ? e.message : "Failed to load gift cards"); }
+    finally { setLoading(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  const saveHotDeal = async () => {
-    if (!dealForm.name.trim() || !dealForm.value) {
-      setError("Hot deal name and value are required.");
-      return;
-    }
-    if (!dealForm.minOrderAmount || Number(dealForm.minOrderAmount) <= 0) {
-      setError("Minimum order amount is required — buyer must spend at least this much to unlock the deal.");
-      return;
-    }
+  const openNew = () => { setFormError(""); setForm({ id: null, title: "", description: "", price: "", currency: display, imageUrl: "", reason: "" }); };
+  const openEdit = (c: GiftCardTemplate) => {
+    setFormError("");
+    setForm({ id: c.id, title: c.title, description: c.description ?? "", price: (c.priceAmount / 100).toFixed(2), currency: c.currency, imageUrl: c.imageUrl ?? "", reason: "" });
+  };
+
+  const save = async () => {
+    if (!form) return;
+    const priceMinor = Math.round(Number(form.price) * 100);
+    if (!form.title.trim() || !Number.isFinite(priceMinor) || priceMinor <= 0) { setFormError("Title and a price above zero are required."); return; }
     try {
-      setSavingDeal(true);
-      setError("");
-      await giftsAPI.createGift({
-        name: dealForm.name.trim(),
-        description: dealForm.description.trim() || undefined,
-        type: "DISCOUNT_COUPON",
-        value: Number(dealForm.value),
-        currency: dealForm.currency,
-        minOrderAmount: Number(dealForm.minOrderAmount),
-        expiresAt: dealForm.expiresAt ? new Date(dealForm.expiresAt).toISOString() : undefined,
-        isHotDeal: true,
-      });
-      setDealForm({ name: "", description: "", value: "", currency: "GBP", expiresAt: "", minOrderAmount: "" });
-      setShowDealForm(false);
+      setSaving(true); setFormError("");
+      const body = { title: form.title.trim(), description: form.description.trim() || undefined, priceAmount: priceMinor, currency: form.currency, imageUrl: form.imageUrl.trim() || undefined };
+      if (form.id) await giftCardsAPI.update(form.id, body, form.reason);
+      else await giftCardsAPI.create(body);
+      setForm(null);
       await load();
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to create hot deal");
-    } finally {
-      setSavingDeal(false);
-    }
+    } catch (e) { setFormError(e instanceof Error ? e.message : "Save failed"); }
+    finally { setSaving(false); }
   };
 
-  const openEditCard = (card: GiftCard) => {
-    setEditCard(card);
-    setEditForm({ title: card.title, priceAmount: String(card.priceAmount / 100), currency: card.currency, isActive: card.isActive });
-  };
+  const ask = (c: GiftCardTemplate, action: "pause" | "resume" | "archive") =>
+    confirm.ask(
+      {
+        title: `${action === "pause" ? "Pause" : action === "resume" ? "Resume" : "Archive"} "${c.title}"?`,
+        description: action === "archive"
+          ? "Archived gift cards disappear from the app and can't be resumed. Cards already purchased keep working and all history is kept."
+          : action === "pause" ? "Buyers can no longer purchase this gift card. Already purchased cards are not affected." : "Buyers can purchase this gift card again.",
+        confirmLabel: action === "pause" ? "Pause" : action === "resume" ? "Resume" : "Archive",
+        tone: action === "resume" ? "primary" : "danger",
+      },
+      async (reason) => { await giftCardsAPI.setState(c.id, action, reason); await load(); },
+    );
 
-  const saveCard = async () => {
-    if (!editCard) return;
-    try {
-      setSavingCard(true); setError("");
-      await apiClient.patch(`/admin/gift-cards/${editCard.id}`, {
-        title: editForm.title,
-        priceAmount: Math.round(Number(editForm.priceAmount) * 100),
-        currency: editForm.currency,
-        isActive: editForm.isActive,
-      });
-      setEditCard(null);
-      await load();
-    } catch (err) { setError(err instanceof APIError ? err.message : "Failed to update gift card"); }
-    finally { setSavingCard(false); }
-  };
-
-  const deleteCard = async (id: string) => {
-    if (!window.confirm("Delete this gift card?")) return;
-    try { await apiClient.delete(`/admin/gift-cards/${id}`); await load(); }
-    catch (err) { setError(err instanceof APIError ? err.message : "Failed to delete"); }
-  };
-
-  const toggleHotDeal = async (deal: Reward) => {
-    await giftsAPI.updateGift(deal.id, { isActive: !deal.isActive } as any);
-    await load();
-  };
+  const columns: Column<GiftCardTemplate>[] = [
+    { key: "t", header: "Gift card", render: (c) => <div><p className="font-black text-slate-900">{c.title}</p>{c.description ? <p className="max-w-xs truncate text-xs font-semibold text-slate-500">{c.description}</p> : null}</div> },
+    { key: "p", header: "Value", render: (c) => <Money minor={c.priceAmount} currency={c.currency} display={display} /> },
+    { key: "s", header: "Status", render: (c) => c.archivedAt ? <Badge tone="gray">Archived</Badge> : c.isActive ? <Badge tone="green">Active</Badge> : <Badge tone="amber">Paused</Badge> },
+    { key: "n", header: "Purchased", render: (c) => <span className="font-bold">{c.purchasedCount ?? 0}</span> },
+    { key: "d", header: "Created", render: (c) => <span className="text-xs font-semibold text-slate-600">{formatDate(c.createdAt)}</span> },
+    {
+      key: "a", header: "", className: "text-right",
+      render: (c) => canMutate && !c.archivedAt ? (
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" className="h-9 px-3" onClick={() => openEdit(c)}>Edit</Button>
+          {c.isActive
+            ? <Button variant="ghost" className="h-9 px-3" onClick={() => ask(c, "pause")}>Pause</Button>
+            : <Button variant="secondary" className="h-9 px-3" onClick={() => ask(c, "resume")}>Resume</Button>}
+          <Button variant="ghost" className="h-9 px-3 text-red-600" onClick={() => ask(c, "archive")}>Archive</Button>
+        </div>
+      ) : null,
+    },
+  ];
 
   return (
-    <ProtectedRoute><AdminLayout><div className="space-y-6">
-      <PageHeader
-        title="Gift Cards"
-        subtitle="Manage purchasable gift cards and buyer Home hot deals"
-        actions={<Button onClick={() => setShowDealForm((value) => !value)}><Icon name="plus" /> {showDealForm ? "Cancel" : "New Hot Deal"}</Button>}
-      />
-      {loading ? <LoadingPanel /> : error ? <ErrorPanel message={error} onRetry={load} /> : (
-        <>
-        {showDealForm ? (
-          <Card>
-            <h2 className="text-xl font-black">Create Hot Deal</h2>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <input value={dealForm.name} onChange={(e) => setDealForm({ ...dealForm, name: e.target.value })} placeholder="Weekend Hot Deal" className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
-              <input type="number" min="0" step="0.01" value={dealForm.value} onChange={(e) => setDealForm({ ...dealForm, value: e.target.value })} placeholder="Value e.g. 10.00" className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
-              <select value={dealForm.currency} onChange={(e) => setDealForm({ ...dealForm, currency: e.target.value })} className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]">
-                {SUPPORTED_CURRENCIES.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-              </select>
-              <input type="datetime-local" value={dealForm.expiresAt} onChange={(e) => setDealForm({ ...dealForm, expiresAt: e.target.value })} className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
-              <input type="number" min="0.01" step="0.01" required value={dealForm.minOrderAmount} onChange={(e) => setDealForm({ ...dealForm, minOrderAmount: e.target.value })} placeholder="Min order amount e.g. 25.00 (required)" className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
-              <textarea value={dealForm.description} onChange={(e) => setDealForm({ ...dealForm, description: e.target.value })} rows={2} placeholder="Short message shown on buyer Home" className="sm:col-span-2 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
+    <div className="space-y-4">
+      {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+      <Card className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-slate-600">Gift card products buyers can purchase. Gift cards are paused or archived, never deleted.</p>
+          {canMutate ? <Button onClick={openNew}>New gift card</Button> : null}
+        </div>
+        {loading ? <LoadingPanel label="Loading gift cards…" /> : <DataTable columns={columns} rows={cards} rowKey={(c) => c.id} emptyTitle="No gift cards yet" />}
+      </Card>
+
+      <FormModal
+        open={Boolean(form)} title={form?.id ? "Edit gift card" : "New gift card"} onClose={() => setForm(null)}
+        onSubmit={save} loading={saving} error={formError}
+        canSubmit={Boolean(form && (!form.id || form.reason.trim().length >= 5))}
+        submitLabel={form?.id ? "Save changes" : "Create gift card"}
+      >
+        {form ? (
+          <>
+            <Field label="Title"><input className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
+            <Field label="Description"><textarea className={textareaClass} rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Value" hint="In the card's own currency"><input className={inputClass} inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></Field>
+              <Field label="Currency">
+                <select className={inputClass} value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
+                  {SUPPORTED_CURRENCIES.map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </Field>
             </div>
-            <p className="mt-2 text-xs text-slate-500">Condition: buyer must spend at least this amount in one order to unlock the deal.</p>
-            <div className="mt-4 flex gap-3">
-              <Button disabled={savingDeal} onClick={() => void saveHotDeal()}>{savingDeal ? "Saving..." : "Create Hot Deal"}</Button>
-              <Button variant="ghost" onClick={() => setShowDealForm(false)}>Cancel</Button>
-            </div>
-          </Card>
+            <Field label="Image URL (optional)"><input className={inputClass} value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} /></Field>
+            {form.id ? <Field label="Reason for change (recorded in the audit log)"><textarea className={textareaClass} rows={2} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="At least 5 characters" /></Field> : null}
+          </>
         ) : null}
+      </FormModal>
+      {confirm.dialog}
+    </div>
+  );
+}
 
-        <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-black">Hot Deals</h2>
-            <span className="text-sm text-slate-500">Shown on buyer Home</span>
-          </div>
-          {hotDeals.length === 0 ? (
-            <div className="rounded-2xl bg-slate-50 p-8 text-center text-slate-500">No hot deals created yet.</div>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {hotDeals.map((deal) => (
-                <div key={deal.id} className="flex items-center gap-4 py-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-black">{deal.name}</span>
-                      <span className={`h-2.5 w-2.5 rounded-full ${deal.isActive ? "bg-green-500" : "bg-slate-300"}`} />
-                    </div>
-                    <p className="text-sm text-slate-500">
-                      {formatDisplayMoney(deal.value, deal.currency, selectedCurrency)}
-                      {deal.minOrderAmount ? ` · Min spend ${formatDisplayMoney(deal.minOrderAmount, deal.currency, selectedCurrency)}` : ""}
-                      {deal.description ? ` · ${deal.description}` : ""}
-                    </p>
-                  </div>
-                  <Button variant="ghost" onClick={() => void toggleHotDeal(deal)}>{deal.isActive ? "Pause" : "Activate"}</Button>
-                  <Button variant="danger" onClick={async () => { await giftsAPI.deleteGift(deal.id); await load(); }}>Delete</Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+// ─── Purchased cards ────────────────────────────────────────────────────────
 
-        {editCard && (
-          <Card>
-            <h2 className="text-xl font-black mb-4">Edit Gift Card</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <input value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })} placeholder="Title" className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
-              <input type="number" min="0" step="0.01" value={editForm.priceAmount} onChange={e => setEditForm({ ...editForm, priceAmount: e.target.value })} placeholder="Price e.g. 10.00" className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]" />
-              <select value={editForm.currency} onChange={e => setEditForm({ ...editForm, currency: e.target.value })} className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]">
-                {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <label className="flex items-center gap-2 px-4 py-3">
-                <input type="checkbox" checked={editForm.isActive} onChange={e => setEditForm({ ...editForm, isActive: e.target.checked })} className="h-4 w-4" />
-                <span className="text-sm">Active</span>
-              </label>
+function PurchasedTab({ canMutate, display }: { canMutate: boolean; display: string }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const q = params.get("q") ?? "";
+  const status = params.get("status") ?? "";
+  const setParams = useCallback((patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(params.toString());
+    for (const [k, v] of Object.entries(patch)) { if (v == null || v === "") next.delete(k); else next.set(k, v); }
+    router.replace(`${pathname}?${next.toString()}`);
+  }, [params, pathname, router]);
+
+  const [rows, setRows] = useState<PurchasedGiftCardRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const stack = useRef<Array<string | null>>([]);
+  const [detail, setDetail] = useState<PurchasedGiftCardDetail | null>(null);
+  const [detailError, setDetailError] = useState("");
+  const confirm = useConfirm();
+
+  const key = `${q}|${status}`;
+  useEffect(() => { stack.current = []; setCursor(null); }, [key]);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true); setError("");
+      const res = await giftCardsAPI.listPurchased({ q, status, cursor });
+      setRows(res.items); setNextCursor(res.nextCursor);
+    } catch (e) { setError(e instanceof APIError ? e.message : "Failed to load purchased gift cards"); }
+    finally { setLoading(false); }
+  }, [q, status, cursor]);
+  useEffect(() => { void load(); }, [load]);
+
+  const open = async (id: string) => {
+    try { setDetailError(""); setDetail(await giftCardsAPI.getPurchased(id)); }
+    catch (e) { setError(e instanceof APIError ? e.message : "Failed to load gift card"); }
+  };
+
+  const ask = (d: PurchasedGiftCardDetail, action: "cancel" | "pause" | "resume") =>
+    confirm.ask(
+      {
+        title: `${action === "cancel" ? "Cancel" : action === "pause" ? "Pause" : "Resume"} this gift card?`,
+        description: action === "cancel"
+          ? "The card can no longer be redeemed and this can't be undone. Cancelling does not refund the purchaser: refund the payment in Stripe if one is due. The purchaser is notified."
+          : action === "pause" ? "Redemption is blocked until you resume it. The purchaser is notified." : "The card can be redeemed again. The purchaser is notified.",
+        confirmLabel: action === "cancel" ? "Cancel gift card" : action === "pause" ? "Pause" : "Resume",
+        tone: action === "resume" ? "primary" : "danger",
+      },
+      async (reason) => { setDetail(await giftCardsAPI.changePurchasedStatus(d.id, action, reason)); await load(); },
+    );
+
+  const columns: Column<PurchasedGiftCardRow>[] = [
+    { key: "pu", header: "Purchaser", render: (r) => <div><p className="font-black text-slate-900">{r.purchaser?.name || "Name not provided"}</p><p className="text-xs font-semibold text-slate-500">{r.purchaser?.email ?? "Email not provided"}</p></div> },
+    { key: "re", header: "Recipient", render: (r) => <div><p className="font-semibold text-slate-800">{r.recipientName || "Not provided"}</p><p className="text-xs font-semibold text-slate-500">{r.recipientEmail ?? "No email: purchaser shares the code"}</p></div> },
+    { key: "o", header: "Original value", render: (r) => <Money minor={r.originalValue} currency={r.currency} display={display} /> },
+    { key: "b", header: "Remaining", render: (r) => <Money minor={r.remainingBalance} currency={r.currency} display={display} /> },
+    { key: "s", header: "Status", render: (r) => <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge> },
+    { key: "pa", header: "Purchased", render: (r) => <span className="text-xs font-semibold text-slate-600">{formatDate(r.purchasedAt)}</span> },
+    { key: "e", header: "Expires", render: (r) => <span className="text-xs font-semibold text-slate-600">{r.expiresAt ? formatDate(r.expiresAt) : "—"}</span> },
+    { key: "a", header: "", className: "text-right", render: (r) => <Button variant="ghost" className="h-9 px-3" onClick={(e) => { e.stopPropagation(); void open(r.id); }}>View</Button> },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+      <Card className="space-y-4">
+        <SearchInput value={q} onChange={(v) => setParams({ q: v })} placeholder="Search purchaser, recipient, payment reference or last 4 of code" />
+        <StatusTabs tabs={PURCHASED_TABS} active={status} onChange={(k) => setParams({ status: k })} />
+        {loading && rows.length === 0 ? <LoadingPanel label="Loading purchased gift cards…" /> : (
+          <>
+            <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} onRowClick={(r) => void open(r.id)} loading={loading} emptyTitle="No purchased gift cards match" />
+            <Pagination
+              hasPrev={stack.current.length > 0} hasNext={Boolean(nextCursor)} shown={rows.length} loading={loading}
+              onPrev={() => setCursor(stack.current.pop() ?? null)}
+              onNext={() => { stack.current.push(cursor); setCursor(nextCursor); }}
+            />
+          </>
+        )}
+      </Card>
+
+      {detail ? (
+        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-slate-950/40 p-4" role="dialog" aria-modal="true" aria-label="Purchased gift card">
+          <Card className="my-8 w-full max-w-3xl space-y-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-black text-[#101820]">{detail.title}</h3>
+                <p className="text-xs font-semibold text-slate-500">Code {detail.maskedCode ?? "not issued yet"} (full code is never shown to admins)</p>
+              </div>
+              <Badge tone={STATUS_TONE[detail.status]}>{STATUS_LABEL[detail.status]}</Badge>
             </div>
-            <div className="mt-4 flex gap-3">
-              <Button disabled={savingCard} onClick={() => void saveCard()}>{savingCard ? "Saving..." : "Save"}</Button>
-              <Button variant="ghost" onClick={() => setEditCard(null)}>Cancel</Button>
+            {detail.statusReason && (detail.status === "CANCELLED" || detail.status === "PAUSED") ? <Banner tone="warning" title={`Reason recorded: ${detail.statusReason}`}>{formatDateTime(detail.statusChangedAt)}</Banner> : null}
+            {detailError ? <Banner tone="danger">{detailError}</Banner> : null}
+            <KeyValue items={[
+              { label: "Purchaser", value: detail.purchaser ? `${detail.purchaser.name ?? "Name not provided"} (${detail.purchaser.email ?? "no email"})` : "Not provided" },
+              { label: "Recipient", value: detail.recipientEmail ?? "Not provided" },
+              { label: "Original value", value: formatMinor(detail.originalValue, detail.currency) },
+              { label: "Remaining balance", value: formatMinor(detail.remainingBalance, detail.currency) },
+              { label: "Purchased", value: formatDateTime(detail.purchasedAt) },
+              { label: "Expires", value: detail.expiresAt ? formatDateTime(detail.expiresAt) : "Not set" },
+              { label: "Message from purchaser", value: detail.message ?? "None" },
+              { label: "Payment reference", value: detail.paymentReference ? <ExternalLink href={stripeDashboardUrl("payment", detail.paymentReference)}>{detail.paymentReference} · Open in Stripe</ExternalLink> : "Not provided" },
+            ]} />
+            <div>
+              <h4 className="text-sm font-black text-slate-900">Redemption history</h4>
+              {detail.redemptions.length === 0 ? <p className="mt-1 text-sm font-semibold text-slate-500">Not redeemed yet.</p> : (
+                <ul className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">
+                  {detail.redemptions.map((r) => (
+                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                      <span className="font-bold">{formatMinor(r.amountMinor, r.currency)} credited to {r.redeemer.name || r.redeemer.email || r.redeemer.id}</span>
+                      <span className="text-xs font-semibold text-slate-500">Balance after {formatMinor(r.balanceAfter, r.currency)} · {formatDateTime(r.createdAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {canMutate && detail.status === "ACTIVE" ? <Button variant="ghost" onClick={() => ask(detail, "pause")}>Pause</Button> : null}
+              {canMutate && detail.status === "PAUSED" ? <Button variant="secondary" onClick={() => ask(detail, "resume")}>Resume</Button> : null}
+              {canMutate && ["ACTIVE", "PAUSED", "PENDING_PAYMENT"].includes(detail.status) ? <Button variant="danger" onClick={() => ask(detail, "cancel")}>Cancel gift card</Button> : null}
+              <Button variant="ghost" className="ml-auto" onClick={() => setDetail(null)}>Close</Button>
             </div>
           </Card>
-        )}
+        </div>
+      ) : null}
+      {confirm.dialog}
+    </div>
+  );
+}
 
-        <Card><div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50"><tr>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Title</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Price</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Active</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Created</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Actions</th>
-            </tr></thead>
-            <tbody className="divide-y divide-gray-200">
-              {cards.map(c => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{c.title}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{formatDisplayMoney(c.priceAmount / 100, c.currency, selectedCurrency)}</td>
-                  <td className="px-6 py-4 text-sm">{c.isActive ? "✅" : "❌"}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{new Date(c.createdAt).toLocaleDateString()}</td>
-                  <td className="px-6 py-4 text-sm flex gap-2">
-                    <Button variant="ghost" onClick={() => openEditCard(c)}>Edit</Button>
-                    <Button variant="danger" onClick={() => void deleteCard(c.id)}>Delete</Button>
-                  </td>
-                </tr>
-              ))}
-              {cards.length === 0 && <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-500">No gift cards created yet.</td></tr>}
-            </tbody>
-          </table>
-        </div></Card>
-        </>
-      )}
-    </div></AdminLayout></ProtectedRoute>
+// ─── Page ───────────────────────────────────────────────────────────────────
+
+function GiftCardsInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const perms = usePermissions();
+  const { selectedCurrency } = useAdminDisplayCurrency("EUR");
+  const tab = params.get("tab") === "purchased" ? "purchased" : "catalogue";
+
+  if (!perms.loading && !perms.has("rewards.read")) return <NoAccess what="gift cards" />;
+  const canMutate = perms.has("rewards.mutate");
+
+  const setTab = (t: string) => router.replace(`${pathname}?tab=${t}`);
+  return (
+    <div className="space-y-5">
+      <PageHeader title="Gift Cards" subtitle="The gift card catalogue and every card customers have purchased. Hot Deals have their own page." />
+      <StatusTabs tabs={[{ key: "catalogue", label: "Catalogue" }, { key: "purchased", label: "Purchased cards" }]} active={tab} onChange={setTab} />
+      {tab === "catalogue" ? <CatalogueTab canMutate={canMutate} display={selectedCurrency} /> : <PurchasedTab canMutate={canMutate} display={selectedCurrency} />}
+    </div>
+  );
+}
+
+export default function GiftCardsPage() {
+  return (
+    <ProtectedRoute>
+      <AdminLayout>
+        <Suspense fallback={<LoadingPanel label="Loading gift cards…" />}>
+          <GiftCardsInner />
+        </Suspense>
+      </AdminLayout>
+    </ProtectedRoute>
   );
 }
