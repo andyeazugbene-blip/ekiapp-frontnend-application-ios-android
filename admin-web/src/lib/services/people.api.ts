@@ -31,6 +31,7 @@ export interface VendorRow {
   subscriptionPlan: string | null;
   subscriptionStatus: string | null;
   subscriptionPeriodEnd: string | null;
+  trialEndsAt: string | null;
   provider: ProviderSummary;
 }
 
@@ -95,6 +96,7 @@ function normalizeVendorRow(raw: any): VendorRow {
     subscriptionPlan: raw.subscriptionPlan ?? null,
     subscriptionStatus: raw.subscriptionStatus ?? null,
     subscriptionPeriodEnd: raw.subscriptionPeriodEnd ?? null,
+    trialEndsAt: raw.trialEndsAt ?? null,
     provider: raw.provider ?? { stage: "NOT_STARTED", identityState: "NOT_STARTED", chargesEnabled: false, payoutsEnabled: false },
   };
 }

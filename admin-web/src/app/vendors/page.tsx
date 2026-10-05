@@ -49,6 +49,10 @@ function accountBadge(v: VendorRow) {
 
 function subscriptionBadge(v: VendorRow) {
   if (!v.subscriptionPlan) return <Badge tone="gray">No record</Badge>;
+  if (v.trialEndsAt && new Date(v.trialEndsAt).getTime() > Date.now() && v.subscriptionStatus === "ACTIVE") {
+    const days = Math.ceil((new Date(v.trialEndsAt).getTime() - Date.now()) / 86_400_000);
+    return <Badge tone="blue">14-day trial · {days}d left</Badge>;
+  }
   const plan = v.subscriptionPlan.charAt(0) + v.subscriptionPlan.slice(1).toLowerCase();
   const status = (v.subscriptionStatus ?? "").toLowerCase().replace("_", " ");
   return <Badge tone={v.subscriptionStatus === "PAST_DUE" ? "red" : v.subscriptionPlan === "FREE" ? "gray" : "blue"}>{plan}{status && status !== "active" ? ` · ${status}` : ""}</Badge>;

@@ -17,6 +17,11 @@ import { vendorsAPI, type VendorMarket } from "@/lib/services/vendors.api";
 
 const NA = "Not provided";
 
+interface SubShape {
+  plan: string; status: string; currentPeriodStart: string | null; currentPeriodEnd: string | null; cancelledAt: string | null;
+  trialStartedAt?: string | null; trialEndsAt?: string | null;
+}
+
 export default function VendorDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -62,7 +67,7 @@ export default function VendorDetailPage() {
   if (error || !data) return <ProtectedRoute><AdminLayout><ErrorPanel message={error || "Vendor not found"} onRetry={() => void load()} /></AdminLayout></ProtectedRoute>;
 
   const closed = Boolean(data.closedAt);
-  const sub = data.subscription as { plan: string; status: string; currentPeriodStart: string | null; currentPeriodEnd: string | null; cancelledAt: string | null } | null;
+  const sub = data.subscription as SubShape | null;
   const ownerUserId: string | undefined = data.user?.id ?? data.userId;
   const orderColumns: Column<any>[] = [
     { key: "n", header: "Order", render: (o) => <span className="font-black">{o.orderNumber}</span> },
@@ -236,7 +241,7 @@ function Metric({ label, value, hint }: { label: string; value: React.ReactNode;
 
 function SubscriptionCard({
   vendorId, sub, onSaved,
-}: { vendorId: string; sub: { plan: string; status: string; currentPeriodStart: string | null; currentPeriodEnd: string | null; cancelledAt: string | null } | null; onSaved: () => void }) {
+}: { vendorId: string; sub: SubShape | null; onSaved: () => void }) {
   const confirm = useConfirm();
   const [plan, setPlan] = useState(sub && sub.plan !== "FREE" ? sub.plan : "GROWTH");
   const [msg, setMsg] = useState("");
@@ -246,20 +251,28 @@ function SubscriptionCard({
       <KeyValue items={[
         { label: "Plan", value: sub ? (sub.plan === "FREE" ? "Legacy free (no trial)" : sub.plan.charAt(0) + sub.plan.slice(1).toLowerCase()) : "No subscription record" },
         { label: "Billing status", value: sub ? sub.status.toLowerCase().replace("_", " ") : NA },
+        {
+          label: "14-day trial",
+          value: !sub?.trialEndsAt
+            ? "No trial recorded"
+            : new Date(sub.trialEndsAt).getTime() > Date.now()
+              ? `In trial: ${formatDate(sub.trialStartedAt)} → ${formatDate(sub.trialEndsAt)} (${Math.ceil((new Date(sub.trialEndsAt).getTime() - Date.now()) / 86_400_000)} days left)`
+              : `Ended ${formatDate(sub.trialEndsAt)}`,
+        },
         { label: "Current period", value: sub?.currentPeriodStart ? `${formatDate(sub.currentPeriodStart)} → ${formatDate(sub.currentPeriodEnd)}` : NA },
         { label: "Next billing", value: sub?.currentPeriodEnd && sub.status === "ACTIVE" ? formatDate(sub.currentPeriodEnd) : NA },
         { label: "Cancelled", value: sub?.cancelledAt ? formatDateTime(sub.cancelledAt) : "No" },
       ]} />
-      <p className="mt-3 text-xs text-slate-500">New paid vendors start with a 14-day full-access trial through Stripe checkout. Trial start/end appear here once Stripe reports them.</p>
+      <p className="mt-3 text-xs text-slate-500">New Growth subscribers get a 14-day full-access trial through Stripe checkout. Dates come from Stripe (trial start/end) and update automatically.</p>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <select value={plan} onChange={(e) => setPlan(e.target.value)} aria-label="Plan to assign" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold">
           <option value="GROWTH">Growth</option>
           <option value="PRO">Pro</option>
         </select>
         <Button variant="secondary" onClick={() => confirm.ask(
-          { title: "Assign plan manually?", tone: "primary", confirmLabel: "Assign plan", description: "This overrides Stripe billing for this vendor. Use only to correct a billing problem." },
+          { title: "Override plan manually? (no billing)", tone: "primary", confirmLabel: "Assign plan", description: "This overrides Stripe billing for this vendor. Use only to correct a billing problem." },
           async (reason) => { await vendorsAPI.assignSellerPlan(vendorId, plan, reason); setMsg("Plan updated."); onSaved(); },
-        )}>Assign plan</Button>
+        )}>Override plan (no billing)</Button>
         {msg ? <span className="text-sm font-semibold text-slate-600">{msg}</span> : null}
       </div>
       {confirm.dialog}
