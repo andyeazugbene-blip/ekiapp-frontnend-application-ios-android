@@ -178,6 +178,16 @@ export default function OrdersScreen() {
                 >
                   <Text style={styles.openButtonText}>{canAccept ? "Review Order" : "View Details"}</Text>
                 </TouchableOpacity>
+                {order.status === "disputed" || order.dispute ? (
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: "/(vendor)/dispute-detail", params: { orderId: order.id } } as any)}
+                    activeOpacity={0.85}
+                    style={styles.disputeButton}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.disputeButtonText}>View Dispute</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             );
           })
@@ -222,5 +232,7 @@ const styles = StyleSheet.create({
   orderValue: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#282828", maxWidth: "65%", textAlign: "right" },
   escrowNote: { fontSize: 12, lineHeight: 18, fontFamily: "Outfit-Regular", color: "#24564A", marginTop: 10 },
   openButton: { marginTop: 16, height: 50, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  disputeButton: { marginTop: 10, height: 46, borderRadius: 14, borderWidth: 1.5, borderColor: "#FB6363", alignItems: "center", justifyContent: "center" },
+  disputeButtonText: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#FB6363" },
   openButtonText: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
 });

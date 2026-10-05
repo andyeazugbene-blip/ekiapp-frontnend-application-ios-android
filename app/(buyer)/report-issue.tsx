@@ -6,13 +6,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { ApiRequestError } from "../../services/api";
 import { orderService } from "../../services/orderService";
 import type { Order } from "../../types/order";
+import type { DisputeType } from "../../services/disputeService";
 import { goBackOrReplace } from "../../utils/navigation";
+import { classifyFailure } from "../../utils/disputeHelpers";
 
-const ISSUES = [
-  { id: "not_received", label: "Order not received", detail: "The order has not arrived as expected." },
-  { id: "wrong_item", label: "Wrong item", detail: "The delivered goods do not match what was ordered." },
-  { id: "damaged", label: "Damaged item", detail: "The items arrived damaged or unusable." },
-  { id: "other", label: "Other issue", detail: "Another delivery or order issue needs support." },
+const ISSUES: { id: string; type: DisputeType; label: string; detail: string }[] = [
+  { id: "not_received", type: "NOT_RECEIVED", label: "Order not received", detail: "The order has not arrived as expected." },
+  { id: "wrong_item", type: "WRONG_ITEM", label: "Wrong item", detail: "The delivered goods do not match what was ordered." },
+  { id: "damaged", type: "DAMAGED", label: "Damaged item", detail: "The items arrived damaged or unusable." },
+  { id: "quality", type: "QUALITY", label: "Quality issue", detail: "The goods are not of the expected quality." },
+  { id: "other", type: "OTHER", label: "Other issue", detail: "Another delivery or order issue needs support." },
 ];
 
 export default function ReportIssueScreen() {
@@ -26,6 +29,25 @@ export default function ReportIssueScreen() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [initialOrderNumber, setInitialOrderNumber] = useState<string | null>(null);
+  const [existingDisputeOrderId, setExistingDisputeOrderId] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!initialOrderId) return;
+    let active = true;
+    orderService
+      .getBuyerOrderById(initialOrderId)
+      .then((order) => {
+        if (active) setInitialOrderNumber(order.orderNumber);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [initialOrderId]);
 
   const resolvedIssue = useMemo(
     () => ISSUES.find((issue) => issue.id === selected) ?? ISSUES[0],
@@ -36,6 +58,7 @@ export default function ReportIssueScreen() {
     if (initialOrderId) return;
     let active = true;
     setLoadingOrders(true);
+    setOrdersError(null);
     orderService
       .getBuyerOrders()
       .then((list) => {
@@ -44,8 +67,10 @@ export default function ReportIssueScreen() {
         setOrders(eligible);
         setSelectedOrderId((current) => current ?? eligible[0]?.id);
       })
-      .catch(() => {
-        if (active) setOrders([]);
+      .catch((err) => {
+        if (!active) return;
+        setOrders([]);
+        setOrdersError(classifyFailure(err).message);
       })
       .finally(() => {
         if (active) setLoadingOrders(false);
@@ -53,7 +78,7 @@ export default function ReportIssueScreen() {
     return () => {
       active = false;
     };
-  }, [initialOrderId]);
+  }, [initialOrderId, reloadKey]);
 
   const selectedOrder = useMemo(
     () => orders.find((order) => order.id === selectedOrderId) ?? null,
@@ -73,15 +98,19 @@ export default function ReportIssueScreen() {
     const reason = [resolvedIssue.label, notes.trim()].filter(Boolean).join(" - ");
 
     setSubmitting(true);
+    setSubmitError(null);
+    setExistingDisputeOrderId(null);
     try {
-      await orderService.openBuyerDispute(targetOrderId, reason);
+      await orderService.openBuyerDispute(targetOrderId, reason, { type: resolvedIssue.type, claim: notes });
       setSubmitted(true);
-      Alert.alert("Dispute opened", "Support will review the order timeline and payment status.");
+      router.replace({ pathname: "/(buyer)/dispute-detail", params: { orderId: targetOrderId } } as any);
     } catch (err) {
+      const failure = classifyFailure(err);
       if (err instanceof ApiRequestError && err.status === 409) {
-        Alert.alert("Dispute already exists", err.message);
+        setExistingDisputeOrderId(targetOrderId);
+        setSubmitError(err.message);
       } else {
-        Alert.alert("Could not open dispute", err instanceof Error ? err.message : "Please try again.");
+        setSubmitError(failure.message);
       }
     } finally {
       setSubmitting(false);
@@ -104,11 +133,20 @@ export default function ReportIssueScreen() {
             If this order was shipped but something went wrong, open a dispute here. Support reviews the order timeline, messages, and payment status.
           </Text>
           {initialOrderId ? (
-            <Text style={styles.orderMeta}>Order reference: {initialOrderId}</Text>
+            <Text style={styles.orderMeta}>
+              {initialOrderNumber ? `Order reference: ${initialOrderNumber}` : "Reporting an issue with your selected order"}
+            </Text>
           ) : loadingOrders ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator color="#076B51" size="small" />
               <Text style={styles.loadingText}>Loading your orders...</Text>
+            </View>
+          ) : ordersError ? (
+            <View style={{ marginTop: 12, gap: 8 }}>
+              <Text style={[styles.orderMeta, { color: "#FB6363", marginTop: 0 }]}>{ordersError}</Text>
+              <TouchableOpacity onPress={() => setReloadKey((k) => k + 1)} activeOpacity={0.85} accessibilityRole="button">
+                <Text style={styles.orderMeta}>Try again</Text>
+              </TouchableOpacity>
             </View>
           ) : orders.length > 0 ? (
             <View style={styles.orderPicker}>
@@ -186,6 +224,21 @@ export default function ReportIssueScreen() {
           </Text>
         </View>
 
+        {submitError ? (
+          <View style={styles.card}>
+            <Text style={[styles.sectionBody, { color: "#FB6363" }]}>{submitError}</Text>
+            {existingDisputeOrderId ? (
+              <TouchableOpacity
+                onPress={() => router.replace({ pathname: "/(buyer)/dispute-detail", params: { orderId: existingDisputeOrderId } } as any)}
+                activeOpacity={0.85}
+                style={[styles.messageBtn, { marginTop: 12 }]}
+              >
+                <Text style={styles.messageBtnText}>View existing dispute</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
+
         <TouchableOpacity
           onPress={submitIssue}
           activeOpacity={0.85}
@@ -194,7 +247,7 @@ export default function ReportIssueScreen() {
         >
           <Ionicons name="warning-outline" size={16} color="#FFFFFF" />
           <Text style={styles.submitBtnText}>
-            {submitted ? "Dispute submitted" : submitting ? "Submitting..." : "Open Dispute"}
+            {submitted ? "Dispute submitted" : submitting ? "Submitting..." : submitError && !existingDisputeOrderId ? "Retry" : "Open Dispute"}
           </Text>
         </TouchableOpacity>
 

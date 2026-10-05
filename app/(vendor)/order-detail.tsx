@@ -16,6 +16,7 @@ import { payoutService } from "../../services/payoutService";
 import type { Order, VendorEarnings } from "../../types/order";
 import { openConversationThread } from "../../utils/messaging";
 import { goBackOrReplace } from "../../utils/navigation";
+import { canAddDeliveryProof } from "../../utils/disputeHelpers";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 
 import { useCurrencyStore } from "../../stores/currencyStore";
@@ -351,6 +352,28 @@ export default function OrderDetailScreen() {
               style={styles.secondaryAction}
             >
               <Text style={styles.secondaryActionText}>Mark Shipped</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {canAddDeliveryProof(order.status) ? (
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: "/(vendor)/delivery-proof", params: { id: order.id } } as any)}
+              activeOpacity={0.86}
+              style={styles.secondaryAction}
+              accessibilityRole="button"
+            >
+              <Text style={styles.secondaryActionText}>Delivery Proof</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {order.status === "disputed" || order.dispute ? (
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: "/(vendor)/dispute-detail", params: { orderId: order.id } } as any)}
+              activeOpacity={0.86}
+              style={styles.secondaryAction}
+              accessibilityRole="button"
+            >
+              <Text style={styles.secondaryActionText}>View Dispute</Text>
             </TouchableOpacity>
           ) : null}
 

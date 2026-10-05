@@ -18,6 +18,15 @@ interface CompletedUploadResponse {
   privateReadUrl?: string;
 }
 
+export type PrivateUploadCategory = "dispute_evidence" | "delivery_proof";
+
+export class UploadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UploadError";
+  }
+}
+
 export const uploadService = {
   async requestUploadUrl(fileName: string, contentType: string, folder = "products"): Promise<PresignedUrlResponse> {
     return apiClient.post<PresignedUrlResponse>("/api/uploads/request-url", {
@@ -63,4 +72,54 @@ export const uploadService = {
     }
     return url;
   },
+
+  /**
+   * Uploads a file for a private, asset-id based category (dispute_evidence, delivery_proof)
+   * and returns the completed asset id that the backend attaches to a dispute / order.
+   * Reports byte progress through XHR. Throws UploadError with a user-safe message.
+   */
+  async uploadPrivateAsset(opts: {
+    fileUri: string;
+    fileName: string;
+    contentType: string;
+    category: PrivateUploadCategory;
+    maxBytes: number;
+    onProgress?: (fraction: number) => void;
+  }): Promise<{ assetId: string }> {
+    const { fileUri, fileName, contentType, category, maxBytes, onProgress } = opts;
+    let blob: Blob;
+    try {
+      blob = await (await fetch(fileUri)).blob();
+    } catch {
+      throw new UploadError("Could not read the selected file. Please choose it again.");
+    }
+    if (blob.size > maxBytes) {
+      throw new UploadError(`This file is too large. The limit is ${Math.round(maxBytes / (1024 * 1024))} MB.`);
+    }
+
+    const { assetId, uploadUrl, key } = await apiClient.post<PresignedUrlResponse>("/api/uploads/request-url", {
+      filename: fileName,
+      contentType,
+      category,
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", uploadUrl);
+      xhr.setRequestHeader("Content-Type", contentType);
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) onProgress?.(event.loaded / event.total);
+      };
+      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new UploadError("The upload did not complete. Please try again.")));
+      xhr.onerror = () => reject(new UploadError("The upload failed. Check your connection and try again."));
+      xhr.ontimeout = () => reject(new UploadError("The upload timed out. Please try again."));
+      xhr.timeout = 120000;
+      xhr.send(blob);
+    });
+    onProgress?.(1);
+
+    await apiClient.post<CompletedUploadResponse>("/api/uploads/complete", { assetId, key, sizeBytes: blob.size });
+    return { assetId };
+  },
 };
+
