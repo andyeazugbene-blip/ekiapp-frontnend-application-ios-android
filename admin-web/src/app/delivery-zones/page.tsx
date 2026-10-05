@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { useConfirm } from "@/components/AdminKit";
+import { Banner, useConfirm } from "@/components/AdminKit";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { deliveryZonesAPI, DeliveryZone } from "@/lib/services/delivery-zones.api";
 import { APIError } from "@/lib/api";
 
@@ -18,6 +19,9 @@ const EMPTY_FORM = {
 
 export default function DeliveryZonesPage() {
   const confirm = useConfirm();
+  // Backend: list = delivery_zones.read; create / edit / pause / delete / repair = delivery_zones.mutate.
+  const { has, loading: permLoading } = usePermissions();
+  const canMutate = has("delivery_zones.mutate");
   const [zones, setZones] = useState<DeliveryZone[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -147,16 +151,17 @@ export default function DeliveryZonesPage() {
               title="Delivery zones"
               subtitle="Manage global delivery zones and shipping fee rules."
               actions={
-                <Button variant="secondary" disabled={fixingCurrencies} onClick={() => void handleFixCurrencies()}>
+                !canMutate ? null : <Button variant="secondary" disabled={fixingCurrencies} onClick={() => void handleFixCurrencies()}>
                   {fixingCurrencies ? "Checking..." : "Fix mismatched currencies"}
                 </Button>
               }
             />
 
             {error ? <ErrorPanel message={error} onRetry={() => setError("")} /> : null}
+            {!permLoading && !canMutate ? <Banner tone="info">Your role can view delivery zones but cannot change them.</Banner> : null}
 
-            <div className="grid gap-8 lg:grid-cols-[420px,1fr]">
-              <Card>
+            <div className={canMutate ? "grid gap-8 lg:grid-cols-[420px,1fr]" : "grid gap-8"}>
+              {canMutate ? <Card>
                 <h2 className="text-xl font-black">{editingId ? "Edit zone" : "Add zone"}</h2>
                 <div className="mt-6 space-y-4">
                   <div>
@@ -193,7 +198,7 @@ export default function DeliveryZonesPage() {
                     )}
                   </div>
                 </div>
-              </Card>
+              </Card> : null}
 
               <Card className="p-0">
                 {zones.length === 0 ? (
@@ -213,7 +218,7 @@ export default function DeliveryZonesPage() {
                             {zone.currency} {zone.baseFeeAmount.toFixed(2)} base{zone.feePerKgAmount > 0 ? ` + ${zone.feePerKgAmount.toFixed(2)}/kg` : ""}
                           </p>
                         </div>
-                        <div className="flex gap-2">
+                        {canMutate ? <div className="flex gap-2">
                           <Button variant="ghost" onClick={() => handleToggleActive(zone)}>
                             {zone.isActive ? "Pause" : "Activate"}
                           </Button>
@@ -223,7 +228,7 @@ export default function DeliveryZonesPage() {
                           <Button variant="danger" onClick={() => void handleDelete(zone.id)}>
                             Delete
                           </Button>
-                        </div>
+                        </div> : null}
                       </div>
                     ))}
                   </div>

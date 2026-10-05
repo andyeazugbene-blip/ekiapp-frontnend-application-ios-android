@@ -95,10 +95,10 @@ export const NAV_MODULES: NavModule[] = [
   {
     label: "GROWTH & COMMS",
     items: [
-      { name: "Automations", href: "/automation", perm: ["analytics.read"] },
+      { name: "Automations", href: "/automation", perm: ["automation.read"] },
       { name: "Communications", href: "/communications", perm: ["communications.read", "communications.send"], also: ["/communication"] },
       { name: "Conversations", href: "/support-messages", perm: ["support.read"], badge: "conversations" },
-      { name: "Content Review", href: "/content-review", perm: ["reports.read", "verification.read"], also: ["/uploads", "/content-reports"] },
+      { name: "Content Review", href: "/content-review", perm: ["content.read", "reports.read", "verification.read"], also: ["/uploads", "/content-reports"] },
       { name: "Send Offer", href: "/send-offer", perm: ["communications.send"] },
       { name: "Campaigns", href: "/campaigns", perm: ["campaigns.read"] },
       { name: "Analytics", href: "/analytics", perm: ["analytics.read"] },

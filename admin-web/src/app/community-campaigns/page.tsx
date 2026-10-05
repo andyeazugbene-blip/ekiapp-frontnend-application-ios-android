@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader, TextLink } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { useConfirm } from "@/components/AdminKit";
+import { Banner, formatDateTime, formatDate, formatMinor, useConfirm } from "@/components/AdminKit";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { ReviewDecisionDialog } from "./ReviewDecisionDialog";
-import { API2FARequiredError, APIError } from "@/lib/api";
+import { APIError } from "@/lib/api";
 import {
   communityBuyAdminAPI, isPendingApproval,
   type AdminCampaign, type AdminCancellationRequest, type AdminContribution, type AdminExtensionRequest, type AdminSupplierPayment,
@@ -14,9 +15,6 @@ import {
 } from "@/lib/services/communityBuy.api";
 import { countryDisplayName } from "@/lib/countries";
 
-function centsToUnit(value: unknown): number {
-  return typeof value === "number" ? value / 100 : 0;
-}
 
 const CLOSED_STATUS_TONE: Record<CampaignStatus, "green" | "amber" | "red" | "blue" | "gray"> = {
   DRAFT: "gray", UNDER_REVIEW: "amber", CHANGES_REQUIRED: "amber", APPROVED: "blue", REJECTED: "red",
@@ -48,13 +46,16 @@ const SUPPLIER_PAYMENT_STATUS_LABEL: Record<SupplierPaymentStatus, string> = {
 const CANCELLABLE_STATUSES: CampaignStatus[] = ["LIVE", "PAUSED", "RESCUE_WINDOW"];
 
 export default function CommunityCampaignsPage() {
-  const confirmPause = useConfirm();
+  const confirm = useConfirm();
+  // Backend: every queue here is community_buy.read; every action is community_buy.mutate (+2FA, prompted globally).
+  const { has, loading: permLoading } = usePermissions();
+  const canMutate = has("community_buy.mutate");
+  const [notice, setNotice] = useState<{ tone: "success" | "info" | "warning"; text: string } | null>(null);
   const [review, setReview] = useState<{ mode: "approve" | "reject"; id: string; title: string } | null>(null);
   const [items, setItems] = useState<AdminCampaign[]>([]);
   const [closed, setClosed] = useState<AdminCampaign[]>([]);
   const [extensionRequests, setExtensionRequests] = useState<AdminExtensionRequest[]>([]);
   const [cancellationRequests, setCancellationRequests] = useState<AdminCancellationRequest[]>([]);
-  const [cancellationNotesById, setCancellationNotesById] = useState<Record<string, string>>({});
   // Phase 5 (organiser<->supplier negotiation)
   const [supplierProposals, setSupplierProposals] = useState<AdminSupplierProposal[]>([]);
   const [proposalNotesById, setProposalNotesById] = useState<Record<string, string>>({});
@@ -64,23 +65,9 @@ export default function CommunityCampaignsPage() {
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notesById, setNotesById] = useState<Record<string, string>>({});
-  const [holdReasonById, setHoldReasonById] = useState<Record<string, string>>({});
-  const [cancelReasonById, setCancelReasonById] = useState<Record<string, string>>({});
   const [contributionsById, setContributionsById] = useState<Record<string, AdminContribution[]>>({});
   const [expandedContributionsId, setExpandedContributionsId] = useState<string | null>(null);
   const [contributionsLoadingId, setContributionsLoadingId] = useState<string | null>(null);
-  // P0-4: both release and hold require 2FA server-side (require2fa) — this
-  // page previously had no way to collect a code at all, so a 2FA-enabled
-  // admin's release/hold click just 403'd with no recovery. Mirrors the
-  // exact modal pattern already working on payout-requests/page.tsx.
-  const [pendingPaymentAction, setPendingPaymentAction] = useState<{ payment: AdminSupplierPayment; kind: "release" | "hold"; reason?: string } | null>(null);
-  const [twoFactorCode, setTwoFactorCode] = useState("");
-  // Phase 8 — cancel/end now requires 2FA server-side too (it can trigger a
-  // real refund under AT-25). Same retry pattern as pendingPaymentAction
-  // above, kept as its own state since the shape (campaignId/reason vs. a
-  // full AdminSupplierPayment) doesn't fit that union cleanly.
-  const [pendingCancelAction, setPendingCancelAction] = useState<{ campaignId: string; reason: string; title: string } | null>(null);
-
   const load = async (bypassCache = false) => {
     try {
       bypassCache ? setRefreshing(true) : setLoading(true);
@@ -122,153 +109,109 @@ export default function CommunityCampaignsPage() {
       const items = await communityBuyAdminAPI.getCampaignContributions(campaignId);
       setContributionsById((prev) => ({ ...prev, [campaignId]: items }));
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to load contributions");
+      setError(err instanceof APIError ? err.message : "Failed to load contributions");
     } finally {
       setContributionsLoadingId(null);
     }
   };
 
-  const runAction = async (id: string, action: () => Promise<AdminCampaign>) => {
+  /** Direct (non-dialog) action: failures surface in the page error banner instead of a browser alert. */
+  const runAction = async (id: string, action: () => Promise<unknown>, success?: string) => {
     setBusyId(id);
     try {
       await action();
-      await load();
+      if (success) setNotice({ tone: "success", text: success });
+      await load(true);
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Action failed");
+      setError(err instanceof APIError ? err.message : "Action failed");
     } finally {
       setBusyId(null);
     }
   };
 
-  const runExtensionAction = async (id: string, action: () => Promise<AdminExtensionRequest>) => {
+  /** Dialog action: errors are thrown so the confirm dialog shows them inline. */
+  const perform = async (id: string, action: () => Promise<unknown>, success?: string) => {
     setBusyId(id);
     try {
       await action();
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Action failed");
+      if (success) setNotice({ tone: "success", text: success });
+      await load(true);
     } finally {
       setBusyId(null);
     }
   };
 
-  const runRejectCancellation = async (id: string) => {
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.rejectCancellation(id, cancellationNotesById[id]);
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Action failed");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const askResume = (c: AdminCampaign) => confirm.ask(
+    { title: `Resume "${c.title}"?`, tone: "primary", confirmLabel: "Resume contributions", description: "New contributions are accepted again.", requireReason: false },
+    () => perform(c.id, () => communityBuyAdminAPI.resumeCampaign(c.id), "Campaign resumed."),
+  );
 
-  const runApproveCancellation = async (id: string) => {
-    setBusyId(id);
-    try {
-      const result = await communityBuyAdminAPI.approveCancellation(id);
-      if (isPendingApproval(result)) alert(result.message);
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Action failed");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const askPause = (c: AdminCampaign) => confirm.ask(
+    { title: `Pause "${c.title}"?`, description: "No new contributions are accepted until resumed. The organiser, supplier and participants are notified.", confirmLabel: "Pause campaign", reasonLabel: "Reason (shared with the organiser and supplier, recorded in the audit log)" },
+    (reason) => perform(c.id, () => communityBuyAdminAPI.pauseCampaign(c.id, reason), "Campaign paused."),
+  );
 
-  const runApproveProposal = async (id: string) => {
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.approveSupplierProposal(id);
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Action failed");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const askEnd = (c: AdminCampaign) => confirm.ask(
+    { title: `End "${c.title}" now?`, confirmLabel: "End campaign", description: "No participant has been charged yet, so this only voids pledges and never creates a refund. This cannot be undone. The organiser and every participant are notified.", reasonLabel: "Reason (shared with the organiser, recorded in the audit log)" },
+    (reason) => perform(c.id, () => communityBuyAdminAPI.cancelCampaign(c.id, reason), "Campaign ended."),
+  );
 
-  const runRequestProposalChanges = async (id: string, notes: string) => {
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.requestSupplierProposalChanges(id, notes);
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Action failed");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const askApproveExtension = (req: AdminExtensionRequest) => confirm.ask(
+    { title: "Approve this extension?", tone: "primary", confirmLabel: "Approve extension", description: `The campaign deadline moves to ${formatDateTime(req.requestedDeadline)}. Only one extension is allowed per campaign.`, requireReason: false },
+    () => perform(req.id, () => communityBuyAdminAPI.approveExtension(req.id), "Extension approved."),
+  );
 
-  // Release is handled separately because a
-  // four-eyes AdminApprovalRule can turn this into a 202 "pending a second
-  // admin's approval" response instead of an actual release — that must be
-  // shown as its own outcome, never mistaken for a completed release. It
-  // also requires 2FA server-side: a missing/invalid code throws
-  // API2FARequiredError, at which point we prompt for one rather than
-  // failing outright — the code is held only in local component state for
-  // the duration of this one retry, never persisted.
-  const runReleaseAction = async (payment: AdminSupplierPayment, code?: string) => {
-    setBusyId(payment.id);
-    try {
-      const result = await communityBuyAdminAPI.releaseSupplierPayment(payment.campaignId, code);
-      if (isPendingApproval(result)) {
-        // A second, different admin must decide this — the first admin must
-        // never be left thinking the money already moved.
-        alert(result.message);
-      } else {
-        alert("Payment released.");
+  const askRejectExtension = (req: AdminExtensionRequest) => confirm.ask(
+    { title: "Reject this extension request?", confirmLabel: "Reject extension", description: "The organiser is told the request was rejected.", reasonLabel: "Reason (sent to the organiser, recorded in the audit log)" },
+    (reason) => perform(req.id, () => communityBuyAdminAPI.rejectExtension(req.id, reason), "Extension rejected."),
+  );
+
+  const askApproveCancellation = (req: AdminCancellationRequest) => confirm.ask(
+    { title: "Approve this cancellation?", confirmLabel: "Approve cancellation", description: "Every paid participant will be refunded, and any not-yet-released supplier or organiser payout will be held. This cannot be undone.", requireReason: false },
+    async () => {
+      setBusyId(req.id);
+      try {
+        const result = await communityBuyAdminAPI.approveCancellation(req.id);
+        setNotice(isPendingApproval(result) ? { tone: "warning", text: result.message } : { tone: "success", text: "Cancellation approved. Refunds are being processed." });
+        await load(true);
+      } finally {
+        setBusyId(null);
       }
-      setPendingPaymentAction(null);
-      setTwoFactorCode("");
-      await load();
-    } catch (err) {
-      if (err instanceof API2FARequiredError) {
-        setPendingPaymentAction({ payment, kind: "release" });
-      } else {
-        alert(err instanceof APIError ? err.message : "Action failed");
-      }
-    } finally {
-      setBusyId(null);
-    }
-  };
+    },
+  );
 
-  const runHoldAction = async (payment: AdminSupplierPayment, reason: string, code?: string) => {
-    setBusyId(payment.id);
-    try {
-      await communityBuyAdminAPI.holdSupplierPayment(payment.campaignId, reason, code);
-      setPendingPaymentAction(null);
-      setTwoFactorCode("");
-      await load();
-    } catch (err) {
-      if (err instanceof API2FARequiredError) {
-        setPendingPaymentAction({ payment, kind: "hold", reason });
-      } else {
-        alert(err instanceof APIError ? err.message : "Action failed");
-      }
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const askRejectCancellation = (req: AdminCancellationRequest) => confirm.ask(
+    { title: "Reject this cancellation request?", confirmLabel: "Reject request", description: "The campaign resumes at its previous status.", reasonLabel: "Reason (shown to the organiser, recorded in the audit log)" },
+    (reason) => perform(req.id, () => communityBuyAdminAPI.rejectCancellation(req.id, reason), "Cancellation request rejected."),
+  );
 
-  const runCancelAction = async (campaignId: string, reason: string, title: string, code?: string) => {
-    setBusyId(campaignId);
-    try {
-      await communityBuyAdminAPI.cancelCampaign(campaignId, reason, code);
-      setPendingCancelAction(null);
-      setTwoFactorCode("");
-      await load();
-    } catch (err) {
-      if (err instanceof API2FARequiredError) {
-        setPendingCancelAction({ campaignId, reason, title });
-      } else {
-        alert(err instanceof APIError ? err.message : "Action failed");
+  const askForwardProposal = (p: AdminSupplierProposal) => confirm.ask(
+    { title: "Forward this proposal to the organiser?", tone: "primary", confirmLabel: "Forward to organiser", description: "The organiser decides. This does not change the campaign.", requireReason: false },
+    () => perform(p.id, () => communityBuyAdminAPI.approveSupplierProposal(p.id), "Proposal forwarded to the organiser."),
+  );
+
+  // A four-eyes AdminApprovalRule can turn a release into a 202 "pending a second admin's approval": that is its own
+  // outcome and must never read as a completed release.
+  const askRelease = (p: AdminSupplierPayment) => confirm.ask(
+    { title: `Release ${formatMinor(p.amount, p.currency)} to the supplier?`, confirmLabel: "Release payment", description: "This cannot be undone. A large release may need a second admin's approval before any money moves. Requires a 2FA code.", requireReason: false },
+    async () => {
+      setBusyId(p.id);
+      try {
+        const result = await communityBuyAdminAPI.releaseSupplierPayment(p.campaignId);
+        setNotice(isPendingApproval(result)
+          ? { tone: "warning", text: result.message }
+          : { tone: "success", text: "Release requested. The status updates once the provider confirms." });
+        await load(true);
+      } finally {
+        setBusyId(null);
       }
-    } finally {
-      setBusyId(null);
-    }
-  };
+    },
+  );
+
+  const askHold = (p: AdminSupplierPayment) => confirm.ask(
+    { title: "Place this supplier payment on hold?", confirmLabel: "Place on hold", description: "The payment will not be released until it is reviewed. Requires a 2FA code.", reasonLabel: "Hold reason (recorded in the audit log)" },
+    (reason) => perform(p.id, () => communityBuyAdminAPI.holdSupplierPayment(p.campaignId, reason), "Payment placed on hold."),
+  );
 
   return (
     <ProtectedRoute>
@@ -281,6 +224,8 @@ export default function CommunityCampaignsPage() {
               actions={<Button variant="ghost" disabled={refreshing} onClick={() => void load(true)}><Icon name="refresh" className="h-4 w-4" />{refreshing ? "Refreshing..." : "Refresh"}</Button>}
             />
             {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+            {notice ? <Banner tone={notice.tone}>{notice.text}</Banner> : null}
+            {!permLoading && !canMutate ? <Banner tone="info">Your role can view Community Buy queues but cannot approve, reject, pause, release or hold anything.</Banner> : null}
 
             <div className="grid gap-6 md:grid-cols-4">
               <MetricCard icon="clock" label="Under review" value={items.length} tone="amber" />
@@ -300,7 +245,7 @@ export default function CommunityCampaignsPage() {
                     <div key={c.id} className="rounded-2xl border border-slate-200 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <Badge tone="amber">{countryDisplayName(c.country)}</Badge>
-                        <span className="text-sm text-slate-500">{new Date(c.createdAt).toLocaleString()}</span>
+                        <span className="text-sm text-slate-500">{formatDateTime(c.createdAt)}</span>
                       </div>
                       <div className="mt-3 flex items-center justify-between gap-3">
                         <h3 className="text-lg font-bold text-[#101820]">{c.title}</h3>
@@ -315,10 +260,10 @@ export default function CommunityCampaignsPage() {
                             : `${c.supplier?.vendor?.storeName ?? "Unknown"} — ${c.supplierCommitted ? "✓ accepted" : c.supplierDeclinedAt ? `✗ declined${c.supplierDeclineReason ? `: ${c.supplierDeclineReason}` : ""}` : "⏳ awaiting response (not a blocker — this campaign can still be approved and published)"}`}
                         </span></p>
                         <p>Minimum / goal / maximum: <span className="font-semibold text-[#101820]">{c.minimumShares} / {c.goalShares} / {c.maximumShares} shares</span></p>
-                        <p>Price per share: <span className="font-semibold text-[#101820]">{centsToUnit(c.pricePerShareMinor).toFixed(2)} {c.currency}</span></p>
-                        <p>Deadline: <span className="font-semibold text-[#101820]">{new Date(c.deadline).toLocaleDateString()}</span></p>
+                        <p>Price per share: <span className="font-semibold text-[#101820]">{formatMinor(c.pricePerShareMinor, c.currency)}</span></p>
+                        <p>Deadline: <span className="font-semibold text-[#101820]">{formatDateTime(c.deadline)}</span></p>
                       </div>
-                      <textarea
+                      {canMutate ? <><textarea
                         placeholder="Notes for the organiser (required to request changes; approve and reject ask for their own notes)"
                         value={notesById[c.id] ?? ""}
                         onChange={(e) => setNotesById((prev) => ({ ...prev, [c.id]: e.target.value }))}
@@ -335,7 +280,7 @@ export default function CommunityCampaignsPage() {
                         <Button
                           variant="secondary"
                           disabled={busyId === c.id || !notesById[c.id]?.trim()}
-                          onClick={() => void runAction(c.id, () => communityBuyAdminAPI.requestCampaignChanges(c.id, notesById[c.id]!.trim()))}
+                          onClick={() => void runAction(c.id, () => communityBuyAdminAPI.requestCampaignChanges(c.id, notesById[c.id]!.trim()), "Changes requested from the organiser.")}
                         >
                           Request changes
                         </Button>
@@ -346,7 +291,7 @@ export default function CommunityCampaignsPage() {
                         >
                           Reject
                         </Button>
-                      </div>
+                      </div></> : null}
                     </div>
                   ))}
                 </div>
@@ -375,13 +320,13 @@ export default function CommunityCampaignsPage() {
                             : `${c.supplier?.vendor?.storeName ?? "Unknown"}${c.supplierCommitted ? " ✓ accepted" : c.supplierDeclinedAt ? " ✗ declined" : " ⏳ pending"}`}
                         </span></p>
                         <p>Confirmed shares: <span className="font-semibold text-[#101820]">{c.confirmedShares} of {c.maximumShares} (minimum {c.minimumShares}, goal {c.goalShares})</span></p>
-                        <p>Price per share: <span className="font-semibold text-[#101820]">{centsToUnit(c.pricePerShareMinor).toFixed(2)} {c.currency}</span></p>
+                        <p>Price per share: <span className="font-semibold text-[#101820]">{formatMinor(c.pricePerShareMinor, c.currency)}</span></p>
                         <p>Funding outcome: <span className="font-semibold text-[#101820]">{FUNDING_OUTCOME_LABEL[c.fundingOutcome]}</span></p>
-                        <p>Target value: <span className="font-semibold text-[#101820]">{centsToUnit(c.targetAmount).toFixed(2)} {c.currency}</span></p>
+                        <p>Target value: <span className="font-semibold text-[#101820]">{formatMinor(c.targetAmount, c.currency)}</span></p>
                         <p>Extensions used: <span className="font-semibold text-[#101820]">{c.extensionCount} of 1</span></p>
-                        <p>Deadline: <span className="font-semibold text-[#101820]">{new Date(c.deadline).toLocaleString()}</span></p>
-                        {c.paidTotal != null ? <p>Paid total: <span className="font-semibold text-[#101820]">{centsToUnit(c.paidTotal).toFixed(2)} {c.currency}</span></p> : null}
-                        {c.status === "RESCUE_WINDOW" && c.rescueEndsAt ? <p>Rescue window ends: <span className="font-semibold text-[#101820]">{new Date(c.rescueEndsAt).toLocaleString()}</span></p> : null}
+                        <p>Deadline: <span className="font-semibold text-[#101820]">{formatDateTime(c.deadline)}</span></p>
+                        {c.paidTotal != null ? <p>Paid total: <span className="font-semibold text-[#101820]">{formatMinor(c.paidTotal, c.currency)}</span></p> : null}
+                        {c.status === "RESCUE_WINDOW" && c.rescueEndsAt ? <p>Rescue window ends: <span className="font-semibold text-[#101820]">{formatDateTime(c.rescueEndsAt)}</span></p> : null}
                       </div>
                       {c.reviewNotes ? <p className="mt-2 text-sm text-slate-500">Notes: <span className="text-slate-700">{c.reviewNotes}</span></p> : null}
 
@@ -404,7 +349,7 @@ export default function CommunityCampaignsPage() {
                               {contributionsById[c.id].map((ct) => (
                                 <div key={ct.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2 text-sm last:border-0 last:pb-0">
                                   <span className="font-semibold text-[#101820]">{ct.participant.name} <span className="font-normal text-slate-500">({ct.participant.email})</span></span>
-                                  <span className="text-slate-600">{ct.quantity} share{ct.quantity === 1 ? "" : "s"} · {centsToUnit(ct.amount).toFixed(2)} {ct.currency}</span>
+                                  <span className="text-slate-600">{ct.quantity} share{ct.quantity === 1 ? "" : "s"} · {formatMinor(ct.amount, ct.currency)}</span>
                                   <Badge tone={ct.status === "PAID" ? "green" : ct.status.startsWith("REFUND") ? "amber" : ct.status === "CANCELLED" || ct.status === "PAYMENT_FAILED" || ct.status === "CHARGE_FAILED" ? "red" : "gray"}>
                                     {ct.status.replace(/_/g, " ")}
                                   </Badge>
@@ -416,54 +361,21 @@ export default function CommunityCampaignsPage() {
                         </div>
                       ) : null}
 
-                      {c.status === "LIVE" || c.status === "PAUSED" ? (
+                      {canMutate && (c.status === "LIVE" || c.status === "PAUSED") ? (
                         <div className="mt-4 flex flex-wrap gap-3 border-t border-slate-100 pt-4">
                           {c.status === "LIVE" ? (
-                            <Button
-                              variant="danger"
-                              disabled={busyId === c.id}
-                              onClick={() => confirmPause.ask(
-                                { title: `Pause "${c.title}"?`, description: "No new contributions are accepted until resumed. The organiser, supplier and participants are notified.", confirmLabel: "Pause campaign", reasonLabel: "Reason (shared with the organiser and supplier, recorded in the audit log)" },
-                                async (reason) => { await communityBuyAdminAPI.pauseCampaign(c.id, reason); await load(true); },
-                              )}
-                            >
-                              Pause new contributions
-                            </Button>
+                            <Button variant="danger" disabled={busyId === c.id} onClick={() => askPause(c)}>Pause new contributions</Button>
                           ) : (
-                            <Button
-                              variant="secondary"
-                              disabled={busyId === c.id}
-                              onClick={() => {
-                                if (confirm("Resume contributions for this campaign?")) void runAction(c.id, () => communityBuyAdminAPI.resumeCampaign(c.id));
-                              }}
-                            >
-                              Resume contributions
-                            </Button>
+                            <Button variant="secondary" disabled={busyId === c.id} onClick={() => askResume(c)}>Resume contributions</Button>
                           )}
                         </div>
                       ) : null}
 
-                      {CANCELLABLE_STATUSES.includes(c.status) ? (
+                      {canMutate && CANCELLABLE_STATUSES.includes(c.status) ? (
                         <div className="mt-4 border-t border-slate-100 pt-4">
-                          <p className="text-xs font-semibold text-slate-500">End this campaign — no participant has been charged yet, so this only voids pledges, never creates a refund. Irreversible.</p>
-                          <div className="mt-2 flex flex-wrap items-center gap-3">
-                            <input
-                              placeholder="Reason (required)"
-                              value={cancelReasonById[c.id] ?? ""}
-                              onChange={(e) => setCancelReasonById((prev) => ({ ...prev, [c.id]: e.target.value }))}
-                              className="w-72 rounded-xl border border-slate-200 p-2 text-sm"
-                            />
-                            <Button
-                              variant="danger"
-                              disabled={busyId === c.id || !cancelReasonById[c.id]?.trim()}
-                              onClick={() => {
-                                if (confirm(`End "${c.title}" now? This cannot be undone. The organiser and every participant will be notified; no one is charged.`)) {
-                                  void runCancelAction(c.id, cancelReasonById[c.id]!.trim(), c.title);
-                                }
-                              }}
-                            >
-                              End campaign
-                            </Button>
+                          <p className="text-xs font-semibold text-slate-500">End this campaign. No participant has been charged yet, so this only voids pledges and never creates a refund. Irreversible.</p>
+                          <div className="mt-2">
+                            <Button variant="danger" disabled={busyId === c.id} onClick={() => askEnd(c)}>End campaign</Button>
                           </div>
                         </div>
                       ) : null}
@@ -483,36 +395,21 @@ export default function CommunityCampaignsPage() {
                   {extensionRequests.map((req) => (
                     <div key={req.id} className="rounded-2xl border border-slate-200 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h3 className="text-base font-bold text-[#101820]">{req.campaign?.title ?? req.campaignId}</h3>
-                        <span className="text-sm text-slate-500">{new Date(req.createdAt).toLocaleString()}</span>
+                        <h3 className="text-base font-bold text-[#101820]">{req.campaign?.title ?? "Campaign title not provided"}</h3>
+                        <span className="text-sm text-slate-500">{formatDateTime(req.createdAt)}</span>
                       </div>
                       <div className="mt-2 grid gap-1 text-sm text-slate-600 md:grid-cols-2">
                         <p>Confirmed: <span className="font-semibold text-[#101820]">{req.campaign?.confirmedShares ?? "—"} of {req.campaign?.minimumShares ?? "—"} required</span></p>
-                        <p>Requested deadline: <span className="font-semibold text-[#101820]">{new Date(req.requestedDeadline).toLocaleString()}</span></p>
+                        <p>Requested deadline: <span className="font-semibold text-[#101820]">{formatDateTime(req.requestedDeadline)}</span></p>
                         <p>Supplier reconfirmed: <span className="font-semibold text-[#101820]">{req.supplierReconfirmed ? "Yes" : "No"}</span></p>
                         <p>Price unchanged: <span className="font-semibold text-[#101820]">{req.priceUnchangedConfirmed ? "Yes" : "No"}</span></p>
                         <p>Participant terms unchanged: <span className="font-semibold text-[#101820]">{req.participantTermsUnchanged ? "Yes" : "No"}</span></p>
                       </div>
                       <p className="mt-2 text-sm text-slate-600">Reason: {req.reason}</p>
-                      <div className="mt-4 flex flex-wrap gap-3">
-                        <Button
-                          disabled={busyId === req.id || !req.supplierReconfirmed || !req.priceUnchangedConfirmed}
-                          onClick={() => {
-                            if (confirm(`Approve this extension? The campaign deadline will move to ${new Date(req.requestedDeadline).toLocaleString()}.`)) void runExtensionAction(req.id, () => communityBuyAdminAPI.approveExtension(req.id));
-                          }}
-                        >
-                          Approve extension
-                        </Button>
-                        <Button
-                          variant="danger"
-                          disabled={busyId === req.id}
-                          onClick={() => {
-                            if (confirm("Reject this extension request?")) void runExtensionAction(req.id, () => communityBuyAdminAPI.rejectExtension(req.id));
-                          }}
-                        >
-                          Reject
-                        </Button>
-                      </div>
+                      {canMutate ? <div className="mt-4 flex flex-wrap gap-3">
+                        <Button disabled={busyId === req.id || !req.supplierReconfirmed || !req.priceUnchangedConfirmed} onClick={() => askApproveExtension(req)}>Approve extension</Button>
+                        <Button variant="danger" disabled={busyId === req.id} onClick={() => askRejectExtension(req)}>Reject</Button>
+                      </div> : null}
                     </div>
                   ))}
                 </div>
@@ -529,40 +426,18 @@ export default function CommunityCampaignsPage() {
                   {cancellationRequests.map((req) => (
                     <div key={req.id} className="rounded-2xl border border-slate-200 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h3 className="text-base font-bold text-[#101820]">{req.campaign?.title ?? req.campaignId}</h3>
-                        <span className="text-sm text-slate-500">{new Date(req.createdAt).toLocaleString()}</span>
+                        <h3 className="text-base font-bold text-[#101820]">{req.campaign?.title ?? "Campaign title not provided"}</h3>
+                        <span className="text-sm text-slate-500">{formatDateTime(req.createdAt)}</span>
                       </div>
                       <div className="mt-2 grid gap-1 text-sm text-slate-600 md:grid-cols-2">
                         <p>Confirmed shares: <span className="font-semibold text-[#101820]">{req.campaign?.confirmedShares ?? "—"}</span></p>
-                        <p>Paid so far: <span className="font-semibold text-[#101820]">{req.campaign?.paidTotal != null ? `${centsToUnit(req.campaign.paidTotal).toFixed(2)} ${req.campaign.currency}` : "—"}</span></p>
+                        <p>Paid so far: <span className="font-semibold text-[#101820]">{req.campaign?.paidTotal != null ? `${formatMinor(req.campaign.paidTotal, req.campaign.currency)}` : "—"}</span></p>
                       </div>
                       <p className="mt-2 text-sm text-slate-600">Reason: {req.reason}</p>
-                      <textarea
-                        placeholder="Notes for the organiser (shown only if rejected)"
-                        value={cancellationNotesById[req.id] ?? ""}
-                        onChange={(e) => setCancellationNotesById((prev) => ({ ...prev, [req.id]: e.target.value }))}
-                        className="mt-3 w-full rounded-xl border border-slate-200 p-3 text-sm"
-                        rows={2}
-                      />
-                      <div className="mt-4 flex flex-wrap gap-3">
-                        <Button
-                          disabled={busyId === req.id}
-                          onClick={() => {
-                            if (confirm("Approve this cancellation? Every paid participant will be refunded, and any not-yet-released supplier/organiser payout will be held. This can't be undone.")) void runApproveCancellation(req.id);
-                          }}
-                        >
-                          Approve cancellation
-                        </Button>
-                        <Button
-                          variant="danger"
-                          disabled={busyId === req.id}
-                          onClick={() => {
-                            if (confirm("Reject this cancellation request? The campaign resumes at its previous status.")) void runRejectCancellation(req.id);
-                          }}
-                        >
-                          Reject
-                        </Button>
-                      </div>
+                      {canMutate ? <div className="mt-4 flex flex-wrap gap-3">
+                        <Button disabled={busyId === req.id} onClick={() => askApproveCancellation(req)}>Approve cancellation</Button>
+                        <Button variant="danger" disabled={busyId === req.id} onClick={() => askRejectCancellation(req)}>Reject</Button>
+                      </div> : null}
                     </div>
                   ))}
                 </div>
@@ -579,17 +454,17 @@ export default function CommunityCampaignsPage() {
                   {supplierProposals.map((p) => (
                     <div key={p.id} className="rounded-2xl border border-slate-200 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h3 className="text-base font-bold text-[#101820]">{p.campaign?.title ?? p.campaignId}</h3>
-                        <span className="text-sm text-slate-500">{new Date(p.createdAt).toLocaleString()}</span>
+                        <h3 className="text-base font-bold text-[#101820]">{p.campaign?.title ?? "Campaign title not provided"}</h3>
+                        <span className="text-sm text-slate-500">{formatDateTime(p.createdAt)}</span>
                       </div>
                       <div className="mt-2 grid gap-1 text-sm text-slate-600 md:grid-cols-2">
-                        {p.proposedWholesaleAmountMinor != null ? <p>Proposed wholesale amount: <span className="font-semibold text-[#101820]">{centsToUnit(p.proposedWholesaleAmountMinor).toFixed(2)}</span></p> : null}
+                        {p.proposedWholesaleAmountMinor != null ? <p>Proposed wholesale amount: <span className="font-semibold text-[#101820]">{(p.proposedWholesaleAmountMinor / 100).toFixed(2)} (campaign currency)</span></p> : null}
                         {p.proposedMaximumShares != null ? <p>Proposed maximum shares: <span className="font-semibold text-[#101820]">{p.proposedMaximumShares}</span> (currently {p.campaign?.maximumShares ?? "—"}, {p.campaign?.confirmedShares ?? "—"} confirmed)</p> : null}
-                        {p.proposedReadyByDate ? <p>Proposed ready-by date: <span className="font-semibold text-[#101820]">{new Date(p.proposedReadyByDate).toLocaleDateString()}</span></p> : null}
+                        {p.proposedReadyByDate ? <p>Proposed ready-by date: <span className="font-semibold text-[#101820]">{formatDate(p.proposedReadyByDate)}</span></p> : null}
                         {p.revisionCount > 0 ? <p>Revisions: <span className="font-semibold text-[#101820]">{p.revisionCount}</span></p> : null}
                       </div>
                       <p className="mt-2 text-sm text-slate-600">Message: {p.message}</p>
-                      <textarea
+                      {canMutate ? <><textarea
                         placeholder="Notes for the supplier (required to request changes)"
                         value={proposalNotesById[p.id] ?? ""}
                         onChange={(e) => setProposalNotesById((prev) => ({ ...prev, [p.id]: e.target.value }))}
@@ -597,22 +472,15 @@ export default function CommunityCampaignsPage() {
                         rows={2}
                       />
                       <div className="mt-4 flex flex-wrap gap-3">
-                        <Button
-                          disabled={busyId === p.id}
-                          onClick={() => {
-                            if (confirm("Forward this proposal to the organiser for their decision?")) void runApproveProposal(p.id);
-                          }}
-                        >
-                          Forward to organiser
-                        </Button>
+                        <Button disabled={busyId === p.id} onClick={() => askForwardProposal(p)}>Forward to organiser</Button>
                         <Button
                           variant="danger"
                           disabled={busyId === p.id || !proposalNotesById[p.id]?.trim()}
-                          onClick={() => void runRequestProposalChanges(p.id, proposalNotesById[p.id]!.trim())}
+                          onClick={() => void runAction(p.id, () => communityBuyAdminAPI.requestSupplierProposalChanges(p.id, proposalNotesById[p.id]!.trim()), "Changes requested from the supplier.")}
                         >
                           Request changes
                         </Button>
-                      </div>
+                      </div></> : null}
                     </div>
                   ))}
                 </div>
@@ -629,40 +497,19 @@ export default function CommunityCampaignsPage() {
                   {supplierPayments.map((p) => (
                     <div key={p.id} className="rounded-2xl border border-slate-200 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h3 className="text-base font-bold text-[#101820]">{p.campaign?.title ?? p.campaignId}</h3>
+                        <h3 className="text-base font-bold text-[#101820]">{p.campaign?.title ?? "Campaign title not provided"}</h3>
                         <Badge tone={p.status === "PAID" ? "green" : p.status === "ON_HOLD" || p.status === "FAILED" ? "red" : "amber"}>{SUPPLIER_PAYMENT_STATUS_LABEL[p.status]}</Badge>
                       </div>
                       <div className="mt-2 grid gap-1 text-sm text-slate-600 md:grid-cols-2">
-                        <p>Amount: <span className="font-semibold text-[#101820]">{centsToUnit(p.amount).toFixed(2)} {p.currency}</span></p>
+                        <p>Amount: <span className="font-semibold text-[#101820]">{formatMinor(p.amount, p.currency)}</span></p>
                         <p>Final quantity: <span className="font-semibold text-[#101820]">{p.campaign?.confirmedShares ?? "—"}</span></p>
-                        <p>Requested: <span className="font-semibold text-[#101820]">{new Date(p.createdAt).toLocaleString()}</span></p>
+                        <p>Requested: <span className="font-semibold text-[#101820]">{formatDateTime(p.createdAt)}</span></p>
                         {p.holdReason ? <p className="md:col-span-2">Hold reason: <span className="font-semibold text-[#101820]">{p.holdReason}</span></p> : null}
                       </div>
-                      {p.status !== "PAID" ? (
+                      {canMutate && p.status !== "PAID" ? (
                         <div className="mt-4 flex flex-wrap items-center gap-3">
-                          <Button
-                            disabled={busyId === p.id}
-                            onClick={() => {
-                              if (confirm(`Release ${centsToUnit(p.amount).toFixed(2)} ${p.currency} to the supplier? This cannot be undone. Large releases may require a second admin's approval before funds actually move.`)) void runReleaseAction(p);
-                            }}
-                          >
-                            Approve release
-                          </Button>
-                          <input
-                            placeholder="Hold reason"
-                            value={holdReasonById[p.id] ?? ""}
-                            onChange={(e) => setHoldReasonById((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                            className="rounded-xl border border-slate-200 p-2 text-sm"
-                          />
-                          <Button
-                            variant="secondary"
-                            disabled={busyId === p.id || !holdReasonById[p.id]?.trim()}
-                            onClick={() => {
-                              if (confirm("Place this supplier payment on hold?")) void runHoldAction(p, holdReasonById[p.id]!.trim());
-                            }}
-                          >
-                            Place on hold
-                          </Button>
+                          <Button disabled={busyId === p.id} onClick={() => askRelease(p)}>Approve release</Button>
+                          <Button variant="secondary" disabled={busyId === p.id} onClick={() => askHold(p)}>Place on hold</Button>
                         </div>
                       ) : null}
                     </div>
@@ -673,78 +520,7 @@ export default function CommunityCampaignsPage() {
           </div>
         )}
 
-        {/* 2FA modal — release/hold both require it server-side (require2fa).
-            Never claim the payment is released here: submitting just retries
-            the same action with the code; the real outcome (paid, or
-            pending a second admin's approval) is reported after that call
-            returns, exactly as the no-2FA path already does. */}
-        {pendingPaymentAction ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-            <Card className="w-full max-w-md">
-              <h3 className="text-xl font-black text-[#101820]">Enter 2FA code</h3>
-              <p className="mt-2 text-sm text-slate-500">
-                {pendingPaymentAction.kind === "release"
-                  ? <>Confirm the release of <span className="font-bold">{centsToUnit(pendingPaymentAction.payment.amount).toFixed(2)} {pendingPaymentAction.payment.currency}</span> to the supplier.</>
-                  : "Confirm placing this supplier payment on hold."}
-              </p>
-              <input
-                autoFocus
-                inputMode="numeric"
-                value={twoFactorCode}
-                onChange={(e) => setTwoFactorCode(e.target.value)}
-                placeholder="6-digit code"
-                className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none"
-              />
-              <div className="mt-4 flex gap-3">
-                <Button
-                  disabled={busyId === pendingPaymentAction.payment.id || !twoFactorCode.trim()}
-                  onClick={() => {
-                    if (pendingPaymentAction.kind === "release") void runReleaseAction(pendingPaymentAction.payment, twoFactorCode.trim());
-                    else void runHoldAction(pendingPaymentAction.payment, pendingPaymentAction.reason ?? "", twoFactorCode.trim());
-                  }}
-                  className="flex-1"
-                >
-                  Confirm
-                </Button>
-                <Button variant="ghost" className="flex-1" onClick={() => { setPendingPaymentAction(null); setTwoFactorCode(""); }}>
-                  Cancel
-                </Button>
-              </div>
-            </Card>
-          </div>
-        ) : null}
-
-        {pendingCancelAction ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-            <Card className="w-full max-w-md">
-              <h3 className="text-xl font-black text-[#101820]">Enter 2FA code</h3>
-              <p className="mt-2 text-sm text-slate-500">
-                Confirm ending <span className="font-bold">{pendingCancelAction.title}</span>. This cannot be undone.
-              </p>
-              <input
-                autoFocus
-                inputMode="numeric"
-                value={twoFactorCode}
-                onChange={(e) => setTwoFactorCode(e.target.value)}
-                placeholder="6-digit code"
-                className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none"
-              />
-              <div className="mt-4 flex gap-3">
-                <Button
-                  disabled={busyId === pendingCancelAction.campaignId || !twoFactorCode.trim()}
-                  onClick={() => void runCancelAction(pendingCancelAction.campaignId, pendingCancelAction.reason, pendingCancelAction.title, twoFactorCode.trim())}
-                  className="flex-1"
-                >
-                  Confirm
-                </Button>
-                <Button variant="ghost" className="flex-1" onClick={() => { setPendingCancelAction(null); setTwoFactorCode(""); }}>
-                  Cancel
-                </Button>
-              </div>
-            </Card>
-          </div>
-        ) : null}
-        {confirmPause.dialog}
+        {confirm.dialog}
         {review ? (
           <ReviewDecisionDialog mode={review.mode} campaignId={review.id} campaignTitle={review.title} onClose={() => setReview(null)} onDone={() => load(true)} />
         ) : null}

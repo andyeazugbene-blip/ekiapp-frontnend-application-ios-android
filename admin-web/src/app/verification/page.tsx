@@ -12,6 +12,7 @@ import { ProviderBadges, ProviderReadinessView, ProviderStageBadge } from "@/com
 import { verificationAPI } from "@/lib/services/verification.api";
 import { vendorsAPI } from "@/lib/services/vendors.api";
 import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import type { VendorStripeStatus, VerificationQueueItem, VerificationReviewDetails } from "@/types";
 
 type QueueStatus = "all" | "pending" | "verified" | "rejected";
@@ -65,6 +66,8 @@ function VerificationInner() {
   const [drawerError, setDrawerError] = useState("");
   const [notice, setNotice] = useState("");
   const confirm = useConfirm();
+  // Backend: review actions, file deletion and reminders all need verification.mutate.
+  const canMutate = usePermissions().has("verification.mutate");
 
   const load = useCallback(async () => {
     try {
@@ -126,7 +129,7 @@ function VerificationInner() {
         tone: "primary",
         confirmLabel: "Approve",
         description: "Legacy document review only. The vendor has no Stripe record, so Eki staff are the reviewer of record. This is audited.",
-        reasonLabel: "Reason / what you checked",
+        requireReason: false,
       },
       async () => {
         setSelected(await verificationAPI.approveVendor(selected.vendor.vendorId));
@@ -266,7 +269,7 @@ function VerificationInner() {
               <section>
                 <h3 className="mb-3 text-lg font-black text-[#101820]">Stripe provider state</h3>
                 {stripe ? (
-                  <ProviderReadinessView data={stripe} busy={drawerBusy} onRefresh={() => void refreshStripe()} onRemind={() => void remind()} />
+                  <ProviderReadinessView data={stripe} busy={drawerBusy} onRefresh={() => void refreshStripe()} onRemind={canMutate ? () => void remind() : undefined} />
                 ) : (
                   <Banner tone="warning">Live Stripe status could not be loaded. Showing the last stored state from the queue.</Banner>
                 )}
@@ -305,13 +308,13 @@ function VerificationInner() {
                     </div>
                   )}
                   <div className="mt-4 flex flex-wrap gap-3">
-                    {selected.manualReviewAllowed ? (
+                    {canMutate && selected.manualReviewAllowed ? (
                       <>
                         <Button onClick={legacyApprove} disabled={drawerBusy}>Approve (legacy)</Button>
                         <Button variant="danger" onClick={legacyReject} disabled={drawerBusy}>Reject (legacy)</Button>
                       </>
                     ) : null}
-                    <Button variant="ghost" onClick={deleteFiles} disabled={drawerBusy || selected.docsAlreadyDeleted}>Delete proof files now</Button>
+                    {canMutate ? <Button variant="ghost" onClick={deleteFiles} disabled={drawerBusy || selected.docsAlreadyDeleted}>Delete proof files now</Button> : null}
                   </div>
                 </section>
               ) : null}

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { Banner, formatDate, useConfirm } from "@/components/AdminKit";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { APIError } from "@/lib/api";
 import { communityBuyAdminAPI, type PendingOrganiser, type PendingSupplier } from "@/lib/services/communityBuy.api";
 import { countryDisplayName } from "@/lib/countries";
@@ -16,8 +18,11 @@ export default function CommunityVerificationPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [restrictReasonById, setRestrictReasonById] = useState<Record<string, string>>({});
+  const [notice, setNotice] = useState("");
+  const confirm = useConfirm();
+  // Backend: lists = community_buy.read; verify / restrict / lift = community_buy.mutate.
+  const { has, loading: permLoading } = usePermissions();
+  const canMutate = has("community_buy.mutate");
 
   const load = async (bypassCache = false) => {
     try {
@@ -44,89 +49,54 @@ export default function CommunityVerificationPage() {
 
   useEffect(() => { void load(); }, []);
 
-  const verifyOrganiser = async (id: string) => {
-    if (!confirm("Verify this organiser? They will be able to create and publish Community Buy campaigns.")) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.verifyOrganiser(id);
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to verify organiser");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  // All actions run inside the confirm dialog so failures show there (no browser alerts).
+  const done = async (message: string) => { setNotice(message); await load(true); };
 
-  const verifySupplier = async (id: string) => {
-    if (!confirm("Verify this supplier? They will be able to accept Community Buy campaign invitations.")) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.verifySupplier(id);
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to verify supplier");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const askVerify = (kind: "organiser" | "supplier", id: string, name: string) => confirm.ask(
+    {
+      title: `Verify ${name}?`,
+      tone: "primary",
+      confirmLabel: "Verify",
+      description: kind === "organiser"
+        ? "They will be able to create and publish Community Buy campaigns."
+        : "They will be able to accept Community Buy campaign invitations.",
+      requireReason: false,
+    },
+    async () => {
+      if (kind === "organiser") await communityBuyAdminAPI.verifyOrganiser(id);
+      else await communityBuyAdminAPI.verifySupplier(id);
+      await done(`${name} verified.`);
+    },
+  );
 
-  const restrictOrganiser = async (id: string) => {
-    const reason = restrictReasonById[id]?.trim();
-    if (!reason) return;
-    if (!confirm("Restrict this organiser from taking on new campaigns? Existing live campaigns are unaffected.")) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.restrictOrganiser(id, reason);
-      setRestrictReasonById((prev) => ({ ...prev, [id]: "" }));
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to restrict organiser");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const askRestrict = (kind: "organiser" | "supplier", id: string, name: string) => confirm.ask(
+    {
+      title: `Restrict ${name}?`,
+      confirmLabel: "Restrict",
+      description: `Stops this ${kind} from taking on new campaigns. Existing live campaigns are unaffected and verification is kept.`,
+      reasonLabel: "Restriction reason (recorded in the audit log)",
+    },
+    async (reason) => {
+      if (kind === "organiser") await communityBuyAdminAPI.restrictOrganiser(id, reason);
+      else await communityBuyAdminAPI.restrictSupplier(id, reason);
+      await done(`${name} restricted.`);
+    },
+  );
 
-  const unrestrictOrganiser = async (id: string) => {
-    if (!confirm("Lift this organiser's restriction? They will be able to take on new campaigns again.")) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.unrestrictOrganiser(id);
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to lift restriction");
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const restrictSupplier = async (id: string) => {
-    const reason = restrictReasonById[id]?.trim();
-    if (!reason) return;
-    if (!confirm("Restrict this supplier from taking on new campaigns? Existing live campaigns are unaffected.")) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.restrictSupplier(id, reason);
-      setRestrictReasonById((prev) => ({ ...prev, [id]: "" }));
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to restrict supplier");
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const unrestrictSupplier = async (id: string) => {
-    if (!confirm("Lift this supplier's restriction? They will be able to take on new campaigns again.")) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.unrestrictSupplier(id);
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to lift restriction");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const askLift = (kind: "organiser" | "supplier", id: string, name: string) => confirm.ask(
+    {
+      title: `Lift the restriction on ${name}?`,
+      tone: "primary",
+      confirmLabel: "Lift restriction",
+      description: `They will be able to take on new campaigns again.`,
+      requireReason: false,
+    },
+    async () => {
+      if (kind === "organiser") await communityBuyAdminAPI.unrestrictOrganiser(id);
+      else await communityBuyAdminAPI.unrestrictSupplier(id);
+      await done(`Restriction on ${name} lifted.`);
+    },
+  );
 
   return (
     <ProtectedRoute>
@@ -139,6 +109,8 @@ export default function CommunityVerificationPage() {
               actions={<Button variant="ghost" disabled={refreshing} onClick={() => void load(true)}><Icon name="refresh" className="h-4 w-4" />{refreshing ? "Refreshing..." : "Refresh"}</Button>}
             />
             {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
+            {notice ? <Banner tone="success">{notice}</Banner> : null}
+            {!permLoading && !canMutate ? <Banner tone="info">Your role can view applications but cannot verify or restrict organisers and suppliers.</Banner> : null}
 
             <div className="grid gap-6 md:grid-cols-2">
               <MetricCard icon="user" label="Pending organisers" value={organisers.length} tone="amber" />
@@ -157,9 +129,9 @@ export default function CommunityVerificationPage() {
                         <div>
                           <p className="text-sm font-bold text-[#101820]">{o.user?.name ?? "Unknown"}</p>
                           <p className="text-xs text-slate-500">{o.user?.email} · <Badge tone="gray">{countryDisplayName(o.country)}</Badge></p>
-                          <p className="mt-1 text-xs text-slate-400">Applied {new Date(o.createdAt).toLocaleDateString()}</p>
+                          <p className="mt-1 text-xs text-slate-400">Applied {formatDate(o.createdAt)}</p>
                         </div>
-                        <Button disabled={busyId === o.id} onClick={() => void verifyOrganiser(o.id)}>Verify</Button>
+                        {canMutate ? <Button onClick={() => askVerify("organiser", o.id, o.user?.name ?? "this organiser")}>Verify</Button> : null}
                       </div>
                     ))}
                   </div>
@@ -180,9 +152,9 @@ export default function CommunityVerificationPage() {
                             <Badge tone={s.vendor?.verificationStatus === "VERIFIED" ? "green" : "amber"}>{s.vendor?.verificationStatus ?? "UNKNOWN"}</Badge>
                             {" "}· <Badge tone="gray">{countryDisplayName(s.country)}</Badge>
                           </p>
-                          <p className="mt-1 text-xs text-slate-400">Applied {new Date(s.createdAt).toLocaleDateString()}</p>
+                          <p className="mt-1 text-xs text-slate-400">Applied {formatDate(s.createdAt)}</p>
                         </div>
-                        <Button disabled={busyId === s.id} onClick={() => void verifySupplier(s.id)}>Verify</Button>
+                        {canMutate ? <Button onClick={() => askVerify("supplier", s.id, s.vendor?.storeName ?? "this supplier")}>Verify</Button> : null}
                       </div>
                     ))}
                   </div>
@@ -214,19 +186,13 @@ export default function CommunityVerificationPage() {
                         {o.isRestricted ? (
                           <div className="mt-3 flex items-center justify-between gap-3">
                             {o.restrictedReason ? <p className="text-xs text-slate-500">Reason: {o.restrictedReason}</p> : <span />}
-                            <Button variant="secondary" disabled={busyId === o.id} onClick={() => void unrestrictOrganiser(o.id)}>Lift restriction</Button>
+                            {canMutate ? <Button variant="secondary" onClick={() => askLift("organiser", o.id, o.user?.name ?? "this organiser")}>Lift restriction</Button> : null}
                           </div>
-                        ) : (
-                          <div className="mt-3 flex flex-wrap items-center gap-3">
-                            <input
-                              placeholder="Restriction reason"
-                              value={restrictReasonById[o.id] ?? ""}
-                              onChange={(e) => setRestrictReasonById((prev) => ({ ...prev, [o.id]: e.target.value }))}
-                              className="flex-1 rounded-xl border border-slate-200 p-2 text-sm"
-                            />
-                            <Button variant="danger" disabled={busyId === o.id || !restrictReasonById[o.id]?.trim()} onClick={() => void restrictOrganiser(o.id)}>Restrict</Button>
+                        ) : canMutate ? (
+                          <div className="mt-3 flex justify-end">
+                            <Button variant="danger" onClick={() => askRestrict("organiser", o.id, o.user?.name ?? "this organiser")}>Restrict…</Button>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -251,19 +217,13 @@ export default function CommunityVerificationPage() {
                         {s.isRestricted ? (
                           <div className="mt-3 flex items-center justify-between gap-3">
                             {s.restrictedReason ? <p className="text-xs text-slate-500">Reason: {s.restrictedReason}</p> : <span />}
-                            <Button variant="secondary" disabled={busyId === s.id} onClick={() => void unrestrictSupplier(s.id)}>Lift restriction</Button>
+                            {canMutate ? <Button variant="secondary" onClick={() => askLift("supplier", s.id, s.vendor?.storeName ?? "this supplier")}>Lift restriction</Button> : null}
                           </div>
-                        ) : (
-                          <div className="mt-3 flex flex-wrap items-center gap-3">
-                            <input
-                              placeholder="Restriction reason"
-                              value={restrictReasonById[s.id] ?? ""}
-                              onChange={(e) => setRestrictReasonById((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                              className="flex-1 rounded-xl border border-slate-200 p-2 text-sm"
-                            />
-                            <Button variant="danger" disabled={busyId === s.id || !restrictReasonById[s.id]?.trim()} onClick={() => void restrictSupplier(s.id)}>Restrict</Button>
+                        ) : canMutate ? (
+                          <div className="mt-3 flex justify-end">
+                            <Button variant="danger" onClick={() => askRestrict("supplier", s.id, s.vendor?.storeName ?? "this supplier")}>Restrict…</Button>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -272,6 +232,7 @@ export default function CommunityVerificationPage() {
             </div>
           </div>
         )}
+        {confirm.dialog}
       </AdminLayout>
     </ProtectedRoute>
   );

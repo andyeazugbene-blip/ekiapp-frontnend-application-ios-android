@@ -11,6 +11,9 @@ function normalizePayoutRequest(raw: any): AdminPayoutRequest {
   return {
     id: raw.id,
     vendorId: raw.vendorId ?? "",
+    vendorName: raw.vendor?.storeName ?? null,
+    stripeTransferId: raw.stripeTransferId ?? null,
+    holdReason: raw.holdReason ?? null,
     payoutMethodId: raw.payoutMethodId ?? "",
     amount: centsToUnit(raw.amount),
     currency: (raw.currency ?? "GBP").toUpperCase(),

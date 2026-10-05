@@ -8,7 +8,6 @@ import { Badge, Button, Card, ErrorPanel, PageHeader } from "@/components/AdminU
 import { Banner, QueueTile, formatDateTime, formatMinor, timeAgo } from "@/components/AdminKit";
 import { NoAccess, SkeletonRows, SkeletonTiles } from "@/components/PageStates";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { convertMoney, useCurrency } from "@/contexts/CurrencyContext";
 import { useActionCentre } from "@/lib/hooks/useActionCentre";
 import { ActionSection, MoneyByCurrency, Severity } from "@/lib/services/dashboard.api";
 
@@ -105,7 +104,6 @@ function Overview() {
   const pathname = usePathname();
   const params = useSearchParams();
   const includeTest = params.get("includeTest") === "true";
-  const { selectedCurrency } = useCurrency();
   const { data, fetchedAt, loading, error, refresh } = useActionCentre(includeTest);
 
   const setIncludeTest = (value: boolean) => {
@@ -119,13 +117,6 @@ function Overview() {
     () => (data?.sections ?? []).filter((s) => s.state === "unavailable" || (s.state === "ok" && s.count > 0)),
     [data],
   );
-
-  const gmvApprox = useMemo(() => {
-    if (!data?.kpis || data.kpis.gmv.length === 0) return null;
-    const needs = data.kpis.gmv.length > 1 || data.kpis.gmv[0].currency.toUpperCase() !== selectedCurrency;
-    if (!needs) return null;
-    return data.kpis.gmv.reduce((sum, g) => sum + convertMoney(g.amountMinor / 100, g.currency, selectedCurrency), 0);
-  }, [data, selectedCurrency]);
 
   const updated = fetchedAt ? formatDateTime(new Date(fetchedAt)) : null;
 
@@ -237,12 +228,6 @@ function Overview() {
                     <p className="mt-2 text-2xl font-black text-[#101820]">{data.kpis.totalBuyers.toLocaleString()}</p>
                   </Card>
                 </div>
-                {gmvApprox !== null ? (
-                  <p className="text-sm font-semibold text-slate-600">
-                    Approx. combined GMV in {selectedCurrency}: <b>{new Intl.NumberFormat(undefined, { style: "currency", currency: selectedCurrency }).format(gmvApprox)}</b>
-                    {" "}— converted amounts are approximate (fixed reference rate). Original-currency figures above are authoritative.
-                  </p>
-                ) : null}
               </>
             ) : data.kpisError ? (
               <ErrorPanel message="Summary data unavailable." onRetry={() => void refresh()} />

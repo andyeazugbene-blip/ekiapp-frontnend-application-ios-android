@@ -12,6 +12,7 @@ import { SuspendDialog } from "@/components/SuspendDialog";
 import { APIError } from "@/lib/api";
 import { countryDisplayName } from "@/lib/countries";
 import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { peopleAPI, userState } from "@/lib/services/people.api";
 
 const NA = "Not provided";
@@ -20,6 +21,9 @@ export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const twoFactor = useTwoFactorAction();
+  const { has } = usePermissions();
+  const canSuspend = has("users.mutate");
+  const canMessage = has("communications.send");
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,8 +58,8 @@ export default function UserDetailPage() {
             actions={
               <>
                 <Button variant="ghost" onClick={() => router.push("/users")}>← All users</Button>
-                {!anonymised ? <Button variant="secondary" onClick={() => router.push(`/communications?userId=${user.id}`)}>Send message</Button> : null}
-                {user.role === "ADMIN" || anonymised ? null : state === "suspended"
+                {!anonymised && canMessage ? <Button variant="secondary" onClick={() => router.push(`/communications?userId=${user.id}`)}>Send message</Button> : null}
+                {!canSuspend || user.role === "ADMIN" || anonymised ? null : state === "suspended"
                   ? <Button onClick={() => setMode("restore")}>Restore account</Button>
                   : <Button variant="danger" onClick={() => setMode("suspend")}>Suspend account</Button>}
               </>

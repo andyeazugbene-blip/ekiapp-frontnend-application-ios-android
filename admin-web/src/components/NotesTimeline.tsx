@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, ErrorPanel } from "@/components/AdminUI";
 import { formatDateTime } from "@/components/AdminKit";
 import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { peopleAPI, type AdminNote, type TimelineEvent } from "@/lib/services/people.api";
 
 type Kind = "users" | "vendors";
@@ -14,6 +15,9 @@ export function NotesCard({ kind, id }: { kind: Kind; id: string }) {
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // Backend: POST notes needs users.mutate / vendors.mutate; reading needs the matching .read.
+  const { has } = usePermissions();
+  const canAdd = has(kind === "users" ? "users.mutate" : "vendors.mutate");
 
   const load = useCallback(async () => {
     try { setError(""); setNotes(await peopleAPI.notes(kind, id)); }
@@ -34,14 +38,14 @@ export function NotesCard({ kind, id }: { kind: Kind; id: string }) {
         <Badge tone="gray">Staff only</Badge>
       </div>
       {error ? <ErrorPanel message={error} /> : null}
-      <div className="space-y-2">
+      {canAdd ? <div className="space-y-2">
         <textarea
           value={body} onChange={(e) => setBody(e.target.value)} rows={2} maxLength={500}
           placeholder="Add a note for other staff (not visible to the user)…"
           className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#096B4A]"
         />
         <Button className="h-9 px-4" disabled={busy || body.trim().length < 5} onClick={() => void add()}>Add note</Button>
-      </div>
+      </div> : <p className="text-xs font-semibold text-slate-500">Your role can read notes but not add them.</p>}
       <ul className="mt-4 space-y-3">
         {notes.length === 0 ? <li className="text-sm font-semibold text-slate-500">No notes yet.</li> : notes.map((n) => (
           <li key={n.id} className="rounded-xl bg-slate-50 p-3">

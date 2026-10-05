@@ -12,6 +12,7 @@ import { SuspendDialog } from "@/components/SuspendDialog";
 import { APIError } from "@/lib/api";
 import { COUNTRIES, countryDisplayName } from "@/lib/countries";
 import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { peopleAPI, type CloseBlocker } from "@/lib/services/people.api";
 import { vendorsAPI, type VendorMarket } from "@/lib/services/vendors.api";
 
@@ -35,6 +36,10 @@ export default function VendorDetailPage() {
   const [closeError, setCloseError] = useState("");
   const [closeBusy, setCloseBusy] = useState(false);
   const twoFactor = useTwoFactorAction();
+  const { has } = usePermissions();
+  const canMutate = has("vendors.mutate");
+  const canMessage = has("communications.send");
+  const canAssignPlan = has("subscriptions.mutate");
 
   const load = useCallback(async () => {
     try { setLoading(true); setError(""); setData(await peopleAPI.getVendor(id)); }
@@ -93,11 +98,11 @@ export default function VendorDetailPage() {
             actions={
               <>
                 <Button variant="ghost" onClick={() => router.push("/vendors")}>← All vendors</Button>
-                {ownerUserId ? <Button variant="secondary" onClick={() => router.push(`/communications?userId=${ownerUserId}`)}>Send message</Button> : null}
-                {closed ? null : data.isSuspended
+                {ownerUserId && canMessage ? <Button variant="secondary" onClick={() => router.push(`/communications?userId=${ownerUserId}`)}>Send message</Button> : null}
+                {closed || !canMutate ? null : data.isSuspended
                   ? <Button onClick={() => setSuspendMode("restore")}>Restore store</Button>
                   : <Button variant="danger" onClick={() => setSuspendMode("suspend")}>Suspend store</Button>}
-                {closed ? null : <Button variant="ghost" onClick={() => void openClose()}>Close account…</Button>}
+                {closed || !canMutate ? null : <Button variant="ghost" onClick={() => void openClose()}>Close account…</Button>}
               </>
             }
           />
@@ -162,9 +167,9 @@ export default function VendorDetailPage() {
 
           <ProviderReadinessPanel vendorId={data.id} />
 
-          <SubscriptionCard vendorId={data.id} sub={sub} onSaved={() => void load()} />
+          <SubscriptionCard vendorId={data.id} sub={sub} canAssign={canAssignPlan} onSaved={() => void load()} />
 
-          <VendorMarketsCard vendorId={data.id} />
+          <VendorMarketsCard vendorId={data.id} canMutate={canMutate} />
 
           <Card>
             <h3 className="mb-3 text-lg font-black text-[#101820]">Products ({(data.products ?? []).length})</h3>
@@ -241,8 +246,8 @@ function Metric({ label, value, hint }: { label: string; value: React.ReactNode;
 }
 
 function SubscriptionCard({
-  vendorId, sub, onSaved,
-}: { vendorId: string; sub: SubShape | null; onSaved: () => void }) {
+  vendorId, sub, canAssign, onSaved,
+}: { vendorId: string; sub: SubShape | null; canAssign: boolean; onSaved: () => void }) {
   const confirm = useConfirm();
   const [plan, setPlan] = useState(sub && sub.plan !== "FREE" ? sub.plan : "GROWTH");
   const [msg, setMsg] = useState("");
@@ -266,7 +271,7 @@ function SubscriptionCard({
         { label: "Cancelled", value: sub?.cancelledAt ? formatDateTime(sub.cancelledAt) : "No" },
       ]} />
       <p className="mt-3 text-xs text-slate-500">New Growth subscribers get a 14-day full-access trial through Stripe checkout. Dates come from Stripe (trial start/end) and update automatically.</p>
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      {canAssign ? <div className="mt-4 flex flex-wrap items-center gap-3">
         <select value={plan} onChange={(e) => setPlan(e.target.value)} aria-label="Plan to assign" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold">
           <option value="GROWTH">Growth</option>
           <option value="PRO">Pro</option>
@@ -276,13 +281,13 @@ function SubscriptionCard({
           async (reason) => { await vendorsAPI.assignSellerPlan(vendorId, plan, reason); setMsg("Plan updated."); onSaved(); },
         )}>Override plan (no billing)</Button>
         {msg ? <span className="text-sm font-semibold text-slate-600">{msg}</span> : null}
-      </div>
+      </div> : null}
       {confirm.dialog}
     </Card>
   );
 }
 
-function VendorMarketsCard({ vendorId }: { vendorId: string }) {
+function VendorMarketsCard({ vendorId, canMutate }: { vendorId: string; canMutate: boolean }) {
   const [markets, setMarkets] = useState<VendorMarket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -345,15 +350,15 @@ function VendorMarketsCard({ vendorId }: { vendorId: string }) {
                 <p className="text-sm font-black text-slate-900">{m.countryName} ({m.marketCode}) - {m.currency}</p>
                 <p className="text-xs font-semibold text-slate-500">{m.enabled ? "Enabled" : "Disabled"}</p>
               </div>
-              <Button variant={m.enabled ? "ghost" : "secondary"} className="h-9 px-4" disabled={busyCode === m.marketCode} onClick={() => toggle(m)}>
+              {canMutate ? <Button variant={m.enabled ? "ghost" : "secondary"} className="h-9 px-4" disabled={busyCode === m.marketCode} onClick={() => toggle(m)}>
                 {m.enabled ? "Disable" : "Enable"}
-              </Button>
+              </Button> : null}
             </div>
           ))}
           {markets.length === 0 ? <p className="text-sm font-semibold text-slate-500">No markets configured.</p> : null}
         </div>
       )}
-      {addable.length > 0 ? (
+      {canMutate && addable.length > 0 ? (
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <select value={addValue} onChange={(e) => setAddValue(e.target.value)} aria-label="Market to add" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold">
             <option value="">Select a market to add…</option>

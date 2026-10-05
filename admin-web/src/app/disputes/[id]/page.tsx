@@ -5,9 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader, TextLink, TwoFactorModal } from "@/components/AdminUI";
-import { Banner, DataTable, KeyValue, formatDateTime, formatMinor, type Column } from "@/components/AdminKit";
+import { Banner, DataTable, KeyValue, formatDateTime, formatMinor, useConfirm, type Column } from "@/components/AdminKit";
 import { APIError } from "@/lib/api";
 import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { disputeStatusLabel, disputesAPI2, type DisputeDetail } from "@/lib/services/money.api";
 import DisputeCase from "./DisputeCase";
 
@@ -24,6 +25,8 @@ export default function DisputeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const twoFactor = useTwoFactorAction();
+  const confirm = useConfirm();
+  const canMutate = usePermissions().has("disputes.mutate");
   const [d, setD] = useState<DisputeDetail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -59,13 +62,25 @@ export default function DisputeDetailPage() {
       refundAmountMinor = Math.round(n * 100);
       if (d.order && refundAmountMinor >= d.order.totalAmount) { setFormError("A partial refund must be less than the order total. Choose 'Refund the buyer in full' instead."); return; }
     }
-    setBusy(true);
-    await twoFactor.run(async (code) => {
-      await disputesAPI2.resolve(id, { resolution: decision, note: note.trim(), refundAmountMinor, fraudulent: fraud }, code);
-      setNote(""); setAmount(""); setFraud(false);
-      await load();
-    });
-    setBusy(false);
+    confirm.ask(
+      {
+        title: DECISION_LABEL[decision].title + "?",
+        tone: decision === "vendor" ? "primary" : "danger",
+        confirmLabel: "Resolve dispute",
+        requireReason: false,
+        description: (decision === "partial" && refundAmountMinor != null ? `Refund ${formatMinor(refundAmountMinor, cur)} to the buyer. ` : "") + DECISION_LABEL[decision].hint + " Both parties are notified and this cannot be undone.",
+      },
+      async () => {
+        setBusy(true);
+        try {
+          await twoFactor.run(async (code) => {
+            await disputesAPI2.resolve(id, { resolution: decision, note: note.trim(), refundAmountMinor, fraudulent: fraud }, code);
+            setNote(""); setAmount(""); setFraud(false);
+            await load();
+          });
+        } finally { setBusy(false); }
+      },
+    );
   };
 
   const itemCols: Column<Item>[] = [
@@ -115,7 +130,7 @@ export default function DisputeDetailPage() {
             </Card>
           </div>
 
-          <DisputeCase d={d} reload={load} twoFactor={twoFactor} />
+          <DisputeCase d={d} reload={load} twoFactor={twoFactor} canMutate={canMutate} />
 
           {decided ? (
             <Card>
@@ -128,7 +143,8 @@ export default function DisputeDetailPage() {
             </Card>
           ) : null}
 
-          {isOpen ? (
+          {isOpen && !canMutate ? <Banner tone="info">Your role can view this dispute but cannot message the parties or decide it.</Banner> : null}
+          {isOpen && canMutate ? (
             <Card>
               <h3 className="mb-1 text-lg font-black text-[#101820]">Decide this dispute</h3>
               <p className="mb-4 text-sm text-slate-500">Requires 2FA. Both the buyer and the vendor are notified and the decision is written to the audit log.</p>
@@ -166,6 +182,7 @@ export default function DisputeDetailPage() {
             </Card>
           ) : null}
 
+          {confirm.dialog}
           <TwoFactorModal
             open={twoFactor.show2FAModal} code={twoFactor.code} onCodeChange={twoFactor.setCode}
             onSubmit={() => void twoFactor.submit2FA()} onCancel={twoFactor.cancel2FA} loading={twoFactor.loading} error={twoFactor.error}

@@ -9,6 +9,7 @@ import { Banner, DataTable, FilterSelect, Pagination, SearchInput, StatusTabs, f
 import { SuspendDialog } from "@/components/SuspendDialog";
 import { APIError } from "@/lib/api";
 import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { peopleAPI, userState, type UserRow } from "@/lib/services/people.api";
 
 const STATUS_TABS = [
@@ -63,6 +64,7 @@ function UsersInner() {
   const stack = useRef<Array<string | null>>([]);
   const [target, setTarget] = useState<{ user: UserRow; mode: "suspend" | "restore" } | null>(null);
   const twoFactor = useTwoFactorAction();
+  const canSuspend = usePermissions().has("users.mutate");
 
   const key = `${q}|${status}|${role}|${includeTest}`;
   useEffect(() => { stack.current = []; setCursor(null); }, [key]);
@@ -101,7 +103,7 @@ function UsersInner() {
         <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
           <Button variant="ghost" className="h-9 px-3" onClick={() => router.push(`/users/${u.id}`)}>View</Button>
           {/* Anonymised accounts can never be suspended or restored (handbook 14.5). */}
-          {u.role === "ADMIN" || u.anonymisedAt ? null : u.isSuspended
+          {!canSuspend || u.role === "ADMIN" || u.anonymisedAt ? null : u.isSuspended
             ? <Button variant="secondary" className="h-9 px-3" onClick={() => setTarget({ user: u, mode: "restore" })}>Restore</Button>
             : <Button variant="ghost" className="h-9 px-3 text-red-600" onClick={() => setTarget({ user: u, mode: "suspend" })}>Suspend</Button>}
         </div>

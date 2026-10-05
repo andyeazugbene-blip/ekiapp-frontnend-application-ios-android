@@ -3,7 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Button, Card, ErrorPanel, Icon, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { Banner, formatDateTime, useConfirm } from "@/components/AdminKit";
 import { apiClient, APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 
 interface Campaign {
   id: string;
@@ -49,6 +51,15 @@ const EMPTY_FORM = {
   discountValue: "",
 };
 
+/** ISO instant -> value for <input type="datetime-local"> in the browser's own time zone. */
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function toFormFromCampaign(c: Campaign) {
   return {
     name: c.name,
@@ -59,8 +70,8 @@ function toFormFromCampaign(c: Campaign) {
     title: c.title,
     subtitle: c.subtitle ?? "",
     image: c.image ?? "",
-    startDate: c.startDate ? c.startDate.slice(0, 16) : "",
-    endDate: c.endDate ? c.endDate.slice(0, 16) : "",
+    startDate: toLocalInput(c.startDate),
+    endDate: toLocalInput(c.endDate),
     minimumCartAmountCents: c.minimumCartAmountCents != null ? String(c.minimumCartAmountCents / 100) : "",
     requiredProductIds: c.requiredProductIds.join(", "),
     requiredCategoryIds: c.requiredCategoryIds.join(", "),
@@ -105,6 +116,11 @@ function toPayload(form: typeof EMPTY_FORM) {
 }
 
 export default function CampaignsPage() {
+  // Backend: list = campaigns.read; create / edit / pause / delete = campaigns.mutate.
+  // The campaigns API takes no reason and writes no audit entry, so the dialogs below do not ask for one.
+  const { has, loading: permLoading } = usePermissions();
+  const canMutate = has("campaigns.mutate");
+  const confirm = useConfirm();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -164,24 +180,26 @@ export default function CampaignsPage() {
     }
   };
 
-  const toggleActive = async (c: Campaign) => {
-    try {
-      await apiClient.patch(`/admin/campaigns/${c.id}`, { active: !c.active });
-      await load();
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to update campaign");
-    }
-  };
+  const toggleActive = (c: Campaign) => confirm.ask(
+    {
+      title: `${c.active ? "Pause" : "Activate"} "${c.title}"?`,
+      tone: c.active ? "danger" : "primary",
+      confirmLabel: c.active ? "Pause campaign" : "Activate campaign",
+      description: c.active ? "Buyers stop seeing this campaign and its checkout discount immediately." : "Eligible buyers will see this campaign and its checkout discount.",
+      requireReason: false,
+    },
+    async () => { await apiClient.patch(`/admin/campaigns/${c.id}`, { active: !c.active }); await load(); },
+  );
 
-  const remove = async (id: string) => {
-    if (!window.confirm("Delete this campaign?")) return;
-    try {
-      await apiClient.delete(`/admin/campaigns/${id}`);
-      await load();
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to delete campaign");
-    }
-  };
+  const remove = (c: Campaign) => confirm.ask(
+    {
+      title: `Delete "${c.title}"?`,
+      confirmLabel: "Delete campaign",
+      description: "The campaign is removed for good and buyers lose any checkout discount attached to it. Pause it instead if you may need it again.",
+      requireReason: false,
+    },
+    async () => { await apiClient.delete(`/admin/campaigns/${c.id}`); await load(); },
+  );
 
   const inputClass = "rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-[#096B4A]";
 
@@ -190,12 +208,13 @@ export default function CampaignsPage() {
       <PageHeader
         title="Campaigns"
         subtitle="Admin-controlled Hot Deals & Gift Cards eligibility engine — enforced server-side"
-        actions={<Button onClick={openCreate}><Icon name="plus" /> New Campaign</Button>}
+        actions={canMutate ? <Button onClick={openCreate}><Icon name="plus" /> New Campaign</Button> : null}
       />
 
       {error ? <ErrorPanel message={error} onRetry={load} /> : null}
+      {!permLoading && !canMutate ? <Banner tone="info">Your role can view campaigns but cannot create or change them.</Banner> : null}
 
-      {showForm ? (
+      {showForm && canMutate ? (
         <Card>
           <h2 className="text-xl font-black">{editingId ? "Edit Campaign" : "New Campaign"}</h2>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -269,32 +288,34 @@ export default function CampaignsPage() {
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Title</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Type</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Priority</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Window</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Window (your time zone)</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Discount</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Active</th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">Actions</th>
             </tr></thead>
             <tbody className="divide-y divide-gray-200">
               {campaigns.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openEdit(c)}>
+                <tr key={c.id} className={`hover:bg-gray-50 ${canMutate ? "cursor-pointer" : ""}`} onClick={canMutate ? () => openEdit(c) : undefined}>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900 hover:text-[#096B4A]">{c.title}<div className="text-xs text-gray-400">{c.name}</div></td>
                   <td className="px-6 py-4 text-sm text-gray-700">{c.type === "HOT_DEAL" ? "Hot Deal" : "Gift Card"}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{c.priority}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {c.startDate ? new Date(c.startDate).toLocaleDateString() : "—"} → {c.endDate ? new Date(c.endDate).toLocaleDateString() : "—"}
+                    {c.startDate ? formatDateTime(c.startDate) : "—"} → {c.endDate ? formatDateTime(c.endDate) : "—"}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
                     {c.discountType && c.discountValue != null
                       ? c.discountType === "PERCENTAGE"
                         ? `${c.discountValue}% off`
-                        : `$${(c.discountValue / 100).toFixed(2)} off`
+                        : `${(c.discountValue / 100).toFixed(2)} off (checkout currency)`
                       : "—"}
                   </td>
-                  <td className="px-6 py-4 text-sm">{c.active ? "✅" : "❌"}</td>
+                  <td className="px-6 py-4 text-sm">{c.active ? "Active" : "Paused"}</td>
                   <td className="px-6 py-4 text-sm flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" onClick={() => openEdit(c)}>Edit</Button>
-                    <Button variant="ghost" onClick={() => void toggleActive(c)}>{c.active ? "Pause" : "Activate"}</Button>
-                    <Button variant="danger" onClick={() => void remove(c.id)}>Delete</Button>
+                    {canMutate ? <>
+                      <Button variant="ghost" onClick={() => openEdit(c)}>Edit</Button>
+                      <Button variant="ghost" onClick={() => toggleActive(c)}>{c.active ? "Pause" : "Activate"}</Button>
+                      <Button variant="danger" onClick={() => remove(c)}>Delete</Button>
+                    </> : <span className="text-xs text-gray-400">View only</span>}
                   </td>
                 </tr>
               ))}
@@ -303,6 +324,7 @@ export default function CampaignsPage() {
           </table>
         </div></Card>
       )}
+    {confirm.dialog}
     </div></AdminLayout></ProtectedRoute>
   );
 }

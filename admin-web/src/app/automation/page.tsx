@@ -27,7 +27,7 @@ function AutomationInner() {
   const tab: Tab = requested && TABS.includes(requested) ? requested : vendorId ? "runs" : "automations";
 
   if (perms.loading) return <LoadingPanel label="Checking your access…" />;
-  if (!perms.hasAny("automation.read", "analytics.read")) return <NoAccess what="Automation Centre" />;
+  if (!perms.has("automation.read")) return <NoAccess what="Automation Centre" />;
   const canMutate = perms.has("automation.mutate");
   const isSuper = !!perms.access?.isSuperAdmin || perms.has("admin.*");
 

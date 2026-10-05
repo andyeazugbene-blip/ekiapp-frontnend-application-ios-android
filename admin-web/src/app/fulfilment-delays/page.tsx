@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, ErrorPanel, LoadingPanel } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { Banner, formatDateTime } from "@/components/AdminKit";
 import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { fulfilmentDelaysAPI, FulfilmentDelayAlert } from "@/lib/services/fulfilment-delays.api";
 
 const REASON_LABEL: Record<string, string> = {
@@ -13,6 +15,9 @@ const REASON_LABEL: Record<string, string> = {
 };
 
 export default function FulfilmentDelaysPage() {
+  // Backend: list = community_buy.read; scan / contact / resolve / escalate = community_buy.mutate.
+  const { has, loading: permLoading } = usePermissions();
+  const canMutate = has("community_buy.mutate");
   const [items, setItems] = useState<FulfilmentDelayAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
@@ -85,9 +90,9 @@ export default function FulfilmentDelaysPage() {
                 <input type="checkbox" checked={showResolved} onChange={(e) => setShowResolved(e.target.checked)} />
                 Show resolved/escalated
               </label>
-              <button onClick={() => void runScan()} disabled={scanning} className="rounded-xl bg-[#096B4A] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+              {canMutate ? <button onClick={() => void runScan()} disabled={scanning} className="rounded-xl bg-[#096B4A] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
                 {scanning ? "Scanning..." : "Run scan"}
-              </button>
+              </button> : null}
             </div>
           </div>
 
@@ -98,13 +103,14 @@ export default function FulfilmentDelaysPage() {
           )}
 
           {error && <ErrorPanel message={error} onRetry={() => void loadData()} />}
+          {!permLoading && !canMutate ? <Banner tone="info">Your role can view fulfilment delays but cannot scan, contact the supplier, resolve or escalate them.</Banner> : null}
 
           {loading ? (
             <LoadingPanel label="Loading fulfilment delays..." />
           ) : (
             <Card>
               {visible.length === 0 ? (
-                <p className="p-4 text-center text-sm text-slate-400">No delayed fulfilments found. Run a scan to check for new ones.</p>
+                <p className="p-4 text-center text-sm text-slate-400">No delayed fulfilments found.{canMutate ? " Run a scan to check for new ones." : ""}</p>
               ) : (
                 <div className="space-y-3">
                   {visible.map((a) => (
@@ -118,10 +124,10 @@ export default function FulfilmentDelaysPage() {
                           <p className="mt-1 text-[12px] text-slate-500">{REASON_LABEL[a.reason] ?? a.reason}</p>
                           {a.campaign?.supplier?.vendor?.storeName && <p className="text-[12px] text-slate-500">Supplier: {a.campaign.supplier.vendor.storeName}</p>}
                           <pre className="mt-2 max-w-xl overflow-x-auto rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">{JSON.stringify(a.evidence, null, 1)}</pre>
-                          <p className="mt-1 text-[11px] text-slate-400">Last seen {new Date(a.lastSeenAt).toLocaleString("en-GB")}</p>
+                          <p className="mt-1 text-[11px] text-slate-400">Last seen {formatDateTime(a.lastSeenAt)}</p>
                           {a.note && <p className="mt-1 text-[12px] italic text-slate-500">Note: {a.note}</p>}
                         </div>
-                        {(a.status === "OPEN" || a.status === "CONTACTED") && (
+                        {canMutate && (a.status === "OPEN" || a.status === "CONTACTED") && (
                           <div className="flex flex-wrap gap-2">
                             <button onClick={() => { setActing({ id: a.id, kind: "contact" }); setNote(""); setActionError(""); }} className="rounded-lg bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-blue-600 hover:bg-blue-100">Contact supplier</button>
                             <button onClick={() => { setActing({ id: a.id, kind: "resolve" }); setNote(""); setActionError(""); }} className="rounded-lg bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-600 hover:bg-emerald-100">Resolve</button>

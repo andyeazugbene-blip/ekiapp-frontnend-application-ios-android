@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Button, Card, ErrorPanel, Icon, LoadingPanel, TextLink } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { formatDate, formatMinor } from "@/components/AdminKit";
 import { APIError } from "@/lib/api";
 import { communityBuyAdminAPI, SupplierPaymentAggregate, SupplierPaymentStatus } from "@/lib/services/communityBuy.api";
 
@@ -20,9 +21,7 @@ const CAMPAIGN_STATUS_LABEL: Record<SupplierPaymentStatus, string> = {
   NOT_RELEASED: "Not released", PROCESSING: "Processing", PAID: "Paid", ON_HOLD: "On hold", FAILED: "Failed",
 };
 
-function money(amountMinor: number, currency: string): string {
-  return `${currency} ${(amountMinor / 100).toLocaleString("en-GB", { minimumFractionDigits: 2 })}`;
-}
+const money = (amountMinor: number, currency: string): string => formatMinor(amountMinor, currency);
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -170,7 +169,7 @@ export default function CommunitySupplierPaymentsPage() {
                           </td>
                           <td className="px-3 py-2 text-slate-700">{money(c.amount, c.currency)}</td>
                           <td className="px-3 py-2 text-slate-500">{CAMPAIGN_STATUS_LABEL[c.status]}</td>
-                          <td className="px-3 py-2 text-slate-500">{c.releasedAt ? new Date(c.releasedAt).toLocaleDateString("en-GB") : "—"}</td>
+                          <td className="px-3 py-2 text-slate-500">{c.releasedAt ? formatDate(c.releasedAt) : "—"}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -28,11 +28,7 @@ import {
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
 import { adminAPI } from "@/lib/services/admin.api";
-import {
-  SUPPORTED_CURRENCIES,
-  formatDisplayMoney,
-  useAdminDisplayCurrency,
-} from "@/lib/displayCurrency";
+import { Banner, formatMajor } from "@/components/AdminKit";
 import type {
   AnalyticsOverview,
   BuyerAnalytics,
@@ -60,9 +56,9 @@ export default function AnalyticsPage() {
   const [orderTimeView, setOrderTimeView] = useState<OrderTimeView>("day");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const { selectedCurrency, setSelectedCurrency } = useAdminDisplayCurrency(
-    overview?.currency ?? "GBP",
-  );
+  // The server labels every money figure on this page with ONE currency code (its default currency)
+  // even though it adds payments together. No FX conversion is applied here.
+  const reportCurrency = overview?.currency ?? "EUR";
 
   const loadData = useCallback(async (r: RangeKey) => {
     try {
@@ -98,8 +94,8 @@ export default function AnalyticsPage() {
   }, [loadData, range]);
 
   const fmt = useCallback(
-    (v: number) => formatDisplayMoney(v, selectedCurrency),
-    [selectedCurrency],
+    (v: number) => formatMajor(v, reportCurrency),
+    [reportCurrency],
   );
 
   const fmtLabel = (date: string) =>
@@ -181,19 +177,6 @@ export default function AnalyticsPage() {
               actions={
                 <div className="flex items-center gap-3">
                   <RangeSelector range={range} onChange={setRange} />
-                  <select
-                    value={selectedCurrency}
-                    onChange={(e) =>
-                      setSelectedCurrency(
-                        e.target.value as (typeof SUPPORTED_CURRENCIES)[number],
-                      )
-                    }
-                    className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none"
-                  >
-                    {SUPPORTED_CURRENCIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
                   <Button
                     variant="secondary"
                     onClick={() => downloadCsv("eki-analytics-overview.csv", exportRows)}
@@ -203,6 +186,11 @@ export default function AnalyticsPage() {
                 </div>
               }
             />
+
+            <Banner tone="warning" title={`Money figures are shown in ${reportCurrency}, as labelled by the server`}>
+              The analytics service adds payments together and reports one currency label. It does not convert between currencies and neither does this page.
+              For authoritative per-currency GMV use Overview (one tile per currency) or the Payments page.
+            </Banner>
 
             {/* ════════════════════════════════════════════════════════════════
                 PHASE 1 — Overview KPIs
@@ -259,8 +247,8 @@ export default function AnalyticsPage() {
             <div>
               <h2 className="mb-4 text-2xl font-black text-[#101820]">Growth Trends</h2>
               <div className="grid gap-6 lg:grid-cols-2">
-                <TrendChart title="GMV Trend" data={gmvChartData} color="#096B4A" gradientId="gmvGrad" isMoney currency={selectedCurrency} />
-                <TrendChart title="Revenue Trend (Platform Fees)" data={revChartData} color="#7c3aed" gradientId="revGrad2" isMoney currency={selectedCurrency} />
+                <TrendChart title="GMV Trend" data={gmvChartData} color="#096B4A" gradientId="gmvGrad" isMoney currency={reportCurrency} />
+                <TrendChart title="Revenue Trend (Platform Fees)" data={revChartData} color="#7c3aed" gradientId="revGrad2" isMoney currency={reportCurrency} />
               </div>
               <div className="mt-6 grid gap-6 lg:grid-cols-3">
                 <CountChart title="Orders" data={orderChartData} color="#096B4A" />
@@ -839,7 +827,7 @@ function TrendChart({ title, data, color, gradientId, isMoney, currency }: {
         <p className="text-sm text-white/60">{title}</p>
         <p className="mt-1 text-3xl font-black tracking-tight">
           {isMoney && currency
-            ? formatDisplayMoney(data.reduce((s, d) => s + d.value, 0), currency)
+            ? formatMajor(data.reduce((s, d) => s + d.value, 0), currency)
             : data.reduce((s, d) => s + d.value, 0).toLocaleString()}
         </p>
       </div>

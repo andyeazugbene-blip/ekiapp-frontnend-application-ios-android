@@ -351,6 +351,8 @@ export interface PromoCode {
 export interface AdminPayoutRequest {
   id: string;
   vendorId: string;
+  /** Store name from the API join; null when the API did not include it. */
+  vendorName?: string | null;
   payoutMethodId: string;
   amount: number;
   currency: string;

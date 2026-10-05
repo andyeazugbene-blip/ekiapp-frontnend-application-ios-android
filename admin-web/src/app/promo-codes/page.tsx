@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { useConfirm } from "@/components/AdminKit";
+import { Banner, formatDateTime, useConfirm } from "@/components/AdminKit";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { promoCodesAPI } from "@/lib/services/promo-codes.api";
 import { vendorsAPI } from "@/lib/services/vendors.api";
 import { APIError } from "@/lib/api";
@@ -24,6 +25,9 @@ const EMPTY_FORM = {
 
 export default function PromoCodesPage() {
   const confirm = useConfirm();
+  // Backend: list = promos.read, create / pause / extend = promos.mutate.
+  const { has, loading: permLoading } = usePermissions();
+  const canMutate = has("promos.mutate");
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +71,8 @@ export default function PromoCodesPage() {
     };
   }, []);
 
+  const storeName = useMemo(() => new Map(vendors.map((v) => [v.id, v.storeName])), [vendors]);
+
   const activeCount = useMemo(
     () => promoCodes.filter((promo) => promo.isActive).length,
     [promoCodes],
@@ -82,6 +88,11 @@ export default function PromoCodesPage() {
       return;
     }
 
+    const discount = Number(form.value);
+    if (!Number.isFinite(discount) || discount <= 0 || (form.type === "FIXED_AMOUNT" ? Math.round(discount * 100) < 1 : !Number.isInteger(discount) || discount > 100)) {
+      setError(form.type === "PERCENTAGE" ? "Percentage must be a whole number from 1 to 100" : "Enter a discount amount greater than zero");
+      return;
+    }
     setError("");
     confirm.ask(
       { title: `Create promo code ${form.code.trim().toUpperCase()}?`, confirmLabel: "Create", tone: "primary", description: "The reason is recorded in the audit log." },
@@ -92,11 +103,13 @@ export default function PromoCodesPage() {
             vendorId: form.vendorId,
             code: form.code,
             type: form.type,
-            value: Number(form.value),
+            // Percentage is a whole number; a fixed amount is typed in major units and stored in minor units.
+            value: form.type === "FIXED_AMOUNT" ? Math.round(discount * 100) : discount,
             minOrderAmount: form.minOrderAmount ? Number(form.minOrderAmount) : undefined,
             maxUses: form.maxUses ? Number(form.maxUses) : undefined,
-            validFrom: form.validFrom || undefined,
-            validUntil: form.validUntil || undefined,
+            // datetime-local has no zone: interpret it in the browser's zone and send an unambiguous ISO instant.
+            validFrom: form.validFrom ? new Date(form.validFrom).toISOString() : undefined,
+            validUntil: form.validUntil ? new Date(form.validUntil).toISOString() : undefined,
             reason,
           });
           setForm(EMPTY_FORM);
@@ -154,9 +167,10 @@ export default function PromoCodesPage() {
               {error}
             </div>
           ) : null}
+          {!permLoading && !canMutate ? <Banner tone="info">Your role can view promo codes but cannot create or change them.</Banner> : null}
 
           <div className="grid gap-6 lg:grid-cols-[420px,1fr]">
-            <section className="rounded-lg bg-white p-6 shadow">
+            {canMutate ? <section className="rounded-lg bg-white p-6 shadow">
               <h2 className="text-lg font-semibold text-gray-900">Create promo code</h2>
               <div className="mt-4 space-y-4">
                 <div>
@@ -202,7 +216,7 @@ export default function PromoCodesPage() {
                   </div>
                   <div>
                     <label className="mb-2 block text-sm font-medium text-gray-700">
-                      {form.type === "PERCENTAGE" ? "Discount %" : "Discount amount"}
+                      {form.type === "PERCENTAGE" ? "Discount % (whole number)" : "Discount amount (store currency)"}
                     </label>
                     <input
                       type="number"
@@ -244,7 +258,7 @@ export default function PromoCodesPage() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">Valid from</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">Valid from (your time zone)</label>
                     <input
                       type="datetime-local"
                       value={form.validFrom}
@@ -253,7 +267,7 @@ export default function PromoCodesPage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">Valid until</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">Valid until (your time zone)</label>
                     <input
                       type="datetime-local"
                       value={form.validUntil}
@@ -272,7 +286,7 @@ export default function PromoCodesPage() {
                   {submitting ? "Creating..." : "Create promo code"}
                 </button>
               </div>
-            </section>
+            </section> : null}
 
             <section className="rounded-lg bg-white p-6 shadow">
               <div className="flex items-center justify-between">
@@ -309,12 +323,12 @@ export default function PromoCodesPage() {
                         <tr key={promo.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-sm font-semibold text-gray-900">{promo.code}</td>
                           <td className="px-4 py-3 text-sm text-gray-700">
-                            {promo.storeSlug || promo.vendorId || "Store required"}
+                            {(promo.vendorId && storeName.get(promo.vendorId)) || promo.storeSlug || "Store not in the loaded list"}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-700">
-                            {promo.type === "PERCENTAGE" ? `${promo.value}% off` : `${(promo.value / 100).toFixed(2)} off`}
+                            {promo.type === "PERCENTAGE" ? `${promo.value}% off` : `${(promo.value / 100).toFixed(2)} off (store currency)`}
                             {promo.minOrderAmount ? (
-                              <div className="text-xs text-gray-500">Min order {promo.minOrderAmount.toFixed(2)}</div>
+                              <div className="text-xs text-gray-500">Min order {promo.minOrderAmount.toFixed(2)} (store currency)</div>
                             ) : null}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-700">
@@ -322,9 +336,9 @@ export default function PromoCodesPage() {
                             {promo.maxUses ? ` / ${promo.maxUses}` : ""}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-700">
-                            <div>{new Date(promo.validFrom).toLocaleString()}</div>
+                            <div>{formatDateTime(promo.validFrom)}</div>
                             <div className="text-xs text-gray-500">
-                              {promo.validUntil ? new Date(promo.validUntil).toLocaleString() : "No expiry"}
+                              {promo.validUntil ? formatDateTime(promo.validUntil) : "No expiry"}
                             </div>
                           </td>
                           <td className="px-4 py-3 text-sm">
@@ -337,7 +351,7 @@ export default function PromoCodesPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm">
-                            <div className="flex flex-wrap gap-2">
+                            {!canMutate ? <span className="text-xs text-gray-400">View only</span> : <div className="flex flex-wrap gap-2">
                               <button
                                 type="button"
                                 onClick={() => void handleTogglePromoCode(promo)}
@@ -352,7 +366,7 @@ export default function PromoCodesPage() {
                               >
                                 Extend 30d
                               </button>
-                            </div>
+                            </div>}
                           </td>
                         </tr>
                       ))}

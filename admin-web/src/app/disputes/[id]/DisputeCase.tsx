@@ -20,10 +20,12 @@ function deadlineBanner(d: DisputeDetail) {
 }
 
 /** Handbook §11 L454: type, claim, evidence, deadline, communication, decision, appeal. */
-export default function DisputeCase({ d, reload, twoFactor }: {
+export default function DisputeCase({ d, reload, twoFactor, canMutate }: {
   d: DisputeDetail;
   reload: () => Promise<void>;
   twoFactor: { run: (a: (code?: string) => Promise<void>) => Promise<void> };
+  /** disputes.mutate: message parties, request evidence, decide appeals. */
+  canMutate: boolean;
 }) {
   const confirm = useConfirm();
   const [msg, setMsg] = useState("");
@@ -72,7 +74,7 @@ export default function DisputeCase({ d, reload, twoFactor }: {
         <p className="text-sm text-slate-800"><span className="font-bold">Reason:</span> {d.reason}</p>
         <p className="mt-2 text-sm text-slate-800"><span className="font-bold">Claim:</span> {d.claim || "Not provided"}</p>
         {d.evidenceRequestedAt ? <p className="mt-2 text-xs font-semibold text-slate-500">Evidence requested from the {d.evidenceRequestedFrom?.toLowerCase()} on {formatDateTime(d.evidenceRequestedAt)}.</p> : null}
-        {isOpen ? (
+        {isOpen && canMutate ? (
           <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => requestEvidence("BUYER")}>Request evidence from buyer</Button>
             <Button variant="secondary" onClick={() => requestEvidence("VENDOR")}>Request evidence from vendor</Button>
@@ -119,7 +121,7 @@ export default function DisputeCase({ d, reload, twoFactor }: {
               </div>
             ))}
           </div>
-          <label className="block">
+          {canMutate ? <><label className="block">
             <span className="text-xs font-black uppercase tracking-wide text-slate-500">New message</span>
             <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={3}
               className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#096B4A]" />
@@ -129,7 +131,7 @@ export default function DisputeCase({ d, reload, twoFactor }: {
             Internal note only (the buyer and vendor will not see it or be notified)
           </label>
           {msgError ? <p className="mt-2 text-sm font-bold text-red-600">{msgError}</p> : null}
-          <div className="mt-3"><Button disabled={posting} onClick={() => void post()}>{internal ? "Save internal note" : "Send to both parties"}</Button></div>
+          <div className="mt-3"><Button disabled={posting} onClick={() => void post()}>{internal ? "Save internal note" : "Send to both parties"}</Button></div></> : null}
         </Card>
 
         <Card>
@@ -154,7 +156,7 @@ export default function DisputeCase({ d, reload, twoFactor }: {
             {d.appeal?.canAppeal && d.appeal.appealWindowEndsAt ? ` (parties can appeal until ${formatDateTime(d.appeal.appealWindowEndsAt)})` : ""}</p>
           {d.appealReason ? <p className="mt-2 text-sm text-slate-800"><span className="font-bold">Appeal reason:</span> {d.appealReason}</p> : null}
           {d.appealDecisionReason ? <p className="mt-2 text-sm text-slate-800"><span className="font-bold">Appeal decision reason:</span> {d.appealDecisionReason}</p> : null}
-          {d.appealStatus === "REQUESTED" ? (
+          {d.appealStatus === "REQUESTED" && canMutate ? (
             <div className="mt-4 flex flex-wrap gap-2">
               <Button variant="secondary" onClick={() => decideAppeal("UPHELD")}>Uphold decision</Button>
               <Button variant="danger" onClick={() => decideAppeal("OVERTURNED")}>Overturn decision</Button>

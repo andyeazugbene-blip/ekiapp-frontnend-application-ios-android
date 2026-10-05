@@ -13,6 +13,7 @@ import { SuspendDialog } from "@/components/SuspendDialog";
 import { TwoFactorModal } from "@/components/AdminUI";
 import { APIError } from "@/lib/api";
 import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { peopleAPI, type VendorRow, type VendorStatsResult } from "@/lib/services/people.api";
 import { vendorsAPI } from "@/lib/services/vendors.api";
 import { countryDisplayName } from "@/lib/countries";
@@ -92,6 +93,8 @@ function VendorsInner() {
   const [suspendTarget, setSuspendTarget] = useState<{ ids: string[]; label: string; mode: "suspend" | "restore" } | null>(null);
   const [notice, setNotice] = useState("");
   const twoFactor = useTwoFactorAction();
+  // Backend: invite, suspend, restore and bulk actions all need vendors.mutate.
+  const canMutate = usePermissions().has("vendors.mutate");
 
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -145,7 +148,7 @@ function VendorsInner() {
   };
 
   const columns: Column<VendorRow>[] = [
-    {
+    ...(canMutate ? [{
       key: "sel", header: "", className: "w-8",
       render: (r) => (
         <input
@@ -155,7 +158,7 @@ function VendorsInner() {
           onChange={() => setSelected((s) => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })}
         />
       ),
-    },
+    } as Column<VendorRow>] : []),
     {
       key: "vendor", header: "Vendor",
       render: (r) => (
@@ -177,7 +180,7 @@ function VendorsInner() {
       render: (r) => (
         <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
           <Button variant="ghost" className="h-9 px-3" onClick={() => router.push(`/vendors/${r.id}`)}>View</Button>
-          {r.closedAt ? null : r.isSuspended ? (
+          {!canMutate || r.closedAt ? null : r.isSuspended ? (
             <Button variant="secondary" className="h-9 px-3" onClick={() => setSuspendTarget({ ids: [r.id], label: r.storeName, mode: "restore" })}>Restore</Button>
           ) : (
             <Button variant="ghost" className="h-9 px-3 text-red-600" onClick={() => setSuspendTarget({ ids: [r.id], label: r.storeName, mode: "suspend" })}>Suspend</Button>
@@ -199,7 +202,7 @@ function VendorsInner() {
               verification: r.verificationStatus, stripe_stage: r.provider.stage, charges: r.provider.chargesEnabled, payouts: r.provider.payoutsEnabled,
               subscription: r.subscriptionPlan ?? "none", orders: r.orderCount, joined: r.createdAt,
             })))}>Export page (CSV)</Button>
-            <Button onClick={() => setShowInvite((v) => !v)}>Invite vendor</Button>
+            {canMutate ? <Button onClick={() => setShowInvite((v) => !v)}>Invite vendor</Button> : null}
           </>
         }
       />

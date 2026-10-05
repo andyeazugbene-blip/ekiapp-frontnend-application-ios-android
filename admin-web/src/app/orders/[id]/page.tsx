@@ -11,6 +11,7 @@ import {
 import { MoneyBreakdown, PaymentOutcomeBanner, RefundsTable, WebhookTable } from "@/components/MoneyParts";
 import { APIError } from "@/lib/api";
 import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { moneyAPI, orderStatusLabel, orderStatusTone, paymentStatusTone, type OrderDetail } from "@/lib/services/money.api";
 
 type Item = OrderDetail["items"][number];
@@ -23,6 +24,7 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const twoFactor = useTwoFactorAction();
   const confirm = useConfirm();
+  const { has } = usePermissions();
 
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundAmount, setRefundAmount] = useState("");
@@ -47,8 +49,8 @@ export default function OrderDetailPage() {
   const cur = o.currency;
   const remaining = Math.max(o.totalAmount - refundedMinor, 0);
   const paid = o.payment?.status === "SUCCEEDED";
-  const canRefund = paid && remaining > 0 && !["REFUNDED", "CANCELLED"].includes(o.status.toUpperCase());
-  const canRepair = o.payment?.status === "PENDING" && o.payment.provider === "stripe" && Boolean(o.payment.stripePaymentIntentId);
+  const canRefund = has("payments.mutate") && paid && remaining > 0 && !["REFUNDED", "CANCELLED"].includes(o.status.toUpperCase());
+  const canRepair = has("orders.mutate") && o.payment?.status === "PENDING" && o.payment.provider === "stripe" && Boolean(o.payment.stripePaymentIntentId);
 
   const openRefund = () => {
     setRefundAmount(""); setRefundErr(""); setRefundNotice("");

@@ -6,6 +6,7 @@ import AdminLayout from "@/components/AdminLayout";
 import { ErrorPanel, LoadingPanel } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { APIError } from "@/lib/api";
+import { Pagination, formatDateTime, formatMinor } from "@/components/AdminKit";
 import { ordersAPI, AdminRefundListItem } from "@/lib/services/orders.api";
 
 type TabKey = "all" | "requested" | "processing" | "completed" | "failed" | "rejected";
@@ -165,10 +166,10 @@ export default function RefundsPage() {
                           <td className="px-4 py-3.5 text-[12px] text-slate-700">{item.vendorName || "—"}</td>
                           <td className="px-4 py-3.5 text-[12px] text-slate-500">{item.reason || "—"}</td>
                           <td className="px-4 py-3.5 text-[12px] font-medium text-slate-800">
-                            {item.amount != null ? `${(item.currency ?? "").toUpperCase()} ${(item.amount / 100).toFixed(2)}` : "—"}
+                            {item.amount != null ? formatMinor(item.amount, item.currency) : "—"}
                           </td>
                           <td className="px-4 py-3.5"><RefundStatusBadge status={item.status} /></td>
-                          <td className="px-4 py-3.5 text-[12px] text-slate-500">{new Date(item.createdAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}</td>
+                          <td className="px-4 py-3.5 text-[12px] text-slate-500">{formatDateTime(item.createdAt)}</td>
                           <td className="px-4 py-3.5 text-[12px] text-slate-500">{item.requestedBy?.name ?? "—"}</td>
                         </tr>
                       ))}
@@ -179,16 +180,10 @@ export default function RefundsPage() {
             </div>
 
             {filtered.length > 0 && (
-              <div className="flex items-center justify-between">
-                <p className="text-[12px] text-slate-400">Showing {(page - 1) * perPage + 1}-{Math.min(page * perPage, filtered.length)} of {filtered.length}</p>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded-lg px-3 py-1.5 text-[12px] font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-40">{"<"}</button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 5).map((n) => (
-                    <button key={n} onClick={() => setPage(n)} className={`h-7 w-7 rounded-lg text-[12px] font-bold ${page === n ? "bg-[#096B4A] text-white" : "text-slate-500 hover:bg-slate-100"}`}>{n}</button>
-                  ))}
-                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded-lg px-3 py-1.5 text-[12px] font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-40">Next</button>
-                </div>
-              </div>
+              <Pagination
+                hasPrev={page > 1} hasNext={page < totalPages} shown={paged.length} total={filtered.length}
+                onPrev={() => setPage((p) => Math.max(1, p - 1))} onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+              />
             )}
           </div>
         )}

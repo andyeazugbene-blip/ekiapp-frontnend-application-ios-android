@@ -5,6 +5,7 @@ import { Badge, Button, Card, ErrorPanel } from "@/components/AdminUI";
 import { Banner, ExternalLink, formatDateTime, timeAgo } from "@/components/AdminKit";
 import { vendorsAPI } from "@/lib/services/vendors.api";
 import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import type { ProviderIdentityState, ProviderReadiness, ProviderStage, VendorStripeStatus } from "@/types";
 
 type Tone = "green" | "amber" | "red" | "blue" | "gray";
@@ -142,6 +143,8 @@ function Fact({ title, value, sub, tone }: { title: string; value: string; sub?:
 
 /** Self-fetching panel for any admin page that knows a vendorId (vendor detail, user detail, ...). */
 export function ProviderReadinessPanel({ vendorId, compact }: { vendorId: string; compact?: boolean }) {
+  // Backend: stripe-reminder needs verification.mutate (status/refresh need vendors.read).
+  const canRemind = usePermissions().has("verification.mutate");
   const [data, setData] = useState<VendorStripeStatus | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -174,7 +177,7 @@ export function ProviderReadinessPanel({ vendorId, compact }: { vendorId: string
       {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
       {notice ? <Banner tone="success">{notice}</Banner> : null}
       {data ? (
-        <ProviderReadinessView data={data} busy={busy} onRefresh={() => void load(true)} onRemind={() => void remind()} />
+        <ProviderReadinessView data={data} busy={busy} onRefresh={() => void load(true)} onRemind={canRemind ? () => void remind() : undefined} />
       ) : !error ? <p className="text-sm font-semibold text-slate-500">Loading provider status…</p> : null}
     </div>
   );
