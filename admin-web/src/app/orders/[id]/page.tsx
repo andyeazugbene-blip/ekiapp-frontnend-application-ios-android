@@ -157,6 +157,29 @@ export default function OrderDetailPage() {
             <DataTable columns={itemCols} rows={o.items} rowKey={(i) => i.id} emptyTitle="No items" />
           </Card>
 
+          <Card>
+            <h3 className="mb-3 text-lg font-black text-[#101820]">Delivery proof</h3>
+            {!o.deliveryProof || o.deliveryProof.length === 0 ? (
+              <p className="text-sm text-slate-500">No delivery or pickup proof has been submitted for this order.</p>
+            ) : (
+              <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {o.deliveryProof.map((e) => (
+                  <li key={e.id} className="rounded-2xl border border-slate-200 p-3 text-sm">
+                    <div className="mb-2 flex items-center justify-between">
+                      <Badge tone="blue">{e.kind.toLowerCase().replace(/_/g, " ")}</Badge>
+                      <span className="text-xs text-slate-500">{formatDateTime(e.createdAt)} · {e.submitterRole.toLowerCase()}</span>
+                    </div>
+                    {e.url && e.contentType?.startsWith("image/") ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <a href={e.url} target="_blank" rel="noreferrer"><img src={e.url} alt={e.note || "Delivery proof"} className="h-40 w-full rounded-xl object-cover" /></a>
+                    ) : e.url ? <a className="font-bold text-[#096B4A] underline" href={e.url} target="_blank" rel="noreferrer">Open file</a> : null}
+                    {e.note ? <p className="mt-2 text-slate-800">{e.note}</p> : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
           <div className="grid gap-6 xl:grid-cols-2">
             <Card>
               <h3 className="mb-3 text-lg font-black text-[#101820]">Related records</h3>

@@ -9,6 +9,7 @@ import { Banner, DataTable, KeyValue, formatDateTime, formatMinor, type Column }
 import { APIError } from "@/lib/api";
 import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
 import { disputeStatusLabel, disputesAPI2, type DisputeDetail } from "@/lib/services/money.api";
+import DisputeCase from "./DisputeCase";
 
 type Item = NonNullable<DisputeDetail["order"]>["items"][number];
 type Decision = "buyer" | "vendor" | "partial";
@@ -113,6 +114,8 @@ export default function DisputeDetailPage() {
               <DataTable columns={itemCols} rows={d.order?.items ?? []} rowKey={(i, ) => `${i.productTitle}-${i.totalAmount}`} emptyTitle="No items recorded" />
             </Card>
           </div>
+
+          <DisputeCase d={d} reload={load} twoFactor={twoFactor} />
 
           {decided ? (
             <Card>

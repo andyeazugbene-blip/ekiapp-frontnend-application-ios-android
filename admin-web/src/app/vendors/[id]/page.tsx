@@ -20,6 +20,7 @@ const NA = "Not provided";
 interface SubShape {
   plan: string; status: string; currentPeriodStart: string | null; currentPeriodEnd: string | null; cancelledAt: string | null;
   trialStartedAt?: string | null; trialEndsAt?: string | null;
+  lifecycle?: string; inTrial?: boolean; trialDaysRemaining?: number; billingStarted?: boolean;
 }
 
 export default function VendorDetailPage() {
@@ -250,7 +251,8 @@ function SubscriptionCard({
       <h3 className="mb-3 text-lg font-black text-[#101820]">Subscription</h3>
       <KeyValue items={[
         { label: "Plan", value: sub ? (sub.plan === "FREE" ? "Legacy free (no trial)" : sub.plan.charAt(0) + sub.plan.slice(1).toLowerCase()) : "No subscription record" },
-        { label: "Billing status", value: sub ? sub.status.toLowerCase().replace("_", " ") : NA },
+        { label: "Lifecycle", value: sub?.lifecycle ? sub.lifecycle.toLowerCase().replace(/_/g, " ") : NA },
+        { label: "Billing status", value: sub ? `${sub.status.toLowerCase().replace("_", " ")}${sub.billingStarted ? " (billing started)" : sub.inTrial ? " (no charge yet)" : ""}` : NA },
         {
           label: "14-day trial",
           value: !sub?.trialEndsAt

@@ -48,14 +48,17 @@ function accountBadge(v: VendorRow) {
 }
 
 function subscriptionBadge(v: VendorRow) {
-  if (!v.subscriptionPlan) return <Badge tone="gray">No record</Badge>;
-  if (v.trialEndsAt && new Date(v.trialEndsAt).getTime() > Date.now() && v.subscriptionStatus === "ACTIVE") {
-    const days = Math.ceil((new Date(v.trialEndsAt).getTime() - Date.now()) / 86_400_000);
-    return <Badge tone="blue">14-day trial · {days}d left</Badge>;
+  const days = v.trialEndsAt ? Math.max(0, Math.ceil((new Date(v.trialEndsAt).getTime() - Date.now()) / 86_400_000)) : 0;
+  switch (v.subscriptionLifecycle) {
+    case "TRIAL_ACTIVE": return <Badge tone="blue">14-day trial · {days}d left</Badge>;
+    case "TRIAL_ENDING": return <Badge tone="amber">Trial ending · {days}d left</Badge>;
+    case "TRIAL_EXPIRED": return <Badge tone="red">Trial expired, not converted</Badge>;
+    case "PAID_ACTIVE": return <Badge tone="green">Paid · {(v.subscriptionPlan ?? "").toLowerCase()}</Badge>;
+    case "PAYMENT_FAILED": return <Badge tone="red">Payment failed</Badge>;
+    case "CANCELLED": return <Badge tone="gray">Cancelled</Badge>;
+    case "EXPIRED": return <Badge tone="gray">Checkout expired</Badge>;
+    default: return <Badge tone="gray">{v.subscriptionPlan === "FREE" ? "Legacy free (no trial)" : "No record"}</Badge>;
   }
-  const plan = v.subscriptionPlan.charAt(0) + v.subscriptionPlan.slice(1).toLowerCase();
-  const status = (v.subscriptionStatus ?? "").toLowerCase().replace("_", " ");
-  return <Badge tone={v.subscriptionStatus === "PAST_DUE" ? "red" : v.subscriptionPlan === "FREE" ? "gray" : "blue"}>{plan}{status && status !== "active" ? ` · ${status}` : ""}</Badge>;
 }
 
 function VendorsInner() {

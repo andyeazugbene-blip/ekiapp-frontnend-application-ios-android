@@ -74,6 +74,10 @@ export interface OrderDetail extends OrderRow {
   payoutRequests: Array<{ id: string; status: string; amount: number; currency: string; createdAt: string }>;
   webhookEvents: WebhookReceipt[];
   stripeLivemode: boolean;
+  deliveryProof?: Array<{
+    id: string; kind: "DELIVERY_PHOTO" | "PICKUP_CONFIRMATION" | "SIGNATURE" | "NOTE"; note: string | null;
+    submitterRole: string; createdAt: string; url: string | null; contentType: string | null;
+  }>;
 }
 
 export interface PageResult<T> { items: T[]; nextCursor: string | null; total: number }
@@ -172,7 +176,22 @@ export interface DisputeRow {
   order: { orderNumber: string; totalAmount: number; currency: string } | null;
 }
 
-export interface DisputeDetail extends Omit<DisputeRow, "order"> {
+export interface DisputeCaseEvidence {
+  id: string; submitterRole: "BUYER" | "VENDOR" | "ADMIN"; kind: "PHOTO" | "DOCUMENT" | "TEXT";
+  text: string | null; note: string | null; createdAt: string; url: string | null; contentType: string | null;
+}
+export interface DisputeCaseMessage { id: string; authorRole: "BUYER" | "VENDOR" | "ADMIN"; body: string; internal: boolean; createdAt: string }
+export interface DisputeCaseFields {
+  type?: string; claim?: string | null; respondByAt?: string | null; decisionReason?: string | null;
+  appealStatus?: "NONE" | "REQUESTED" | "UPHELD" | "OVERTURNED"; appealReason?: string | null; appealDecisionReason?: string | null;
+  evidenceRequestedAt?: string | null; evidenceRequestedFrom?: string | null;
+  deadline?: { state: "NONE" | "ON_TIME" | "DUE_SOON" | "OVERDUE" | "CLOSED"; respondByAt: string | null; msRemaining: number | null };
+  appeal?: { canAppeal: boolean; appealWindowEndsAt: string | null; allowedParties: string[] };
+  evidence?: DisputeCaseEvidence[]; messages?: DisputeCaseMessage[];
+  timeline?: Array<{ at: string; type: string; actorRole?: string; text: string; internal?: boolean }>;
+}
+
+export interface DisputeDetail extends Omit<DisputeRow, "order">, DisputeCaseFields {
   buyerId: string; vendorId: string;
   buyer: { id: string; name: string; email: string } | null;
   vendor: { id: string; storeName: string } | null;
@@ -196,6 +215,15 @@ export const disputesAPI2 = {
   async get(id: string): Promise<DisputeDetail> {
     const res = await apiClient.get<any>(`/admin/disputes/${id}`, { bypassCache: true });
     return res.dispute ?? res;
+  },
+  async postMessage(id: string, body: string, internal: boolean) {
+    return apiClient.post(`/admin/disputes/${id}/messages`, { body, internal });
+  },
+  async requestEvidence(id: string, from: "BUYER" | "VENDOR", reason: string) {
+    return apiClient.post(`/admin/disputes/${id}/request-evidence`, { from, reason });
+  },
+  async decideAppeal(id: string, decision: "UPHELD" | "OVERTURNED", reason: string, twoFactorCode?: string) {
+    return apiClient.post(`/admin/disputes/${id}/appeal-decision`, { decision, reason }, { twoFactorCode });
   },
   async resolve(id: string, body: { resolution: "buyer" | "vendor" | "partial"; note: string; refundAmountMinor?: number; fraudulent?: boolean }, twoFactorCode?: string) {
     return apiClient.patch(`/admin/disputes/${id}/resolve`, {
