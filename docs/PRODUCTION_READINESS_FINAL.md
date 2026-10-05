@@ -120,3 +120,30 @@ App: Vercel "Promote" the previous deployment (old code is compatible with the n
 
 ## Addendum 2026-10-05 verdict
 CODE-SIDE PRODUCTION READINESS: NOT READY - handbook-required features remain unbuilt (First Sale engine, vendor referral/credit ledger, state-aware vendor dashboard, attribution). Everything built is tested (BE 2835 tests, tsc/build/lint clean, mobile tsc clean, fresh-DB migration + no drift + audit trigger proven locally). The whole system is NOT claimed production ready: live Neon/Vercel/Stripe verification has not happened.
+
+## Addendum 2026-10-05 (final gate categorization)
+
+Branches (local only, NOT pushed): backend `feat/admin-handbook-phase0` @ 6543f03, frontend `feat/admin-handbook-overhaul` @ c865f05. No push, no deploy, no production migration, no production DB/secret touched.
+
+### A. CODE COMPLETE
+CORS canonicalization; production-only migration guard; 14-day trial lifecycle; commission forced to 0 unless `SALES_COMMISSION_ENABLED`; Super-Admin-only Community Buy payments (server-enforced, 67-case HTTP matrix); Stripe webhook handlers (signed, idempotent); dispute evidence/messages/appeals + deadlines (backend + admin); delivery proof (backend + admin); mobile dispute/delivery-proof flows (buyer + vendor); 47 of 52 canonical events emitted + `GET /api/admin/events`; admin-web permission-gated UI across all 56 pages, currency/timezone/pagination fixes; audit append-only trigger (locally proven).
+
+### B. CODE COMPLETE — LIVE VERIFICATION REQUIRED
+Everything in A that touches Stripe, Neon, Resend, Expo, or S3. Full list with exact test steps: `docs/LIVE_VERIFICATION_BLOCKERS.md`. Nothing in this category has been run against a real provider.
+
+### C. BLOCKED BY OWNER BUSINESS DECISION
+First Sale Campaign engine, vendor referral + credit ledger, state-aware vendor dashboard copy/thresholds, attribution metrics (source/window/labeling). Decision sheet with concrete options: `docs/OWNER_PRODUCT_DECISIONS.md`. No values, amounts or rules have been invented or implemented.
+
+### D. BLOCKED BY MANUAL INFRASTRUCTURE CONFIGURATION
+Neon backup branch + migration rehearsal (9 pending migrations incl. gift-card legacy-row check); Preview/Production DB split; Vercel production env vars (`CORS_ORIGINS` etc.); Stripe webhook endpoint/event registration; Resend domain verification; Expo push credentials. Full list: `docs/PRODUCTION_ENVIRONMENT_CHECKLIST.md`, `docs/MIGRATION_PRODUCTION_REHEARSAL.md`.
+
+### E. NOT IMPLEMENTED
+Click-tracking links (`message_clicked`, `automation_clicked`), open-pixel (`message_opened`), per-product view beacon (`product_viewed`), `store_ready`/`delivery_configured` emission, automatic overdue-dispute notification job (none built; decision documented as not handbook-required, with evidence, in the backend worker's report — deadline state stays computed-on-view), PDF/document dispute evidence on mobile, admin evidence file upload, SIGNATURE-kind delivery proof.
+
+### F. SAFE TO DEPLOY AFTER FINAL GATES
+Gate order: (1) owner fills `OWNER_PRODUCT_DECISIONS.md` for any of C it wants before launch, or accepts launching without it; (2) complete every row in D; (3) run every test in `LIVE_VERIFICATION_BLOCKERS.md` and get a real PASS; (4) merge branches to main, which runs the production migration on deploy per `MIGRATION_PRODUCTION_REHEARSAL.md`; (5) re-run this document's verdict.
+
+**Verdict: CODE-SIDE PRODUCTION READINESS: NOT READY.** The phrase "production ready" is not used for the system as a whole — live verification has not happened and three handbook-scoped features remain undecided by the owner.
+
+### Verification run (this pass)
+Backend: `tsc` clean; `vitest run` 178 files / 2883 tests pass. Admin-web: `tsc` clean, `next lint` 0 warnings/errors, `next build` 56/56 routes. Mobile: `tsc` clean; no test runner configured, none run. No new Prisma migration added this pass (still 9 pending, unchanged from `MIGRATION_PRODUCTION_REHEARSAL.md`).
