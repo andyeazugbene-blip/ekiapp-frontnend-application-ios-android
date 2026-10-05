@@ -1,116 +1,71 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Card, ErrorPanel, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { APIError } from "@/lib/api";
-import { automationAPI, type AutomationSummary } from "@/lib/services/automation.api";
+import { LoadingPanel, PageHeader } from "@/components/AdminUI";
+import { StatusTabs } from "@/components/AdminKit";
+import { NoAccess } from "@/components/PageStates";
+import { usePermissions } from "@/lib/hooks/usePermissions";
+import AutomationsTab from "./AutomationsTab";
+import EventsTab from "./EventsTab";
+import FailuresTab from "./FailuresTab";
+import RunsTab from "./RunsTab";
 
-export default function AutomationPage() {
-  const [summary, setSummary] = useState<AutomationSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+type Tab = "automations" | "runs" | "failures" | "events";
+const TABS: Tab[] = ["automations", "runs", "failures", "events"];
 
-  const load = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      setSummary(await automationAPI.getSummary());
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to load automation summary");
-    } finally {
-      setLoading(false);
-    }
+function AutomationInner() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const perms = usePermissions();
+  const [version, setVersion] = useState(0);
+  const requested = params.get("tab") as Tab | null;
+  // Vendor deep link (/automation?vendorId=...) opens Run History for that vendor.
+  const vendorId = params.get("vendorId") ?? undefined;
+  const tab: Tab = requested && TABS.includes(requested) ? requested : vendorId ? "runs" : "automations";
+
+  if (perms.loading) return <LoadingPanel label="Checking your access…" />;
+  if (!perms.hasAny("automation.read", "analytics.read")) return <NoAccess what="Automation Centre" />;
+  const canMutate = perms.has("automation.mutate");
+  const isSuper = !!perms.access?.isSuperAdmin || perms.has("admin.*");
+
+  const setTab = (t: string) => {
+    const q = new URLSearchParams(params.toString());
+    q.set("tab", t);
+    router.replace(`/automation?${q.toString()}`);
   };
 
-  useEffect(() => { void load(); }, []);
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Automation Centre" subtitle="What Eki sends automatically, to whom, why it did or did not send, and what happened next." />
+      <StatusTabs
+        tabs={[{ key: "automations", label: "Automations" }, { key: "runs", label: "Run History" }, { key: "failures", label: "Failures" }, { key: "events", label: "Events" }]}
+        active={tab}
+        onChange={setTab}
+      />
+      {tab === "automations" ? <AutomationsTab key={version} canMutate={canMutate} isSuper={isSuper} onChanged={() => undefined} /> : null}
+      {tab === "runs" ? (
+        <RunsTab
+          key={`${version}-${params.get("ruleKey") ?? ""}-${params.get("status") ?? ""}-${params.get("reason") ?? ""}-${vendorId ?? ""}`}
+          canMutate={canMutate}
+          initial={{ vendorId, ruleKey: params.get("ruleKey") ?? undefined, status: params.get("status") ?? undefined, type: params.get("type") ?? undefined }}
+        />
+      ) : null}
+      {tab === "failures" ? <FailuresTab key={version} canMutate={canMutate} /> : null}
+      {tab === "events" ? <EventsTab /> : null}
+    </div>
+  );
+}
 
-  const sentCount = summary?.byStatus.find((s) => s.status === "SENT")?.count ?? 0;
-  const failedCount = summary?.byStatus.find((s) => s.status === "FAILED")?.count ?? 0;
-  const suppressedCount = summary?.byStatus.find((s) => s.status === "SUPPRESSED")?.count ?? 0;
-  const totalRuns = (summary?.byStatus ?? []).reduce((sum, s) => sum + s.count, 0);
-
+export default function AutomationPage() {
   return (
     <ProtectedRoute>
       <AdminLayout>
-        {loading ? <LoadingPanel label="Loading automation activity..." /> : (
-          <div className="space-y-8">
-            <PageHeader title="Automation" subtitle="Event-driven vendor/buyer automation runs over the last 30 days." />
-            {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
-
-            <div className="grid gap-6 md:grid-cols-4">
-              <MetricCard icon="trending" label="Total runs (30d)" value={totalRuns} tone="green" />
-              <MetricCard icon="check" label="Sent" value={sentCount} tone="green" />
-              {/*
-                Suppressed = a real run that correctly did NOT communicate
-                anything (its template was disabled/missing, or it had no
-                eligible channel) — distinct from a genuine delivery. Before
-                this fix, these were indistinguishable from "Sent" here.
-              */}
-              <MetricCard icon="warning" label="Suppressed" value={suppressedCount} tone={suppressedCount > 0 ? "amber" : "green"} />
-              <MetricCard icon="warning" label="Failed" value={failedCount} tone={failedCount > 0 ? "red" : "green"} />
-            </div>
-
-            <div className="grid gap-6 xl:grid-cols-2">
-              <Card>
-                <h2 className="text-2xl font-black">Runs by type</h2>
-                {(summary?.byType ?? []).length === 0 ? (
-                  <p className="mt-6 text-slate-500">No automation runs yet.</p>
-                ) : (
-                  <div className="mt-6 space-y-3">
-                    {summary!.byType.map((t) => (
-                      <div key={t.type} className="flex items-center justify-between rounded-xl border border-slate-100 px-4 py-3">
-                        <span className="text-sm font-semibold text-slate-700">{t.type.replace(/_/g, " ")}</span>
-                        <span className="text-sm font-black text-[#101820]">{t.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-
-              <Card>
-                <h2 className="text-2xl font-black">Recent failures</h2>
-                {(summary?.recentFailures ?? []).length === 0 ? (
-                  <p className="mt-6 text-slate-500">No failures in the last 30 days.</p>
-                ) : (
-                  <div className="mt-6 space-y-3">
-                    {summary!.recentFailures.map((run) => (
-                      <div key={run.id} className="rounded-xl border border-red-100 bg-red-50/40 px-4 py-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-slate-800">{run.type.replace(/_/g, " ")}</span>
-                          <Badge tone="red">Failed</Badge>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-500">{run.failureReason ?? "No reason recorded"}</p>
-                        <p className="mt-1 text-xs text-slate-400">{new Date(run.createdAt).toLocaleString()}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-
-              <Card>
-                <h2 className="text-2xl font-black">Recent suppressed</h2>
-                {(summary?.recentSuppressed ?? []).length === 0 ? (
-                  <p className="mt-6 text-slate-500">No suppressed runs in the last 30 days.</p>
-                ) : (
-                  <div className="mt-6 space-y-3">
-                    {summary!.recentSuppressed.map((run) => (
-                      <div key={run.id} className="rounded-xl border border-amber-100 bg-amber-50/40 px-4 py-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-slate-800">{run.type.replace(/_/g, " ")}</span>
-                          <Badge tone="amber">Suppressed</Badge>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-500">{run.suppressedReason ?? "No reason recorded"}</p>
-                        <p className="mt-1 text-xs text-slate-400">{new Date(run.createdAt).toLocaleString()}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </div>
-          </div>
-        )}
+        <Suspense fallback={<LoadingPanel label="Loading Automation Centre…" />}>
+          <AutomationInner />
+        </Suspense>
       </AdminLayout>
     </ProtectedRoute>
   );

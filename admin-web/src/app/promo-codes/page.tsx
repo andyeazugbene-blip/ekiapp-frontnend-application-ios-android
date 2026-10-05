@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { useConfirm } from "@/components/AdminKit";
 import { promoCodesAPI } from "@/lib/services/promo-codes.api";
 import { vendorsAPI } from "@/lib/services/vendors.api";
 import { APIError } from "@/lib/api";
@@ -22,6 +23,7 @@ const EMPTY_FORM = {
 };
 
 export default function PromoCodesPage() {
+  const confirm = useConfirm();
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,59 +82,60 @@ export default function PromoCodesPage() {
       return;
     }
 
-    try {
-      setSubmitting(true);
-      setError("");
-      await promoCodesAPI.createPromoCode({
-        vendorId: form.vendorId,
-        code: form.code,
-        type: form.type,
-        value: Number(form.value),
-        minOrderAmount: form.minOrderAmount ? Number(form.minOrderAmount) : undefined,
-        maxUses: form.maxUses ? Number(form.maxUses) : undefined,
-        validFrom: form.validFrom || undefined,
-        validUntil: form.validUntil || undefined,
-      });
-      setForm(EMPTY_FORM);
-      await loadPromoCodes();
-    } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
-      } else {
-        setError("Failed to create promo code");
-      }
-    } finally {
-      setSubmitting(false);
-    }
+    setError("");
+    confirm.ask(
+      { title: `Create promo code ${form.code.trim().toUpperCase()}?`, confirmLabel: "Create", tone: "primary", description: "The reason is recorded in the audit log." },
+      async (reason) => {
+        setSubmitting(true);
+        try {
+          await promoCodesAPI.createPromoCode({
+            vendorId: form.vendorId,
+            code: form.code,
+            type: form.type,
+            value: Number(form.value),
+            minOrderAmount: form.minOrderAmount ? Number(form.minOrderAmount) : undefined,
+            maxUses: form.maxUses ? Number(form.maxUses) : undefined,
+            validFrom: form.validFrom || undefined,
+            validUntil: form.validUntil || undefined,
+            reason,
+          });
+          setForm(EMPTY_FORM);
+          await loadPromoCodes();
+        } finally {
+          setSubmitting(false);
+        }
+      },
+    );
   };
 
   const handleTogglePromoCode = async (promo: PromoCode) => {
-    try {
-      await promoCodesAPI.updatePromoCode(promo.id, { isActive: !promo.isActive });
-      await loadPromoCodes();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to update promo code");
-    }
+    confirm.ask(
+      { title: `${promo.isActive ? "Deactivate" : "Activate"} ${promo.code}?`, confirmLabel: promo.isActive ? "Deactivate" : "Activate", tone: promo.isActive ? "danger" : "primary" },
+      async (reason) => {
+        await promoCodesAPI.updatePromoCode(promo.id, { isActive: !promo.isActive }, reason);
+        await loadPromoCodes();
+      },
+    );
   };
 
   const handleExtendPromoCode = async (promo: PromoCode) => {
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + 30);
 
-    try {
-      await promoCodesAPI.updatePromoCode(promo.id, {
-        validUntil: targetDate.toISOString(),
-      });
-      await loadPromoCodes();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to extend promo code");
-    }
+    confirm.ask(
+      { title: `Extend ${promo.code} by 30 days?`, confirmLabel: "Extend", tone: "primary" },
+      async (reason) => {
+        await promoCodesAPI.updatePromoCode(promo.id, { validUntil: targetDate.toISOString() }, reason);
+        await loadPromoCodes();
+      },
+    );
   };
 
   return (
     <ProtectedRoute>
       <AdminLayout>
         <div className="space-y-6">
+          {confirm.dialog}
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Promo Codes</h1>

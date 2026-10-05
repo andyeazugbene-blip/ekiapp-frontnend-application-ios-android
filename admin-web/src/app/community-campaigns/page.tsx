@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader, TextLink } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { useConfirm } from "@/components/AdminKit";
+import { ReviewDecisionDialog } from "./ReviewDecisionDialog";
 import { API2FARequiredError, APIError } from "@/lib/api";
 import {
   communityBuyAdminAPI, isPendingApproval,
@@ -46,6 +48,8 @@ const SUPPLIER_PAYMENT_STATUS_LABEL: Record<SupplierPaymentStatus, string> = {
 const CANCELLABLE_STATUSES: CampaignStatus[] = ["LIVE", "PAUSED", "RESCUE_WINDOW"];
 
 export default function CommunityCampaignsPage() {
+  const confirmPause = useConfirm();
+  const [review, setReview] = useState<{ mode: "approve" | "reject"; id: string; title: string } | null>(null);
   const [items, setItems] = useState<AdminCampaign[]>([]);
   const [closed, setClosed] = useState<AdminCampaign[]>([]);
   const [extensionRequests, setExtensionRequests] = useState<AdminExtensionRequest[]>([]);
@@ -315,7 +319,7 @@ export default function CommunityCampaignsPage() {
                         <p>Deadline: <span className="font-semibold text-[#101820]">{new Date(c.deadline).toLocaleDateString()}</span></p>
                       </div>
                       <textarea
-                        placeholder="Notes for the organiser (required to request changes)"
+                        placeholder="Notes for the organiser (required to request changes; approve and reject ask for their own notes)"
                         value={notesById[c.id] ?? ""}
                         onChange={(e) => setNotesById((prev) => ({ ...prev, [c.id]: e.target.value }))}
                         className="mt-4 w-full rounded-xl border border-slate-200 p-3 text-sm"
@@ -324,9 +328,7 @@ export default function CommunityCampaignsPage() {
                       <div className="mt-4 flex flex-wrap gap-3">
                         <Button
                           disabled={busyId === c.id}
-                          onClick={() => {
-                            if (confirm("Approve this campaign? It will go live and become visible to buyers.")) void runAction(c.id, () => communityBuyAdminAPI.approveCampaign(c.id));
-                          }}
+                          onClick={() => setReview({ mode: "approve", id: c.id, title: c.title })}
                         >
                           Approve
                         </Button>
@@ -340,9 +342,7 @@ export default function CommunityCampaignsPage() {
                         <Button
                           variant="danger"
                           disabled={busyId === c.id}
-                          onClick={() => {
-                            if (confirm("Reject this campaign?")) void runAction(c.id, () => communityBuyAdminAPI.rejectCampaign(c.id, notesById[c.id]));
-                          }}
+                          onClick={() => setReview({ mode: "reject", id: c.id, title: c.title })}
                         >
                           Reject
                         </Button>
@@ -422,9 +422,10 @@ export default function CommunityCampaignsPage() {
                             <Button
                               variant="danger"
                               disabled={busyId === c.id}
-                              onClick={() => {
-                                if (confirm("Pause new contributions for this campaign? Existing participants keep their pledge; no new contributions will be accepted until resumed.")) void runAction(c.id, () => communityBuyAdminAPI.pauseCampaign(c.id));
-                              }}
+                              onClick={() => confirmPause.ask(
+                                { title: `Pause "${c.title}"?`, description: "No new contributions are accepted until resumed. The organiser, supplier and participants are notified.", confirmLabel: "Pause campaign", reasonLabel: "Reason (shared with the organiser and supplier, recorded in the audit log)" },
+                                async (reason) => { await communityBuyAdminAPI.pauseCampaign(c.id, reason); await load(true); },
+                              )}
                             >
                               Pause new contributions
                             </Button>
@@ -742,6 +743,10 @@ export default function CommunityCampaignsPage() {
               </div>
             </Card>
           </div>
+        ) : null}
+        {confirmPause.dialog}
+        {review ? (
+          <ReviewDecisionDialog mode={review.mode} campaignId={review.id} campaignTitle={review.title} onClose={() => setReview(null)} onDone={() => load(true)} />
         ) : null}
       </AdminLayout>
     </ProtectedRoute>

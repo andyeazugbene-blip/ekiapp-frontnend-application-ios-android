@@ -50,6 +50,7 @@ export const deliveryZonesAPI = {
     flag?: string;
     baseFeeAmount: number;
     feePerKgAmount?: number;
+    reason: string;
   }): Promise<DeliveryZone> {
     const res = await apiClient.post<any>("/admin/delivery-zones", {
       name: input.name,
@@ -57,6 +58,7 @@ export const deliveryZonesAPI = {
       flag: input.flag,
       baseFeeAmount: Math.round(input.baseFeeAmount * 100),
       feePerKgAmount: input.feePerKgAmount ? Math.round(input.feePerKgAmount * 100) : 0,
+      reason: input.reason,
     });
     return normalizeDeliveryZone(res.zone ?? res);
   },
@@ -68,19 +70,19 @@ export const deliveryZonesAPI = {
     baseFeeAmount: number;
     feePerKgAmount: number;
     isActive: boolean;
-  }>): Promise<DeliveryZone> {
-    const payload: Record<string, unknown> = { ...input };
+  }>, reason: string): Promise<DeliveryZone> {
+    const payload: Record<string, unknown> = { ...input, reason };
     if (input.baseFeeAmount !== undefined) payload.baseFeeAmount = Math.round(input.baseFeeAmount * 100);
     if (input.feePerKgAmount !== undefined) payload.feePerKgAmount = Math.round(input.feePerKgAmount * 100);
     const res = await apiClient.patch<any>(`/admin/delivery-zones/${zoneId}`, payload);
     return normalizeDeliveryZone(res.zone ?? res);
   },
 
-  async deleteZone(zoneId: string): Promise<void> {
-    await apiClient.delete(`/admin/delivery-zones/${zoneId}`);
+  async deleteZone(zoneId: string, reason: string): Promise<void> {
+    await apiClient.delete(`/admin/delivery-zones/${zoneId}?reason=${encodeURIComponent(reason)}`);
   },
 
-  async fixCurrencies(): Promise<{ checked: number; corrected: number; corrections: { id: string; country: string; from: string; to: string }[] }> {
-    return apiClient.post("/admin/delivery-zones/fix-currencies", {});
+  async fixCurrencies(reason: string): Promise<{ checked: number; corrected: number; corrections: { id: string; country: string; from: string; to: string }[] }> {
+    return apiClient.post("/admin/delivery-zones/fix-currencies", { reason });
   },
 };

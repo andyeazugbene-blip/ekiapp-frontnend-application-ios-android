@@ -40,7 +40,7 @@ export default function RegularDeliveryInsightsScreen() {
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title="Foodstuff Subscription Insights" onBack={() => goBackOrReplace(router, "/(vendor)/regular-deliveries" as any)} />
+      <PremiumHeader title="Foodstuffs Subscription Insights" onBack={() => goBackOrReplace(router, "/(vendor)/regular-deliveries" as any)} />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         {loading ? (

@@ -23,6 +23,26 @@ export class API2FARequiredError extends APIError {
   }
 }
 
+/**
+ * Global second-factor prompter. ProtectedRoute registers a modal that asks for
+ * a TOTP/backup code; when any request is refused with 2FA_REQUIRED the client
+ * asks it, then retries the same request once with the x-2fa-code header. This
+ * keeps every 2FA-gated action working without per-page handling. Returns null
+ * when the user cancels.
+ */
+export type TwoFactorPrompter = (message?: string) => Promise<string | null>;
+let twoFactorPrompter: TwoFactorPrompter | null = null;
+export function setTwoFactorPrompter(fn: TwoFactorPrompter | null): void {
+  twoFactorPrompter = fn;
+}
+
+/** For non-JSON requests (file downloads) that need to ask for a code themselves. */
+export function requestTwoFactorCode(message?: string): Promise<string | null> {
+  return twoFactorPrompter ? twoFactorPrompter(message) : Promise.resolve(null);
+}
+
+export const PERMISSION_DENIED_EVENT = "admin:permission-denied";
+
 interface RequestOptions extends RequestInit {
   headers?: Record<string, string>;
   twoFactorCode?: string;
@@ -128,6 +148,9 @@ class APIClient {
             if (errorCode === "2FA_REQUIRED") {
               throw new API2FARequiredError(errorMessage);
             }
+            if (errorCode === "TWO_FACTOR_SETUP_REQUIRED" && typeof window !== "undefined" && window.location.pathname !== "/security/setup") {
+              window.location.href = "/security/setup";
+            }
           } catch (error) {
             if (error instanceof API2FARequiredError) throw error;
           }
@@ -147,6 +170,9 @@ class APIClient {
             }
             throw new APIError(401, "Unauthorized - please login again", errorCode);
           case 403:
+            if (method === "GET" && errorCode === "ADMIN_PERMISSION_DENIED" && typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent(PERMISSION_DENIED_EVENT, { detail: { message: errorMessage, endpoint } }));
+            }
             throw new APIError(403, errorMessage || "Forbidden - insufficient permissions", errorCode);
           case 404:
             throw new APIError(404, errorMessage || "Resource not found", errorCode);
@@ -180,6 +206,12 @@ class APIClient {
       }
       return await requestPromise;
     } catch (error) {
+      if (error instanceof API2FARequiredError && !options.twoFactorCode && twoFactorPrompter) {
+        const code = await twoFactorPrompter(error.message);
+        if (!code) throw new APIError(403, "Verification cancelled", "2FA_CANCELLED");
+        // Retry once with the code; a wrong code surfaces as 2FA_INVALID from the server.
+        return this.request<T>(endpoint, { ...options, twoFactorCode: code });
+      }
       if (error instanceof APIError) {
         throw error;
       }

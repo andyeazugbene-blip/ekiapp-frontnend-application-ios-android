@@ -49,7 +49,8 @@ interface ConversationResponse {
 }
 
 function normalizeConversation(c: any, participantId = ""): Conversation {
-  const displayName =
+  const isSupportSide = c.isSupport === true || c.participantRole === "admin";
+  const displayName = isSupportSide ? "Eki Support" :
     c.participantStoreName ??
     c.participantVendor?.storeName ??
     c.participantUser?.vendor?.storeName ??

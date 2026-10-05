@@ -1,21 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel } from "@/components/AdminUI";
+import { Banner, ConfirmDialog, KeyValue, formatDateTime, formatMinor, useConfirm } from "@/components/AdminKit";
+import { Badge, Button, Card, ErrorPanel, PageHeader } from "@/components/AdminUI";
+import { NoAccess, SkeletonRows } from "@/components/PageStates";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { API2FARequiredError, APIError } from "@/lib/api";
+import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   communityBuyAdminAPI, isPendingApproval,
-  type AdminCampaign, type AdminSupplierPayment,
-  type CampaignStatus, type SupplierPaymentStatus,
+  type AdminContribution, type AdminSupplierPayment, type CampaignAdminDetail, type CampaignStatus,
 } from "@/lib/services/communityBuy.api";
-import { countryDisplayName } from "@/lib/countries";
-
-function centsToUnit(value: unknown): number {
-  return typeof value === "number" ? value / 100 : 0;
-}
+import { marketLabel } from "@/lib/countries";
+import { ReviewDecisionDialog } from "../ReviewDecisionDialog";
 
 const STATUS_TONE: Record<CampaignStatus, "green" | "amber" | "red" | "blue" | "gray"> = {
   DRAFT: "gray", UNDER_REVIEW: "amber", CHANGES_REQUIRED: "amber", APPROVED: "blue", REJECTED: "red",
@@ -23,65 +23,64 @@ const STATUS_TONE: Record<CampaignStatus, "green" | "amber" | "red" | "blue" | "
   REFUNDING: "amber", FULFILLING: "blue", COMPLETED: "green", FINANCIALLY_CLOSED: "gray", CANCELLED: "red",
   CANCELLATION_UNDER_REVIEW: "amber",
 };
-
 const STATUS_LABEL: Record<CampaignStatus, string> = {
   DRAFT: "Draft", UNDER_REVIEW: "Under review", CHANGES_REQUIRED: "Changes requested", APPROVED: "Approved",
   REJECTED: "Rejected", LIVE: "Live", PAUSED: "Paused", RESCUE_WINDOW: "Needs more participants",
-  SUCCEEDED: "Succeeded", FAILED: "Did not reach minimum", REFUNDING: "Refunding", FULFILLING: "Proceeding",
+  SUCCEEDED: "Target reached", FAILED: "Did not reach minimum", REFUNDING: "Refund processing", FULFILLING: "Fulfilment in progress",
   COMPLETED: "Completed", FINANCIALLY_CLOSED: "Financially closed", CANCELLED: "Ended",
   CANCELLATION_UNDER_REVIEW: "Cancellation under review",
 };
-
-const SUPPLIER_PAYMENT_STATUS_LABEL: Record<SupplierPaymentStatus, string> = {
-  NOT_RELEASED: "Not released", PROCESSING: "Processing", PAID: "Paid", ON_HOLD: "On hold", FAILED: "Failed",
-};
-
-// Same guard the list page uses — money is guaranteed never to have moved
-// yet under PLEDGE_THEN_CHARGE for any of these, so ending the campaign here
-// only voids pledges, never creates a refund. Matches the backend exactly.
-const CANCELLABLE_STATUSES: CampaignStatus[] = ["LIVE", "PAUSED", "RESCUE_WINDOW"];
+const CANCELLABLE: CampaignStatus[] = ["LIVE", "PAUSED", "RESCUE_WINDOW"];
 const REVIEW_STATUSES: CampaignStatus[] = ["UNDER_REVIEW", "CHANGES_REQUIRED"];
+const labelClass = "text-xs font-bold uppercase tracking-wide text-slate-500";
+const inputClass = "w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#096B4A]";
 
-export default function CommunityCampaignDetailPage() {
-  const router = useRouter();
+/** Date shown in the campaign's own timezone when one is recorded, always with a zone label. */
+function inCampaignZone(value: string | null | undefined, timezone: string | null | undefined): string {
+  if (!value) return "Not set";
+  if (!timezone) return formatDateTime(value);
+  try {
+    return new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: timezone, timeZoneName: "short" });
+  } catch {
+    return formatDateTime(value);
+  }
+}
+
+function Content() {
   const params = useParams<{ id: string }>();
-
-  const [campaign, setCampaign] = useState<AdminCampaign | null>(null);
+  const { has, loading: permLoading } = usePermissions();
+  const [detail, setDetail] = useState<CampaignAdminDetail | null>(null);
+  const [contributions, setContributions] = useState<AdminContribution[]>([]);
   const [payment, setPayment] = useState<AdminSupplierPayment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const [notes, setNotes] = useState("");
-  const [holdReason, setHoldReason] = useState("");
-  const [cancelReason, setCancelReason] = useState("");
-  const [pendingAction, setPendingAction] = useState<"release" | "hold" | "cancel" | null>(null);
-  const [twoFactorCode, setTwoFactorCode] = useState("");
-  // Phase 2 (admin ops) — the unified operations view's one shared
-  // issue/notes field. Independent of every existing review/payment/
-  // campaign state field above.
+  const [review, setReview] = useState<"approve" | "reject" | null>(null);
   const [issueNotes, setIssueNotes] = useState("");
   const [issueNotesSaved, setIssueNotesSaved] = useState(true);
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [newDeadline, setNewDeadline] = useState("");
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [msg, setMsg] = useState({ audience: "participants" as "participants" | "organiser" | "supplier" | "all", title: "", message: "" });
+  const [dialogBusy, setDialogBusy] = useState(false);
+  const [dialogError, setDialogError] = useState("");
+  const c = useConfirm();
 
-  // Diaspora escrow reconciliation (Figma admin S84/S85) — this page is
-  // additive: it reuses the SAME two list endpoints the review-queue page
-  // already fetches (no new backend route for a single-campaign GET) and
-  // finds the matching campaign client-side, since a campaign is always in
-  // exactly one of those two lists depending on its current status.
-  const load = useCallback(async () => {
+  const load = useCallback(async (bypassCache = false) => {
     if (!params.id) return;
+    const opts = bypassCache ? { bypassCache: true } : undefined;
     try {
       setLoading(true);
       setError("");
-      const [review, closed, payments] = await Promise.all([
-        communityBuyAdminAPI.getCampaignsForReview(),
-        communityBuyAdminAPI.getRecentlyClosedCampaigns(),
-        communityBuyAdminAPI.getSupplierPayments(),
+      const [d, contribs, payments] = await Promise.all([
+        communityBuyAdminAPI.getCampaignAdminDetail(params.id, opts),
+        communityBuyAdminAPI.getCampaignContributions(params.id, opts).catch(() => [] as AdminContribution[]),
+        communityBuyAdminAPI.getSupplierPayments(opts).catch(() => [] as AdminSupplierPayment[]),
       ]);
-      const found = [...review, ...closed].find((c) => c.id === params.id) ?? null;
-      setCampaign(found);
+      setDetail(d);
+      setContributions(contribs);
       setPayment(payments.find((p) => p.campaignId === params.id) ?? null);
-      if (!found) setError("Campaign not found in the review or live/closed queues.");
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to load this campaign");
     } finally {
@@ -90,348 +89,300 @@ export default function CommunityCampaignDetailPage() {
   }, [params.id]);
 
   useEffect(() => { void load(); }, [load]);
-
-  // Phase 2 (admin ops) — sync the notes draft only when a genuinely
-  // different campaign loads, not on every background refresh, so an
-  // in-progress edit here survives an unrelated action (approve/pause/etc.)
-  // updating `campaign`.
   useEffect(() => {
-    if (campaign) {
-      setIssueNotes(campaign.adminIssueNotes ?? "");
-      setIssueNotesSaved(true);
-    }
+    if (detail) { setIssueNotes(detail.campaign.adminIssueNotes ?? ""); setIssueNotesSaved(true); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaign?.id]);
+  }, [detail?.campaign.id]);
 
-  const runSaveIssueNotes = async () => {
-    if (!campaign) return;
+  if (!permLoading && !has("community_buy.read")) return <NoAccess what="Community Buy campaigns" />;
+  if (loading && !detail) return <SkeletonRows count={6} />;
+  if (error || !detail) return <ErrorPanel message={error || "Campaign not found"} onRetry={() => void load()} />;
+
+  const campaign = detail.campaign;
+  const { progress, money, operations, timeline } = detail;
+  const canMutate = has("community_buy.mutate");
+  const currency = campaign.currency;
+  const done = async (message: string) => { setNotice(message); await load(true); };
+
+  const saveIssueNotes = async () => {
     setBusy(true);
     try {
       await communityBuyAdminAPI.setCampaignIssueNotes(campaign.id, issueNotes.trim());
       setIssueNotesSaved(true);
-      await load();
+      await done("Admin notes saved.");
     } catch (err) {
-      alert(err instanceof APIError ? err.message : "Action failed");
+      setError(err instanceof APIError ? err.message : "Failed to save notes");
     } finally {
       setBusy(false);
     }
   };
 
-  const runAction = async (action: () => Promise<AdminCampaign>) => {
-    setBusy(true);
-    try {
-      await action();
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Action failed");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const publicUrl = campaign.slug ?? null;
 
-  const runCancelAction = async (code?: string) => {
-    if (!campaign) return;
-    setBusy(true);
-    try {
-      await communityBuyAdminAPI.cancelCampaign(campaign.id, cancelReason.trim(), code);
-      setPendingAction(null);
-      setTwoFactorCode("");
-      await load();
-    } catch (err) {
-      if (err instanceof API2FARequiredError) setPendingAction("cancel");
-      else alert(err instanceof APIError ? err.message : "Action failed");
-    } finally {
-      setBusy(false);
-    }
-  };
+  return (
+    <div className="space-y-6">
+      <Link href="/community-campaigns" className="text-sm font-bold text-[#096B4A] hover:underline">&larr; Community Buy campaigns</Link>
+      <PageHeader
+        title={campaign.title}
+        subtitle={`${marketLabel(campaign.country, currency)} - created ${formatDateTime(campaign.createdAt)}`}
+        actions={<Badge tone={STATUS_TONE[campaign.status]}>{STATUS_LABEL[campaign.status]}</Badge>}
+      />
+      {notice ? <Banner tone="success">{notice}</Banner> : null}
 
-  const runReleaseAction = async (code?: string) => {
-    if (!campaign) return;
-    setBusy(true);
-    try {
-      const result = await communityBuyAdminAPI.releaseSupplierPayment(campaign.id, code);
-      if (isPendingApproval(result)) alert(result.message);
-      else alert("Payment released.");
-      setPendingAction(null);
-      setTwoFactorCode("");
-      await load();
-    } catch (err) {
-      if (err instanceof API2FARequiredError) setPendingAction("release");
-      else alert(err instanceof APIError ? err.message : "Action failed");
-    } finally {
-      setBusy(false);
-    }
-  };
+      {/* Progress and money */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <h2 className="text-xl font-black">Progress</h2>
+          <div className="mt-3" role="progressbar" aria-valuenow={progress.percentOfGoal ?? 0} aria-valuemin={0} aria-valuemax={100} aria-label="Progress towards goal">
+            <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-[#096B4A]" style={{ width: `${progress.percentOfGoal ?? 0}%` }} /></div>
+            <p className="mt-1 text-sm font-semibold text-slate-700">{progress.percentOfGoal != null ? `${progress.percentOfGoal}% of goal` : "Goal not set"} - {progress.confirmedShares} of {progress.goalShares ?? "?"} shares</p>
+          </div>
+          <div className="mt-4"><KeyValue items={[
+            { label: "Participants", value: progress.participantCount },
+            { label: "Minimum / goal / maximum", value: `${progress.minimumShares ?? "-"} / ${progress.goalShares ?? "-"} / ${progress.maximumShares ?? "-"}` },
+            { label: "Committed quantity", value: progress.committedQuantity },
+            { label: "Paid quantity", value: progress.paidQuantity },
+          ]} /></div>
+        </Card>
+        <Card>
+          <h2 className="text-xl font-black">Money</h2>
+          <div className="mt-4"><KeyValue items={[
+            { label: "Pledged (not yet charged)", value: formatMinor(money.pledgedAmount, currency) },
+            { label: "Paid", value: formatMinor(money.paidAmount, currency) },
+            { label: "Refunded", value: `${formatMinor(money.refundedAmount, currency)} (${money.refundCount})` },
+            { label: "Payment failures", value: money.paymentFailures },
+            { label: "Supplier payment", value: money.supplierPayment ? `${formatMinor(money.supplierPayment.amount, money.supplierPayment.currency)} - ${money.supplierPayment.status.replace(/_/g, " ").toLowerCase()}` : "No record yet" },
+            { label: "Organiser payout", value: money.organiserPayout ? `${formatMinor(money.organiserPayout.amount, currency)} - ${money.organiserPayout.status.replace(/_/g, " ").toLowerCase()}` : "No record yet" },
+          ]} /></div>
+        </Card>
+      </div>
 
-  const runHoldAction = async (code?: string) => {
-    if (!campaign) return;
-    setBusy(true);
-    try {
-      await communityBuyAdminAPI.holdSupplierPayment(campaign.id, holdReason.trim(), code);
-      setPendingAction(null);
-      setTwoFactorCode("");
-      await load();
-    } catch (err) {
-      if (err instanceof API2FARequiredError) setPendingAction("hold");
-      else alert(err instanceof APIError ? err.message : "Action failed");
-    } finally {
-      setBusy(false);
-    }
-  };
+      {/* Identity, terms and timing */}
+      <Card>
+        <h2 className="mb-4 text-xl font-black">Campaign record</h2>
+        <KeyValue items={[
+          { label: "Organiser", value: campaign.organiser?.user ? `${campaign.organiser.user.name} (${campaign.organiser.user.email})` : "Not provided" },
+          { label: "Fulfilment", value: campaign.fulfilmentOwner === "SELF" ? "Self-fulfilled by the organiser" : (campaign.supplier?.vendor?.storeName ?? campaign.supplierAccount?.user?.name ?? "Supplier not provided") + (campaign.supplierCommitted ? " (accepted)" : campaign.supplierDeclinedAt ? " (declined)" : " (awaiting response)") },
+          { label: "Price per share", value: formatMinor(campaign.pricePerShareMinor, currency) },
+          { label: "Public URL slug", value: publicUrl ?? "Assigned when the campaign is published" },
+          { label: "Timezone", value: campaign.timezone ?? "Not set (dates shown in your local time)" },
+          { label: "Deadline", value: inCampaignZone(campaign.deadline, campaign.timezone) },
+          { label: "Payment deadline", value: inCampaignZone(campaign.paymentDeadline, campaign.timezone) },
+          { label: "Fulfilment deadline", value: inCampaignZone(campaign.fulfilmentDeadline, campaign.timezone) },
+          { label: "Scheduled opening", value: inCampaignZone(campaign.scheduledOpenAt, campaign.timezone) },
+          { label: "Extensions used", value: campaign.extensionCount },
+          ...(campaign.status === "RESCUE_WINDOW" && campaign.rescueEndsAt ? [{ label: "Rescue window ends", value: inCampaignZone(campaign.rescueEndsAt, campaign.timezone) }] : []),
+          ...(campaign.reviewCriteria ? [{ label: "Review criteria", value: Object.entries(campaign.reviewCriteria).map(([k, v]) => `${k}: ${v ? "pass" : "fail"}`).join(", ") }] : []),
+          ...(campaign.reviewNotes ? [{ label: "Review notes", value: campaign.reviewNotes }] : []),
+        ]} />
+      </Card>
 
+      {/* Actions */}
+      {canMutate ? (
+        <Card>
+          <h2 className="text-xl font-black">Actions</h2>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {REVIEW_STATUSES.includes(campaign.status) ? (
+              <>
+                {campaign.status === "UNDER_REVIEW" ? <Button onClick={() => setReview("approve")}>Approve</Button> : null}
+                <Button variant="secondary" onClick={() => c.ask(
+                  { title: "Request changes", description: "The organiser is notified and can edit and resubmit.", confirmLabel: "Request changes", tone: "primary", reasonLabel: "What needs to change?" },
+                  async (notes) => { await communityBuyAdminAPI.requestCampaignChanges(campaign.id, notes); await done("Changes requested."); },
+                )}>Request changes</Button>
+                {campaign.status === "UNDER_REVIEW" ? <Button variant="danger" onClick={() => setReview("reject")}>Reject</Button> : null}
+              </>
+            ) : null}
+            {campaign.status === "LIVE" ? (
+              <Button variant="danger" onClick={() => c.ask(
+                { title: `Pause "${campaign.title}"?`, description: "No new contributions are accepted until resumed. The organiser, supplier and every participant are notified.", confirmLabel: "Pause campaign", reasonLabel: "Reason (shared with the organiser and supplier)" },
+                async (reason) => { await communityBuyAdminAPI.pauseCampaign(campaign.id, reason); await done("Campaign paused and all parties notified."); },
+              )}>Pause</Button>
+            ) : null}
+            {campaign.status === "PAUSED" ? (
+              <Button variant="secondary" onClick={() => c.ask(
+                { title: "Resume contributions?", confirmLabel: "Resume", tone: "primary", requireReason: false },
+                async () => { await communityBuyAdminAPI.resumeCampaign(campaign.id); await done("Campaign resumed."); },
+              )}>Resume</Button>
+            ) : null}
+            {campaign.status === "LIVE" || campaign.status === "RESCUE_WINDOW" ? (
+              <Button variant="secondary" onClick={() => { setDialogError(""); setNewDeadline(""); setExtendOpen(true); }}>Extend deadline</Button>
+            ) : null}
+            <Button variant="ghost" onClick={() => { setDialogError(""); setMessageOpen(true); }}>Message participants, organiser or supplier</Button>
+            {CANCELLABLE.includes(campaign.status) ? (
+              <Button variant="danger" onClick={() => c.ask(
+                { title: `End "${campaign.title}"?`, description: "Irreversible. The organiser and every participant are notified. No participant has been charged yet, so this only voids pledges. Requires 2FA.", confirmLabel: "End campaign", reasonLabel: "Reason (recorded and shared)" },
+                async (reason) => { await communityBuyAdminAPI.cancelCampaign(campaign.id, reason); await done("Campaign ended."); },
+              )}>End campaign</Button>
+            ) : null}
+          </div>
+          {payment && payment.status !== "PAID" ? (
+            <div className="mt-6 border-t border-slate-100 pt-4">
+              <p className="text-xs font-semibold text-slate-500">Supplier payment - {formatMinor(payment.amount, payment.currency)} ({payment.status.replace(/_/g, " ").toLowerCase()}){payment.holdReason ? ` - hold: ${payment.holdReason}` : ""}</p>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <Button onClick={() => c.ask(
+                  { title: "Approve release to supplier?", description: `Release ${formatMinor(payment.amount, payment.currency)}. This cannot be undone. Large releases may need a second admin's approval. Requires 2FA.`, confirmLabel: "Approve release", tone: "primary", requireReason: false },
+                  async () => {
+                    const result = await communityBuyAdminAPI.releaseSupplierPayment(campaign.id);
+                    await done(isPendingApproval(result) ? result.message : "Payment released.");
+                  },
+                )}>Approve release</Button>
+                <Button variant="secondary" onClick={() => c.ask(
+                  { title: "Place supplier payment on hold?", confirmLabel: "Place on hold", reasonLabel: "Hold reason" },
+                  async (reason) => { await communityBuyAdminAPI.holdSupplierPayment(campaign.id, reason); await done("Payment placed on hold."); },
+                )}>Place on hold</Button>
+              </div>
+            </div>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {/* Participants and payments */}
+      <Card>
+        <h2 className="mb-3 text-xl font-black">Participants and payments</h2>
+        {contributions.length === 0 ? <p className="text-sm text-slate-500">No participants yet.</p> : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="text-xs font-black uppercase tracking-wide text-slate-500">
+                <tr><th scope="col" className="py-2 pr-4">Participant</th><th scope="col" className="py-2 pr-4">Quantity</th><th scope="col" className="py-2 pr-4">Amount</th><th scope="col" className="py-2 pr-4">Payment status</th><th scope="col" className="py-2">Refund</th></tr>
+              </thead>
+              <tbody>
+                {contributions.map((ct) => (
+                  <tr key={ct.id} className="border-t border-slate-100">
+                    <td className="py-2 pr-4"><p className="font-bold text-[#101820]">{ct.participant.name || "Name not provided"}{ct.isOrganiserTopUp ? " (organiser top-up)" : ""}</p><p className="text-xs text-slate-500">{ct.participant.email}</p></td>
+                    <td className="py-2 pr-4">{ct.quantity}</td>
+                    <td className="py-2 pr-4">{formatMinor(ct.amount, ct.currency)}</td>
+                    <td className="py-2 pr-4"><Badge tone={ct.status === "PAID" ? "green" : ct.status.includes("FAIL") ? "red" : "gray"}>{ct.status.replace(/_/g, " ").toLowerCase()}</Badge></td>
+                    <td className="py-2 text-xs text-slate-600">{ct.refund ? `${ct.refund.status.replace(/_/g, " ").toLowerCase()} (${formatMinor(ct.refund.amount, ct.currency)})` : "None"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Operations */}
+      <Card>
+        <h2 className="text-xl font-black">Operations</h2>
+        <div className="mt-3"><KeyValue items={[
+          { label: "Fulfilment", value: operations.fulfilment ? `${operations.fulfilment.status.replace(/_/g, " ").toLowerCase()}${operations.fulfilment.method ? ` (${operations.fulfilment.method.toLowerCase()})` : ""}` : "Not started" },
+          { label: "Open fulfilment alerts", value: operations.alerts.filter((a) => a.status === "OPEN").length },
+          { label: "Support cases", value: operations.supportCases.length },
+        ]} /></div>
+        {operations.supportCases.length > 0 ? (
+          <ul className="mt-3 space-y-1 text-sm">
+            {operations.supportCases.map((s) => <li key={s.id} className="text-slate-600">{s.caseType.replace(/_/g, " ").toLowerCase()} - {s.status.replace(/_/g, " ").toLowerCase()} ({formatDateTime(s.createdAt)})</li>)}
+          </ul>
+        ) : null}
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <label className={labelClass} htmlFor="admin-notes">Admin notes (internal, stock and incident notes)</label>
+          <textarea id="admin-notes" value={issueNotes} disabled={!canMutate} onChange={(e) => { setIssueNotes(e.target.value); setIssueNotesSaved(false); }} className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm" rows={3} />
+          {canMutate ? (
+            <div className="mt-2 flex items-center gap-3">
+              <Button variant="secondary" disabled={busy || issueNotesSaved} onClick={() => void saveIssueNotes()}>Save notes</Button>
+              <span className="text-xs text-slate-400">{issueNotesSaved ? "Saved" : "Unsaved changes"}</span>
+            </div>
+          ) : null}
+        </div>
+      </Card>
+
+      {/* Timeline */}
+      <Card>
+        <h2 className="mb-3 text-xl font-black">Timeline</h2>
+        {timeline.length === 0 ? <p className="text-sm text-slate-500">No recorded activity yet.</p> : (
+          <ol className="space-y-2">
+            {timeline.map((t, i) => (
+              <li key={`${t.at}-${i}`} className="rounded-xl border border-slate-100 p-3 text-sm">
+                <p className="font-bold capitalize text-[#101820]">{t.label}</p>
+                <p className="text-xs text-slate-500">{formatDateTime(t.at)}{t.kind === "fulfilment" ? " - fulfilment" : ""}</p>
+                {t.detail ? <p className="mt-1 text-xs text-slate-600">{t.detail}</p> : null}
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+
+      {c.dialog}
+      {review ? <ReviewDecisionDialog mode={review} campaignId={campaign.id} campaignTitle={campaign.title} onClose={() => setReview(null)} onDone={done} /> : null}
+
+      {extendOpen ? (
+        <ConfirmDialog
+          open
+          title="Extend deadline"
+          description="Participants, the organiser and the supplier are notified. Requires 2FA."
+          confirmLabel="Extend deadline"
+          tone="primary"
+          reasonLabel="Reason (shared with participants and recorded in the audit log)"
+          loading={dialogBusy}
+          error={dialogError}
+          onCancel={() => { if (!dialogBusy) setExtendOpen(false); }}
+          onConfirm={async (reason) => {
+            if (!newDeadline) { setDialogError("Choose the new deadline."); return; }
+            setDialogBusy(true); setDialogError("");
+            try {
+              await communityBuyAdminAPI.extendCampaignDeadline(campaign.id, new Date(newDeadline).toISOString(), reason);
+              setExtendOpen(false);
+              await done("Deadline extended and participants notified.");
+            } catch (err) {
+              setDialogError(err instanceof Error ? err.message : "Failed to extend");
+            } finally { setDialogBusy(false); }
+          }}
+        >
+          <label className="block space-y-1"><span className={labelClass}>New deadline{campaign.timezone ? ` (${campaign.timezone})` : " (your local time)"}</span>
+            <input className={inputClass} type="datetime-local" value={newDeadline} onChange={(e) => setNewDeadline(e.target.value)} />
+          </label>
+          <p className="text-xs text-slate-500">Current deadline: {inCampaignZone(campaign.deadline, campaign.timezone)}</p>
+        </ConfirmDialog>
+      ) : null}
+
+      {messageOpen ? (
+        <ConfirmDialog
+          open
+          title="Send a message"
+          description="Delivered in the app (and by email to the organiser or supplier). Audited and rate limited."
+          confirmLabel="Send message"
+          tone="primary"
+          reasonLabel="Why are you sending this? (recorded in the audit log)"
+          loading={dialogBusy}
+          error={dialogError}
+          onCancel={() => { if (!dialogBusy) setMessageOpen(false); }}
+          onConfirm={async (reason) => {
+            setDialogBusy(true); setDialogError("");
+            try {
+              const result = await communityBuyAdminAPI.messageCampaignAudience(campaign.id, { ...msg, reason });
+              setMessageOpen(false);
+              setMsg({ audience: "participants", title: "", message: "" });
+              await done(`Message sent to ${result.sent.participants} participant(s), ${result.sent.organiser} organiser, ${result.sent.supplier} supplier.`);
+            } catch (err) {
+              setDialogError(err instanceof Error ? err.message : "Failed to send");
+            } finally { setDialogBusy(false); }
+          }}
+        >
+          <label className="block space-y-1"><span className={labelClass}>Send to</span>
+            <select className={inputClass} value={msg.audience} onChange={(e) => setMsg((s) => ({ ...s, audience: e.target.value as typeof s.audience }))}>
+              <option value="participants">All participants ({progress.participantCount})</option>
+              <option value="organiser">Organiser</option>
+              <option value="supplier">Supplier</option>
+              <option value="all">Everyone involved</option>
+            </select>
+          </label>
+          <label className="block space-y-1"><span className={labelClass}>Title</span>
+            <input className={inputClass} maxLength={140} value={msg.title} onChange={(e) => setMsg((s) => ({ ...s, title: e.target.value }))} />
+          </label>
+          <label className="block space-y-1"><span className={labelClass}>Message</span>
+            <textarea className={inputClass} rows={4} maxLength={2000} value={msg.message} onChange={(e) => setMsg((s) => ({ ...s, message: e.target.value }))} />
+          </label>
+        </ConfirmDialog>
+      ) : null}
+    </div>
+  );
+}
+
+export default function CommunityCampaignDetailPage() {
   return (
     <ProtectedRoute>
       <AdminLayout>
-        {loading ? <LoadingPanel label="Loading campaign..." /> : !campaign ? (
-          <div className="p-12 text-center text-slate-500">
-            {error || "Campaign not found."} <button onClick={() => router.back()} className="text-[#096B4A] underline">Go back</button>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            <button onClick={() => router.back()} className="flex items-center gap-2 text-sm font-bold text-[#096B4A]"><Icon name="arrow" className="h-4 w-4 rotate-90" /> Back to campaigns</button>
-
-            {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-black text-[#101820]">{campaign.title}</h1>
-                  <Badge tone={STATUS_TONE[campaign.status]}>{STATUS_LABEL[campaign.status]}</Badge>
-                </div>
-                <p className="mt-1 text-sm text-slate-500">{countryDisplayName(campaign.country)} · Created {new Date(campaign.createdAt).toLocaleString()}</p>
-              </div>
-            </div>
-
-            {/* S84 — per-campaign review detail, reusing the exact approve/request-changes/reject actions from the review queue. */}
-            {REVIEW_STATUSES.includes(campaign.status) ? (
-              <Card>
-                <h2 className="text-xl font-black">Review</h2>
-                {campaign.description ? <p className="mt-2 text-sm text-slate-600">{campaign.description}</p> : null}
-                <div className="mt-3 grid gap-1 text-sm text-slate-600 md:grid-cols-2">
-                  <p>Organiser: <span className="font-semibold text-[#101820]">{campaign.organiser?.user?.name ?? "Unknown"} ({campaign.organiser?.user?.email ?? "—"})</span></p>
-                  <p>Fulfilment: <span className="font-semibold text-[#101820]">
-                    {campaign.fulfilmentOwner === "SELF"
-                      ? "Self-fulfilled (organiser)"
-                      : `${campaign.supplier?.vendor?.storeName ?? "Unknown"} — ${campaign.supplierCommitted ? "✓ accepted" : campaign.supplierDeclinedAt ? `✗ declined${campaign.supplierDeclineReason ? `: ${campaign.supplierDeclineReason}` : ""}` : "⏳ awaiting response"}`}
-                  </span></p>
-                  <p>Minimum / goal / maximum: <span className="font-semibold text-[#101820]">{campaign.minimumShares} / {campaign.goalShares} / {campaign.maximumShares} shares</span></p>
-                  <p>Price per share: <span className="font-semibold text-[#101820]">{centsToUnit(campaign.pricePerShareMinor).toFixed(2)} {campaign.currency}</span></p>
-                  <p>Deadline: <span className="font-semibold text-[#101820]">{new Date(campaign.deadline).toLocaleDateString()}</span></p>
-                  {campaign.reviewNotes ? <p className="md:col-span-2">Previous notes: <span className="font-semibold text-[#101820]">{campaign.reviewNotes}</span></p> : null}
-                </div>
-                <textarea
-                  placeholder="Notes for the organiser (required to request changes)"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="mt-4 w-full rounded-xl border border-slate-200 p-3 text-sm"
-                  rows={2}
-                />
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <Button
-                    disabled={busy}
-                    onClick={() => {
-                      if (confirm("Approve this campaign? It will go live and become visible to buyers.")) void runAction(() => communityBuyAdminAPI.approveCampaign(campaign.id));
-                    }}
-                  >
-                    Approve
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    disabled={busy || !notes.trim()}
-                    onClick={() => void runAction(() => communityBuyAdminAPI.requestCampaignChanges(campaign.id, notes.trim()))}
-                  >
-                    Request changes
-                  </Button>
-                  <Button
-                    variant="danger"
-                    disabled={busy}
-                    onClick={() => {
-                      if (confirm("Reject this campaign?")) void runAction(() => communityBuyAdminAPI.rejectCampaign(campaign.id, notes || undefined));
-                    }}
-                  >
-                    Reject
-                  </Button>
-                </div>
-              </Card>
-            ) : null}
-
-            {/* S85 — unified campaign operations: campaign status + supplier status + payment status, with the existing pause/resume/hold/release/cancel actions consolidated onto one screen. Cancellation stays the existing instant/direct action — no "under review" workflow introduced here. */}
-            <Card>
-              <h2 className="text-xl font-black">Operations</h2>
-              <div className="mt-3 grid gap-1 text-sm text-slate-600 md:grid-cols-3">
-                <p>Campaign status: <span className="font-semibold text-[#101820]">{STATUS_LABEL[campaign.status]}</span></p>
-                <p>Supplier status: <span className="font-semibold text-[#101820]">
-                  {campaign.fulfilmentOwner === "SELF" ? "Self-fulfilled" : campaign.supplierCommitted ? "Accepted" : campaign.supplierDeclinedAt ? "Declined" : "Awaiting response"}
-                </span></p>
-                <p>Payment status: <span className="font-semibold text-[#101820]">{payment ? SUPPLIER_PAYMENT_STATUS_LABEL[payment.status] : "No payment record yet"}</span></p>
-                <p>Confirmed shares: <span className="font-semibold text-[#101820]">{campaign.confirmedShares} of {campaign.maximumShares}</span></p>
-                {campaign.paidTotal != null ? <p>Paid total: <span className="font-semibold text-[#101820]">{centsToUnit(campaign.paidTotal).toFixed(2)} {campaign.currency}</span></p> : null}
-                {campaign.status === "RESCUE_WINDOW" && campaign.rescueEndsAt ? <p>Rescue window ends: <span className="font-semibold text-[#101820]">{new Date(campaign.rescueEndsAt).toLocaleString()}</span></p> : null}
-                {campaign.perBuyerMinShares != null || campaign.perBuyerMaxShares != null ? (
-                  <p>Per-buyer limit: <span className="font-semibold text-[#101820]">{campaign.perBuyerMinShares ?? "—"} – {campaign.perBuyerMaxShares ?? "—"}</span></p>
-                ) : null}
-                {campaign.scheduledOpenAt ? (
-                  <p>Scheduled opening: <span className="font-semibold text-[#101820]">{new Date(campaign.scheduledOpenAt).toLocaleString()}</span></p>
-                ) : null}
-              </div>
-
-              {/* Current issues — read from the real fields already recorded against this campaign/payment, never a new freestanding note. */}
-              {campaign.reviewNotes || campaign.supplierDeclineReason || payment?.holdReason ? (
-                <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
-                  <p className="font-bold">Open issues</p>
-                  {campaign.reviewNotes ? <p className="mt-1">Review notes: {campaign.reviewNotes}</p> : null}
-                  {campaign.supplierDeclineReason ? <p className="mt-1">Supplier declined: {campaign.supplierDeclineReason}</p> : null}
-                  {payment?.holdReason ? <p className="mt-1">Payment on hold: {payment.holdReason}</p> : null}
-                </div>
-              ) : null}
-
-              {/* Phase 2 (admin ops) — one shared, admin-internal issue/notes
-                  field for this campaign, independent of every other field
-                  on this page (reviewNotes, supplierDeclineReason, holdReason
-                  all stay exactly as they are). Never shown to the organiser
-                  or participants. */}
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <p className="text-xs font-semibold text-slate-500">Admin notes (internal only)</p>
-                <textarea
-                  placeholder="Free-text notes for other admins reviewing this campaign"
-                  value={issueNotes}
-                  onChange={(e) => { setIssueNotes(e.target.value); setIssueNotesSaved(false); }}
-                  className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm"
-                  rows={3}
-                />
-                <div className="mt-2 flex items-center gap-3">
-                  <Button
-                    variant="secondary"
-                    disabled={busy || issueNotesSaved}
-                    onClick={() => void runSaveIssueNotes()}
-                  >
-                    Save notes
-                  </Button>
-                  {issueNotesSaved ? <span className="text-xs text-slate-400">Saved</span> : <span className="text-xs text-amber-600">Unsaved changes</span>}
-                </div>
-              </div>
-
-              {campaign.status === "LIVE" || campaign.status === "PAUSED" ? (
-                <div className="mt-4 flex flex-wrap gap-3 border-t border-slate-100 pt-4">
-                  {campaign.status === "LIVE" ? (
-                    <Button
-                      variant="danger"
-                      disabled={busy}
-                      onClick={() => {
-                        if (confirm("Pause new contributions for this campaign? Existing participants keep their pledge; no new contributions will be accepted until resumed.")) void runAction(() => communityBuyAdminAPI.pauseCampaign(campaign.id));
-                      }}
-                    >
-                      Pause new contributions
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      disabled={busy}
-                      onClick={() => {
-                        if (confirm("Resume contributions for this campaign?")) void runAction(() => communityBuyAdminAPI.resumeCampaign(campaign.id));
-                      }}
-                    >
-                      Resume contributions
-                    </Button>
-                  )}
-                </div>
-              ) : null}
-
-              {payment && payment.status !== "PAID" ? (
-                <div className="mt-4 border-t border-slate-100 pt-4">
-                  <p className="text-xs font-semibold text-slate-500">Supplier payment — {centsToUnit(payment.amount).toFixed(2)} {payment.currency}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <Button
-                      disabled={busy}
-                      onClick={() => {
-                        if (confirm(`Release ${centsToUnit(payment.amount).toFixed(2)} ${payment.currency} to the supplier? This cannot be undone. Large releases may require a second admin's approval before funds actually move.`)) void runReleaseAction();
-                      }}
-                    >
-                      Approve release
-                    </Button>
-                    <input
-                      placeholder="Hold reason"
-                      value={holdReason}
-                      onChange={(e) => setHoldReason(e.target.value)}
-                      className="rounded-xl border border-slate-200 p-2 text-sm"
-                    />
-                    <Button
-                      variant="secondary"
-                      disabled={busy || !holdReason.trim()}
-                      onClick={() => {
-                        if (confirm("Place this supplier payment on hold?")) void runHoldAction();
-                      }}
-                    >
-                      Place on hold
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-
-              {CANCELLABLE_STATUSES.includes(campaign.status) ? (
-                <div className="mt-4 border-t border-slate-100 pt-4">
-                  <p className="text-xs font-semibold text-slate-500">End this campaign — no participant has been charged yet, so this only voids pledges, never creates a refund. Irreversible.</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <input
-                      placeholder="Reason (required)"
-                      value={cancelReason}
-                      onChange={(e) => setCancelReason(e.target.value)}
-                      className="w-72 rounded-xl border border-slate-200 p-2 text-sm"
-                    />
-                    <Button
-                      variant="danger"
-                      disabled={busy || !cancelReason.trim()}
-                      onClick={() => {
-                        if (confirm(`End "${campaign.title}" now? This cannot be undone. The organiser and every participant will be notified; no one is charged.`)) void runCancelAction();
-                      }}
-                    >
-                      End campaign
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </Card>
-          </div>
-        )}
-
-        {pendingAction ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-            <Card className="w-full max-w-md">
-              <h3 className="text-xl font-black text-[#101820]">Enter 2FA code</h3>
-              <p className="mt-2 text-sm text-slate-500">
-                {pendingAction === "release" && payment
-                  ? <>Confirm the release of <span className="font-bold">{centsToUnit(payment.amount).toFixed(2)} {payment.currency}</span> to the supplier.</>
-                  : pendingAction === "hold"
-                    ? "Confirm placing this supplier payment on hold."
-                    : <>Confirm ending <span className="font-bold">{campaign?.title}</span>. This cannot be undone.</>}
-              </p>
-              <input
-                autoFocus
-                inputMode="numeric"
-                value={twoFactorCode}
-                onChange={(e) => setTwoFactorCode(e.target.value)}
-                placeholder="6-digit code"
-                className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none"
-              />
-              <div className="mt-4 flex gap-3">
-                <Button
-                  disabled={busy || !twoFactorCode.trim()}
-                  onClick={() => {
-                    if (pendingAction === "release") void runReleaseAction(twoFactorCode.trim());
-                    else if (pendingAction === "hold") void runHoldAction(twoFactorCode.trim());
-                    else void runCancelAction(twoFactorCode.trim());
-                  }}
-                  className="flex-1"
-                >
-                  Confirm
-                </Button>
-                <Button variant="ghost" className="flex-1" onClick={() => { setPendingAction(null); setTwoFactorCode(""); }}>
-                  Cancel
-                </Button>
-              </div>
-            </Card>
-          </div>
-        ) : null}
+        <Content />
       </AdminLayout>
     </ProtectedRoute>
   );

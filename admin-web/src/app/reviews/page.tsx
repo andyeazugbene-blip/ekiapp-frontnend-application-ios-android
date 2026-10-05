@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { ErrorPanel, LoadingPanel } from "@/components/AdminUI";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { useConfirm } from "@/components/AdminKit";
 import { reviewsAPI, AdminReview, ReviewStatus } from "@/lib/services/reviews.api";
 import { APIError } from "@/lib/api";
 
@@ -40,6 +41,7 @@ function Stars({ rating }: { rating: number }) {
  * the current page.
  */
 export default function ReviewsPage() {
+  const confirmDialog = useConfirm();
   const [items, setItems] = useState<AdminReview[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -96,16 +98,18 @@ export default function ReviewsPage() {
 
   const handleModerate = async (reviewId: string, status: "APPROVED" | "HIDDEN" | "REJECTED") => {
     const verb = status === "APPROVED" ? "approve" : status === "HIDDEN" ? "hide" : "reject";
-    if (!confirm(`${verb.charAt(0).toUpperCase() + verb.slice(1)} this review?`)) return;
-    try {
-      setBusyId(reviewId);
-      await reviewsAPI.moderateReview(reviewId, status);
-      await load(cursorStack[pageIndex]);
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : `Failed to ${verb} review`);
-    } finally {
-      setBusyId(null);
-    }
+    confirmDialog.ask(
+      { title: `${verb.charAt(0).toUpperCase() + verb.slice(1)} this review?`, confirmLabel: verb.charAt(0).toUpperCase() + verb.slice(1), tone: status === "APPROVED" ? "primary" : "danger" },
+      async (reason) => {
+        setBusyId(reviewId);
+        try {
+          await reviewsAPI.moderateReview(reviewId, status, reason);
+          await load(cursorStack[pageIndex]);
+        } finally {
+          setBusyId(null);
+        }
+      },
+    );
   };
 
   const totalCount = Object.values(counts).reduce((s, n) => s + n, 0);
@@ -121,6 +125,7 @@ export default function ReviewsPage() {
   return (
     <ProtectedRoute>
       <AdminLayout>
+        {confirmDialog.dialog}
         <div className="space-y-5">
           {/* Header */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

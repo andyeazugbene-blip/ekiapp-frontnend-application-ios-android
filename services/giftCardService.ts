@@ -25,6 +25,10 @@ export interface PurchasedGiftCard {
   isRedeemed: boolean;
   redeemedAt: string | null;
   createdAt: string;
+  status?: string;
+  remainingBalance?: number;
+  code?: string | null;
+  expiresAt?: string | null;
 }
 
 export interface GiftCardPurchaseIntent {
@@ -62,6 +66,10 @@ function normalizePurchased(raw: any): PurchasedGiftCard {
     isRedeemed: raw.isRedeemed ?? false,
     redeemedAt: raw.redeemedAt ?? null,
     createdAt: raw.createdAt ?? "",
+    status: raw.status,
+    remainingBalance: typeof raw.remainingBalance === "number" ? raw.remainingBalance : undefined,
+    code: raw.code ?? null,
+    expiresAt: raw.expiresAt ?? null,
   };
 }
 
@@ -85,6 +93,12 @@ export const giftCardService = {
       purchasedId: res.purchasedId,
       amount: typeof res.amount === "number" ? res.amount : 0,
     };
+  },
+
+  /** Redeem a gift card code into the wallet. Amount in minor units (omit = full balance). */
+  async redeem(code: string, amount?: number): Promise<{ amountMinor: number; currency: string; remainingBalance: number; walletBalance: number }> {
+    const res = await apiClient.post<any>("/api/gift-cards/redeem", { code, amount });
+    return res.redemption ?? res;
   },
 
   async getPurchased(): Promise<PurchasedGiftCard[]> {

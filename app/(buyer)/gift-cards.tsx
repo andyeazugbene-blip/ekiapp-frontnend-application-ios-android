@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,6 +12,22 @@ export default function GiftCardsScreen() {
   const [active, setActive] = useState<GiftCard[]>([]);
   const [purchased, setPurchased] = useState<PurchasedGiftCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [redeemCode, setRedeemCode] = useState("");
+  const [redeeming, setRedeeming] = useState(false);
+
+  const redeem = async () => {
+    if (!redeemCode.trim() || redeeming) return;
+    setRedeeming(true);
+    try {
+      const res = await giftCardService.redeem(redeemCode.trim());
+      Alert.alert("Gift card redeemed", `${res.currency.toUpperCase()} ${(res.amountMinor / 100).toFixed(2)} was added to your wallet.`);
+      setRedeemCode("");
+    } catch (e: any) {
+      Alert.alert("Could not redeem", e?.message ?? "Please check the code and try again.");
+    } finally {
+      setRedeeming(false);
+    }
+  };
 
   const load = useCallback(() => {
     setLoading(true);
@@ -48,7 +64,23 @@ export default function GiftCardsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionTitle}>Available Gift Cards</Text>
+          <Text style={styles.sectionTitle}>Redeem a Gift Card</Text>
+          <View style={styles.redeemRow}>
+            <TextInput
+              value={redeemCode}
+              onChangeText={setRedeemCode}
+              placeholder="XXXX-XXXX-XXXX-XXXX"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              style={styles.redeemInput}
+              accessibilityLabel="Gift card code"
+            />
+            <TouchableOpacity onPress={() => void redeem()} disabled={redeeming || !redeemCode.trim()} activeOpacity={0.86} style={[styles.redeemButton, (redeeming || !redeemCode.trim()) && { opacity: 0.5 }]}>
+              <Text style={styles.redeemButtonText}>{redeeming ? "..." : "Redeem"}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Available Gift Cards</Text>
           {active.length === 0 ? (
             <Text style={styles.emptyText}>No gift cards available right now.</Text>
           ) : (
@@ -80,7 +112,7 @@ export default function GiftCardsScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.purchasedTitle}>{item.title}</Text>
                   <Text style={styles.purchasedMeta}>
-                    {item.isRedeemed ? "Redeemed" : "Active"} · {item.currency} {(item.amount / 100).toFixed(2)}
+                    {(item.status ?? (item.isRedeemed ? "REDEEMED" : "ACTIVE")).toLowerCase().replace("_", " ")} · {item.currency} {((item.remainingBalance ?? item.amount) / 100).toFixed(2)}{item.code ? ` · ${item.code}` : ""}
                   </Text>
                 </View>
               </View>
@@ -93,6 +125,10 @@ export default function GiftCardsScreen() {
 }
 
 const styles = StyleSheet.create({
+  redeemRow: { flexDirection: "row", gap: 10, alignItems: "center", marginTop: 8 },
+  redeemInput: { flex: 1, height: 48, borderRadius: 14, backgroundColor: "#FFFFFF", paddingHorizontal: 14, fontFamily: "Manrope-Bold", color: "#2B2B2B", borderWidth: 1, borderColor: "#E6E1D6" },
+  redeemButton: { height: 48, paddingHorizontal: 20, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  redeemButtonText: { color: "#FFFFFF", fontFamily: "Manrope-Bold", fontSize: 14 },
   container: { flex: 1, backgroundColor: "#F7F5F0" },
   headerSafe: {
     flexDirection: "row",

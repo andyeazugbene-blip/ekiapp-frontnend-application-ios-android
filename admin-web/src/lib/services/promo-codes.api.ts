@@ -34,6 +34,7 @@ export const promoCodesAPI = {
     maxUses?: number;
     validFrom?: string;
     validUntil?: string;
+    reason: string;
   }): Promise<PromoCode> {
     const res = await apiClient.post<any>("/admin/promo-codes", {
       code: input.code.trim().toUpperCase(),
@@ -44,6 +45,7 @@ export const promoCodesAPI = {
       maxUses: input.maxUses,
       validFrom: input.validFrom,
       validUntil: input.validUntil,
+      reason: input.reason,
     });
     return normalizePromoCode(res.promoCode ?? res);
   },
@@ -55,8 +57,9 @@ export const promoCodesAPI = {
       maxUses?: number;
       validUntil?: string | null;
     },
+    reason: string,
   ): Promise<PromoCode> {
-    const res = await apiClient.patch<any>(`/admin/promo-codes/${promoId}`, input);
+    const res = await apiClient.patch<any>(`/admin/promo-codes/${promoId}`, { ...input, reason });
     return normalizePromoCode(res.promoCode ?? res);
   },
 };

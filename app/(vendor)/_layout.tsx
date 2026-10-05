@@ -127,6 +127,7 @@ export default function VendorLayout() {
       />
 
       <Tabs.Screen name="messages" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="contact-support" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="settings" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="edit-store-profile" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="edit-personal-profile" options={{ href: null, tabBarStyle: { display: "none" } }} />

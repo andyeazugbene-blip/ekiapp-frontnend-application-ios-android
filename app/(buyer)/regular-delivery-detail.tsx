@@ -22,10 +22,13 @@ import {
   BUYER_SUBSCRIPTION_STATUS_TONE,
   FULFILMENT_METHOD_LABELS,
   SUBSTITUTION_MODE_LABELS,
+  type BuyerPaymentMethod,
   type BuyerSubscription,
   type Renewal,
   type SubscriptionFrequency,
 } from "../../services/regularDeliveriesService";
+
+const CANCEL_REASONS = ["Too expensive", "I don't need it anymore", "Delivery problems", "Product quality", "Moving away", "Other"];
 
 function formatDate(value?: string | null): string {
   if (!value) return "—";
@@ -58,6 +61,14 @@ export default function RegularDeliveryDetailScreen() {
   const [draftFrequency, setDraftFrequency] = useState<SubscriptionFrequency | null>(null);
   const [savingFrequency, setSavingFrequency] = useState(false);
   const [frequencyError, setFrequencyError] = useState("");
+  // Optional cancellation reason (chips) and "choose a new date for next delivery".
+  const [showCancelSheet, setShowCancelSheet] = useState(false);
+  const [cancelReason, setCancelReason] = useState<string | null>(null);
+  const [showDateSheet, setShowDateSheet] = useState(false);
+  const [newDeliveryDate, setNewDeliveryDate] = useState<string | null>(null);
+  // Payment recovery: pick another saved card.
+  const [showCardSheet, setShowCardSheet] = useState(false);
+  const [cards, setCards] = useState<BuyerPaymentMethod[]>([]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -66,7 +77,7 @@ export default function RegularDeliveryDetailScreen() {
     try {
       setSub(await regularDeliveriesService.getSubscription(id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load this Foodstuff Subscription.");
+      setError(err instanceof Error ? err.message : "Could not load this Foodstuffs Subscription.");
     } finally {
       setLoading(false);
     }
@@ -145,10 +156,37 @@ export default function RegularDeliveryDetailScreen() {
   };
 
   const confirmCancel = () => {
-    Alert.alert("Cancel this Foodstuff Subscription?", "Future renewals will stop. This can't be undone.", [
-      { text: "Keep it", style: "cancel" },
-      { text: "Cancel delivery", style: "destructive", onPress: () => runAction("cancel", () => regularDeliveriesService.cancelSubscription(id)) },
-    ]);
+    setCancelReason(null);
+    setShowCancelSheet(true);
+  };
+
+  const submitCancel = async () => {
+    await runAction("cancel", () => regularDeliveriesService.cancelSubscription(id, cancelReason ?? undefined));
+    setShowCancelSheet(false);
+  };
+
+  const submitNewDate = async () => {
+    if (!sub || !newDeliveryDate) return;
+    // The picker returns a calendar date; deliveries are prepared in the morning.
+    const iso = new Date(`${newDeliveryDate.slice(0, 10)}T09:00:00`).toISOString();
+    await runAction("reschedule", () => regularDeliveriesService.rescheduleNextDelivery(sub.id, iso));
+    setShowDateSheet(false);
+    setNewDeliveryDate(null);
+  };
+
+  const openCardSheet = async () => {
+    setShowCardSheet(true);
+    try {
+      setCards(await regularDeliveriesService.listPaymentMethods());
+    } catch {
+      setCards([]);
+    }
+  };
+
+  const useCard = async (paymentMethodId: string) => {
+    if (!sub) return;
+    await runAction("card", () => regularDeliveriesService.updateSubscriptionPaymentMethod(sub.id, paymentMethodId));
+    setShowCardSheet(false);
   };
 
   const openFrequencySheet = () => {
@@ -183,17 +221,18 @@ export default function RegularDeliveryDetailScreen() {
   const needsPriceApproval = latestRenewal?.status === "AWAITING_PRICE_APPROVAL";
   const needsPaymentRetry = latestRenewal?.status === "PAYMENT_FAILED";
   const isAwaitingStock = latestRenewal?.status === "AWAITING_STOCK";
+  const pausedForPayment = isPaused && sub?.pausedReason === "payment_failed";
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title={sub?.offer?.title ?? "Foodstuff Subscription"} subtitle={sub?.offer?.vendor?.storeName} onBack={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)} />
+      <PremiumHeader title={sub?.offer?.title ?? "Foodstuffs Subscription"} subtitle={sub?.offer?.vendor?.storeName} onBack={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)} />
 
       {loading ? (
         <LoadingBlock />
       ) : error || !sub ? (
         <View style={premiumStyles.block}>
           <ErrorState
-            title="We couldn't load this Foodstuff Subscription"
+            title="We couldn't load this Foodstuffs Subscription"
             message={error || "Check your connection and try again."}
             onRetry={() => void load()}
           />
@@ -229,6 +268,21 @@ export default function RegularDeliveryDetailScreen() {
               </FloatingCard>
             ) : null}
 
+            {pausedForPayment ? (
+              <FloatingCard style={styles.alertCardError}>
+                <View style={styles.alertRow}>
+                  <Ionicons name="card-outline" size={18} color="#D6552F" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.alertTitle}>Paused: we couldn't collect payment</Text>
+                    <Text style={styles.alertBody}>After several attempts the payment didn't go through, so this Foodstuffs Subscription is paused and nothing more will be charged. Choose a working card to restart it.</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => void openCardSheet()} style={[styles.alertBtnPrimary, { backgroundColor: "#D6552F", alignSelf: "flex-start", marginTop: 10 }]} accessibilityRole="button" accessibilityLabel="Update payment method">
+                  <Text style={styles.alertBtnPrimaryText}>Update payment method</Text>
+                </TouchableOpacity>
+              </FloatingCard>
+            ) : null}
+
             {needsPaymentRetry && latestRenewal ? (
               <FloatingCard style={styles.alertCardError}>
                 <View style={styles.alertRow}>
@@ -244,6 +298,9 @@ export default function RegularDeliveryDetailScreen() {
                   style={[styles.alertBtnPrimary, { backgroundColor: "#D6552F", alignSelf: "flex-start", marginTop: 10 }]}
                 >
                   {actionBusy === "retry-payment" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.alertBtnPrimaryText}>Retry payment</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => void openCardSheet()} style={{ marginTop: 10 }} accessibilityRole="button" accessibilityLabel="Use a different card">
+                  <Text style={styles.editLink}>Use a different card</Text>
                 </TouchableOpacity>
               </FloatingCard>
             ) : null}
@@ -272,6 +329,11 @@ export default function RegularDeliveryDetailScreen() {
               </View>
               <Text style={styles.nextRenewalLabel}>Next renewal</Text>
               <Text style={styles.nextRenewalValue}>{isPaused ? "Paused" : formatDate(sub.nextRenewalAt)}</Text>
+              {isActive ? (
+                <TouchableOpacity onPress={() => { setNewDeliveryDate(null); setShowDateSheet(true); }} activeOpacity={0.85} style={{ marginTop: 8 }} accessibilityRole="button" accessibilityLabel="Choose a new date for next delivery">
+                  <Text style={styles.editLink}>Choose a new date for next delivery</Text>
+                </TouchableOpacity>
+              ) : null}
             </FloatingCard>
 
             {sub.offer ? (
@@ -429,6 +491,70 @@ export default function RegularDeliveryDetailScreen() {
                       ? <ActivityIndicator size="small" color="#FFFFFF" />
                       : <Text style={styles.editSaveBtnText}>Confirm</Text>
                     }
+                  </TouchableOpacity>
+                </View>
+              </FloatingCard>
+            ) : null}
+
+            {showDateSheet ? (
+              <FloatingCard style={{ gap: 14 }}>
+                <Text style={styles.sectionTitle}>Choose a new date for next delivery</Text>
+                <DatePickerField
+                  label="New date"
+                  value={newDeliveryDate}
+                  onChange={setNewDeliveryDate}
+                  minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
+                  placeholder="Choose a date"
+                  hint="Only your next delivery moves; later deliveries follow from the new date. Not available once payment is being taken."
+                />
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <TouchableOpacity onPress={() => { setShowDateSheet(false); setNewDeliveryDate(null); }} disabled={actionBusy === "reschedule"} activeOpacity={0.85} style={styles.editCancelBtn}>
+                    <Text style={styles.editCancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => void submitNewDate()} disabled={!newDeliveryDate || actionBusy === "reschedule"} activeOpacity={0.85} style={[styles.editSaveBtn, { opacity: newDeliveryDate ? 1 : 0.4 }]}>
+                    {actionBusy === "reschedule" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.editSaveBtnText}>Save date</Text>}
+                  </TouchableOpacity>
+                </View>
+              </FloatingCard>
+            ) : null}
+
+            {showCardSheet ? (
+              <FloatingCard style={{ gap: 12 }}>
+                <Text style={styles.sectionTitle}>Choose a card</Text>
+                {cards.length === 0 ? (
+                  <Text style={styles.alertBody}>No saved cards found. Add a card from your payment methods, then come back here.</Text>
+                ) : cards.map((c) => (
+                  <TouchableOpacity key={c.id} activeOpacity={0.85} disabled={actionBusy === "card"} onPress={() => void useCard(c.id)} style={{ paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, backgroundColor: "#F7F9F8" }} accessibilityRole="button" accessibilityLabel={`Use card ending ${c.last4 ?? ""}`}>
+                    <Text style={{ fontSize: 14, fontFamily: "Manrope-Bold", color: "#151E1B" }}>{(c.brand ?? "Card").toUpperCase()} ending {c.last4 ?? "••••"}{c.isDefault ? "  (default)" : ""}</Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity onPress={() => setShowCardSheet(false)} activeOpacity={0.85} style={styles.editCancelBtn}>
+                  <Text style={styles.editCancelBtnText}>Close</Text>
+                </TouchableOpacity>
+              </FloatingCard>
+            ) : null}
+
+            {showCancelSheet ? (
+              <FloatingCard style={{ gap: 12 }}>
+                <Text style={styles.sectionTitle}>Cancel this Foodstuffs Subscription?</Text>
+                <Text style={styles.alertBody}>Future renewals will stop. This can't be undone. Telling us why helps vendors improve (optional).</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {CANCEL_REASONS.map((r) => {
+                    const on = cancelReason === r;
+                    return (
+                      <TouchableOpacity key={r} activeOpacity={0.85} onPress={() => setCancelReason(on ? null : r)} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={r}
+                        style={{ paddingVertical: 9, paddingHorizontal: 14, borderRadius: 999, backgroundColor: on ? "#EBF5F0" : "#F7F9F8", borderWidth: 1.5, borderColor: on ? "#076B51" : "transparent" }}>
+                        <Text style={{ fontSize: 13, fontFamily: "Manrope-Bold", color: on ? "#076B51" : "#516A60" }}>{r}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <TouchableOpacity onPress={() => setShowCancelSheet(false)} disabled={actionBusy === "cancel"} activeOpacity={0.85} style={styles.editCancelBtn}>
+                    <Text style={styles.editCancelBtnText}>Keep it</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => void submitCancel()} disabled={actionBusy === "cancel"} activeOpacity={0.85} style={[styles.editSaveBtn, { backgroundColor: "#D6552F" }]}>
+                    {actionBusy === "cancel" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.editSaveBtnText}>Cancel subscription</Text>}
                   </TouchableOpacity>
                 </View>
               </FloatingCard>

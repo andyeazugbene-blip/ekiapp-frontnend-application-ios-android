@@ -1,393 +1,173 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
-import { Badge, Button, Card, ErrorPanel, Icon, LoadingPanel, MetricCard, PageHeader } from "@/components/AdminUI";
+import { Banner, SearchInput, StatusTabs, formatDate } from "@/components/AdminKit";
+import { Badge, Button, Card, ErrorPanel, Icon, PageHeader } from "@/components/AdminUI";
+import { NoAccess, SkeletonRows } from "@/components/PageStates";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { API2FARequiredError, APIError } from "@/lib/api";
-import { communityBuyAdminAPI, type AdminSupplierAccount } from "@/lib/services/communityBuy.api";
-import { countryDisplayName } from "@/lib/countries";
+import { APIError } from "@/lib/api";
+import { usePermissions } from "@/lib/hooks/usePermissions";
+import { formatCoverage } from "@/lib/countries";
+import { communityBuyAdminAPI, type AdminSupplierAccount, type SupplierAccountList } from "@/lib/services/communityBuy.api";
+import { AccountBadge, ApplicationBadge, PayoutBadge, STATE_LABELS, availableActions, useSupplierActions } from "./SupplierBits";
 
 /**
- * Workstream 3 — SupplierAccount review (Set B). Approve/restrict/
- * unrestrict routes have existed backend-side since Workstream 1
- * (community-buy.controller.ts's own comment: "Backend-only for now; an
- * admin-web review screen is Workstream 3") — this is that screen. Distinct
- * from /community-verification, which reviews the legacy Vendor-keyed
- * SupplierProfile; every verified legacy supplier also appears here via
- * its synced account (supplierAccountService.syncSupplierAccountForProfile),
- * tagged "Legacy-linked" below.
+ * Handbook 14.11 supplier review queue. Application / Account / Payout status
+ * are separate columns; counts come from the server grouped by real state so
+ * the tab totals always reconcile with the number of records. Pending
+ * applications offer View / Request information / Approve / Reject only -
+ * Suspend is a post-approval control and lives on the detail page.
  */
 
-const REVIEW_QUEUE_STATES = ["UNDER_REVIEW", "INFORMATION_REQUIRED"] as const;
+const TAB_STATES = ["UNDER_REVIEW", "INFORMATION_REQUIRED", "VERIFICATION_REQUIRED", "APPROVED", "PAUSED", "RESTRICTED", "SUSPENDED", "REJECTED", "CLOSED", "DRAFT", "NOT_STARTED"] as const;
 
-function stateTone(state: AdminSupplierAccount["supplierState"]): "green" | "amber" | "red" | "blue" | "gray" {
-  switch (state) {
-    case "APPROVED": return "green";
-    case "UNDER_REVIEW":
-    case "INFORMATION_REQUIRED":
-    case "VERIFICATION_REQUIRED":
-      return "amber";
-    case "RESTRICTED":
-    case "SUSPENDED":
-      return "red";
-    case "PAUSED": return "blue";
-    default: return "gray";
-  }
-}
+function Content() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const { has, loading: permLoading } = usePermissions();
+  const state = params.get("status") ?? "UNDER_REVIEW";
+  const q = params.get("q") ?? "";
 
-function regionList(regions: string[]): string {
-  if (regions.length === 0) return "No coverage set";
-  return regions.map((r) => countryDisplayName(r)).join(", ");
-}
-
-export default function CommunitySupplierAccountsPage() {
-  const [accounts, setAccounts] = useState<AdminSupplierAccount[]>([]);
+  const [data, setData] = useState<SupplierAccountList | null>(null);
+  const [rows, setRows] = useState<AdminSupplierAccount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [restrictReasonById, setRestrictReasonById] = useState<Record<string, string>>({});
-  const [preserveAccessById, setPreserveAccessById] = useState<Record<string, boolean>>({});
-  // Phase 8 — suspend/unsuspend/close/revoke-data-access are all 2FA-gated
-  // server-side (require2fa), but this page never had a retry path — a
-  // 2FA-enabled admin's click just 403'd with no recovery. Same pattern as
-  // community-campaigns/page.tsx's pendingPaymentAction.
-  const [pendingAction, setPendingAction] = useState<{ id: string; kind: "suspend" | "unsuspend" | "close" | "revokeDataAccess"; reason?: string } | null>(null);
-  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [notice, setNotice] = useState("");
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [cursorStack, setCursorStack] = useState<string[]>([]);
 
-  const load = async (bypassCache = false) => {
+  const setParam = useCallback((key: string, value: string) => {
+    const next = new URLSearchParams(params.toString());
+    if (value) next.set(key, value); else next.delete(key);
+    setCursor(null);
+    setCursorStack([]);
+    router.replace(`${pathname}?${next.toString()}`);
+  }, [params, pathname, router]);
+
+  const load = useCallback(async (opts?: { bypassCache?: boolean }) => {
     try {
-      bypassCache ? setRefreshing(true) : setLoading(true);
+      setLoading(true);
       setError("");
-      setAccounts(await communityBuyAdminAPI.getSupplierAccounts(undefined, bypassCache ? { bypassCache: true } : undefined));
+      const result = await communityBuyAdminAPI.getSupplierAccounts(
+        { state: state === "ALL" ? undefined : (state as never), q: q || undefined, cursor: cursor ?? undefined, limit: 20 },
+        opts?.bypassCache ? { bypassCache: true } : undefined,
+      );
+      setData(result);
+      setRows(result.items);
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to load supplier accounts");
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  };
+  }, [state, q, cursor]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
-  const approve = async (id: string) => {
-    if (!confirm("Approve this supplier account? They will be selectable for new Community Buy campaigns.")) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.approveSupplierAccount(id);
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to approve supplier account");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const actions = useSupplierActions(async (message) => { setNotice(message); await load({ bypassCache: true }); });
 
-  const restrict = async (id: string) => {
-    const reason = restrictReasonById[id]?.trim();
-    if (!reason) return;
-    const preserve = preserveAccessById[id] ?? false;
-    const confirmMessage = preserve
-      ? "Restrict this supplier from taking on new campaigns, but keep their access to participant delivery data for campaigns already in progress?"
-      : "Restrict this supplier from taking on new campaigns? This also immediately revokes their access to participant delivery data across every assigned campaign (spec §14.4's safer default) — check \"Preserve fulfilment access\" first if that's not intended.";
-    if (!confirm(confirmMessage)) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.restrictSupplierAccount(id, reason, preserve ? "fulfilment_access_preserved" : undefined);
-      setRestrictReasonById((prev) => ({ ...prev, [id]: "" }));
-      setPreserveAccessById((prev) => ({ ...prev, [id]: false }));
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to restrict supplier account");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  if (!permLoading && !has("community_buy.read")) return <NoAccess what="supplier accounts" />;
+  const canMutate = has("community_buy.mutate");
+  const counts = data?.counts;
+  const tabs = [
+    { key: "ALL", label: "All", count: counts?.total ?? null },
+    ...TAB_STATES.map((s) => ({ key: s, label: STATE_LABELS[s] ?? s, count: counts ? counts.byState[s] ?? 0 : null })),
+  ];
+  const countedTotal = counts ? Object.values(counts.byState).reduce((a, b) => a + b, 0) : 0;
 
-  const unrestrict = async (id: string) => {
-    if (!confirm("Lift this restriction? The account returns to its prior approved/under-review state.")) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.unrestrictSupplierAccount(id);
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to lift restriction");
-    } finally {
-      setBusyId(null);
-    }
-  };
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Supplier accounts"
+        subtitle="Review supplier applications and manage approved accounts. Application, account and payout status are tracked separately."
+        actions={<Button variant="ghost" onClick={() => void load({ bypassCache: true })}><Icon name="refresh" className="h-4 w-4" />Refresh</Button>}
+      />
+      {notice ? <Banner tone="success">{notice}</Banner> : null}
+      {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
 
-  // M5 — request-information mirrors restrict's severity (no 2FA).
-  const requestInformation = async (id: string) => {
-    const reason = prompt("What information is needed from this supplier?")?.trim();
-    if (!reason) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.requestSupplierInformation(id, reason);
-      await load();
-    } catch (err) {
-      alert(err instanceof APIError ? err.message : "Failed to request information");
-    } finally {
-      setBusyId(null);
-    }
-  };
+      <StatusTabs tabs={tabs} active={state} onChange={(key) => setParam("status", key)} />
+      {counts ? (
+        <p className="text-xs font-semibold text-slate-500" aria-live="polite">
+          {counts.total} supplier account{counts.total === 1 ? "" : "s"} in total{countedTotal === counts.total ? "" : " (counts differ - refresh)"}.
+        </p>
+      ) : null}
 
-  // M5 — always revokes data access; harder to reverse than restrict, so 2FA-gated on the backend.
-  const suspend = async (id: string, reasonArg?: string, code?: string) => {
-    const reason = reasonArg ?? prompt("Reason for suspending this supplier account (required):")?.trim();
-    if (!reason) return;
-    if (!code && !confirm("Suspend this supplier account? This immediately and atomically revokes their access to participant delivery data across every assigned campaign.")) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.suspendSupplierAccount(id, reason, code);
-      setPendingAction(null);
-      setTwoFactorCode("");
-      await load();
-    } catch (err) {
-      if (err instanceof API2FARequiredError) setPendingAction({ id, kind: "suspend", reason });
-      else alert(err instanceof APIError ? err.message : "Failed to suspend supplier account");
-    } finally {
-      setBusyId(null);
-    }
-  };
+      <div className="flex flex-wrap gap-3">
+        <SearchInput value={q} onChange={(v) => setParam("q", v)} placeholder="Search by name, email or account ID" />
+      </div>
 
-  const unsuspend = async (id: string, code?: string) => {
-    if (!code && !confirm("Lift this suspension? The account returns to its prior approved/under-review state.")) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.unsuspendSupplierAccount(id, code);
-      setPendingAction(null);
-      setTwoFactorCode("");
-      await load();
-    } catch (err) {
-      if (err instanceof API2FARequiredError) setPendingAction({ id, kind: "unsuspend" });
-      else alert(err instanceof APIError ? err.message : "Failed to lift suspension");
-    } finally {
-      setBusyId(null);
-    }
-  };
+      {loading && rows.length === 0 ? <SkeletonRows count={5} /> : (
+        <Card className="overflow-x-auto p-0">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th scope="col" className="px-4 py-3">Supplier</th>
+                <th scope="col" className="px-4 py-3">Categories and coverage</th>
+                <th scope="col" className="px-4 py-3">Application</th>
+                <th scope="col" className="px-4 py-3">Account</th>
+                <th scope="col" className="px-4 py-3">Payouts</th>
+                <th scope="col" className="px-4 py-3">Applied</th>
+                <th scope="col" className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className={loading ? "opacity-50" : ""}>
+              {rows.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-12 text-center font-semibold text-slate-500">No supplier accounts match this view.</td></tr>
+              ) : rows.map((a) => {
+                const can = availableActions(a);
+                return (
+                  <tr key={a.id} className="border-t border-slate-100 align-top">
+                    <td className="px-4 py-3">
+                      <Link href={`/community-supplier-accounts/${a.id}`} className="font-bold text-[#101820] hover:underline">{a.user?.name ?? "Name not provided"}</Link>
+                      <p className="text-xs text-slate-500">{a.user?.email ?? "Email not provided"}</p>
+                      {a.legacySupplierProfileId ? <Badge tone="blue">Legacy-linked</Badge> : null}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      <p>{a.categories.length > 0 ? a.categories.join(", ") : "No categories listed"}</p>
+                      <p className="mt-0.5">{formatCoverage(a.coverageRegions)}</p>
+                    </td>
+                    <td className="px-4 py-3"><ApplicationBadge status={a.statuses?.application} /></td>
+                    <td className="px-4 py-3"><AccountBadge status={a.statuses?.account} /></td>
+                    <td className="px-4 py-3"><PayoutBadge status={a.statuses?.payout} /></td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{formatDate(a.createdAt)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Link href={`/community-supplier-accounts/${a.id}`} className="inline-flex h-9 items-center rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 hover:bg-slate-50">View</Link>
+                        {canMutate && can.requestInfo && a.supplierState !== "INFORMATION_REQUIRED" ? <Button variant="ghost" className="h-9 px-3" onClick={() => actions.requestInfo(a)}>Request information</Button> : null}
+                        {canMutate && can.approve ? <Button className="h-9 px-3" onClick={() => actions.approve(a)}>Approve</Button> : null}
+                        {canMutate && can.reject ? <Button variant="danger" className="h-9 px-3" onClick={() => actions.reject(a)}>Reject</Button> : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Card>
+      )}
 
-  // M5 — permanent, terminal; no reversal exists.
-  const close = async (id: string, reasonArg?: string, code?: string) => {
-    const reason = reasonArg ?? prompt("Reason for permanently closing this supplier account (required):")?.trim();
-    if (!reason) return;
-    if (!code && !confirm("Permanently close this supplier account? This cannot be undone.")) return;
-    setBusyId(id);
-    try {
-      await communityBuyAdminAPI.closeSupplierAccount(id, reason, code);
-      setPendingAction(null);
-      setTwoFactorCode("");
-      await load();
-    } catch (err) {
-      if (err instanceof API2FARequiredError) setPendingAction({ id, kind: "close", reason });
-      else alert(err instanceof APIError ? err.message : "Failed to close supplier account");
-    } finally {
-      setBusyId(null);
-    }
-  };
+      <div className="flex items-center justify-between text-sm text-slate-600">
+        <span>Showing {rows.length}</span>
+        <div className="flex gap-2">
+          <Button variant="ghost" className="h-9 px-3" disabled={cursorStack.length === 0 || loading} onClick={() => { const prev = [...cursorStack]; const back = prev.pop() ?? null; setCursorStack(prev); setCursor(back || null); }}>Previous</Button>
+          <Button variant="ghost" className="h-9 px-3" disabled={!data?.nextCursor || loading} onClick={() => { setCursorStack((s) => [...s, cursor ?? ""]); setCursor(data?.nextCursor ?? null); }}>Next</Button>
+        </div>
+      </div>
+      {actions.dialog}
+    </div>
+  );
+}
 
-  // M4 — manual data-access revoke (spec §19 "attribution/solicitation
-  // investigation"), independent of restrict/suspend — for cases where the
-  // supplier's state hasn't changed but access still needs cutting off now.
-  const revokeDataAccess = async (id: string, reasonArg?: string, code?: string) => {
-    const reason = reasonArg ?? prompt("Reason for revoking this supplier's data access (required):")?.trim();
-    if (!reason) return;
-    setBusyId(id);
-    try {
-      const { revokedCount } = await communityBuyAdminAPI.revokeSupplierDataAccess(id, reason, code);
-      setPendingAction(null);
-      setTwoFactorCode("");
-      alert(`Revoked data access for ${revokedCount} campaign${revokedCount === 1 ? "" : "s"}.`);
-    } catch (err) {
-      if (err instanceof API2FARequiredError) setPendingAction({ id, kind: "revokeDataAccess", reason });
-      else alert(err instanceof APIError ? err.message : "Failed to revoke data access");
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const queue = accounts.filter((a) => (REVIEW_QUEUE_STATES as readonly string[]).includes(a.supplierState));
-  const rest = accounts.filter((a) => !(REVIEW_QUEUE_STATES as readonly string[]).includes(a.supplierState));
-
+export default function CommunitySupplierAccountsPage() {
   return (
     <ProtectedRoute>
       <AdminLayout>
-        {loading ? <LoadingPanel label="Loading supplier accounts..." /> : (
-          <div className="space-y-8">
-            <PageHeader
-              title="Supplier accounts"
-              subtitle="The no-Vendor-required supplier capability — categories, coverage, Stripe Connect payout readiness, and approval, independent of any retail store."
-              actions={<Button variant="ghost" disabled={refreshing} onClick={() => void load(true)}><Icon name="refresh" className="h-4 w-4" />{refreshing ? "Refreshing..." : "Refresh"}</Button>}
-            />
-            {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
-
-            <div className="grid gap-6 md:grid-cols-3">
-              <MetricCard icon="user" label="Awaiting review" value={queue.length} tone="amber" />
-              <MetricCard icon="vendors" label="Approved" value={accounts.filter((a) => a.supplierState === "APPROVED").length} tone="green" />
-              <MetricCard icon="vendors" label="Restricted / suspended" value={accounts.filter((a) => a.supplierState === "RESTRICTED" || a.supplierState === "SUSPENDED").length} tone="red" />
-            </div>
-
-            <Card>
-              <h2 className="text-2xl font-black">Review queue</h2>
-              {queue.length === 0 ? (
-                <p className="mt-6 text-slate-500">No applications awaiting review.</p>
-              ) : (
-                <div className="mt-6 space-y-3">
-                  {queue.map((a) => (
-                    <div key={a.id} className="rounded-xl border border-slate-200 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-bold text-[#101820]">{a.user?.name ?? "Unknown"}</p>
-                          <p className="text-xs text-slate-500">{a.user?.email}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {a.legacySupplierProfileId ? <Badge tone="blue">Legacy-linked</Badge> : null}
-                          <Badge tone={stateTone(a.supplierState)}>{a.supplierState.replace(/_/g, " ")}</Badge>
-                        </div>
-                      </div>
-                      <div className="mt-3 grid gap-1 text-xs text-slate-500">
-                        <p>Categories: {a.categories.length > 0 ? a.categories.join(", ") : "None listed"}</p>
-                        <p>Coverage: {regionList(a.coverageRegions)}</p>
-                        {a.collectionCapacityPerDay != null ? <p>Collection capacity: {a.collectionCapacityPerDay}/day</p> : null}
-                        {a.supplierState === "VERIFICATION_REQUIRED" && a.stripeRequirementsDue?.length > 0 ? (
-                          <p className="text-amber-700">Stripe requirements outstanding: {a.stripeRequirementsDue.join(", ")}</p>
-                        ) : null}
-                        {a.supplierState === "INFORMATION_REQUIRED" && a.reasonCode ? (
-                          <p className="text-amber-700">Requested: {a.reasonCode}</p>
-                        ) : null}
-                        <p>Applied {new Date(a.createdAt).toLocaleDateString()}</p>
-                      </div>
-                      <div className="mt-3 flex flex-wrap justify-end gap-3">
-                        {a.supplierState !== "INFORMATION_REQUIRED" ? (
-                          <Button variant="ghost" disabled={busyId === a.id} onClick={() => void requestInformation(a.id)}>Request information</Button>
-                        ) : null}
-                        <Button variant="danger" disabled={busyId === a.id} onClick={() => void suspend(a.id)}>Suspend</Button>
-                        <Button disabled={busyId === a.id} onClick={() => void approve(a.id)}>Approve</Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card>
-              <h2 className="text-2xl font-black">All supplier accounts</h2>
-              {rest.length === 0 ? (
-                <p className="mt-6 text-slate-500">No other supplier accounts yet.</p>
-              ) : (
-                <div className="mt-6 space-y-3">
-                  {rest.map((a) => (
-                    <div key={a.id} className="rounded-xl border border-slate-200 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-bold text-[#101820]">{a.user?.name ?? "Unknown"}</p>
-                          <p className="text-xs text-slate-500">{a.user?.email}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {a.legacySupplierProfileId ? <Badge tone="blue">Legacy-linked</Badge> : null}
-                          <Badge tone={stateTone(a.supplierState)}>{a.supplierState.replace(/_/g, " ")}</Badge>
-                        </div>
-                      </div>
-                      <div className="mt-3 grid gap-1 text-xs text-slate-500">
-                        <p>Categories: {a.categories.length > 0 ? a.categories.join(", ") : "None listed"}</p>
-                        <p>Coverage: {regionList(a.coverageRegions)}</p>
-                        <p>Payouts: {a.payoutsEnabled ? "Stripe Connect ready" : "Not yet enabled"}{a.providerConnectedAccountId ? "" : " — onboarding not started"}</p>
-                        {a.reasonCode ? <p>Reason on file: {a.reasonCode}</p> : null}
-                        {/* M4 (spec §14.4) — controlScope now actually gates participant-data access; surfaced here so admin can see what a restriction is currently doing. */}
-                        {a.supplierState === "RESTRICTED" ? (
-                          <p>Participant data access: {a.controlScope === "fulfilment_access_preserved" ? "Preserved for existing campaigns" : "Revoked"}</p>
-                        ) : null}
-                      </div>
-                      {a.supplierState === "SUSPENDED" ? (
-                        <div className="mt-3 flex flex-wrap justify-end gap-3">
-                          <Button variant="ghost" disabled={busyId === a.id} onClick={() => void revokeDataAccess(a.id)}>Revoke data access now</Button>
-                          <Button variant="secondary" disabled={busyId === a.id} onClick={() => void unsuspend(a.id)}>Lift suspension</Button>
-                        </div>
-                      ) : a.supplierState === "CLOSED" ? (
-                        <p className="mt-3 text-right text-xs text-slate-400">Permanently closed — no action available.</p>
-                      ) : a.supplierState === "RESTRICTED" ? (
-                        <div className="mt-3 flex flex-wrap justify-end gap-3">
-                          <Button variant="ghost" disabled={busyId === a.id} onClick={() => void revokeDataAccess(a.id)}>Revoke data access now</Button>
-                          <Button variant="secondary" disabled={busyId === a.id} onClick={() => void unrestrict(a.id)}>Lift restriction</Button>
-                          <Button variant="danger" disabled={busyId === a.id} onClick={() => void suspend(a.id)}>Suspend</Button>
-                        </div>
-                      ) : a.supplierState === "APPROVED" || a.supplierState === "PAUSED" ? (
-                        <div className="mt-3 space-y-2">
-                          <div className="flex flex-wrap items-center justify-end gap-3">
-                            <input
-                              placeholder="Restriction reason"
-                              value={restrictReasonById[a.id] ?? ""}
-                              onChange={(e) => setRestrictReasonById((prev) => ({ ...prev, [a.id]: e.target.value }))}
-                              className="flex-1 rounded-xl border border-slate-200 p-2 text-sm"
-                            />
-                            <Button variant="danger" disabled={busyId === a.id || !restrictReasonById[a.id]?.trim()} onClick={() => void restrict(a.id)}>Restrict</Button>
-                          </div>
-                          <label className="flex items-center justify-end gap-2 text-xs text-slate-500">
-                            <input
-                              type="checkbox"
-                              checked={preserveAccessById[a.id] ?? false}
-                              onChange={(e) => setPreserveAccessById((prev) => ({ ...prev, [a.id]: e.target.checked }))}
-                            />
-                            Preserve fulfilment access for campaigns already in progress
-                          </label>
-                          <div className="flex justify-end gap-3">
-                            <Button variant="ghost" disabled={busyId === a.id} onClick={() => void requestInformation(a.id)}>Request information</Button>
-                            <Button variant="danger" disabled={busyId === a.id} onClick={() => void suspend(a.id)}>Suspend</Button>
-                            <Button variant="danger" disabled={busyId === a.id} onClick={() => void close(a.id)}>Close permanently</Button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </div>
-        )}
-
-        {pendingAction ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-            <Card className="w-full max-w-md">
-              <h3 className="text-xl font-black text-[#101820]">Enter 2FA code</h3>
-              <p className="mt-2 text-sm text-slate-500">
-                {pendingAction.kind === "suspend"
-                  ? "Confirm suspending this supplier account. This immediately revokes their access to participant delivery data across every assigned campaign."
-                  : pendingAction.kind === "unsuspend"
-                    ? "Confirm lifting this suspension."
-                    : pendingAction.kind === "close"
-                      ? "Confirm permanently closing this supplier account. This cannot be undone."
-                      : "Confirm revoking this supplier's data access now."}
-              </p>
-              <input
-                autoFocus
-                inputMode="numeric"
-                value={twoFactorCode}
-                onChange={(e) => setTwoFactorCode(e.target.value)}
-                placeholder="6-digit code"
-                className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none"
-              />
-              <div className="mt-4 flex gap-3">
-                <Button
-                  disabled={busyId === pendingAction.id || !twoFactorCode.trim()}
-                  onClick={() => {
-                    const code = twoFactorCode.trim();
-                    if (pendingAction.kind === "suspend") void suspend(pendingAction.id, pendingAction.reason, code);
-                    else if (pendingAction.kind === "unsuspend") void unsuspend(pendingAction.id, code);
-                    else if (pendingAction.kind === "close") void close(pendingAction.id, pendingAction.reason, code);
-                    else void revokeDataAccess(pendingAction.id, pendingAction.reason, code);
-                  }}
-                  className="flex-1"
-                >
-                  Confirm
-                </Button>
-                <Button variant="ghost" className="flex-1" onClick={() => { setPendingAction(null); setTwoFactorCode(""); }}>
-                  Cancel
-                </Button>
-              </div>
-            </Card>
-          </div>
-        ) : null}
+        <Suspense fallback={<SkeletonRows count={5} />}>
+          <Content />
+        </Suspense>
       </AdminLayout>
     </ProtectedRoute>
   );

@@ -98,3 +98,48 @@ export function useAdminDisplayCurrency(defaultCurrency?: string | null) {
     [selectedCurrency],
   );
 }
+
+// ─── Approximate conversions (handbook 14.6: converted amounts are labelled) ──
+// Rates above are static constants, never live FX. Anything converted with
+// them must be shown as "Approx." next to the ORIGINAL currency amount, and an
+// unsupported currency is never silently converted (it would fall back to GBP).
+
+export const APPROX_LABEL = "Approx.";
+
+export function isSupportedCurrency(value?: string | null): value is SupportedCurrency {
+  return SUPPORTED_CURRENCIES.includes((value ?? "").toUpperCase() as SupportedCurrency);
+}
+
+/** True when showing `displayCurrency` for an amount in `sourceCurrency` is a conversion. */
+export function isConverted(sourceCurrency?: string | null, displayCurrency?: string | null): boolean {
+  return (
+    isSupportedCurrency(sourceCurrency) &&
+    isSupportedCurrency(displayCurrency) &&
+    sourceCurrency.toUpperCase() !== displayCurrency.toUpperCase()
+  );
+}
+
+/**
+ * "Approx. $12.80" for a converted amount (major units), or null when no
+ * conversion applies (same currency, or a currency we have no rate for).
+ * Always render it NEXT TO the original-currency amount, never instead of it.
+ */
+export function formatApproxMoney(
+  amountMajor: number,
+  sourceCurrency?: string | null,
+  displayCurrency?: string | null,
+): string | null {
+  if (!isConverted(sourceCurrency, displayCurrency)) return null;
+  return `${APPROX_LABEL} ${formatDisplayMoney(amountMajor, sourceCurrency, displayCurrency)}`;
+}
+
+/** formatDisplayMoney that appends " (approx.)" whenever a conversion happened. */
+export function formatDisplayMoneyApprox(
+  amountMajor: number,
+  sourceCurrency?: string | null,
+  displayCurrency?: string | null,
+  digits = 2,
+): string {
+  const base = formatDisplayMoney(amountMajor, sourceCurrency, displayCurrency, digits);
+  return isConverted(sourceCurrency, displayCurrency) ? `${base} (approx.)` : base;
+}

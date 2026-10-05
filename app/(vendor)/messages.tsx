@@ -23,7 +23,7 @@ export default function MessagesScreen() {
 
   const filtered = useMemo(() => {
     if (activeTab === "order") return conversations.filter((c) => !!c.orderId);
-    if (activeTab === "buyer") return conversations.filter((c) => !c.orderId);
+    if (activeTab === "buyer") return conversations.filter((c) => !c.orderId && c.participantRole !== "admin");
     return conversations;
   }, [activeTab, conversations]);
 
@@ -102,6 +102,23 @@ export default function MessagesScreen() {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Vendor -> Eki support entry (handbook 6.1). Replies land in the list below under "Eki Support". */}
+        <TouchableOpacity
+          onPress={() => router.push("/(vendor)/contact-support" as any)}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Message Eki support"
+          style={styles.supportRow}
+        >
+          <View style={styles.supportIcon}>
+            <Ionicons name="headset-outline" size={20} color="#076B51" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.supportTitle}>Message Eki support</Text>
+            <Text style={styles.supportBody}>Payouts, verification, orders or your account</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#858585" />
+        </TouchableOpacity>
         <View style={styles.card}>
           {isLoading && filtered.length === 0 ? (
             <View style={styles.placeholder}>
@@ -188,6 +205,10 @@ const styles = StyleSheet.create({
     color: "#076B51",
   },
   scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 },
+  supportRow: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#FFFFFF", borderRadius: 20, padding: 14, marginBottom: 12 },
+  supportIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(7,107,81,0.1)", alignItems: "center", justifyContent: "center" },
+  supportTitle: { fontSize: 15, fontFamily: "Manrope-Bold", color: "#282828" },
+  supportBody: { marginTop: 2, fontSize: 12, fontFamily: "Outfit-Regular", color: "#858585" },
   card: { backgroundColor: "#FFFFFF", borderRadius: 30, padding: 20, minHeight: 120 },
   placeholder: { paddingVertical: 30, alignItems: "center" },
   emptyText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#858585", textAlign: "center", paddingVertical: 20 },

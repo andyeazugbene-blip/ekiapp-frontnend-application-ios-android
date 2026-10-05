@@ -258,7 +258,7 @@ function SubscriptionCard({
         </select>
         <Button variant="secondary" onClick={() => confirm.ask(
           { title: "Assign plan manually?", tone: "primary", confirmLabel: "Assign plan", description: "This overrides Stripe billing for this vendor. Use only to correct a billing problem." },
-          async () => { await vendorsAPI.assignSellerPlan(vendorId, plan); setMsg("Plan updated."); onSaved(); },
+          async (reason) => { await vendorsAPI.assignSellerPlan(vendorId, plan, reason); setMsg("Plan updated."); onSaved(); },
         )}>Assign plan</Button>
         {msg ? <span className="text-sm font-semibold text-slate-600">{msg}</span> : null}
       </div>

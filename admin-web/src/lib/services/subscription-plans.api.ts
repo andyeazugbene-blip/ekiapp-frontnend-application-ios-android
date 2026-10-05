@@ -58,12 +58,12 @@ export const subscriptionPlansAPI = {
     return (response.plans ?? response.items ?? []).map(normalizePlan);
   },
 
-  async savePlan(plan: Omit<AdminSubscriptionPlan, "id"> & { id?: string }): Promise<AdminSubscriptionPlan> {
-    const response = await apiClient.post<any>("/admin/subscription-plans", plan);
+  async savePlan(plan: Omit<AdminSubscriptionPlan, "id"> & { id?: string }, reason: string): Promise<AdminSubscriptionPlan> {
+    const response = await apiClient.post<any>("/admin/subscription-plans", { ...plan, reason });
     return normalizePlan(response.plan ?? response);
   },
 
-  async deletePlan(planId: string): Promise<void> {
-    await apiClient.delete(`/admin/subscription-plans/${planId}`);
+  async deletePlan(planId: string, reason: string): Promise<void> {
+    await apiClient.delete(`/admin/subscription-plans/${planId}?reason=${encodeURIComponent(reason)}`);
   },
 };
