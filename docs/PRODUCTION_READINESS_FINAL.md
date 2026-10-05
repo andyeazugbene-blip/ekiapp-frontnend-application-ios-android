@@ -117,3 +117,6 @@ App: Vercel "Promote" the previous deployment (old code is compatible with the n
 | Security / RBAC / 2FA | PASS WITH CAVEAT | tests + API | production enrolment, role journeys |
 | Audit append-only | PASS (local) | trigger blocks UPDATE/DELETE | confirm in prod |
 | Handbook P2 features | MISSING | audit | build or accept deferral |
+
+## Addendum 2026-10-05 verdict
+CODE-SIDE PRODUCTION READINESS: NOT READY - handbook-required features remain unbuilt (First Sale engine, vendor referral/credit ledger, state-aware vendor dashboard, attribution). Everything built is tested (BE 2835 tests, tsc/build/lint clean, mobile tsc clean, fresh-DB migration + no drift + audit trigger proven locally). The whole system is NOT claimed production ready: live Neon/Vercel/Stripe verification has not happened.

@@ -26,3 +26,6 @@ Test identities (local only, seeded in the disposable DB): buyer `buyer1@seed.te
 | 18 | Preview cannot migrate production | `VERCEL_ENV=preview` build step | no migration run | n/a | - | - | - | Local PASS; Vercel Preview DB split **BLOCKED - MANUAL ACTION REQUIRED** |
 
 Not built (cannot be accepted): First Sale Campaign engine, vendor referral + credit ledger, state-aware vendor dashboard, attribution metrics, dispute evidence model, delivery-proof model, most canonical event emits. SMS is out of scope.
+
+## Addendum 2026-10-05
+Now accepted in code (tests, not live): trial lifecycle, commission-zero policy, Super-Admin-only CB payments over HTTP, dispute evidence/appeal (admin + API), delivery proof (admin + API), canonical events subset. Still NOT BUILT: First Sale engine, vendor referral + credit ledger, state-aware vendor dashboard, attribution metrics, mobile dispute/delivery-proof screens, remaining events. All live Stripe/Vercel/Neon checks remain NEEDS MANUAL PRODUCTION VERIFICATION.

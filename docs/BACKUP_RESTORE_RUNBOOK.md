@@ -53,3 +53,10 @@ SELECT tgname FROM pg_trigger WHERE tgrelid = '"AuditLog"'::regclass AND NOT tgi
 -- expect: audit_log_immutable
 SELECT migration_name, finished_at FROM "_prisma_migrations" ORDER BY started_at DESC LIMIT 12;
 ```
+
+## Addendum 2026-10-05 - which steps need which console
+- Neon console (MANUAL): create backup branch / confirm PITR window before migrating; restore rehearsal on a branch; verify row counts.
+- Vercel dashboard (MANUAL): scope DATABASE_URL, confirm only Production builds migrate; keep prior deployment for instant rollback.
+- Stripe dashboard (MANUAL): no backup concept; export webhook endpoint config and event delivery log before cutover.
+- Code-side (done): migrations are additive/forward-only, so rollback = redeploy previous code; schema stays. 9 pending migrations are described in MIGRATION_PRODUCTION_REHEARSAL.md.
+No backup or restore has been performed or evidenced by this work.

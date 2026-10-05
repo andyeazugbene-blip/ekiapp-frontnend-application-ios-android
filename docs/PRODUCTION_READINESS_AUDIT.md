@@ -64,3 +64,6 @@ First Sale Campaign engine, vendor referral + credit ledger, state-aware vendor 
 5. Missing env: `PUBLIC_API_URL`, `ADMIN_WEB_URL`; `CORS_ORIGIN` vs code's `CORS_ORIGINS` (C).
 6. Commission data in production seller plans (C, owner decision).
 7. Missing dispute-evidence and delivery-proof models, First Sale/referral/attribution (M, handbook gaps).
+
+## Addendum 2026-10-05 (code-side closure pass)
+Closed in code: CORS canonicalization (`CORS_ORIGINS`), production-only migration step, 14-day trial lifecycle + persisted trial dates, commission forced to 0 (`SALES_COMMISSION_ENABLED` opt-in), Super-Admin-only Community Buy payments verified over HTTP (67-case role matrix), canonical events (see EVENT_INVENTORY.md), dispute evidence/appeal + delivery proof (backend + admin), admin rate limiter. Still open: First Sale engine, vendor referral/credit ledger, state-aware vendor dashboard, attribution, mobile dispute/proof screens. See CODE_SIDE_BLOCKERS_CLOSED.md and MIGRATION_PRODUCTION_REHEARSAL.md (9 pending migrations).

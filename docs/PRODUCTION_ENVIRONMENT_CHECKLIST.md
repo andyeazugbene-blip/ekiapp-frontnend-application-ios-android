@@ -41,3 +41,13 @@ Status column = what `vercel env ls production` showed on 5 Oct 2026 (names only
 2. Add `PUBLIC_API_URL`, `ADMIN_WEB_URL` (Production). Decide `ADMIN_2FA_ENFORCE`.
 3. Settings > Git: confirm Production Branch = `main`. Do not push feature branches until step 1 is done.
 4. Stripe Dashboard > Developers > Webhooks: ensure the endpoint (`/api/stripe/webhook`) lists the events in `docs/handover/webhook-register.md`, including connected-account events for `account.updated` / `account.application.deauthorized`.
+
+## Addendum 2026-10-05 (names only; never record values here)
+| Variable | Type | Notes |
+|---|---|---|
+| CORS_ORIGINS | CODE-SIDE FIX done; MANUAL VERCEL ACTION: set | Canonical, comma-separated https origins. `CORS_ORIGIN` accepted as legacy alias (warns). `*`, http, localhost rejected in production; empty falls back to built-in production defaults |
+| SALES_COMMISSION_ENABLED | optional | Leave UNSET (no sales commission). `true` re-enables plan fees |
+| FORCE_MIGRATE | optional | `1` forces migrate on non-production build; keep unset |
+| SELLER_PAYMENT_READINESS_GATE | optional | Rollout switch, default off |
+| ADMIN_2FA_ENFORCE, CRON_SECRET, PUBLIC_API_URL / API_PUBLIC_URL, ADMIN_WEB_URL, NEXT_PUBLIC_API_URL (admin-web project), STRIPE_* (secret, webhook secret, identity/connect webhook secrets), RESEND_* , Expo push | MANUAL VERCEL/STRIPE ACTION: verify present in the PRODUCTION scope only |
+| DATABASE_URL | MANUAL NEON/VERCEL ACTION: Preview and Production currently share one; give Preview a separate Neon branch |
