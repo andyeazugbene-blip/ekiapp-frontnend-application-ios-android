@@ -149,13 +149,30 @@ export const adminAPI = {
     };
   },
 
-  async getVendorOnboardingFunnel(range: "7d" | "30d" | "90d" | "365d" = "30d"): Promise<VendorFunnelResult> {
-    const raw = await apiClient.get<any>(`/admin/analytics/vendor-funnel?range=${range}`);
+  async getVendorOnboardingFunnel(
+    range: "7d" | "30d" | "90d" | "365d" = "30d",
+    dateRange?: { from: string; to: string },
+  ): Promise<VendorFunnelResult> {
+    const mapVendorRef = (v: any) => ({
+      vendorId: v.vendorId ?? "",
+      storeName: v.storeName ?? "Unknown",
+      email: v.email ?? null,
+      registeredAt: v.registeredAt ?? "",
+      daysSinceRegistration: v.daysSinceRegistration ?? 0,
+    });
+    const params = new URLSearchParams({ range });
+    if (dateRange) {
+      params.set("from", dateRange.from);
+      params.set("to", dateRange.to);
+    }
+    const raw = await apiClient.get<any>(`/admin/analytics/vendor-funnel?${params.toString()}`);
     return {
       range: raw.range ?? range,
       since: raw.since ?? "",
+      until: raw.until ?? "",
       cohortSize: raw.cohortSize ?? 0,
       steps: (raw.steps ?? []).map((s: any) => ({
+        available: true,
         id: s.id,
         label: s.label ?? s.id,
         vendorCount: s.vendorCount ?? 0,
@@ -163,14 +180,15 @@ export const adminAPI = {
         conversionFromStart: s.conversionFromStart ?? 0,
         droppedHere: s.droppedHere ?? 0,
         medianDaysFromRegistration: s.medianDaysFromRegistration ?? null,
+        stuckVendors: (s.stuckVendors ?? []).map(mapVendorRef),
       })),
-      stuckAtRegistration: (raw.stuckAtRegistration ?? []).map((v: any) => ({
-        vendorId: v.vendorId ?? "",
-        storeName: v.storeName ?? "Unknown",
-        email: v.email ?? null,
-        registeredAt: v.registeredAt ?? "",
-        daysSinceRegistration: v.daysSinceRegistration ?? 0,
+      unavailableStages: (raw.unavailableStages ?? []).map((u: any) => ({
+        available: false,
+        id: u.id,
+        label: u.label ?? u.id,
+        reason: u.reason ?? "",
       })),
+      attribution: { available: false, reason: raw.attribution?.reason ?? "" },
     };
   },
 

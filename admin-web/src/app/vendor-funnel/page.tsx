@@ -21,17 +21,25 @@ function barWidth(pct: number): string {
   return `${Math.max(2, Math.min(100, pct))}%`;
 }
 
+function toDateInputValue(iso: string): string {
+  return iso ? iso.slice(0, 10) : "";
+}
+
 export default function VendorFunnelPage() {
   const [range, setRange] = useState<RangeKey>("30d");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [useCustomRange, setUseCustomRange] = useState(false);
   const [data, setData] = useState<VendorFunnelResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [expandedStuck, setExpandedStuck] = useState<string | null>(null);
 
-  const load = useCallback(async (r: RangeKey) => {
+  const load = useCallback(async (r: RangeKey, custom: { from: string; to: string } | null) => {
     setLoading(true);
     setError("");
     try {
-      setData(await adminAPI.getVendorOnboardingFunnel(r));
+      setData(await adminAPI.getVendorOnboardingFunnel(r, custom ?? undefined));
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Could not load the vendor onboarding funnel.");
     } finally {
@@ -40,8 +48,13 @@ export default function VendorFunnelPage() {
   }, []);
 
   useEffect(() => {
-    void load(range);
-  }, [range, load]);
+    if (useCustomRange && customFrom && customTo) {
+      void load(range, { from: customFrom, to: customTo });
+    } else if (!useCustomRange) {
+      void load(range, null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range, useCustomRange, customFrom, customTo, load]);
 
   return (
     <ProtectedRoute>
@@ -51,13 +64,16 @@ export default function VendorFunnelPage() {
           subtitle="Where new vendors drop off between registering and getting a store people can actually buy from — so marketing spend isn't acquiring vendors who are then lost silently."
         />
 
-        <div className="mb-6 flex flex-wrap gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           {RANGES.map((r) => (
             <button
               key={r.key}
-              onClick={() => setRange(r.key)}
+              onClick={() => {
+                setUseCustomRange(false);
+                setRange(r.key);
+              }}
               className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
-                range === r.key
+                !useCustomRange && range === r.key
                   ? "border-emerald-600 bg-emerald-600 text-white"
                   : "border-gray-200 bg-white text-gray-600 hover:border-emerald-300"
               }`}
@@ -65,21 +81,54 @@ export default function VendorFunnelPage() {
               {r.label}
             </button>
           ))}
+          <button
+            onClick={() => setUseCustomRange(true)}
+            className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
+              useCustomRange ? "border-emerald-600 bg-emerald-600 text-white" : "border-gray-200 bg-white text-gray-600 hover:border-emerald-300"
+            }`}
+          >
+            Custom range
+          </button>
         </div>
+
+        {useCustomRange && (
+          <div className="mb-6 flex flex-wrap items-center gap-2 text-sm">
+            <label className="text-gray-500">
+              From{" "}
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="ml-1 rounded-md border border-gray-200 px-2 py-1"
+              />
+            </label>
+            <label className="text-gray-500">
+              To{" "}
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="ml-1 rounded-md border border-gray-200 px-2 py-1"
+              />
+            </label>
+            {!customFrom || !customTo ? <span className="text-xs text-gray-400">Pick both dates to apply.</span> : null}
+          </div>
+        )}
 
         {loading ? (
           <LoadingPanel label="Loading the onboarding funnel..." />
         ) : error ? (
-          <ErrorPanel message={error} onRetry={() => void load(range)} />
+          <ErrorPanel message={error} onRetry={() => void load(range, useCustomRange && customFrom && customTo ? { from: customFrom, to: customTo } : null)} />
         ) : !data || data.cohortSize === 0 ? (
           <EmptyState title="No vendors registered in this window." />
         ) : (
           <>
             <Card className="mb-6">
               <p className="mb-4 text-sm text-gray-500">
-                {data.cohortSize} vendor{data.cohortSize === 1 ? "" : "s"} registered since{" "}
-                {formatDateTime(data.since)}. A step counts a vendor as soon as they ever reach it, even after
-                this window — this measures where the drop-off happens, not just who converted fast.
+                {data.cohortSize} vendor{data.cohortSize === 1 ? "" : "s"} registered between{" "}
+                {formatDateTime(data.since)} and {formatDateTime(data.until)}. A stage counts a vendor as soon as they
+                ever reach it, even after this window — this measures where the drop-off happens, not just who
+                converted fast.
               </p>
               <div className="space-y-4">
                 {data.steps.map((step, i) => (
@@ -108,55 +157,76 @@ export default function VendorFunnelPage() {
                         style={{ width: barWidth(step.conversionFromStart) }}
                       />
                     </div>
-                    <div className="mt-1 text-xs text-gray-400">
-                      {i > 0 && step.droppedHere > 0 && (
-                        <span>
-                          {step.droppedHere} vendor{step.droppedHere === 1 ? "" : "s"} reached the previous step but never got here.{" "}
-                        </span>
-                      )}
-                      {step.medianDaysFromRegistration !== null && (
-                        <span>Median {step.medianDaysFromRegistration} day{step.medianDaysFromRegistration === 1 ? "" : "s"} after registering.</span>
+                    <div className="mt-1 flex items-center justify-between text-xs text-gray-400">
+                      <span>
+                        {i > 0 && step.droppedHere > 0 && (
+                          <>
+                            {step.droppedHere} vendor{step.droppedHere === 1 ? "" : "s"} reached the previous step but never got here.{" "}
+                          </>
+                        )}
+                        {step.medianDaysFromRegistration !== null && (
+                          <>Median {step.medianDaysFromRegistration} day{step.medianDaysFromRegistration === 1 ? "" : "s"} after registering.</>
+                        )}
+                      </span>
+                      {i > 0 && step.stuckVendors.length > 0 && (
+                        <button
+                          className="font-medium text-emerald-700 hover:underline"
+                          onClick={() => setExpandedStuck(expandedStuck === step.id ? null : step.id)}
+                        >
+                          {expandedStuck === step.id ? "Hide" : "View"} stuck vendors ({step.stuckVendors.length})
+                        </button>
                       )}
                     </div>
+                    {expandedStuck === step.id && step.stuckVendors.length > 0 && (
+                      <div className="mt-2 overflow-x-auto rounded-lg border border-gray-100">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">
+                              <th className="px-3 py-2">Store</th>
+                              <th className="px-3 py-2">Email</th>
+                              <th className="px-3 py-2">Registered</th>
+                              <th className="px-3 py-2">Days ago</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {step.stuckVendors.map((v) => (
+                              <tr key={v.vendorId} className="border-b border-gray-50 last:border-0">
+                                <td className="px-3 py-2 font-medium text-gray-900">{v.storeName}</td>
+                                <td className="px-3 py-2 text-gray-500">{v.email ?? "—"}</td>
+                                <td className="px-3 py-2 text-gray-500">{formatDateTime(v.registeredAt)}</td>
+                                <td className="px-3 py-2 text-gray-500">{v.daysSinceRegistration}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             </Card>
 
-            <Card>
-              <h2 className="mb-1 text-base font-semibold text-gray-900">
-                Registered but never added a product ({data.stuckAtRegistration.length})
-              </h2>
-              <p className="mb-4 text-sm text-gray-500">
-                These are the vendors marketing spend acquired in this window who are at risk of being lost
-                entirely — they never reached the first real onboarding step.
-              </p>
-              {data.stuckAtRegistration.length === 0 ? (
-                <p className="text-sm text-gray-400">Every vendor in this window added at least one product.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">
-                        <th className="py-2 pr-4">Store</th>
-                        <th className="py-2 pr-4">Email</th>
-                        <th className="py-2 pr-4">Registered</th>
-                        <th className="py-2 pr-4">Days ago</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.stuckAtRegistration.map((v) => (
-                        <tr key={v.vendorId} className="border-b border-gray-50">
-                          <td className="py-2 pr-4 font-medium text-gray-900">{v.storeName}</td>
-                          <td className="py-2 pr-4 text-gray-500">{v.email ?? "—"}</td>
-                          <td className="py-2 pr-4 text-gray-500">{formatDateTime(v.registeredAt)}</td>
-                          <td className="py-2 pr-4 text-gray-500">{v.daysSinceRegistration}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+            {data.unavailableStages.length > 0 && (
+              <Card className="mb-6 border-amber-200 bg-amber-50/40">
+                <h2 className="mb-1 text-base font-semibold text-gray-900">Requested stages not shown above</h2>
+                <p className="mb-3 text-sm text-gray-500">
+                  These were part of the requested funnel but the current data model can&apos;t support them
+                  accurately — shown here honestly rather than estimated.
+                </p>
+                <ul className="space-y-2 text-sm">
+                  {data.unavailableStages.map((s) => (
+                    <li key={s.id}>
+                      <span className="font-medium text-gray-900">{s.label}:</span>{" "}
+                      <span className="text-gray-600">{s.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+
+            <Card className="border-amber-200 bg-amber-50/40">
+              <h2 className="mb-1 text-base font-semibold text-gray-900">Acquisition / campaign attribution</h2>
+              <p className="text-sm text-gray-600">{data.attribution.reason}</p>
             </Card>
           </>
         )}

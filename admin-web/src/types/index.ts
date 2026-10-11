@@ -546,28 +546,41 @@ export interface VendorAnalyticsData {
   currency: string;
 }
 
+export interface VendorFunnelVendorRef {
+  vendorId: string;
+  storeName: string;
+  email: string | null;
+  registeredAt: string;
+  daysSinceRegistration: number;
+}
+
 export interface VendorFunnelStep {
-  id: "registered" | "product_added" | "delivery_configured" | "verified" | "store_visited";
+  available: true;
+  id: "registered" | "product_added" | "delivery_configured" | "verified" | "store_visited" | "first_order";
   label: string;
   vendorCount: number;
   conversionFromPrevious: number;
   conversionFromStart: number;
   droppedHere: number;
   medianDaysFromRegistration: number | null;
+  stuckVendors: VendorFunnelVendorRef[];
+}
+
+export interface VendorFunnelUnavailableStage {
+  available: false;
+  id: "store_setup" | "store_published";
+  label: string;
+  reason: string;
 }
 
 export interface VendorFunnelResult {
   range: string;
   since: string;
+  until: string;
   cohortSize: number;
   steps: VendorFunnelStep[];
-  stuckAtRegistration: {
-    vendorId: string;
-    storeName: string;
-    email: string | null;
-    registeredAt: string;
-    daysSinceRegistration: number;
-  }[];
+  unavailableStages: VendorFunnelUnavailableStage[];
+  attribution: { available: false; reason: string };
 }
 
 export interface OrderAnalytics {
