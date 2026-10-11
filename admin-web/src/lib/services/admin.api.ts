@@ -2,7 +2,7 @@ import { apiClient } from "../api";
 import {
   DashboardStats, Analytics, RevenueSeries, AnalyticsOverview, GrowthSeries,
   BuyerAnalytics, VendorAnalyticsData, OrderAnalytics,
-  PaymentAnalytics, GeographicAnalytics,
+  PaymentAnalytics, GeographicAnalytics, VendorFunnelResult,
 } from "@/types";
 
 function centsToUnit(value: unknown): number {
@@ -146,6 +146,31 @@ export const adminAPI = {
         count: l.count ?? 0,
       })),
       currency: (raw.currency ?? "GBP").toUpperCase(),
+    };
+  },
+
+  async getVendorOnboardingFunnel(range: "7d" | "30d" | "90d" | "365d" = "30d"): Promise<VendorFunnelResult> {
+    const raw = await apiClient.get<any>(`/admin/analytics/vendor-funnel?range=${range}`);
+    return {
+      range: raw.range ?? range,
+      since: raw.since ?? "",
+      cohortSize: raw.cohortSize ?? 0,
+      steps: (raw.steps ?? []).map((s: any) => ({
+        id: s.id,
+        label: s.label ?? s.id,
+        vendorCount: s.vendorCount ?? 0,
+        conversionFromPrevious: s.conversionFromPrevious ?? 0,
+        conversionFromStart: s.conversionFromStart ?? 0,
+        droppedHere: s.droppedHere ?? 0,
+        medianDaysFromRegistration: s.medianDaysFromRegistration ?? null,
+      })),
+      stuckAtRegistration: (raw.stuckAtRegistration ?? []).map((v: any) => ({
+        vendorId: v.vendorId ?? "",
+        storeName: v.storeName ?? "Unknown",
+        email: v.email ?? null,
+        registeredAt: v.registeredAt ?? "",
+        daysSinceRegistration: v.daysSinceRegistration ?? 0,
+      })),
     };
   },
 

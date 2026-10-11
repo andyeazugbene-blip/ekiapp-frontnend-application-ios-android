@@ -546,6 +546,30 @@ export interface VendorAnalyticsData {
   currency: string;
 }
 
+export interface VendorFunnelStep {
+  id: "registered" | "product_added" | "delivery_configured" | "verified" | "store_visited";
+  label: string;
+  vendorCount: number;
+  conversionFromPrevious: number;
+  conversionFromStart: number;
+  droppedHere: number;
+  medianDaysFromRegistration: number | null;
+}
+
+export interface VendorFunnelResult {
+  range: string;
+  since: string;
+  cohortSize: number;
+  steps: VendorFunnelStep[];
+  stuckAtRegistration: {
+    vendorId: string;
+    storeName: string;
+    email: string | null;
+    registeredAt: string;
+    daysSinceRegistration: number;
+  }[];
+}
+
 export interface OrderAnalytics {
   ordersByDay: { date: string; count: number; gmv: number }[];
   ordersByWeek: { week: string; count: number; gmv: number }[];

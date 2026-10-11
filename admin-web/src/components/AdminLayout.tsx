@@ -102,6 +102,7 @@ export const NAV_MODULES: NavModule[] = [
       { name: "Send Offer", href: "/send-offer", perm: ["communications.send"] },
       { name: "Campaigns", href: "/campaigns", perm: ["campaigns.read"] },
       { name: "Analytics", href: "/analytics", perm: ["analytics.read"] },
+      { name: "Vendor Funnel", href: "/vendor-funnel", perm: ["analytics.read"] },
     ],
   },
   {
