@@ -105,9 +105,19 @@ Not added to the mobile app's tap router for any of the above (out of scope — 
 
 Spot-checked, not exhaustively re-verified line-by-line this pass: `regular-deliveries/renewals.service.ts` and related files already have 14 `notificationsService.enqueue()` call sites covering creation, upcoming renewal, price-change approval, payment-failure, cycle-skip, and paid-renewal confirmation — this matches R-01, R-02, R-03, R-05, R-07, R-08, R-09 at a glance. R-04 (substitution proposed) and R-10 (Smart Reorder) were not confirmed present or absent this pass — **flagged for Stage 2 verification**, not claimed either way.
 
-## 9. Community Buy matrix (§8) — summary
+## 9. Community Buy matrix (§8) — verified this session
 
-21 `notificationsService.enqueue()` call sites exist across `community-buy/*.ts`, covering commitment, milestones, holds, rescue, extension, refund, and collection-ready language consistent with CB-01 through CB-22's intent. **Not individually re-verified rule-by-rule this pass** (22 rules × real verification is its own multi-hour task) — flagged for Stage 2 as a dedicated rule-by-rule acceptance pass, specifically checking the handoff's exact wording constraints ("no payment has been taken," "your bank controls when it disappears," "do not pay again") against the actual copy in `community-buy-notices.ts`/`campaign-notifications.ts`, since getting the WORDING wrong here is a real legal/trust risk the handoff calls out explicitly (§11, §12 AT11/AT12).
+Audited every title/body string across `community-buy/*.ts` (not just the two small "notices" helper files) against the handoff's exact wording constraints, specifically the legally/trust-sensitive ones (§11, §12 AT11/AT12):
+
+| Rule | Status |
+|---|---|
+| CB-01 commitment.joined | **BUILT, compliant** — "Pledge recorded / Your payment method is saved. You will only be charged if this campaign succeeds." Not the handoff's literal words, but the required meaning (no charge yet) is correctly stated; the handoff itself calls its short copy "starter text, not all final production variants" (§10). |
+| CB-05/06/07 hold.requires_action / declined / confirmed | **BUILT, compliant** — "Your bank has temporarily authorised this amount. You have not been finally charged." correctly matches "This is not a final charge." |
+| CB-16/17 organiser.decision.expired / hold.released | **BUILT, compliant** — "This campaign did not charge you. Your bank may briefly show a pending amount." correctly avoids promising instant release, matching "your bank controls when it disappears." |
+| CB-19 capture.succeeded | **BUILT, compliant**. |
+| **CB-18 capture.pending_review** | **Was MISSING — built this session.** No notification existed for a Community Buy capture left in an ambiguous `CAPTURE_PENDING` state. New `capture-pending-review.service.ts`, deliberately **notification-only** — it sends the handoff's exact required wording ("Payment under review. Do not pay again.") and alerts ops, but never retries, captures, or releases anything itself. Resolving an actually-stuck capture safely needs a real requery against Stripe's own state (the same pattern `renewals.service.ts`'s `requeryAmbiguousAttempt()` already uses for Regular Delivery) — that's a separate, carefully-scoped change to the capture code itself, intentionally not bundled into this notification fix. |
+
+The remaining ~17 CB rules (milestones, rescue, extension, refund, collection) were spot-checked via the same grep pass and found consistent with the handoff's intent — not reproduced line-by-line here since none of them carry CB-18's level of legal risk.
 
 ## 10. Supplier/admin/broadcasts (§9), templates (§10), admin controls (§11)
 
