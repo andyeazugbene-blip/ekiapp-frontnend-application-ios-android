@@ -69,9 +69,9 @@ Receipt ledger states the handoff wants (`queued, suppressed, attempted, accepte
 | Rule | Status |
 |---|---|
 | O-01 order.paid (vendor) | **BUILT** — `orders.service.ts:58` notifies vendor on paid order. |
-| O-02 order.unacknowledged | **MISSING** — no escalation reminder exists for an accepted-but-unactioned paid order. Real gap, direct revenue impact (a vendor who misses a paid order loses the sale). **Scoped for Stage 2, not built this pass** — needs the business-hours SLA concept, which is a **CONFIGURATION / OWNER SIGN-OFF** per handoff §6 footnote ("Vendor business hours... configured business hours"). |
+| O-02 order.unacknowledged | **BUILT this session** — see §7. Uses plain elapsed time (15 min first reminder, 24h escalation reusing the existing admin action-centre threshold), not a real business-hours calendar — that's still the owner sign-off item, see §11; this is the documented, labeled simplification the handoff itself allows ("recommended configurable defaults unless explicitly LOCKED"). |
 | O-03 order.accepted (buyer) | **BUILT** — `orders.service.ts:74`. |
-| O-04 order.dispatch.due | **MISSING** — same business-hours SLA dependency as O-02. |
+| O-04 order.dispatch.due | **BUILT this session** — see §7. Same elapsed-time caveat as O-02; also computes a due time on the fly (acceptance + 24h assumed window) since no `dispatchDueAt` column exists. |
 | O-05 order.dispatched (buyer) | **BUILT** — `orders.service.ts:410`. |
 | O-06 order.delivery.exception | **MISSING** — no "delivery exception" state/notification exists in the order model at all. |
 | O-07 order.delivered (buyer) | **BUILT** — same notification engine paths as above cover delivered transitions (confirmed via `order_delivered` event emission, `orders.service.ts`). |
@@ -93,7 +93,13 @@ Following the user's explicit "make it exactly match" instruction, everything be
 
 Not added to the mobile app's tap router for any of the above (out of scope — no mobile rebuild requested this pass): tapping these notifications opens the app but doesn't deep-link anywhere special yet. The notification text, email, and in-app inbox entry all deliver correctly regardless.
 
-20 new tests across `vendor-milestone-notifications.test.ts`, `vendor-subscription-webhooks.test.ts`, and `event-emission-extras.test.ts`. Full backend suite: 182 files / 2948 tests pass, tsc clean, and the 4 new Prisma query paths (welcome, store-ready, first-visit, share-reminder sweep) were additionally run against a real local Postgres instance with real seeded data, not just vitest mocks.
+20 new tests across `vendor-milestone-notifications.test.ts`, `vendor-subscription-webhooks.test.ts`, and `event-emission-extras.test.ts`. Full backend suite at that point: 182 files / 2948 tests pass, tsc clean, and the 4 new Prisma query paths (welcome, store-ready, first-visit, share-reminder sweep) were additionally run against a real local Postgres instance with real seeded data, not just vitest mocks.
+
+**Second pass, same session, "make it exactly match":**
+- **O-02 order.unacknowledged**: new `order-acceptance-notifications.service.ts`. First reminder at 15 elapsed minutes (handoff's own stated default); escalation at 24h, intentionally reusing the EXISTING `admin-action-centre.service.ts` `ACTION_CENTRE_THRESHOLDS.pendingAcceptanceHours` so the vendor's final nudge and the admin's own "overdue" view can never disagree on the number. Stops on acceptance (query excludes orders with `vendorConfirmedAt` set) or cancellation (query is scoped to PAID/PAYMENT_SECURED only).
+- **O-04 order.dispatch.due**: same file. No `dispatchDueAt` column exists on `Order`, so the due time is computed on the fly (`vendorConfirmedAt + 24h`, itself a stated default, not a locked value) rather than adding a column nothing else needs. Reminder fires inside the last 2 hours (handoff's own default); a separate breach notice fires once the computed due time has passed. Stops once the order leaves the accepted-but-undispatched status set.
+- Both registered as internal jobs AND added to the 10-minute GitHub Actions scheduler (P1 per the handoff's own priority table — unlike V-06's share reminder, which stays on the once-daily cadence as a P3 growth nudge).
+- 9 more tests (`order-acceptance-notifications.test.ts`), plus a real-Postgres run of both new query paths — same discipline as the first pass, since `Order` (like `DeliveryZone` before it) has no `vendor` relation declared in the schema and a naive `include: { vendor: true }` would have failed the exact same way the `Product.isTest` bug did. Full suite after this pass: 183 files / 2955 tests pass, tsc clean.
 
 ## 8. Regular Delivery matrix (§7) — summary
 
