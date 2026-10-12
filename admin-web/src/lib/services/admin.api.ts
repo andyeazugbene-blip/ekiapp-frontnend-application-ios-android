@@ -392,7 +392,7 @@ export const adminAPI = {
 };
 
 export interface OperationalThresholdSetting {
-  key: "PRICE_APPROVAL_TIMEOUT_HOURS" | "FULFILMENT_STALE_THRESHOLD_HOURS" | "PAYOUT_STUCK_THRESHOLD_HOURS";
+  key: "PRICE_APPROVAL_TIMEOUT_HOURS" | "FULFILMENT_STALE_THRESHOLD_HOURS" | "PAYOUT_STUCK_THRESHOLD_HOURS" | "MEMBERSHIP_GRACE_PERIOD_DAYS" | "VENDOR_REFERRAL_CREDIT_MONTHS";
   value: number | null;
   updatedById: string | null;
   updatedAt: string | null;

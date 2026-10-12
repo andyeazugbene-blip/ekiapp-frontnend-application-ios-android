@@ -8,18 +8,31 @@ import { APIError } from "@/lib/api";
 import { adminAPI, OperationalThresholdSetting } from "@/lib/services/admin.api";
 import HistoryList from "./HistoryList";
 
-const LABELS: Record<OperationalThresholdSetting["key"], { title: string; description: string }> = {
+const LABELS: Record<OperationalThresholdSetting["key"], { title: string; description: string; unit: "hours" | "days" | "months" }> = {
   PRICE_APPROVAL_TIMEOUT_HOURS: {
     title: "Price approval timeout",
     description: "How many hours a buyer has to approve a Regular Deliveries price change before the renewal expires automatically.",
+    unit: "hours",
   },
   FULFILMENT_STALE_THRESHOLD_HOURS: {
     title: "Fulfilment stale threshold",
     description: "How many hours a Community Buy supplier fulfilment with no estimated-ready date can go without progress before it is flagged for review.",
+    unit: "hours",
   },
   PAYOUT_STUCK_THRESHOLD_HOURS: {
     title: "Payout stuck threshold",
     description: "How many hours a Community Buy payout can sit in Pending/In Transit before ops is alerted that it may be stuck.",
+    unit: "hours",
+  },
+  MEMBERSHIP_GRACE_PERIOD_DAYS: {
+    title: "Eki Membership grace period",
+    description: "How many days a vendor has after a failed Eki Membership payment before their store's selling capabilities are paused. Their store and data are never deleted, and this never affects an already-placed order.",
+    unit: "days",
+  },
+  VENDOR_REFERRAL_CREDIT_MONTHS: {
+    title: "Vendor referral credit",
+    description: "How many free months of Eki Membership a vendor earns once a vendor they referred completes store setup, verification, the trial, and their first paid membership payment. Credited, never cash.",
+    unit: "months",
   },
 };
 
@@ -72,11 +85,11 @@ export default function ThresholdsTab({ currentAdminId }: { currentAdminId?: str
                   <p className="font-bold">{label.title}</p>
                   <p className="mt-1 max-w-xl text-sm text-slate-500">{label.description}</p>
                 </div>
-                {s.value == null ? <Badge tone="amber">Not configured</Badge> : <Badge tone="green">{s.value} hour{s.value === 1 ? "" : "s"}</Badge>}
+                {s.value == null ? <Badge tone="amber">Not configured</Badge> : <Badge tone="green">{s.value} {s.value === 1 ? label.unit.slice(0, -1) : label.unit}</Badge>}
               </div>
               <div className="mt-4 flex flex-wrap items-end gap-3">
                 <label className="w-40">
-                  <span className="text-xs font-bold text-slate-500">Hours</span>
+                  <span className="text-xs font-bold text-slate-500 capitalize">{label.unit}</span>
                   <input type="number" min={0} step="any" disabled={!canEdit} value={drafts[s.key] ?? ""} onChange={(e) => setDrafts((p) => ({ ...p, [s.key]: e.target.value }))} className="mt-1 h-11 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-[#096B4A] disabled:bg-slate-50" />
                 </label>
                 {canEdit ? (
@@ -84,7 +97,7 @@ export default function ThresholdsTab({ currentAdminId }: { currentAdminId?: str
                     disabled={!valid}
                     onClick={() =>
                       confirm.ask(
-                        { title: `Change ${label.title.toLowerCase()} to ${value} hours?`, confirmLabel: "Save", tone: "primary" },
+                        { title: `Change ${label.title.toLowerCase()} to ${value} ${value === 1 ? label.unit.slice(0, -1) : label.unit}?`, confirmLabel: "Save", tone: "primary" },
                         async (reason) => {
                           await adminAPI.updateOperationalThreshold(s.key, value, reason);
                           setNotice(`${label.title} updated.`);
