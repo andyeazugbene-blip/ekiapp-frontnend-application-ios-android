@@ -44,9 +44,9 @@ Receipt ledger states the handoff wants (`queued, suppressed, attempted, accepte
 | V-02 store.setup.incomplete | **N/A per architecture** — there is no separate "store setup" step (see `docs/..._VENDOR_FUNNEL` work: store fields are set atomically at registration). This rule doesn't map to a real state. |
 | V-03 foodstuff.first.missing | **BUILT** — `detectFirstSale()`'s `add_product` stage, weekly cap (handoff wants 24h/day3; current cap is weekly — **cadence mismatch**, cheap to retune once Stage 1's priority field exists). |
 | V-04 delivery.setup.missing | **BUILT** — same detector's `set_delivery` stage. Same cadence mismatch as V-03. |
-| V-05 store.ready | **MISSING** — no one-time "your store is ready" notification exists. **Built this session, see §7.** |
-| V-06 store.link.not.shared | **MISSING** — no detector watches for "ready but never shared." |
-| V-07 store.link.first.visit | **MISSING** — `store_viewed` event exists (emitted from the public store page) but nothing turns the FIRST one into a vendor-facing notification. |
+| V-05 store.ready | **BUILT this session** — see §7. |
+| V-06 store.link.not.shared | **BUILT this session** — see §7. |
+| V-07 store.link.first.visit | **BUILT this session** — see §7. |
 | V-08 verification.required | **BUILT** — `detectFirstSale()`'s `verify` stage covers this for vendors who haven't sold yet; a vendor who already sold but isn't verified gets no reminder (narrow gap, low real-world incidence). |
 | V-09 first.order.missing | **BUILT** — `detectFirstSale()`'s `get_first_order` stage. |
 | V-10 first.order.paid | **BUILT** — `stripe.service.ts` (checkout path, ~line 1476) counts the vendor's non-pending/failed orders and fires `communicationService.send({eventKey: "vendor_first_order", ...})` exactly when the count reaches 1. Email+push+in-app, correct copy, deep-links via `data.orderId` to a case the mobile app's tap router (`app/_layout.tsx`) already has a branch for (`type === "vendor_first_order"`). Corrected after this doc's first draft wrongly marked it missing from an incomplete grep — a lesson in why every row here cites the exact evidence rather than inferring from a name. |
@@ -55,9 +55,9 @@ Receipt ledger states the handoff wants (`queued, suppressed, attempted, accepte
 
 | Rule | Status |
 |---|---|
-| M-01 trial.started | **MISSING** — trial dates are persisted (`stripe.service.ts` checkout.session.completed) but no notification fires. |
+| M-01 trial.started | **BUILT this session** — see §7. |
 | M-02 trial.ending | **BUILT** — `VENDOR_TRIAL_ENDING` automation type + `vendor-trial-ending.ts` detector, driven by the real Stripe `customer.subscription.trial_will_end` webhook. |
-| M-03 membership.first_payment.succeeded | **MISSING** — subscription activates (`stripe.service.ts` `customer.subscription.updated` → ACTIVE) but the "first payment" moment specifically isn't distinguished from any later renewal, and no notification fires either way. |
+| M-03 membership.first_payment.succeeded | **BUILT this session** — see §7. **Needs a manual Stripe action to actually fire in production** (see §7). |
 | M-04 membership.payment.failed | **BUILT** — `stripe.service.ts` `invoice.payment_failed` handler, `vendorSubscriptionNotificationCopy("PAST_DUE")`. |
 | M-05 membership.grace.started | **MISSING** — no `GRACE` state exists in `SubscriptionStatus` (only ACTIVE/PAST_DUE/CANCELLED/EXPIRED). **BLOCKED ON OWNER SIGN-OFF** — grace length is explicitly an owner decision per handoff §13; can't build the state machine until that number exists. |
 | M-06 membership.capabilities.paused | **MISSING**, same block — "which capabilities pause" and "after how long" are both owner decisions. |
@@ -82,8 +82,18 @@ Receipt ledger states the handoff wants (`queued, suppressed, attempted, accepte
 
 ## 7. Built this session (proof, not promise)
 
-- **V-05 store.ready**: fires once, the first time a vendor has both an active product and a delivery zone (the same two signals the vendor funnel and `FIRST_SALE` detector already use as "setup done"). In-app + email, new `vendor_store_ready` communication template, new `vendor-milestone-notifications.service.ts` with a real idempotent DB check (not a time window), wired from both trigger points (`products.service.ts`, `delivery-zones.service.ts`) since either can complete the pair first. 6 new tests. No deep-link case was added to the mobile app's tap router for this one (out of scope: no mobile rebuild requested this pass) — tapping it opens the app but doesn't route anywhere special yet; the notification text/email still deliver correctly.
-- V-10 needed no work — see the corrected row above.
+Following the user's explicit "make it exactly match" instruction, everything below was built and verified (tsc clean, full suite passing, AND re-run against a real local Postgres — not just mocks — specifically because the Product.isTest production incident earlier in this engagement proved mocked tests alone can't catch a real schema mismatch):
+
+- **V-01 account.created**: new `vendor_welcome` template, fires once from `vendors.service.ts`'s `createVendor()` (the real "vendor account exists" moment in this codebase — a bare `User.role = VENDOR` carries no store identity yet).
+- **V-05 store.ready**: fires once, the first time a vendor has both an active product and a delivery zone (the same two signals the vendor funnel and `FIRST_SALE` detector already use as "setup done"). New `vendor-milestone-notifications.service.ts`, wired from both trigger points (`products.service.ts`, `delivery-zones.service.ts`) since either can complete the pair first.
+- **V-06 store.link.not.shared**: new daily sweep job (`vendor-share-reminder-sweep`, registered in `internal.routes.ts`'s job list and the combined daily cron — NOT added to the 10-minute GitHub Actions scheduler, since this is a growth nudge, not time-sensitive). Reminds a ready-but-never-visited vendor at most every 3 days (handoff's own recommended default cadence), stops the moment any `store_viewed` event is ever recorded for that vendor.
+- **V-07 store.link.first.visit**: wired into `public-stores.service.ts`'s existing view-beacon handler. Counts prior views BEFORE calling the fire-and-forget `eventsService.emit()` (that function doesn't await its own DB write, so counting after it would race the write) — count===0 means this view is the first ever.
+- **M-01 trial.started**: new `vendor_membership_trial_started` template, fires from `stripe.service.ts`'s `checkout.session.completed` handler, exactly when Stripe's own trial window is freshly persisted.
+- **M-03 membership.first_payment.succeeded**: new `handleVendorSubscriptionFirstPaymentSucceeded` webhook handler for `invoice.payment_succeeded`, using Stripe's own `billing_reason` field (`"subscription_create"` vs `"subscription_cycle"`) to distinguish the first payment from an ordinary renewal — not a count-based guess, Stripe's own classification. **MANUAL STRIPE ACTION REQUIRED**: `invoice.payment_succeeded` must be added to the webhook endpoint's subscribed events in the Stripe dashboard before this handler ever receives a real event — the code is correct but dormant until then, exactly parallel to the CRON_SECRET situation earlier in this engagement.
+
+Not added to the mobile app's tap router for any of the above (out of scope — no mobile rebuild requested this pass): tapping these notifications opens the app but doesn't deep-link anywhere special yet. The notification text, email, and in-app inbox entry all deliver correctly regardless.
+
+20 new tests across `vendor-milestone-notifications.test.ts`, `vendor-subscription-webhooks.test.ts`, and `event-emission-extras.test.ts`. Full backend suite: 182 files / 2948 tests pass, tsc clean, and the 4 new Prisma query paths (welcome, store-ready, first-visit, share-reminder sweep) were additionally run against a real local Postgres instance with real seeded data, not just vitest mocks.
 
 ## 8. Regular Delivery matrix (§7) — summary
 
