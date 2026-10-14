@@ -2,7 +2,7 @@
   "expo": {
     "name": "Eki",
     "slug": "eki-app",
-    "version": "1.5.7",
+    "version": "1.5.8",
     "orientation": "portrait",
     "scheme": ["ekiapp", "com.ekiapp.mobile"],
     "userInterfaceStyle": "light",
@@ -169,7 +169,7 @@
       }
     },
     "owner": "chialimouad-2-2",
-    "runtimeVersion": "1.5.3",
+    "runtimeVersion": "1.5.8",
     "updates": {
       "url": "https://u.expo.dev/bfa91bf9-65f6-452a-9848-cbf277acb08c"
     }
