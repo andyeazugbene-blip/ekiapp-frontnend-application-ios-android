@@ -199,6 +199,34 @@ export const vendorService = {
     return normalizeVendor(response.vendor);
   },
 
+  /** Vendor-activation spec: full storefront preview, including PENDING_ACTIVATION listings not yet visible to buyers. */
+  async getStorePreview(): Promise<{
+    vendorId: string;
+    storeName: string;
+    storeSlug: string;
+    shareUrl: string;
+    description: string | null;
+    avatar: string | null;
+    coverImage: string | null;
+    city: string | null;
+    country: string | null;
+    verificationStatus: "PENDING" | "VERIFIED" | "REJECTED";
+    products: Array<{
+      id: string;
+      title: string;
+      description: string | null;
+      priceInCents: number;
+      currency: string;
+      images: string[];
+      category: string | null;
+      stock: number;
+      status: "PUBLISHED" | "PENDING_ACTIVATION";
+      visibleToBuyers: boolean;
+    }>;
+  }> {
+    return apiClient.get("/api/vendors/me/store-preview");
+  },
+
   async getAllVendors(filter?: { status?: VendorAdminStatus | string; search?: string; admin?: boolean; limit?: number; sort?: string }) {
     const query = new URLSearchParams();
     if (filter?.status) query.set("status", filter.status);

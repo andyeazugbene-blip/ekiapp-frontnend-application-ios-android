@@ -93,19 +93,22 @@ export default function FoodstuffDetailScreen() {
     }
   };
 
-  const persistStatusChange = async (next: { isAvailable?: boolean }) => {
+  // "Available for sale" / out_of_stock is purely a stock-count derivation
+  // (see normalizeProduct) — there's no separate backend flag for it, so
+  // this toggle must drive stock directly. It previously sent a `status`
+  // field that toBackendProductInput() silently drops, making the switch
+  // a no-op against the real backend. Turning it off sets stock to 0
+  // (genuinely out of stock); turning it back on from 0 needs a real
+  // quantity, which only the vendor knows — defaults to 1 and the stock
+  // stepper below lets them correct it immediately.
+  const toggleAvailable = async (value: boolean) => {
     if (!product) return;
-    const isAvailable = next.isAvailable ?? product.status !== "out_of_stock";
-
-    let status: ProductStatus = "active";
-    if (!isAvailable) status = "out_of_stock";
-    else if (product.stock <= 5) status = "low_stock";
-
+    const nextStock = value ? (product.stock > 0 ? product.stock : 1) : 0;
     setSavingFlag(true);
     setError("");
     try {
-      const updated = await productService.updateProduct(product.id, { status });
-      const merged = { ...product, ...updated };
+      const updated = await productService.updateProduct(product.id, { stock: nextStock });
+      const merged = { ...product, ...updated, stock: nextStock };
       setProduct(merged);
       setSelectedProduct(merged);
     } catch (err) {
@@ -308,7 +311,7 @@ export default function FoodstuffDetailScreen() {
             <Text style={styles.toggleLabel}>Available for sale</Text>
             <Switch
               value={isAvailable}
-              onValueChange={(value) => persistStatusChange({ isAvailable: value })}
+              onValueChange={toggleAvailable}
               trackColor={{ false: "#D7E4DC", true: "#076B51" }}
               thumbColor="#FFFFFF"
               disabled={savingFlag}

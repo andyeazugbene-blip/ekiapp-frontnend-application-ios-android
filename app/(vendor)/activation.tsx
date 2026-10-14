@@ -304,17 +304,16 @@ export default function ActivationScreen() {
             </TouchableOpacity>
             {/* Spec: "Vendors should be able to preview their complete
                 storefront before it becomes publicly visible" — available
-                any time, not gated behind finishing every step; buyers
-                still can't reach it until the backend actually publishes it. */}
-            {storeSlug ? (
-              <TouchableOpacity
-                onPress={() => router.push(`/store/${storeSlug}` as any)}
-                activeOpacity={0.86}
-                style={styles.shareStoreBtn}
-              >
-                <Text style={styles.shareStoreBtnText}>Preview your store</Text>
-              </TouchableOpacity>
-            ) : null}
+                any time, not gated behind finishing every step. Unlike the
+                real public store page, this includes PENDING_ACTIVATION
+                listings so vendors can see what's queued to go live. */}
+            <TouchableOpacity
+              onPress={() => router.push("/(vendor)/store-preview" as any)}
+              activeOpacity={0.86}
+              style={styles.shareStoreBtn}
+            >
+              <Text style={styles.shareStoreBtnText}>Preview your store</Text>
+            </TouchableOpacity>
           </>
         )}
       </SafeAreaView>
