@@ -82,6 +82,14 @@ export default function PublishCheckScreen() {
         unit: params.unit || "kg",
       };
       const product = await productService.createProduct(payload);
+      // Backend force-drafts (isActive: false → status "draft") when the
+      // vendor isn't VERIFIED yet, instead of rejecting the request — so a
+      // 2xx here does NOT mean the listing is actually live to buyers.
+      if (product.status === "draft") {
+        setNeedsVerification(true);
+        setError("Saved as a draft. Verify your account to make this foodstuff visible to buyers.");
+        return;
+      }
       setPublished({ id: product.id, name: product.name });
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 403) {
