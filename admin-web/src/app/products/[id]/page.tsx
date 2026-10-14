@@ -11,12 +11,20 @@ import { NoAccess } from "@/components/PageStates";
 import { APIError } from "@/lib/api";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { formatApproxMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
-import { PRODUCT_TYPE_LABEL, productsAPI, type AdminProductDetail } from "@/lib/services/products.api";
+import { PRODUCT_TYPE_LABEL, REAL_STATUS_LABEL, productsAPI, type AdminProductDetail } from "@/lib/services/products.api";
 
 function StatusBadge({ status }: { status: AdminProductDetail["status"] }) {
   if (status === "ACTIVE") return <Badge tone="green">Active</Badge>;
   if (status === "DISABLED") return <Badge tone="red">Disabled</Badge>;
   return <Badge tone="gray">Draft</Badge>;
+}
+
+/** Vendor-activation spec: the real 5-state lifecycle, additive next to StatusBadge above. */
+function RealStatusBadge({ status }: { status: AdminProductDetail["realStatus"] }) {
+  if (status === "PENDING_ACTIVATION") return <Badge tone="amber">{REAL_STATUS_LABEL[status]}</Badge>;
+  if (status === "REJECTED") return <Badge tone="red">{REAL_STATUS_LABEL[status]}</Badge>;
+  if (status === "PAUSED") return <Badge tone="gray">{REAL_STATUS_LABEL[status]}</Badge>;
+  return null;
 }
 
 function ProductDetail() {
@@ -113,7 +121,7 @@ function ProductDetail() {
       <div className="grid gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2 space-y-5">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2"><StatusBadge status={product.status} /><Badge tone="blue">{PRODUCT_TYPE_LABEL[product.productType]}</Badge></div>
+            <div className="flex items-center gap-2"><StatusBadge status={product.status} /><RealStatusBadge status={product.realStatus} /><Badge tone="blue">{PRODUCT_TYPE_LABEL[product.productType]}</Badge></div>
           </div>
           {product.images.length > 0 ? (
             <div>

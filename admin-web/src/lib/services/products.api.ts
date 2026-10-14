@@ -3,6 +3,24 @@ import { apiClient } from "../api";
 export type ProductStatus = "ACTIVE" | "DISABLED" | "DRAFT";
 export type ProductType = "STANDARD" | "COMMUNITY_BUY" | "REGULAR_DELIVERY";
 
+/**
+ * Vendor-activation spec (12 Oct 2026): the real backend lifecycle, additive
+ * next to the legacy 3-state `ProductStatus` filter/tab value above (which
+ * stays unchanged so existing admin-web filtering keeps working). This is
+ * what distinguishes a vendor's own pause from an admin rejection, and
+ * "never touched verification" from "awaiting activation" — none of which
+ * the 3-state view can express.
+ */
+export type RealProductStatus = "DRAFT" | "PENDING_ACTIVATION" | "PUBLISHED" | "PAUSED" | "REJECTED";
+
+export const REAL_STATUS_LABEL: Record<RealProductStatus, string> = {
+  DRAFT: "Draft",
+  PENDING_ACTIVATION: "Awaiting activation",
+  PUBLISHED: "Published",
+  PAUSED: "Paused by vendor",
+  REJECTED: "Rejected by admin",
+};
+
 /** Customer-facing name for the internal REGULAR_DELIVERY type. */
 export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
   STANDARD: "Standard",
@@ -33,6 +51,7 @@ export interface AdminProductRow {
   stock: number;
   isActive: boolean;
   status: ProductStatus;
+  realStatus: RealProductStatus;
   createdAt: string;
   updatedAt: string;
   sellerReadiness: SellerReadiness | null;
@@ -70,6 +89,7 @@ export interface AdminProductDetail {
   weightGrams: number | null;
   isActive: boolean;
   status: ProductStatus;
+  realStatus: RealProductStatus;
   productType: ProductType;
   createdAt: string;
   updatedAt: string;

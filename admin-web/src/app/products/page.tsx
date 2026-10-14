@@ -10,7 +10,7 @@ import { NoAccess } from "@/components/PageStates";
 import { APIError } from "@/lib/api";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { formatApproxMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
-import { PRODUCT_TYPE_LABEL, productsAPI, type AdminProductList, type AdminProductRow } from "@/lib/services/products.api";
+import { PRODUCT_TYPE_LABEL, REAL_STATUS_LABEL, productsAPI, type AdminProductList, type AdminProductRow } from "@/lib/services/products.api";
 
 const TYPE_OPTIONS = [
   { value: "", label: "All product types" },
@@ -23,6 +23,14 @@ function ProductStatusBadge({ status }: { status: AdminProductRow["status"] }) {
   if (status === "ACTIVE") return <Badge tone="green">Active</Badge>;
   if (status === "DISABLED") return <Badge tone="red">Disabled</Badge>;
   return <Badge tone="gray">Draft</Badge>;
+}
+
+/** Vendor-activation spec: the real 5-state lifecycle the 3-state badge above can't express. */
+function RealStatusBadge({ status }: { status: AdminProductRow["realStatus"] }) {
+  if (status === "PENDING_ACTIVATION") return <Badge tone="amber">{REAL_STATUS_LABEL[status]}</Badge>;
+  if (status === "REJECTED") return <Badge tone="red">{REAL_STATUS_LABEL[status]}</Badge>;
+  if (status === "PAUSED") return <Badge tone="gray">{REAL_STATUS_LABEL[status]}</Badge>;
+  return null; // DRAFT/PUBLISHED already fully explained by the status badge above.
 }
 
 function ProductsInner() {
@@ -101,6 +109,7 @@ function ProductsInner() {
       render: (p) => (
         <div className="space-y-1">
           <ProductStatusBadge status={p.status} />
+          <RealStatusBadge status={p.realStatus} />
           {p.notPurchasableReason ? <p><Badge tone="amber">Not purchasable: seller payment setup incomplete</Badge></p> : null}
         </div>
       ),
