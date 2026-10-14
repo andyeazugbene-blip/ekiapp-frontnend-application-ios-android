@@ -12,9 +12,32 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import Constants from "expo-constants";
+import * as Updates from "expo-updates";
 import { useAuthStore } from "../../stores/authStore";
 import type { VendorProfile } from "../../types/auth";
 import { goBackOrReplace } from "../../utils/navigation";
+
+// How a vendor (or we, debugging a "is this live yet" question) confirms
+// which OTA update is actually running on this device — no guesswork.
+function appVersionSummary(): string {
+  const appVersion = Constants.expoConfig?.version ?? "dev";
+  const shortUpdateId = Updates.updateId ? Updates.updateId.slice(0, 8) : "embedded";
+  return `${appVersion} · ${shortUpdateId}`;
+}
+
+function showAppVersionDetails() {
+  const lines = [
+    `App version: ${Constants.expoConfig?.version ?? "dev"}`,
+    `Runtime version: ${Updates.runtimeVersion ?? "-"}`,
+    `Channel: ${Updates.channel ?? "(none — dev/local build)"}`,
+    Updates.isEmbeddedLaunch
+      ? "Running the version built into the app (no OTA update applied)."
+      : `OTA update ID: ${Updates.updateId ?? "-"}`,
+    Updates.createdAt ? `Update published: ${Updates.createdAt.toLocaleString()}` : null,
+  ].filter(Boolean);
+  Alert.alert("App version", lines.join("\n"));
+}
 
 interface SettingRowProps {
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -273,6 +296,12 @@ export default function VendorSettingsScreen() {
             icon="chatbox-ellipses-outline"
             label="Help & Support"
             onPress={() => router.push("/support" as any)}
+          />
+          <SettingRow
+            icon="information-circle-outline"
+            label="App version"
+            value={appVersionSummary()}
+            onPress={showAppVersionDetails}
           />
           <SettingRow
             icon="trash-outline"
