@@ -45,18 +45,33 @@ export function normalizeProduct(raw: Record<string, any>): Product {
       ? Number(raw.costPrice)
       : undefined;
 
-  // isActive is the backend's publish flag (see products.service.ts —
-  // createProduct() forces it false for an unverified vendor, and
-  // disableProduct() sets it false too): an unpublished/disabled listing
-  // is a DRAFT, never "out of stock" — those are independent concepts.
-  // Stock-based status only applies once a listing is actually published.
-  let status: ProductStatus = "active";
-  if (raw.isActive === false) {
-    status = "draft";
-  } else if ((raw.stock ?? 0) <= 0) {
-    status = "out_of_stock";
-  } else if ((raw.stock ?? 0) <= 5) {
-    status = "low_stock";
+  // Backend Product.status (DRAFT/PENDING_ACTIVATION/PUBLISHED/PAUSED/
+  // REJECTED) is the source of truth. Only PUBLISHED gets the stock-level
+  // refinement (active/low_stock/out_of_stock) — the other four map
+  // straight through. Falls back to the old isActive-only derivation if
+  // an older API response has no status field at all.
+  let status: ProductStatus;
+  switch (raw.status) {
+    case "PENDING_ACTIVATION":
+      status = "pending_activation";
+      break;
+    case "PAUSED":
+      status = "paused";
+      break;
+    case "REJECTED":
+      status = "rejected";
+      break;
+    case "DRAFT":
+      status = "draft";
+      break;
+    case "PUBLISHED":
+      status = (raw.stock ?? 0) <= 0 ? "out_of_stock" : (raw.stock ?? 0) <= 5 ? "low_stock" : "active";
+      break;
+    default:
+      if (raw.isActive === false) status = "draft";
+      else if ((raw.stock ?? 0) <= 0) status = "out_of_stock";
+      else if ((raw.stock ?? 0) <= 5) status = "low_stock";
+      else status = "active";
   }
 
   return {

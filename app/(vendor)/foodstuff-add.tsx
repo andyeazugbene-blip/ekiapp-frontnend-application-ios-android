@@ -148,12 +148,22 @@ export default function FoodstuffAddScreen() {
         unit,
       };
 
-      await productService.createProduct(payload);
-      Alert.alert(
-        publish ? "Published" : "Saved as Draft",
-        `“${payload.name}” has been ${publish ? "published" : "saved as a draft"}.`,
-        [{ text: "OK", onPress: () => goBackOrReplace(router, "/(vendor)/foodstuff" as any) }]
-      );
+      const created = await productService.createProduct(payload);
+      // Never assume success from a 2xx response — the backend decides the
+      // real status server-side (completeness + verification), regardless
+      // of what this screen asked for. Message must match what actually
+      // happened, not the vendor's original intent.
+      const title =
+        created.status === "active" || created.status === "low_stock" || created.status === "out_of_stock"
+          ? "Published"
+          : created.status === "pending_activation"
+            ? "Ready to go"
+            : "Saved as Draft";
+      const body =
+        created.status === "pending_activation"
+          ? `"${payload.name}" is saved — complete verification to make it visible to buyers.`
+          : `"${payload.name}" has been ${title === "Published" ? "published" : "saved as a draft"}.`;
+      Alert.alert(title, body, [{ text: "OK", onPress: () => goBackOrReplace(router, "/(vendor)/foodstuff" as any) }]);
     } catch (err) {
       // 403 → vendor needs verification before listing publicly
       if (err instanceof ApiRequestError && err.status === 403) {

@@ -88,6 +88,18 @@ export const productService = {
     throw new Error("Products disabled by moderation must be re-enabled by an admin.");
   },
 
+  /** Vendor-initiated pause: temporarily hides the listing from buyers (backend sets status PAUSED). NOT a delete — the record and all its data are kept. */
+  async pauseProduct(id: string) {
+    const response = await apiClient.delete<ProductResponse>(`/api/products/${id}`);
+    return normalizeProduct(response.product);
+  },
+
+  /** Un-pauses a PAUSED listing — republishes if the vendor is still verified, otherwise returns to "awaiting activation". */
+  async resumeProduct(id: string) {
+    const response = await apiClient.post<ProductResponse>(`/api/products/${id}/resume`, {});
+    return normalizeProduct(response.product);
+  },
+
   async deleteProduct(id: string) {
     const res = await apiClient.delete<{ product?: any; success?: boolean; id?: string }>(`/api/products/${id}`);
     return { success: res.success ?? true, id: res.id ?? res.product?.id ?? id };

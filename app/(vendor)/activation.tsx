@@ -294,13 +294,28 @@ export default function ActivationScreen() {
             </TouchableOpacity>
           </>
         ) : (
-          <TouchableOpacity
-            onPress={handleNextStep}
-            activeOpacity={0.86}
-            style={styles.nextStepBtn}
-          >
-            <Text style={styles.nextStepBtnText}>Complete Next Step</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              onPress={handleNextStep}
+              activeOpacity={0.86}
+              style={styles.nextStepBtn}
+            >
+              <Text style={styles.nextStepBtnText}>Complete Next Step</Text>
+            </TouchableOpacity>
+            {/* Spec: "Vendors should be able to preview their complete
+                storefront before it becomes publicly visible" — available
+                any time, not gated behind finishing every step; buyers
+                still can't reach it until the backend actually publishes it. */}
+            {storeSlug ? (
+              <TouchableOpacity
+                onPress={() => router.push(`/store/${storeSlug}` as any)}
+                activeOpacity={0.86}
+                style={styles.shareStoreBtn}
+              >
+                <Text style={styles.shareStoreBtnText}>Preview your store</Text>
+              </TouchableOpacity>
+            ) : null}
+          </>
         )}
       </SafeAreaView>
 

@@ -9,15 +9,18 @@ import { useInventoryStore } from "../../stores/inventoryStore";
 import { Product, ProductStatus } from "../../types/product";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 
-type TabKey = "All" | "Active" | "Low Stock" | "Draft";
+type TabKey = "All" | "Active" | "Low Stock" | "Pending" | "Draft";
 
-const TABS: TabKey[] = ["All", "Active", "Low Stock", "Draft"];
+const TABS: TabKey[] = ["All", "Active", "Low Stock", "Pending", "Draft"];
 
 const STATUS_LABEL: Record<ProductStatus, string> = {
   active: "Active",
   low_stock: "Low Stock",
   out_of_stock: "Out of stock",
   draft: "Draft",
+  pending_activation: "Awaiting activation",
+  paused: "Paused",
+  rejected: "Unpublished",
 };
 
 const CURRENCY_SYMBOL: Record<string, string> = {
@@ -64,7 +67,8 @@ export default function FoodstuffScreen() {
       if (activeTab === "All") return true;
       if (activeTab === "Active") return p.status === "active";
       if (activeTab === "Low Stock") return p.status === "low_stock" || p.stock <= 5;
-      if (activeTab === "Draft") return p.status === "draft";
+      if (activeTab === "Pending") return p.status === "pending_activation";
+      if (activeTab === "Draft") return p.status === "draft" || p.status === "paused" || p.status === "rejected";
       return true;
     })
     .filter((p) => {
@@ -164,8 +168,9 @@ export default function FoodstuffScreen() {
                       style={[
                         styles.statusBadge,
                         status === "low_stock" && styles.statusLowStock,
-                        status === "draft" && styles.statusDraft,
-                        status === "out_of_stock" && styles.statusDraft,
+                        (status === "draft" || status === "out_of_stock" || status === "paused") && styles.statusDraft,
+                        status === "pending_activation" && styles.statusPending,
+                        status === "rejected" && styles.statusRejected,
                         hasMissingInfo && styles.statusDraft,
                       ]}
                     >
@@ -173,7 +178,9 @@ export default function FoodstuffScreen() {
                         style={[
                           styles.statusText,
                           status === "low_stock" && styles.statusTextLowStock,
-                          (status === "draft" || status === "out_of_stock" || hasMissingInfo) && styles.statusTextDraft,
+                          (status === "draft" || status === "out_of_stock" || status === "paused" || hasMissingInfo) && styles.statusTextDraft,
+                          status === "pending_activation" && styles.statusTextPending,
+                          status === "rejected" && styles.statusTextRejected,
                         ]}
                       >
                         {hasMissingInfo ? "Draft" : STATUS_LABEL[status]}
@@ -275,9 +282,13 @@ const styles = StyleSheet.create({
   statusBadge: { backgroundColor: "rgba(7,107,81,0.1)", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
   statusLowStock: { backgroundColor: "rgba(251,99,99,0.1)" },
   statusDraft: { backgroundColor: "#F4F4F4" },
+  statusPending: { backgroundColor: "rgba(176,124,0,0.1)" },
+  statusRejected: { backgroundColor: "rgba(192,57,43,0.1)" },
   statusText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#076B51" },
   statusTextLowStock: { color: "#FB6363" },
   statusTextDraft: { color: "#858585" },
+  statusTextPending: { color: "#B07C00" },
+  statusTextRejected: { color: "#C0392B" },
   productBottom: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10 },
   stockBadge: { backgroundColor: "#F4F4F4", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   stockText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#282828" },

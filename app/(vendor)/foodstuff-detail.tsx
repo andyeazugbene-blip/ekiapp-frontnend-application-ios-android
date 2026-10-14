@@ -25,6 +25,9 @@ const STATUS_LABEL: Record<ProductStatus, string> = {
   low_stock: "Low stock",
   out_of_stock: "Out of stock",
   draft: "Draft",
+  pending_activation: "Awaiting activation",
+  paused: "Paused",
+  rejected: "Unpublished",
 };
 
 const HEADER_COLLAPSE_DISTANCE = 120;
@@ -62,14 +65,40 @@ export default function FoodstuffDetailScreen() {
     };
   }, [id, selectedProduct, setSelectedProduct]);
 
-  const persistStatusChange = async (next: { isPublished?: boolean; isAvailable?: boolean }) => {
+  // "Published" toggle is only meaningful between PUBLISHED and PAUSED —
+  // those are the two states a vendor can switch between themselves. A
+  // DRAFT/PENDING_ACTIVATION/REJECTED listing isn't force-published from
+  // here (the switch is disabled for those — see isPublishedToggleEnabled
+  // below); nothing here can silently skip completeness or verification.
+  const togglePublished = async (value: boolean) => {
     if (!product) return;
-    const isPublished = next.isPublished ?? product.status !== "draft";
+    setSavingFlag(true);
+    setError("");
+    try {
+      const updated = value ? await productService.resumeProduct(product.id) : await productService.pauseProduct(product.id);
+      const merged = { ...product, ...updated };
+      setProduct(merged);
+      setSelectedProduct(merged);
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 403 && value) {
+        Alert.alert("Verification required", "You need to verify your account before publishing.", [
+          { text: "Verify now", onPress: () => router.push("/(vendor-verification)" as any) },
+          { text: "Cancel", style: "cancel" },
+        ]);
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Could not update.");
+    } finally {
+      setSavingFlag(false);
+    }
+  };
+
+  const persistStatusChange = async (next: { isAvailable?: boolean }) => {
+    if (!product) return;
     const isAvailable = next.isAvailable ?? product.status !== "out_of_stock";
 
     let status: ProductStatus = "active";
-    if (!isPublished) status = "draft";
-    else if (!isAvailable) status = "out_of_stock";
+    if (!isAvailable) status = "out_of_stock";
     else if (product.stock <= 5) status = "low_stock";
 
     setSavingFlag(true);
@@ -80,13 +109,6 @@ export default function FoodstuffDetailScreen() {
       setProduct(merged);
       setSelectedProduct(merged);
     } catch (err) {
-      if (err instanceof ApiRequestError && err.status === 403 && next.isPublished) {
-        Alert.alert("Verification required", "You need to verify your account before publishing.", [
-          { text: "Verify now", onPress: () => router.push("/(vendor-verification)" as any) },
-          { text: "Cancel", style: "cancel" },
-        ]);
-        return;
-      }
       setError(err instanceof Error ? err.message : "Could not update.");
     } finally {
       setSavingFlag(false);
@@ -110,10 +132,13 @@ export default function FoodstuffDetailScreen() {
 
   const handleDelete = () => {
     if (!product) return;
-    Alert.alert("Delete this product?", `"${product.name}" will be permanently removed from your store.`, [
+    // deleteProduct() calls the backend's pause endpoint, not an actual
+    // delete — the listing is unpublished, not removed. Copy says what
+    // actually happens; see productService.deleteProduct()'s own comment.
+    Alert.alert("Unpublish this product?", `"${product.name}" will be removed from your store listings. It is not permanently deleted — contact support to fully remove a listing's data.`, [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Delete",
+        text: "Unpublish",
         style: "destructive",
         onPress: async () => {
           setDeleting(true);
@@ -199,8 +224,9 @@ export default function FoodstuffDetailScreen() {
     );
   }
 
-  const isPublished = product.status !== "draft";
+  const isPublished = product.status === "active" || product.status === "low_stock" || product.status === "out_of_stock";
   const isAvailable = product.status !== "out_of_stock";
+  const isPublishedToggleEnabled = isPublished || product.status === "paused";
 
   return (
     <View style={styles.page}>
@@ -266,12 +292,18 @@ export default function FoodstuffDetailScreen() {
             <Text style={styles.toggleLabel}>Published</Text>
             <Switch
               value={isPublished}
-              onValueChange={(value) => persistStatusChange({ isPublished: value })}
+              onValueChange={togglePublished}
               trackColor={{ false: "#D7E4DC", true: "#076B51" }}
               thumbColor="#FFFFFF"
-              disabled={savingFlag}
+              disabled={savingFlag || !isPublishedToggleEnabled}
             />
           </View>
+          {product.status === "pending_activation" ? (
+            <Text style={styles.toggleHint}>Awaiting activation — Not yet visible to buyers.</Text>
+          ) : null}
+          {product.status === "rejected" ? (
+            <Text style={styles.toggleHintWarn}>Unpublished by Eki — contact support to resolve before this can go live again.</Text>
+          ) : null}
           <View style={styles.toggleRow}>
             <Text style={styles.toggleLabel}>Available for sale</Text>
             <Switch
@@ -330,7 +362,7 @@ export default function FoodstuffDetailScreen() {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <TouchableOpacity onPress={handleDelete} style={[styles.deleteButton, deleting && styles.disabled]} disabled={deleting}>
-          <Text style={styles.deleteButtonText}>{deleting ? "Deleting..." : "Delete this product"}</Text>
+          <Text style={styles.deleteButtonText}>{deleting ? "Unpublishing..." : "Unpublish this product"}</Text>
         </TouchableOpacity>
       </Animated.ScrollView>
     </View>
@@ -385,6 +417,8 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontFamily: "Manrope-Bold", color: "#282828", marginBottom: 16 },
   toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   toggleLabel: { fontSize: 14, fontFamily: "Outfit-Medium", color: "#282828" },
+  toggleHint: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#B07C00", marginTop: -4, marginBottom: 12, lineHeight: 17 },
+  toggleHintWarn: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#C0392B", marginTop: -4, marginBottom: 12, lineHeight: 17 },
   bodyText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#858585", marginTop: 4, lineHeight: 20 },
   stockRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 },
   stockInfo: { flex: 1 },

@@ -35,7 +35,7 @@ export default function PublishCheckScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [needsVerification, setNeedsVerification] = useState(false);
-  const [published, setPublished] = useState<{ id: string; name: string } | null>(null);
+  const [result, setResult] = useState<{ id: string; name: string; mode: "live" | "pending" } | null>(null);
 
   useEffect(() => {
     deliveryService.listZones()
@@ -82,16 +82,18 @@ export default function PublishCheckScreen() {
         unit: params.unit || "kg",
       };
       const product = await productService.createProduct(payload);
-      // Onboarding order: verification never gates a listing going live —
-      // backend only force-drafts (isActive: false → status "draft") for a
-      // genuinely incomplete product (no image or no price). The checklist
-      // above should already prevent reaching this, but a 2xx here still
-      // doesn't guarantee "live", so check rather than assume.
+      // The frontend must use the actual persisted backend status, never
+      // assume success from a 2xx response. A complete listing from an
+      // unverified vendor comes back "pending_activation" — ready, saved,
+      // intent preserved, but not yet visible to buyers; it auto-publishes
+      // the moment verification + delivery readiness are both met (see
+      // vendor-activation.service.ts on the backend). A "draft" here means
+      // the checklist above somehow missed a genuine incompleteness.
       if (product.status === "draft") {
         setError("Saved as a draft — please check the image and price, then try publishing again.");
         return;
       }
-      setPublished({ id: product.id, name: product.name });
+      setResult({ id: product.id, name: product.name, mode: product.status === "pending_activation" ? "pending" : "live" });
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 403) {
         setError("You need to verify your account before publishing.");
@@ -104,37 +106,69 @@ export default function PublishCheckScreen() {
     }
   };
 
-  if (published) {
+  if (result) {
+    const isPending = result.mode === "pending";
     return (
       <View style={styles.page}>
         <SafeAreaView edges={["top", "bottom"]} style={styles.successSafe}>
           <View style={styles.successBody}>
-            <View style={styles.successIconWrap}>
-              <Ionicons name="checkmark" size={40} color="#FFFFFF" />
+            <View style={[styles.successIconWrap, isPending && styles.pendingIconWrap]}>
+              <Ionicons name={isPending ? "time-outline" : "checkmark"} size={40} color="#FFFFFF" />
             </View>
-            <Text style={styles.successTitle}>Your foodstuff is live!</Text>
-            <Text style={styles.successSubtitle}>
-              {published.name} is now available for customers to order.
+            <Text style={styles.successTitle}>
+              {isPending ? "Your foodstuff is ready!" : "Your foodstuff is live!"}
             </Text>
+            <Text style={styles.successSubtitle}>
+              {isPending
+                ? "Complete verification to make it visible to buyers."
+                : `${result.name} is now available for customers to order.`}
+            </Text>
+            {isPending ? (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>Awaiting activation — Not yet visible to buyers</Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.bottomBar}>
+            {isPending ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.86}
+                onPress={() => router.push("/(vendor-verification)" as any)}
+                style={styles.publishButton}
+              >
+                <Text style={styles.publishText}>Complete verification</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.86}
+                onPress={() => router.replace(`/(vendor)/foodstuff-detail?id=${result.id}` as any)}
+                style={styles.publishButton}
+              >
+                <Text style={styles.publishText}>View listing</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Spec: "Allow the vendor to continue adding foodstuff and
+                configuring delivery" — never a dead end, pending or live. */}
             <TouchableOpacity
               accessibilityRole="button"
               activeOpacity={0.86}
-              onPress={() => router.replace(`/(vendor)/foodstuff-detail?id=${published.id}` as any)}
-              style={styles.publishButton}
+              onPress={() => router.replace("/(vendor)/foodstuff-add" as any)}
+              style={styles.fixButton}
             >
-              <Text style={styles.publishText}>View listing</Text>
+              <Text style={styles.fixText}>Add another foodstuff</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               accessibilityRole="button"
               activeOpacity={0.86}
               onPress={() => router.replace("/(vendor)/foodstuff" as any)}
-              style={styles.fixButton}
+              style={styles.linkButton}
             >
-              <Text style={styles.fixText}>Back to products</Text>
+              <Text style={styles.linkButtonText}>Back to products</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -410,5 +444,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center",
+  },
+  pendingIconWrap: {
+    backgroundColor: "#B07C00",
+  },
+  pendingBadge: {
+    marginTop: 18,
+    backgroundColor: "#FFF6E0",
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  pendingBadgeText: {
+    color: "#B07C00",
+    fontFamily: "Outfit-Medium",
+    fontSize: 13,
+    textAlign: "center",
+  },
+  linkButton: {
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  linkButtonText: {
+    color: "#858585",
+    fontFamily: "Manrope-SemiBold",
+    fontSize: 14,
   },
 });

@@ -1,4 +1,16 @@
-export type ProductStatus = "active" | "draft" | "low_stock" | "out_of_stock";
+// Vendor-activation spec (12 Oct 2026): backend source of truth is
+// Product.status (DRAFT/PENDING_ACTIVATION/PUBLISHED/PAUSED/REJECTED).
+// "active"/"low_stock"/"out_of_stock" are a stock-level refinement of
+// PUBLISHED computed client-side (see normalizeProduct) — not separate
+// backend states.
+export type ProductStatus =
+  | "active"
+  | "low_stock"
+  | "out_of_stock"
+  | "draft"
+  | "pending_activation"
+  | "paused"
+  | "rejected";
 
 export interface Product {
   id: string;
