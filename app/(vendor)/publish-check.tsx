@@ -82,12 +82,13 @@ export default function PublishCheckScreen() {
         unit: params.unit || "kg",
       };
       const product = await productService.createProduct(payload);
-      // Backend force-drafts (isActive: false → status "draft") when the
-      // vendor isn't VERIFIED yet, instead of rejecting the request — so a
-      // 2xx here does NOT mean the listing is actually live to buyers.
+      // Onboarding order: verification never gates a listing going live —
+      // backend only force-drafts (isActive: false → status "draft") for a
+      // genuinely incomplete product (no image or no price). The checklist
+      // above should already prevent reaching this, but a 2xx here still
+      // doesn't guarantee "live", so check rather than assume.
       if (product.status === "draft") {
-        setNeedsVerification(true);
-        setError("Saved as a draft. Verify your account to make this foodstuff visible to buyers.");
+        setError("Saved as a draft — please check the image and price, then try publishing again.");
         return;
       }
       setPublished({ id: product.id, name: product.name });
