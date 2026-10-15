@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api";
 
 export interface AdminAccess {
@@ -119,7 +119,6 @@ export function usePermissions(): UsePermissionsResult {
     };
   }, [run]);
 
-  const permissions = access?.permissions ?? [];
   const has = useCallback((permission: string) => permissionMatches(access?.permissions ?? [], permission), [access]);
   const hasAny = useCallback(
     (...required: string[]) => required.some((p) => permissionMatches(access?.permissions ?? [], p)),
@@ -127,5 +126,18 @@ export function usePermissions(): UsePermissionsResult {
   );
   const refresh = useCallback(() => run(true), [run]);
 
-  return { permissions, has, hasAny, loading, error, access, refresh };
+  // Every caller gets a brand-new object back without this — any
+  // useEffect that lists the whole `perms` result in its deps (a common,
+  // reasonable pattern: "refetch once permissions are known") then
+  // re-fires on EVERY render of that component, not just when access
+  // actually changes. On a data-loading effect that shows a loading
+  // state, that's a visible flicker — the exact "grey container keeps
+  // flashing" symptom on the admin Products screen traced back to this.
+  // `permissions` is computed INSIDE the memo (not as its own dep) since
+  // `access?.permissions ?? []` would otherwise hand useMemo a fresh
+  // array every render whenever access is null, defeating the memo.
+  return useMemo(() => {
+    const permissions = access?.permissions ?? [];
+    return { permissions, has, hasAny, loading, error, access, refresh };
+  }, [has, hasAny, loading, error, access, refresh]);
 }
