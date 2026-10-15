@@ -61,7 +61,7 @@ export interface AdminProductRow {
 export interface AdminProductList {
   items: AdminProductRow[];
   nextCursor: string | null;
-  counts: { active: number; disabled: number; draft: number; total: number };
+  counts: { published: number; pendingActivation: number; paused: number; rejected: number; draft: number; total: number };
   categories: string[];
 }
 
@@ -158,6 +158,11 @@ export const productsAPI = {
   async restore(productId: string, reason: string): Promise<AdminProductDetail> {
     const res = await apiClient.post<{ product: AdminProductDetail }>(`/admin/products/${productId}/restore`, { reason });
     return res.product;
+  },
+
+  /** Hard delete — only succeeds when the product has no order/subscription history (backend enforces this; expect a 409 PRODUCT_HAS_HISTORY otherwise). */
+  async deleteProduct(productId: string, reason: string): Promise<void> {
+    await apiClient.delete(`/admin/products/${productId}`, { body: JSON.stringify({ reason }) });
   },
 
   async preloadProduct(productId: string): Promise<void> {

@@ -11,20 +11,21 @@ import { NoAccess } from "@/components/PageStates";
 import { APIError } from "@/lib/api";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { formatApproxMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
-import { PRODUCT_TYPE_LABEL, REAL_STATUS_LABEL, productsAPI, type AdminProductDetail } from "@/lib/services/products.api";
+import { PRODUCT_TYPE_LABEL, REAL_STATUS_LABEL, productsAPI, type AdminProductDetail, type RealProductStatus } from "@/lib/services/products.api";
 
-function StatusBadge({ status }: { status: AdminProductDetail["status"] }) {
-  if (status === "ACTIVE") return <Badge tone="green">Active</Badge>;
-  if (status === "DISABLED") return <Badge tone="red">Disabled</Badge>;
-  return <Badge tone="gray">Draft</Badge>;
-}
+// One badge, one source of truth — see the matching comment in the
+// products list page for why this used to be two badges that could
+// contradict each other.
+const REAL_STATUS_TONE: Record<RealProductStatus, "green" | "amber" | "gray" | "red"> = {
+  PUBLISHED: "green",
+  PENDING_ACTIVATION: "amber",
+  PAUSED: "gray",
+  REJECTED: "red",
+  DRAFT: "gray",
+};
 
-/** Vendor-activation spec: the real 5-state lifecycle, additive next to StatusBadge above. */
-function RealStatusBadge({ status }: { status: AdminProductDetail["realStatus"] }) {
-  if (status === "PENDING_ACTIVATION") return <Badge tone="amber">{REAL_STATUS_LABEL[status]}</Badge>;
-  if (status === "REJECTED") return <Badge tone="red">{REAL_STATUS_LABEL[status]}</Badge>;
-  if (status === "PAUSED") return <Badge tone="gray">{REAL_STATUS_LABEL[status]}</Badge>;
-  return null;
+function StatusBadge({ status }: { status: RealProductStatus }) {
+  return <Badge tone={REAL_STATUS_TONE[status]}>{REAL_STATUS_LABEL[status]}</Badge>;
 }
 
 function ProductDetail() {
@@ -81,6 +82,19 @@ function ProductDetail() {
       },
       async (reason) => setProduct(await productsAPI.restore(product.id, reason)),
     );
+  const deleteProduct = () =>
+    confirm.ask(
+      {
+        title: `Delete "${product.title}"?`,
+        description: "This permanently removes the listing — unlike Unpublish, the record is NOT kept and this cannot be undone. Only possible when the product has no order or subscription history; if it does, you'll get a clear error and should use Unpublish instead.",
+        confirmLabel: "Delete permanently",
+        reasonLabel: "Reason (recorded in the audit log before the record is removed)",
+      },
+      async (reason) => {
+        await productsAPI.deleteProduct(product.id, reason);
+        router.push("/products");
+      },
+    );
 
   return (
     <div className="space-y-5">
@@ -93,6 +107,7 @@ function ProductDetail() {
             {product.publicStoreUrl && product.status === "ACTIVE" ? <ExternalLink href={product.publicStoreUrl}>View store in live app</ExternalLink> : null}
             {canModerate && product.status === "ACTIVE" ? <Button variant="danger" onClick={unpublish}>Unpublish</Button> : null}
             {canModerate && product.status !== "ACTIVE" ? <Button onClick={restore}>{product.adminUnpublishedAt ? "Restore" : "Publish"}</Button> : null}
+            {canModerate && product.orderItems.length === 0 ? <Button variant="danger" onClick={deleteProduct}>Delete</Button> : null}
           </>
         }
       />
@@ -121,7 +136,7 @@ function ProductDetail() {
       <div className="grid gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2 space-y-5">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2"><StatusBadge status={product.status} /><RealStatusBadge status={product.realStatus} /><Badge tone="blue">{PRODUCT_TYPE_LABEL[product.productType]}</Badge></div>
+            <div className="flex items-center gap-2"><StatusBadge status={product.realStatus} /><Badge tone="blue">{PRODUCT_TYPE_LABEL[product.productType]}</Badge></div>
           </div>
           {product.images.length > 0 ? (
             <div>
