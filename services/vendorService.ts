@@ -227,6 +227,11 @@ export const vendorService = {
     return apiClient.get("/api/vendors/me/store-preview");
   },
 
+  /** Closes a silent gap: without this, a vendor's "Published" products can be invisible to buyers (Stripe charges/payouts off) with zero indication why. */
+  async getReadiness(): Promise<{ gateEnabled: boolean; ready: boolean; reason: string | null; message: string | null }> {
+    return apiClient.get("/api/vendors/me/readiness");
+  },
+
   async getAllVendors(filter?: { status?: VendorAdminStatus | string; search?: string; admin?: boolean; limit?: number; sort?: string }) {
     const query = new URLSearchParams();
     if (filter?.status) query.set("status", filter.status);

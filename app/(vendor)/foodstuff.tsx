@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
+import { vendorService } from "../../services/vendorService";
 import { useAuthStore } from "../../stores/authStore";
 import { useInventoryStore } from "../../stores/inventoryStore";
 import { Product, ProductStatus } from "../../types/product";
@@ -41,6 +42,7 @@ export default function FoodstuffScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [readinessMessage, setReadinessMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!vendor) return;
@@ -54,6 +56,12 @@ export default function FoodstuffScreen() {
     } finally {
       setLoading(false);
     }
+    // Best-effort — a vendor should still see their listings even if this
+    // particular check fails (e.g. offline); it's a warning, not a gate.
+    vendorService
+      .getReadiness()
+      .then((r) => setReadinessMessage(r.gateEnabled && !r.ready ? r.message : null))
+      .catch(() => setReadinessMessage(null));
   }, [vendor]);
 
   useFocusEffect(
@@ -111,6 +119,14 @@ export default function FoodstuffScreen() {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {readinessMessage ? (
+          <View style={styles.readinessBanner}>
+            <Ionicons name="warning-outline" size={18} color="#B07C00" />
+            <Text style={styles.readinessBannerText}>
+              Buyers can't buy from you yet: {readinessMessage} Your "Published" listings are saved but not purchasable until this is fixed.
+            </Text>
+          </View>
+        ) : null}
         {/* Search */}
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={18} color="#858585" />
@@ -230,6 +246,8 @@ const styles = StyleSheet.create({
   headerSubtitle: { fontSize: 14, fontFamily: "Outfit-Regular", color: "rgba(255,255,255,0.8)", marginBottom: 20 },
   addButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: "#FFFFFF", borderRadius: 16, height: 56, width: "100%" as any },
   addButtonText: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#282828" },
+  readinessBanner: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#FFF6E0", borderRadius: 14, padding: 14, marginBottom: 14 },
+  readinessBannerText: { flex: 1, fontSize: 13, fontFamily: "Outfit-Medium", color: "#B07C00", lineHeight: 18 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 100 },
   tabContainer: { paddingTop: 4, marginBottom: 2, backgroundColor: "#F4F4F4" },
   tabRow: { flexDirection: "row", gap: 8, paddingVertical: 2, paddingHorizontal: 16 },
