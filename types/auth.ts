@@ -34,6 +34,11 @@ export interface User {
   createdAt: string;
   capabilities?: AuthCapabilities;
   lastDestination?: LastDestination;
+  // True for an OAuth account (provider already verified the email) or
+  // once OTP verification succeeds for an email/password account.
+  // Optional (not `?? true`) so an older cached session predating this
+  // field is treated as unverified and re-checked, never assumed clean.
+  emailVerified?: boolean;
 }
 
 export interface BuyerProfile extends User {

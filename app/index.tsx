@@ -32,6 +32,17 @@ export default function Index() {
 
       if (state.isAuthenticated) {
         hasNavigated.current = true;
+        // Vendor signup registers (and persists a session) BEFORE email
+        // OTP verification, unlike the buyer flow (which verifies first —
+        // see register.tsx). Without this check, closing the app between
+        // registration and completing the OTP screen meant relaunching
+        // landed straight on the dashboard, never verified at all. The
+        // vendor-onboarding OTP screen already knows how to resend/verify
+        // using the authenticated session's own email.
+        if (state.user?.role === "vendor" && state.user.emailVerified === false) {
+          router.replace("/(vendor-onboarding)/otp" as any);
+          return;
+        }
         // Home first: the remembered destination only chooses which Home
         // (Buyer / Vendor) to open — never a feature screen like Community
         // Buy. See utils/homeRoute.ts.

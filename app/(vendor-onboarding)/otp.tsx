@@ -36,7 +36,7 @@ const OTP_PURPOSE = "vendor_onboarding_email";
 export default function OtpScreen() {
   const router = useRouter();
   const { setOtpVerified } = useOnboardingStore();
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   // Same registration chain as register.tsx's supplier-intent fix — still
   // peeking, not consuming, since setup-store.tsx is the actual one-shot
   // consumer further down this same chain.
@@ -81,6 +81,13 @@ export default function OtpScreen() {
     try {
       await authService.verifyOtp(contact, trimmed, OTP_PURPOSE);
       setOtpVerified(true);
+      // Must also update the global auth session, not just local
+      // onboarding-wizard state — app/index.tsx's relaunch gate checks
+      // user.emailVerified directly, and without this a vendor who
+      // backgrounds/reopens the app between finishing OTP and finishing
+      // the rest of onboarding would get bounced straight back to this
+      // screen even though they genuinely already verified.
+      if (user) setUser({ ...user, emailVerified: true });
       router.push("/(vendor-onboarding)/setup-store" as any);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";

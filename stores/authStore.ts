@@ -182,7 +182,34 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           isInitializing: false,
           hasSeenOnboarding: cached?.hasSeenOnboarding ?? get().hasSeenOnboarding,
         });
-      } catch {
+      } catch (err) {
+        // The comment on setOnUnauthorized() above says "During
+        // initialization checkAuth() handles expired-token cleanup
+        // itself" — but this catch previously just swallowed EVERY
+        // failure (network blips included) and kept the optimistically-
+        // restored cached session untouched. That's exactly how a
+        // deleted/suspended account appeared to "still be logged in":
+        // the backend correctly rejects it (401 token revoked, or 423
+        // suspended — see authenticate.ts), but nothing here acted on
+        // that rejection. A genuine network failure (no response at all)
+        // is the one case that should still preserve the cached session
+        // for offline use — only a real rejection from the server forces
+        // logout.
+        const isAuthRejection = err instanceof ApiRequestError && (err.status === 401 || err.status === 423);
+        if (isAuthRejection) {
+          clearLocalSession();
+          await clearAuthCache();
+          set({
+            user: null,
+            token: null,
+            pushToken: null,
+            isAuthenticated: false,
+            isInitializing: false,
+            error: err.status === 423 ? err.message : "Session expired. Please log in again.",
+            hasSeenOnboarding: cached?.hasSeenOnboarding ?? get().hasSeenOnboarding,
+          });
+          return;
+        }
         const state = get();
         set({
           isInitializing: false,
