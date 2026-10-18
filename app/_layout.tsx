@@ -37,6 +37,10 @@ Notifications.setNotificationHandler({
   },
 });
 
+// Flip to false (and ship via OTA) once the crash-isolation test confirms
+// or rules out this effect — see the comment at its call site.
+const BACKGROUND_UPDATE_CHECK_DISABLED_FOR_CRASH_DIAGNOSIS = true;
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     "JosefinSans-Bold": require("../assets/fonts/JosefinSans-Bold.ttf"),
@@ -69,8 +73,23 @@ export default function RootLayout() {
   // still helps (the update is ready sooner), but APPLYING it stays on
   // the normal, safe trigger: the next time the user actually chooses to
   // close and reopen the app, never a surprise mid-session teardown.
+  // DIAGNOSTIC (19 Oct 2026): temporarily disabled. Reports describe the
+  // app terminating ~3.5s after reaching the Welcome screen with no JS
+  // error visible — a native-level crash, not something ErrorBoundary can
+  // catch. This background update check is the only async, native-module-
+  // touching operation that runs unconditionally near launch regardless of
+  // which screen the user is on, so it's the one candidate worth isolating
+  // experimentally before guessing further. Nothing else in the role-
+  // select -> onboarding -> welcome chain does anything async or native
+  // (confirmed by reading all three screens — pure static UI, no timers).
+  // If the crash stops after this ships, the cause is confirmed here and
+  // this gets fixed properly instead of just left off; if it persists,
+  // this is ruled out and the search continues elsewhere. Pre-fetching
+  // being off for now just means an OTA update is applied one relaunch
+  // later than ideal — not a regression in anything user-facing.
   useEffect(() => {
     if (!Updates.isEnabled) return;
+    if (BACKGROUND_UPDATE_CHECK_DISABLED_FOR_CRASH_DIAGNOSIS) return;
     (async () => {
       try {
         const result = await Updates.checkForUpdateAsync();
