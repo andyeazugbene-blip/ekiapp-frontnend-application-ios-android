@@ -65,6 +65,8 @@ function UsersInner() {
   const stack = useRef<Array<string | null>>([]);
   const [target, setTarget] = useState<{ user: UserRow; mode: "suspend" | "restore" } | null>(null);
   const [demoDialogOpen, setDemoDialogOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkMode, setBulkMode] = useState<"suspend" | "restore" | null>(null);
   const twoFactor = useTwoFactorAction();
   const perms = usePermissions();
   const canSuspend = perms.has("users.mutate");
@@ -72,7 +74,37 @@ function UsersInner() {
   const confirm = useConfirm();
 
   const key = `${q}|${status}|${role}|${includeTest}`;
-  useEffect(() => { stack.current = []; setCursor(null); }, [key]);
+  useEffect(() => { stack.current = []; setCursor(null); setSelected(new Set()); }, [key]);
+
+  // Admin and anonymised accounts never show individual suspend/delete
+  // actions either (see the row-level gates below) — a selection can only
+  // ever be acted on if every member of it is eligible, same rule, bulk.
+  const selectableRows = rows.filter((u) => u.role !== "ADMIN" && !u.anonymisedAt);
+  const toggleOne = (id: string) =>
+    setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const toggleAll = () =>
+    setSelected((prev) =>
+      prev.size === selectableRows.length && selectableRows.every((u) => prev.has(u.id))
+        ? new Set()
+        : new Set(selectableRows.map((u) => u.id)),
+    );
+
+  const bulkDelete = () =>
+    confirm.ask(
+      {
+        title: `Delete ${selected.size} selected ${selected.size === 1 ? "account" : "accounts"}?`,
+        description: "Each account with no real order/payment/review history is permanently removed. Any that do have history are anonymised and suspended instead — their data is scrubbed but the order history stays intact, and the same email is freed to sign up fresh. A per-account result is shown after.",
+        confirmLabel: "Delete selected",
+        reasonLabel: "Reason (recorded in the audit log)",
+      },
+      async (reason) => {
+        const result = await peopleAPI.bulkDeleteUsers([...selected], reason);
+        setSelected(new Set());
+        await load();
+        const failed = result.results.filter((r) => !r.ok);
+        if (failed.length) setError(`${result.affected} deleted, ${failed.length} failed: ${failed.map((f) => f.error).join("; ")}`);
+      },
+    );
 
   const load = useCallback(async () => {
     try {
@@ -99,6 +131,29 @@ function UsersInner() {
     );
 
   const columns: Column<UserRow>[] = [
+    {
+      key: "select",
+      header: (
+        <input
+          type="checkbox"
+          className="h-4 w-4 accent-[#096B4A]"
+          checked={selectableRows.length > 0 && selected.size === selectableRows.length}
+          onChange={toggleAll}
+          aria-label="Select all eligible users on this page"
+        />
+      ),
+      render: (u) =>
+        u.role === "ADMIN" || u.anonymisedAt ? null : (
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-[#096B4A]"
+            checked={selected.has(u.id)}
+            onChange={() => toggleOne(u.id)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Select ${u.name || u.email}`}
+          />
+        ),
+    },
     {
       key: "user", header: "User",
       render: (u) => (
@@ -158,6 +213,19 @@ function UsersInner() {
           </label>
         </div>
         <StatusTabs tabs={STATUS_TABS} active={status} onChange={(k) => setParams({ status: k })} />
+        {selected.size > 0 ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#096B4A]/20 bg-[#096B4A]/5 px-4 py-3">
+            <span className="text-sm font-black text-[#096B4A]">{selected.size} selected</span>
+            {canSuspend ? (
+              <>
+                <Button variant="secondary" className="h-9 px-3" onClick={() => setBulkMode("suspend")}>Suspend selected</Button>
+                <Button variant="secondary" className="h-9 px-3" onClick={() => setBulkMode("restore")}>Restore selected</Button>
+              </>
+            ) : null}
+            {canDelete ? <Button variant="danger" className="h-9 px-3" onClick={bulkDelete}>Delete selected</Button> : null}
+            <Button variant="ghost" className="h-9 px-3" onClick={() => setSelected(new Set())}>Clear</Button>
+          </div>
+        ) : null}
         {loading && rows.length === 0 ? <LoadingPanel label="Loading users…" /> : (
           <>
             <DataTable columns={columns} rows={rows} rowKey={(u) => u.id} onRowClick={(u) => router.push(`/users/${u.id}`)} loading={loading} emptyTitle="No users match these filters" />
@@ -180,6 +248,24 @@ function UsersInner() {
             else await peopleAPI.unsuspendUser(target.user.id, { reason: values.reason, notifyUser: values.notifyUser }, code);
             setTarget(null);
             await load();
+          });
+        }}
+      />
+      <SuspendDialog
+        open={Boolean(bulkMode)} mode={bulkMode ?? "suspend"} subject={`${selected.size} selected ${selected.size === 1 ? "user" : "users"}`}
+        onCancel={() => setBulkMode(null)}
+        onSubmit={async (values) => {
+          if (!bulkMode) return;
+          await twoFactor.run(async (code) => {
+            const result =
+              bulkMode === "suspend"
+                ? await peopleAPI.bulkSuspendUsers([...selected], values, code)
+                : await peopleAPI.bulkUnsuspendUsers([...selected], { reason: values.reason, notifyUser: values.notifyUser }, code);
+            setBulkMode(null);
+            setSelected(new Set());
+            await load();
+            const failed = result.results.filter((r) => !r.ok);
+            if (failed.length) setError(`${result.affected} updated, ${failed.length} failed: ${failed.map((f) => f.error).join("; ")}`);
           });
         }}
       />

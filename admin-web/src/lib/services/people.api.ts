@@ -199,6 +199,19 @@ export const peopleAPI = {
   async unsuspendUser(id: string, body: { reason: string; notifyUser?: boolean }, twoFactorCode?: string) {
     return apiClient.patch<any>(`/admin/users/${id}/unsuspend`, body, { twoFactorCode });
   },
+
+  async bulkSuspendUsers(ids: string[], body: SuspendBody, twoFactorCode?: string) {
+    return apiClient.post<{ affected: number; results: Array<{ userId: string; ok: boolean; error?: string }> }>(
+      "/admin/users/bulk-suspend", { userIds: ids, ...body }, { twoFactorCode });
+  },
+  async bulkUnsuspendUsers(ids: string[], body: { reason: string; notifyUser?: boolean }, twoFactorCode?: string) {
+    return apiClient.post<{ affected: number; results: Array<{ userId: string; ok: boolean; error?: string }> }>(
+      "/admin/users/bulk-unsuspend", { userIds: ids, ...body }, { twoFactorCode });
+  },
+  async bulkDeleteUsers(ids: string[], reason?: string, twoFactorCode?: string) {
+    return apiClient.post<{ affected: number; results: Array<{ userId: string; ok: boolean; hardDeleted?: boolean; error?: string }> }>(
+      "/admin/users/bulk-delete", { userIds: ids, reason }, { twoFactorCode });
+  },
   /**
    * Hard-deletes where possible (cascade relations clean themselves up);
    * falls back to anonymise-and-suspend when the account has real order/
