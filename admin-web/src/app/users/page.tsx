@@ -17,7 +17,6 @@ const STATUS_TABS = [
   { key: "", label: "All" },
   { key: "active", label: "Active" },
   { key: "suspended", label: "Suspended" },
-  { key: "anonymised", label: "Anonymised" },
 ];
 const ROLE_OPTIONS = [
   { value: "", label: "Any role" },
@@ -192,7 +191,7 @@ function UsersInner() {
     <div className="space-y-5">
       <PageHeader
         title="Users"
-        subtitle="Search any account by name, email, store or ID. Anonymised accounts are shown as such and can never be reactivated."
+        subtitle="Search any account by name, email, store or ID. Deleted/anonymised accounts are no longer shown here."
         actions={
           <div className="flex gap-2">
             {canSuspend ? <Button variant="primary" onClick={() => setDemoDialogOpen(true)}>Create demo account</Button> : null}
