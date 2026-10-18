@@ -7,6 +7,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader, TwoFactorModal, downloadCsv } from "@/components/AdminUI";
 import { Banner, DataTable, FilterSelect, Pagination, SearchInput, StatusTabs, formatDate, timeAgo, useConfirm, type Column } from "@/components/AdminKit";
 import { SuspendDialog } from "@/components/SuspendDialog";
+import { DemoAccountDialog } from "@/components/DemoAccountDialog";
 import { APIError } from "@/lib/api";
 import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
 import { usePermissions } from "@/lib/hooks/usePermissions";
@@ -63,6 +64,7 @@ function UsersInner() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const stack = useRef<Array<string | null>>([]);
   const [target, setTarget] = useState<{ user: UserRow; mode: "suspend" | "restore" } | null>(null);
+  const [demoDialogOpen, setDemoDialogOpen] = useState(false);
   const twoFactor = useTwoFactorAction();
   const perms = usePermissions();
   const canSuspend = perms.has("users.mutate");
@@ -136,7 +138,12 @@ function UsersInner() {
       <PageHeader
         title="Users"
         subtitle="Search any account by name, email, store or ID. Anonymised accounts are shown as such and can never be reactivated."
-        actions={<Button variant="ghost" onClick={() => downloadCsv("users.csv", rows.map((u) => ({ id: u.id, name: u.anonymisedAt ? "" : u.name, email: u.anonymisedAt ? "" : u.email, role: u.role, status: userState(u), orders: u.orderCount, joined: u.createdAt })))}>Export page (CSV)</Button>}
+        actions={
+          <div className="flex gap-2">
+            {canSuspend ? <Button variant="primary" onClick={() => setDemoDialogOpen(true)}>Create demo account</Button> : null}
+            <Button variant="ghost" onClick={() => downloadCsv("users.csv", rows.map((u) => ({ id: u.id, name: u.anonymisedAt ? "" : u.name, email: u.anonymisedAt ? "" : u.email, role: u.role, status: userState(u), orders: u.orderCount, joined: u.createdAt })))}>Export page (CSV)</Button>
+          </div>
+        }
       />
       {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
       {twoFactor.error ? <Banner tone="danger">{twoFactor.error}</Banner> : null}
@@ -181,6 +188,7 @@ function UsersInner() {
         onSubmit={() => void twoFactor.submit2FA()} onCancel={twoFactor.cancel2FA} loading={twoFactor.loading} error={twoFactor.error}
       />
       {confirm.dialog}
+      <DemoAccountDialog open={demoDialogOpen} onClose={() => setDemoDialogOpen(false)} onCreated={() => void load()} />
     </div>
   );
 }

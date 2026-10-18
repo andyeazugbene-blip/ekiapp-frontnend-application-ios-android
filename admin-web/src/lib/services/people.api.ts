@@ -211,6 +211,21 @@ export const peopleAPI = {
     return apiClient.delete<{ hardDeleted: boolean }>(`/admin/users/${id}?reason=${encodeURIComponent(reason)}`);
   },
 
+  /**
+   * Public signup is Turnstile-protected and can't be scripted (confirmed
+   * directly against production), so a client-demo buyer account that must
+   * buy without touching Stripe can only come from here: an authenticated,
+   * 2FA'd admin action. Email comes back verified and isTest=true, with a
+   * wallet already credited so checkout goes through the existing
+   * wallet-balance branch.
+   */
+  async createDemoAccount(
+    body: { email: string; password: string; name?: string; reason: string; creditMinor?: number; currency?: string },
+    twoFactorCode?: string,
+  ): Promise<{ userId: string; email: string; isTest: boolean; walletBalanceMinor: number; currency: string }> {
+    return apiClient.post("/admin/users/demo-create", body, { twoFactorCode });
+  },
+
   async notes(kind: "users" | "vendors", id: string): Promise<AdminNote[]> {
     const res = await apiClient.get<{ notes: AdminNote[] }>(`/admin/${kind}/${id}/notes`, { bypassCache: true });
     return res.notes ?? [];
