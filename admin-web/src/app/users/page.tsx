@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader, TwoFactorModal, downloadCsv } from "@/components/AdminUI";
-import { Banner, DataTable, FilterSelect, Pagination, SearchInput, StatusTabs, formatDate, timeAgo, type Column } from "@/components/AdminKit";
+import { Banner, DataTable, FilterSelect, Pagination, SearchInput, StatusTabs, formatDate, timeAgo, useConfirm, type Column } from "@/components/AdminKit";
 import { SuspendDialog } from "@/components/SuspendDialog";
 import { APIError } from "@/lib/api";
 import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
@@ -64,7 +64,10 @@ function UsersInner() {
   const stack = useRef<Array<string | null>>([]);
   const [target, setTarget] = useState<{ user: UserRow; mode: "suspend" | "restore" } | null>(null);
   const twoFactor = useTwoFactorAction();
-  const canSuspend = usePermissions().has("users.mutate");
+  const perms = usePermissions();
+  const canSuspend = perms.has("users.mutate");
+  const canDelete = perms.has("users.mutate");
+  const confirm = useConfirm();
 
   const key = `${q}|${status}|${role}|${includeTest}`;
   useEffect(() => { stack.current = []; setCursor(null); }, [key]);
@@ -78,6 +81,20 @@ function UsersInner() {
     finally { setLoading(false); }
   }, [q, status, role, includeTest, cursor]);
   useEffect(() => { void load(); }, [load]);
+
+  const deleteUser = (u: UserRow) =>
+    confirm.ask(
+      {
+        title: `Delete ${u.name || u.email}?`,
+        description: "If this account has no real order/payment/review history, the record is permanently removed. If it does, that history can never be erased — the account is anonymised and suspended instead (their email, name and other personal data are scrubbed, but the order history stays intact). This account will never be able to log in again, but the same email can sign up fresh.",
+        confirmLabel: "Delete account",
+        reasonLabel: "Reason (recorded in the audit log)",
+      },
+      async (reason) => {
+        await peopleAPI.deleteUser(u.id, reason);
+        await load();
+      },
+    );
 
   const columns: Column<UserRow>[] = [
     {
@@ -106,6 +123,9 @@ function UsersInner() {
           {!canSuspend || u.role === "ADMIN" || u.anonymisedAt ? null : u.isSuspended
             ? <Button variant="secondary" className="h-9 px-3" onClick={() => setTarget({ user: u, mode: "restore" })}>Restore</Button>
             : <Button variant="ghost" className="h-9 px-3 text-red-600" onClick={() => setTarget({ user: u, mode: "suspend" })}>Suspend</Button>}
+          {canDelete && u.role !== "ADMIN" && !u.anonymisedAt ? (
+            <Button variant="danger" className="h-9 px-3" onClick={() => deleteUser(u)}>Delete</Button>
+          ) : null}
         </div>
       ),
     },
@@ -160,6 +180,7 @@ function UsersInner() {
         open={twoFactor.show2FAModal} code={twoFactor.code} onCodeChange={twoFactor.setCode}
         onSubmit={() => void twoFactor.submit2FA()} onCancel={twoFactor.cancel2FA} loading={twoFactor.loading} error={twoFactor.error}
       />
+      {confirm.dialog}
     </div>
   );
 }

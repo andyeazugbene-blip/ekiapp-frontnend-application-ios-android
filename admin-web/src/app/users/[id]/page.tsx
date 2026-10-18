@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader, TextLink, TwoFactorModal } from "@/components/AdminUI";
-import { Banner, DataTable, KeyValue, formatDateTime, formatMinor, timeAgo, type Column } from "@/components/AdminKit";
+import { Banner, DataTable, KeyValue, formatDateTime, formatMinor, timeAgo, useConfirm, type Column } from "@/components/AdminKit";
 import { ProviderReadinessPanel } from "@/components/ProviderReadiness";
 import { NotesCard, TimelineCard } from "@/components/NotesTimeline";
 import { SuspendDialog } from "@/components/SuspendDialog";
@@ -24,6 +24,8 @@ export default function UserDetailPage() {
   const { has } = usePermissions();
   const canSuspend = has("users.mutate");
   const canMessage = has("communications.send");
+  const canDelete = has("users.mutate");
+  const confirm = useConfirm();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -41,6 +43,20 @@ export default function UserDetailPage() {
 
   const state = userState(user);
   const anonymised = state === "anonymised";
+
+  const deleteUser = () =>
+    confirm.ask(
+      {
+        title: `Delete ${user.name || user.email}?`,
+        description: "If this account has no real order/payment/review history, the record is permanently removed. If it does, that history can never be erased — the account is anonymised and suspended instead. This account will never be able to log in again, but the same email can sign up fresh.",
+        confirmLabel: "Delete account",
+        reasonLabel: "Reason (recorded in the audit log)",
+      },
+      async (reason) => {
+        await peopleAPI.deleteUser(user.id, reason);
+        router.push("/users");
+      },
+    );
   const orderColumns: Column<any>[] = [
     { key: "n", header: "Order", render: (o) => <span className="font-black">{o.orderNumber}</span> },
     { key: "a", header: "Amount", render: (o) => formatMinor(o.totalAmount, o.currency) },
@@ -62,6 +78,7 @@ export default function UserDetailPage() {
                 {!canSuspend || user.role === "ADMIN" || anonymised ? null : state === "suspended"
                   ? <Button onClick={() => setMode("restore")}>Restore account</Button>
                   : <Button variant="danger" onClick={() => setMode("suspend")}>Suspend account</Button>}
+                {canDelete && user.role !== "ADMIN" && !anonymised ? <Button variant="danger" onClick={deleteUser}>Delete account</Button> : null}
               </>
             }
           />
@@ -188,6 +205,7 @@ export default function UserDetailPage() {
             open={twoFactor.show2FAModal} code={twoFactor.code} onCodeChange={twoFactor.setCode}
             onSubmit={() => void twoFactor.submit2FA()} onCancel={twoFactor.cancel2FA} loading={twoFactor.loading} error={twoFactor.error}
           />
+          {confirm.dialog}
         </div>
       </AdminLayout>
     </ProtectedRoute>

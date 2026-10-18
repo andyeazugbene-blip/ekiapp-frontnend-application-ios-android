@@ -199,6 +199,17 @@ export const peopleAPI = {
   async unsuspendUser(id: string, body: { reason: string; notifyUser?: boolean }, twoFactorCode?: string) {
     return apiClient.patch<any>(`/admin/users/${id}/unsuspend`, body, { twoFactorCode });
   },
+  /**
+   * Hard-deletes where possible (cascade relations clean themselves up);
+   * falls back to anonymise-and-suspend when the account has real order/
+   * payment/review history that must never disappear (Restrict FKs catch
+   * this server-side — see admin-listings.service.ts deleteUser()). Never
+   * available for an ADMIN account (admin-web has no UI for it; the
+   * backend refuses it too).
+   */
+  async deleteUser(id: string, reason: string): Promise<{ hardDeleted: boolean }> {
+    return apiClient.delete<{ hardDeleted: boolean }>(`/admin/users/${id}?reason=${encodeURIComponent(reason)}`);
+  },
 
   async notes(kind: "users" | "vendors", id: string): Promise<AdminNote[]> {
     const res = await apiClient.get<{ notes: AdminNote[] }>(`/admin/${kind}/${id}/notes`, { bypassCache: true });
