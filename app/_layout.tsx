@@ -58,15 +58,17 @@ export default function RootLayout() {
     useAuthStore.getState().checkAuth().catch(() => {});
   }, []);
 
-  // By default, expo-updates only DOWNLOADS a new OTA update in the
-  // background on launch — it doesn't apply it until the NEXT cold start.
-  // That's the exact source of the "I reopened the app and still don't
-  // see the fix" confusion: one relaunch fetches it, a second one applies
-  // it. Checking, fetching AND reloading explicitly here means a single
-  // reopen is enough. Runs after the UI is already up (never blocks
-  // startup) and fails completely silently — offline, Expo Go, and dev
-  // builds (Updates.isEnabled is false there) are all normal, expected
-  // no-ops, not errors.
+  // REVERTED (previous version called Updates.reloadAsync() here too —
+  // that was a real regression, not a theoretical one: the background
+  // check+fetch can resolve several seconds after launch, with NO way to
+  // know whether the user has since started doing something (like
+  // logging in). reloadAsync() tears down the entire JS runtime
+  // immediately and unconditionally the moment it resolves — mid-login,
+  // that reads as "the app kicks me out and I can't sign in", exactly
+  // what got reported. Pre-fetching in the background is still safe and
+  // still helps (the update is ready sooner), but APPLYING it stays on
+  // the normal, safe trigger: the next time the user actually chooses to
+  // close and reopen the app, never a surprise mid-session teardown.
   useEffect(() => {
     if (!Updates.isEnabled) return;
     (async () => {
@@ -74,7 +76,6 @@ export default function RootLayout() {
         const result = await Updates.checkForUpdateAsync();
         if (!result.isAvailable) return;
         await Updates.fetchUpdateAsync();
-        await Updates.reloadAsync();
       } catch {
         // No network, update server unreachable, etc. — the app keeps
         // running on whatever version is already active.
