@@ -5,6 +5,8 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
+import Constants from "expo-constants";
+import * as Updates from "expo-updates";
 import { useAuthStore } from "../../stores/authStore";
 import { uploadService } from "../../services/uploadService";
 import { goBackOrReplace } from "../../utils/navigation";
@@ -17,6 +19,24 @@ interface MenuItem {
 }
 
 const HELP_URL = "https://culinarytales.app/support";
+
+// Same helper as (vendor)/settings.tsx — lets anyone confirm on-device
+// whether a given OTA update actually landed, instead of inferring it
+// from whether a specific feature appears to work. This was previously
+// only on the vendor Settings screen, so a buyer account checking here
+// never had any way to see it.
+function showAppVersionDetails() {
+  const lines = [
+    `App version: ${Constants.expoConfig?.version ?? "dev"}`,
+    `Runtime version: ${Updates.runtimeVersion ?? "-"}`,
+    `Channel: ${Updates.channel ?? "(none — dev/local build)"}`,
+    Updates.isEmbeddedLaunch
+      ? "Running the version built into the app (no OTA update applied)."
+      : `OTA update ID: ${Updates.updateId ?? "-"}`,
+    Updates.createdAt ? `Update published: ${Updates.createdAt.toLocaleString()}` : null,
+  ].filter(Boolean);
+  Alert.alert("App version", lines.join("\n"));
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -111,10 +131,15 @@ export default function ProfileScreen() {
     { icon: "finger-print-outline", label: "Cookie Policy", action: "navigate", target: "/cookie-policy" },
     { icon: "checkmark-circle-outline", label: "Acceptable Use", action: "navigate", target: "/acceptable-use" },
     { icon: "chatbox-ellipses-outline", label: "Help & Support", action: "navigate", target: "/support" },
+    { icon: "information-circle-outline", label: "App version", action: "alert" },
     { icon: "trash-outline", label: "Delete Account", action: "navigate", target: "/account-deletion" },
   ];
 
   const handleItemPress = async (item: MenuItem) => {
+    if (item.action === "alert") {
+      if (item.label === "App version") showAppVersionDetails();
+      return;
+    }
     if (item.action === "navigate" && item.target) {
       if (item.label === "Switch to Vendor") {
         // Community Buy Workstream 9 (universal account): Vendor access is

@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as Notifications from "expo-notifications";
+import * as Updates from "expo-updates";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { StripeProvider } from "../components/providers/StripeProvider";
 import { useAuthStore } from "../stores/authStore";
@@ -55,6 +56,30 @@ export default function RootLayout() {
   useEffect(() => {
     initMonitoring();
     useAuthStore.getState().checkAuth().catch(() => {});
+  }, []);
+
+  // By default, expo-updates only DOWNLOADS a new OTA update in the
+  // background on launch — it doesn't apply it until the NEXT cold start.
+  // That's the exact source of the "I reopened the app and still don't
+  // see the fix" confusion: one relaunch fetches it, a second one applies
+  // it. Checking, fetching AND reloading explicitly here means a single
+  // reopen is enough. Runs after the UI is already up (never blocks
+  // startup) and fails completely silently — offline, Expo Go, and dev
+  // builds (Updates.isEnabled is false there) are all normal, expected
+  // no-ops, not errors.
+  useEffect(() => {
+    if (!Updates.isEnabled) return;
+    (async () => {
+      try {
+        const result = await Updates.checkForUpdateAsync();
+        if (!result.isAvailable) return;
+        await Updates.fetchUpdateAsync();
+        await Updates.reloadAsync();
+      } catch {
+        // No network, update server unreachable, etc. — the app keeps
+        // running on whatever version is already active.
+      }
+    })();
   }, []);
 
   // Create notification channels (Android) and categories (iOS).
