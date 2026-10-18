@@ -28,6 +28,7 @@ import {
   type SupplierAccountState,
 } from "../../services/communityBuyService";
 import { countryDisplayName } from "../../utils/countries";
+import { CountrySelectField } from "../../components/shared/CountrySelectField";
 import { calculateSupplierCommission } from "../../utils/communityBuyFees";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -259,22 +260,14 @@ export default function VendorCommunityBuySupplierScreen() {
       ) : (
         <FloatingCard style={{ gap: 10 }}>
           <Text style={styles.formLabel}>Market</Text>
-          <View style={{ gap: 8 }}>
-            {markets.map((m) => (
-              <TouchableOpacity
-                key={m.countryCode}
-                onPress={() => setFormCountry(m.countryCode)}
-                activeOpacity={0.85}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: formCountry === m.countryCode }}
-              >
-                <View style={[styles.applyRow, formCountry === m.countryCode && styles.applyRowActive]}>
-                  <Text style={styles.applyRowText}>{countryDisplayName(m.countryCode)}</Text>
-                  <Ionicons name={formCountry === m.countryCode ? "radio-button-on" : "radio-button-off"} size={18} color={formCountry === m.countryCode ? "#076B51" : "#C7D2CB"} />
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <CountrySelectField
+            options={markets.map((m) => ({ code: m.countryCode, name: countryDisplayName(m.countryCode) }))}
+            value={formCountry || null}
+            onSelect={setFormCountry}
+            placeholder="Choose a market"
+            sheetTitle="Select market"
+            accessibilityLabel={formCountry ? `Market: ${countryDisplayName(formCountry)}` : "Choose a market"}
+          />
           <Text style={styles.formLabel}>Categories you can supply</Text>
           <TextInput
             style={styles.input}
@@ -699,9 +692,6 @@ const styles = StyleSheet.create({
   introCard: { alignItems: "center", gap: 8 },
   introTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#151E1B" },
   introBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", textAlign: "center", lineHeight: 19 },
-  applyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1.5, borderColor: "transparent", backgroundColor: "#F4F6F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
-  applyRowActive: { borderColor: "#076B51" },
-  applyRowText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
   formLabel: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#4A5A52" },
   bannerCard: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   bannerText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#4A5A52", lineHeight: 17 },
