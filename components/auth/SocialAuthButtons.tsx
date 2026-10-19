@@ -4,7 +4,6 @@ import { Ionicons } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
-import { GoogleSignin, isErrorWithCode, statusCodes } from "@react-native-google-signin/google-signin";
 
 import { authService } from "../../services/authService";
 import { GOOGLE_ANDROID_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "../../services/api/config";
@@ -13,6 +12,38 @@ import type { OAuthOutcome } from "../../types/auth";
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_CONFIGURED = Boolean(GOOGLE_IOS_CLIENT_ID || GOOGLE_ANDROID_CLIENT_ID || GOOGLE_WEB_CLIENT_ID);
+
+// Found 19 Oct 2026 via a real production Sentry stack trace: a static
+// top-level `import { GoogleSignin } from "@react-native-google-signin/
+// google-signin"` eagerly calls TurboModuleRegistry.getEnforcing('RNGoogleSignin')
+// the moment this file is first loaded — which THROWS FATALLY if that
+// native module isn't compiled into the current binary (it wasn't, in the
+// build this crash came from — the dependency was added to package.json
+// after that native build shipped, so autolinking never compiled it in).
+// This file is shared cross-platform, so the import ran unconditionally on
+// iOS too, even though iOS never uses this native module at all (it uses
+// expo-auth-session below instead) — any screen that renders
+// SocialAuthButtons (login, register) crashed instantly on load. This was
+// also the root cause of a second, seemingly unrelated-looking crash
+// ("Cannot read property 'ErrorBoundary' of undefined") — same call stack
+// (loadRoute -> getQualifiedRouteComponent), because expo-router's lazy
+// route loader doesn't handle a mid-import native-module throw cleanly.
+// Lazy-required instead, same guarded pattern as StripeProvider.tsx and
+// services/monitoring.ts: safe no-op (Android Google sign-in just won't
+// work, with a clear error message) if the native module isn't present,
+// instead of crashing the whole screen on load.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let GoogleSigninModule: any = undefined;
+function loadGoogleSignin(): any {
+  if (GoogleSigninModule !== undefined) return GoogleSigninModule;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    GoogleSigninModule = require("@react-native-google-signin/google-signin");
+  } catch {
+    GoogleSigninModule = null;
+  }
+  return GoogleSigninModule;
+}
 
 // Android root cause (confirmed against Google's own docs and reproduced
 // independently of any device — see git history for this file): Google has
@@ -41,7 +72,9 @@ const GOOGLE_CONFIGURED = Boolean(GOOGLE_IOS_CLIENT_ID || GOOGLE_ANDROID_CLIENT_
 // iOS keeps using expo-auth-session exactly as before — untouched.
 function configureAndroidGoogleSignIn(): void {
   if (Platform.OS !== "android" || !GOOGLE_WEB_CLIENT_ID) return;
-  GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
+  const mod = loadGoogleSignin();
+  if (!mod) return; // native module unavailable in this build — Android Google button just won't work, rather than crashing the screen
+  mod.GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
 }
 
 const BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -162,6 +195,13 @@ export function SocialAuthButtons({ onOutcome, onError, disabled }: SocialAuthBu
   // changes at all.
   const handleAndroidGooglePress = async () => {
     setBusyProvider("google");
+    const mod = loadGoogleSignin();
+    if (!mod) {
+      onError("Google sign-in isn't available in this app version. Please try again later or use email.");
+      setBusyProvider(null);
+      return;
+    }
+    const { GoogleSignin, isErrorWithCode, statusCodes } = mod;
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const response = await GoogleSignin.signIn();
@@ -180,7 +220,7 @@ export function SocialAuthButtons({ onOutcome, onError, disabled }: SocialAuthBu
       const name = response.data.user.name ?? decodeNameClaim(idToken);
       const outcome = await authService.continueWithGoogle(idToken, name ?? undefined);
       onOutcome(outcome);
-    } catch (err) {
+    } catch (err: any) {
       if (isErrorWithCode(err)) {
         if (err.code === statusCodes.SIGN_IN_CANCELLED || err.code === statusCodes.IN_PROGRESS) {
           // Cancelled, or a previous sign-in attempt is still resolving —
