@@ -50,6 +50,10 @@ export function initMonitoring() {
     tracesSampleRate: 0.2,
     enableNativeFramesTracking: false,
     environment: __DEV__ ? "development" : "production",
+    // Shares a Sentry project with the backend (same org, one DSN for
+    // both) — this tag is how mobile events stay distinguishable from
+    // backend events in that shared Issues list.
+    initialScope: { tags: { app: "mobile" } },
   });
 
   setApiErrorReporter((err, context) => {
