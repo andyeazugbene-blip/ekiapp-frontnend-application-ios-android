@@ -11,8 +11,13 @@ import { StripeProvider } from "../components/providers/StripeProvider";
 import { useAuthStore } from "../stores/authStore";
 import { resolveBroadcastLink } from "../utils/broadcastLink";
 import { pushTokenService } from "../services/notificationService";
-import { initMonitoring } from "../services/monitoring";
+import { initMonitoring, wrapRootComponent } from "../services/monitoring";
 import "../global.css";
+
+// Initialized at module load, not inside an effect: the crash this was
+// wired up to diagnose is thrown within ~4s of process launch, before the
+// first effect would even run. Sentry must be live before then to catch it.
+initMonitoring();
 
 // Must be set before any notification arrives — runs at module init
 Notifications.setNotificationHandler({
@@ -37,7 +42,7 @@ Notifications.setNotificationHandler({
   },
 });
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded] = useFonts({
     "JosefinSans-Bold": require("../assets/fonts/JosefinSans-Bold.ttf"),
     "JosefinSans-Medium": require("../assets/fonts/JosefinSans-Medium.ttf"),
@@ -54,7 +59,6 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    initMonitoring();
     useAuthStore.getState().checkAuth().catch(() => {});
   }, []);
 
@@ -454,3 +458,5 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+export default wrapRootComponent(RootLayout);

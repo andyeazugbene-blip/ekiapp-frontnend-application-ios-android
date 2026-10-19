@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useAuthStore } from "../stores/authStore";
+import { captureException } from "../services/monitoring";
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -16,6 +17,7 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
 
   componentDidCatch(error: Error) {
     console.error("App screen crashed", error);
+    captureException(error, { source: "ErrorBoundary.componentDidCatch" });
   }
 
   private retry = () => {
