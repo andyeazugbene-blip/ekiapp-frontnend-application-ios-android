@@ -42,23 +42,39 @@ export function initMonitoring() {
   const Sentry = loadSentry();
   if (!Sentry) return; // native module unavailable (Expo Go, or not in this build) — stay a no-op, same as before
 
-  initialized = true;
+  // Sentry.init() itself was never guarded — if it throws (e.g. the
+  // native module is only partially linked in this build), that's an
+  // UNCAUGHT error at module-init time, which is exactly the "fatal
+  // error during early launch" pattern this was wired up to diagnose in
+  // the first place. Never let setting up monitoring be what crashes
+  // the app it's monitoring.
+  try {
+    Sentry.init({
+      dsn,
+      sendDefaultPii: false,
+      tracesSampleRate: 0.2,
+      enableNativeFramesTracking: false,
+      environment: __DEV__ ? "development" : "production",
+      // Shares a Sentry project with the backend (same org, one DSN for
+      // both) — this tag is how mobile events stay distinguishable from
+      // backend events in that shared Issues list.
+      initialScope: { tags: { app: "mobile" } },
+    });
 
-  Sentry.init({
-    dsn,
-    sendDefaultPii: false,
-    tracesSampleRate: 0.2,
-    enableNativeFramesTracking: false,
-    environment: __DEV__ ? "development" : "production",
-    // Shares a Sentry project with the backend (same org, one DSN for
-    // both) — this tag is how mobile events stay distinguishable from
-    // backend events in that shared Issues list.
-    initialScope: { tags: { app: "mobile" } },
-  });
+    initialized = true;
 
-  setApiErrorReporter((err, context) => {
-    captureException(err, context);
-  });
+    setApiErrorReporter((err, context) => {
+      captureException(err, context);
+    });
+
+    // TEMP sanity check (19 Oct 2026): confirms the SDK is actually
+    // connecting at all, independent of whether any specific crash gets
+    // captured. Remove once a real event has been confirmed in the
+    // dashboard — search Sentry for "sentry_init_check" to find it.
+    Sentry.captureMessage("sentry_init_check: mobile monitoring initialized", "info");
+  } catch {
+    initialized = false;
+  }
 }
 
 export function captureException(err: unknown, context?: Record<string, unknown>) {
@@ -85,5 +101,9 @@ export function setMonitoringUser(user: { id: string; role?: string } | null) {
 export function wrapRootComponent<T>(component: T): T {
   const Sentry = loadSentry();
   if (!Sentry || !initialized) return component;
-  return Sentry.wrap(component);
+  try {
+    return Sentry.wrap(component);
+  } catch {
+    return component;
+  }
 }
