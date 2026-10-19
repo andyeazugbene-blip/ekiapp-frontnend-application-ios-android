@@ -24,10 +24,12 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
   const [password, setPassword] = useState("");
   const [name, setName] = useState("Demo Account");
   const [creditEuros, setCreditEuros] = useState("5000");
+  const [withStore, setWithStore] = useState(true);
+  const [storeName, setStoreName] = useState("Demo Store");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ email: string; password: string; walletBalanceMinor: number; currency: string } | null>(null);
+  const [result, setResult] = useState<{ email: string; password: string; walletBalanceMinor: number; currency: string; vendor: { storeName: string; storeSlug: string } | null } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -35,6 +37,8 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
       setPassword(randomPassword());
       setName("Demo Account");
       setCreditEuros("5000");
+      setWithStore(true);
+      setStoreName("Demo Store");
       setReason("");
       setError("");
       setResult(null);
@@ -49,8 +53,11 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
     setLoading(true); setError("");
     try {
       const creditMinor = creditEuros ? Math.round(Number(creditEuros) * 100) : undefined;
-      const res = await peopleAPI.createDemoAccount({ email: email.trim().toLowerCase(), password, name: name.trim() || undefined, reason: reason.trim(), creditMinor });
-      setResult({ email: res.email, password, walletBalanceMinor: res.walletBalanceMinor, currency: res.currency });
+      const res = await peopleAPI.createDemoAccount({
+        email: email.trim().toLowerCase(), password, name: name.trim() || undefined, reason: reason.trim(), creditMinor,
+        storeName: withStore ? storeName.trim() || "Demo Store" : undefined,
+      });
+      setResult({ email: res.email, password, walletBalanceMinor: res.walletBalanceMinor, currency: res.currency, vendor: res.vendor });
       onCreated?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create demo account");
@@ -70,13 +77,18 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
               </div>
               <div>
                 <h3 className="text-xl font-black text-[#101820]">Demo account ready</h3>
-                <p className="mt-1 text-sm text-slate-600">Can buy normally — checkout draws from the wallet credit below, never Stripe. Save these now; the password is never shown again.</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Can buy normally — checkout draws from the wallet credit below, never Stripe.
+                  {result.vendor ? " Can also add foodstuff — it publishes immediately, pre-verified." : ""}
+                  {" "}Save these now; the password is never shown again.
+                </p>
               </div>
             </div>
             <div className="mt-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 font-mono text-sm">
               <p><span className="font-black text-slate-500">Email:</span> {result.email}</p>
               <p><span className="font-black text-slate-500">Password:</span> {result.password}</p>
               <p><span className="font-black text-slate-500">Wallet balance:</span> {(result.walletBalanceMinor / 100).toFixed(2)} {result.currency}</p>
+              {result.vendor ? <p><span className="font-black text-slate-500">Store:</span> {result.vendor.storeName} (/store/{result.vendor.storeSlug})</p> : null}
             </div>
             <div className="mt-5 flex gap-3">
               <Button className="flex-1" variant="primary" onClick={() => { void navigator.clipboard?.writeText(`${result.email} / ${result.password}`); }}>Copy email + password</Button>
@@ -111,6 +123,16 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
                 <span className="text-xs font-black uppercase tracking-wide text-slate-500">Wallet credit (EUR)</span>
                 <input type="number" min="1" max="10000" value={creditEuros} onChange={(e) => setCreditEuros(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#096B4A]" />
               </label>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <input type="checkbox" checked={withStore} onChange={(e) => setWithStore(e.target.checked)} className="h-4 w-4 accent-[#096B4A]" />
+                Also give it a vendor store (can add foodstuff — publishes immediately, pre-verified)
+              </label>
+              {withStore ? (
+                <label className="block">
+                  <span className="text-xs font-black uppercase tracking-wide text-slate-500">Store name</span>
+                  <input value={storeName} onChange={(e) => setStoreName(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#096B4A]" />
+                </label>
+              ) : null}
               <label className="block">
                 <span className="text-xs font-black uppercase tracking-wide text-slate-500">Reason (recorded in the audit log)</span>
                 <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={500}

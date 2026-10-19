@@ -233,9 +233,9 @@ export const peopleAPI = {
    * wallet-balance branch.
    */
   async createDemoAccount(
-    body: { email: string; password: string; name?: string; reason: string; creditMinor?: number; currency?: string },
+    body: { email: string; password: string; name?: string; reason: string; creditMinor?: number; currency?: string; storeName?: string; country?: string },
     twoFactorCode?: string,
-  ): Promise<{ userId: string; email: string; isTest: boolean; walletBalanceMinor: number; currency: string }> {
+  ): Promise<{ userId: string; email: string; isTest: boolean; walletBalanceMinor: number; currency: string; vendor: { id: string; storeName: string; storeSlug: string } | null }> {
     return apiClient.post("/admin/users/demo-create", body, { twoFactorCode });
   },
 
