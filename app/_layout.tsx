@@ -37,10 +37,6 @@ Notifications.setNotificationHandler({
   },
 });
 
-// Flip to false (and ship via OTA) once the crash-isolation test confirms
-// or rules out this effect — see the comment at its call site.
-const BACKGROUND_UPDATE_CHECK_DISABLED_FOR_CRASH_DIAGNOSIS = true;
-
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     "JosefinSans-Bold": require("../assets/fonts/JosefinSans-Bold.ttf"),
@@ -73,23 +69,20 @@ export default function RootLayout() {
   // still helps (the update is ready sooner), but APPLYING it stays on
   // the normal, safe trigger: the next time the user actually chooses to
   // close and reopen the app, never a surprise mid-session teardown.
-  // DIAGNOSTIC (19 Oct 2026): temporarily disabled. Reports describe the
-  // app terminating ~3.5s after reaching the Welcome screen with no JS
-  // error visible — a native-level crash, not something ErrorBoundary can
-  // catch. This background update check is the only async, native-module-
-  // touching operation that runs unconditionally near launch regardless of
-  // which screen the user is on, so it's the one candidate worth isolating
-  // experimentally before guessing further. Nothing else in the role-
-  // select -> onboarding -> welcome chain does anything async or native
-  // (confirmed by reading all three screens — pure static UI, no timers).
-  // If the crash stops after this ships, the cause is confirmed here and
-  // this gets fixed properly instead of just left off; if it persists,
-  // this is ruled out and the search continues elsewhere. Pre-fetching
-  // being off for now just means an OTA update is applied one relaunch
-  // later than ideal — not a regression in anything user-facing.
+  // Root cause of the reported crash found 19 Oct 2026 from a real device
+  // .ips: it's expo-updates' own built-in native "Error Recovery" feature
+  // (EXUpdatesErrorRecovery), not this effect. That mechanism intercepts
+  // ANY fatal JS error thrown within ~10s of launch, independently checks
+  // for a fix-forward OTA update, and — per Expo's own docs — deliberately
+  // RE-THROWS the original error and crashes if no fix arrives in time.
+  // The crashing thread was literally named "expo.controller.
+  // errorRecoveryQueue", confirming this. Expo's documented mitigation is
+  // "make sure the app checks for updates right after launch" — the exact
+  // opposite of disabling this effect, so it stays on. The real unresolved
+  // problem is whatever fatal JS error is being thrown during early launch
+  // in the first place; this effect was never it.
   useEffect(() => {
     if (!Updates.isEnabled) return;
-    if (BACKGROUND_UPDATE_CHECK_DISABLED_FOR_CRASH_DIAGNOSIS) return;
     (async () => {
       try {
         const result = await Updates.checkForUpdateAsync();
