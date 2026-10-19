@@ -26,10 +26,11 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
   const [creditEuros, setCreditEuros] = useState("5000");
   const [withStore, setWithStore] = useState(true);
   const [storeName, setStoreName] = useState("Demo Store");
+  const [withSupplier, setWithSupplier] = useState(true);
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ email: string; password: string; walletBalanceMinor: number; currency: string; vendor: { storeName: string; storeSlug: string } | null } | null>(null);
+  const [result, setResult] = useState<{ email: string; password: string; walletBalanceMinor: number; currency: string; vendor: { storeName: string; storeSlug: string } | null; supplierAccount: { id: string } | null } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -39,6 +40,7 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
       setCreditEuros("5000");
       setWithStore(true);
       setStoreName("Demo Store");
+      setWithSupplier(true);
       setReason("");
       setError("");
       setResult(null);
@@ -56,8 +58,9 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
       const res = await peopleAPI.createDemoAccount({
         email: email.trim().toLowerCase(), password, name: name.trim() || undefined, reason: reason.trim(), creditMinor,
         storeName: withStore ? storeName.trim() || "Demo Store" : undefined,
+        supplier: withSupplier,
       });
-      setResult({ email: res.email, password, walletBalanceMinor: res.walletBalanceMinor, currency: res.currency, vendor: res.vendor });
+      setResult({ email: res.email, password, walletBalanceMinor: res.walletBalanceMinor, currency: res.currency, vendor: res.vendor, supplierAccount: res.supplierAccount });
       onCreated?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create demo account");
@@ -80,6 +83,7 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
                 <p className="mt-1 text-sm text-slate-600">
                   Can buy normally — checkout draws from the wallet credit below, never Stripe.
                   {result.vendor ? " Can also add foodstuff — it publishes immediately, pre-verified." : ""}
+                  {result.supplierAccount ? " Can also accept Community Buy campaigns and request supplier payouts — pre-approved, no Stripe KYC needed." : ""}
                   {" "}Save these now; the password is never shown again.
                 </p>
               </div>
@@ -133,6 +137,10 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
                   <input value={storeName} onChange={(e) => setStoreName(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#096B4A]" />
                 </label>
               ) : null}
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <input type="checkbox" checked={withSupplier} onChange={(e) => setWithSupplier(e.target.checked)} className="h-4 w-4 accent-[#096B4A]" />
+                Also give it Community Buy supplier capability (accept campaigns, request payouts — pre-approved, no Stripe KYC)
+              </label>
               <label className="block">
                 <span className="text-xs font-black uppercase tracking-wide text-slate-500">Reason (recorded in the audit log)</span>
                 <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={500}
