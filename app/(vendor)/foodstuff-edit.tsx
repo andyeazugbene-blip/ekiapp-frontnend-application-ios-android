@@ -56,8 +56,7 @@ export default function FoodstuffEditScreen() {
   const [weight, setWeight] = useState(String(selectedProduct?.weight ?? ""));
   const [unit, setUnit] = useState(selectedProduct?.unit ?? "kg");
   const [stock, setStock] = useState(String(selectedProduct?.stock ?? ""));
-  const [isPublished, setIsPublished] = useState(selectedProduct?.status !== "draft");
-  const [isAvailable, setIsAvailable] = useState(selectedProduct?.status !== "out_of_stock");
+  const [togglingFlag, setTogglingFlag] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(selectedProduct?.images?.[0] ?? null);
   const [imageRemoteUrl, setImageRemoteUrl] = useState<string | null>(selectedProduct?.images?.[0] ?? null);
 
@@ -70,6 +69,59 @@ export default function FoodstuffEditScreen() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [hasDelivery, setHasDelivery] = useState(false);
+
+  // "Published"/"Available for sale" previously fed a client-computed
+  // `status` string into the generic patch, which toBackendProductInput()
+  // silently drops (UpdateProductInput has no `status` field — the
+  // publish/pause/resume state machine is deliberately guarded separately,
+  // see products.service.ts's computeProductStatus()), so the toggles were
+  // a no-op against the real backend. Same fix already applied on
+  // foodstuff-detail.tsx: drive the real pause/resume endpoints directly
+  // and derive the toggle values from the product's actual saved status,
+  // not local-only state that could drift from what's really saved.
+  const isPublished = product?.status === "active" || product?.status === "low_stock" || product?.status === "out_of_stock";
+  const isAvailable = product?.status !== "out_of_stock";
+  const isPublishedToggleEnabled = isPublished || product?.status === "paused";
+
+  const togglePublished = async (value: boolean) => {
+    if (!product) return;
+    setTogglingFlag(true);
+    setError("");
+    try {
+      const updated = value ? await productService.resumeProduct(product.id) : await productService.pauseProduct(product.id);
+      setProduct(updated);
+      setSelectedProduct(updated);
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 403 && value) {
+        Alert.alert("Verification required", "You need to verify your account before publishing.", [
+          { text: "Verify now", onPress: () => router.push("/(vendor-verification)" as any) },
+          { text: "Cancel", style: "cancel" },
+        ]);
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Could not update.");
+    } finally {
+      setTogglingFlag(false);
+    }
+  };
+
+  const toggleAvailable = async (value: boolean) => {
+    if (!product) return;
+    const nextStock = value ? (product.stock > 0 ? product.stock : 1) : 0;
+    setTogglingFlag(true);
+    setError("");
+    try {
+      const updated = await productService.updateProduct(product.id, { stock: nextStock });
+      const merged = { ...product, ...updated, stock: nextStock };
+      setProduct(merged);
+      setSelectedProduct(merged);
+      setStock(String(nextStock));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update.");
+    } finally {
+      setTogglingFlag(false);
+    }
+  };
 
   useEffect(() => {
     deliveryService.listZones()
@@ -98,8 +150,6 @@ export default function FoodstuffEditScreen() {
         setUnit(p.unit ?? "kg");
         setProductCurrency(p.currency ?? "GBP");
         setStock(String(p.stock));
-        setIsPublished(p.status !== "draft");
-        setIsAvailable(p.status !== "out_of_stock");
         setImageUri(p.images?.[0] ?? null);
         setImageRemoteUrl(p.images?.[0] ?? null);
       } catch (err) {
@@ -154,8 +204,6 @@ export default function FoodstuffEditScreen() {
 
     setSubmitting(true);
     try {
-      const status = !isPublished ? "draft" : !isAvailable ? "out_of_stock" : Number(stock) <= 5 ? "low_stock" : "active";
-
       const patch: Partial<Product> = {
         name: name.trim(),
         description: description.trim(),
@@ -166,7 +214,6 @@ export default function FoodstuffEditScreen() {
         stock: Number(stock) || 0,
         weight: Number(weight) || 0,
         unit,
-        status,
         images: imageRemoteUrl ? [imageRemoteUrl] : product.images,
       };
       const updated = await productService.updateProduct(product.id, patch);
@@ -360,11 +407,23 @@ export default function FoodstuffEditScreen() {
             <Text style={styles.sectionTitle}>Listing status</Text>
             <View style={styles.toggleRow}>
               <Text style={styles.toggleLabel}>Published</Text>
-              <Switch value={isPublished} onValueChange={setIsPublished} trackColor={{ false: "#D7E4DC", true: "#076B51" }} thumbColor="#FFFFFF" />
+              <Switch
+                value={isPublished}
+                onValueChange={togglePublished}
+                disabled={togglingFlag || !isPublishedToggleEnabled}
+                trackColor={{ false: "#D7E4DC", true: "#076B51" }}
+                thumbColor="#FFFFFF"
+              />
             </View>
             <View style={styles.toggleRow}>
               <Text style={styles.toggleLabel}>Available for sale</Text>
-              <Switch value={isAvailable} onValueChange={setIsAvailable} trackColor={{ false: "#D7E4DC", true: "#076B51" }} thumbColor="#FFFFFF" />
+              <Switch
+                value={isAvailable}
+                onValueChange={toggleAvailable}
+                disabled={togglingFlag || !isPublished}
+                trackColor={{ false: "#D7E4DC", true: "#076B51" }}
+                thumbColor="#FFFFFF"
+              />
             </View>
           </View>
 
