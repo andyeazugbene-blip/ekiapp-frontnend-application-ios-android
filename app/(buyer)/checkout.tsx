@@ -52,6 +52,8 @@ export default function CheckoutScreen() {
   const clearCart = useCartStore((s) => s.clearCart);
   const storeDeliveryCountry = useCartStore((s) => s.deliveryCountry);
   const setDeliveryCountry = useCartStore((s) => s.setDeliveryCountry);
+  const pendingPromoCode = useCartStore((s) => s.pendingPromoCode);
+  const setPendingPromoCode = useCartStore((s) => s.setPendingPromoCode);
   const ensureCurrency = useCurrencyStore((s) => s.ensureCurrency);
   const user = useAuthStore((s) => s.user);
 
@@ -73,7 +75,17 @@ export default function CheckoutScreen() {
   const [createdOrderIds, setCreatedOrderIds] = useState<string[]>([]);
   const [appliedCampaign, setAppliedCampaign] = useState<{ title: string; discount: number } | null>(null);
   const [eligibleDeal, setEligibleDeal] = useState<Campaign | null>(null);
-  const [promoCode, setPromoCode] = useState("");
+  // Pre-filled from a shared store link's ?promo= param (see store/[slug].tsx)
+  // instead of that banner being purely cosmetic — still just fills the
+  // field, never auto-submits; the real validatePromo check still runs
+  // when the buyer actually pays. Consumed once below so it doesn't leak
+  // into an unrelated later checkout.
+  const [promoCode, setPromoCode] = useState(() => pendingPromoCode);
+
+  useEffect(() => {
+    if (pendingPromoCode) setPendingPromoCode("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const walletBalance = wallet?.balance ?? 0;
   const checkoutCurrency = cartCurrency || items[0]?.product.currency || wallet?.currency || "GBP";

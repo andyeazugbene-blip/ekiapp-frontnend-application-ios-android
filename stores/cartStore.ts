@@ -23,6 +23,11 @@ interface CartStore {
   deliveryEstimates: DeliveryEstimate[];
   checkoutIntent: CheckoutIntent | null;
   deliveryCountry: string;
+  /** A promo code carried from a shared store link's ?promo= param, so
+   * checkout can pre-fill it instead of the banner on the store page being
+   * purely cosmetic. Never auto-submitted — still goes through the normal
+   * validatePromo check at checkout, same as one the buyer types in by hand. */
+  pendingPromoCode: string;
 
   addItem: (product: Product, quantity?: number) => Promise<void>;
   removeItem: (productId: string) => Promise<void>;
@@ -34,6 +39,7 @@ interface CartStore {
   syncWithServer: () => Promise<void>;
   calculateDelivery: (country: string) => Promise<void>;
   setDeliveryCountry: (country: string) => void;
+  setPendingPromoCode: (code: string) => void;
   createCheckout: (address: string, walletAmount?: number, deliveryCountryOverride?: string, promoCode?: string) => Promise<CheckoutIntent>;
 
   subtotal: () => number;
@@ -136,6 +142,9 @@ export const useCartStore = create<CartStore>((set, get) => ({
   deliveryEstimates: [],
   checkoutIntent: null,
   deliveryCountry: "UK",
+  pendingPromoCode: "",
+
+  setPendingPromoCode: (code) => set({ pendingPromoCode: code }),
 
   // A cart may hold products from vendors with different native
   // currencies — adding a product never fails on a currency mismatch and
@@ -379,5 +388,6 @@ export const useCartStore = create<CartStore>((set, get) => ({
       deliveryEstimates: [],
       checkoutIntent: null,
       deliveryCountry: "UK",
+      pendingPromoCode: "",
     }),
 }));

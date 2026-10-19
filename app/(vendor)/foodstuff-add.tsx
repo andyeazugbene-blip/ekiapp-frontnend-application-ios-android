@@ -29,8 +29,6 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   GBP: "£", USD: "$", EUR: "€", NGN: "₦", CAD: "C$", AUD: "A$", GHS: "₵", KES: "KSh",
 };
 
-const SUPPORTED_CURRENCIES = ["GBP", "USD", "EUR", "NGN", "GHS", "KES", "CAD"];
-
 
 const UNITS = ["kg", "g", "lb", "oz", "pack", "bunch", "piece", "litre", "ml"];
 
@@ -60,11 +58,9 @@ export default function FoodstuffAddScreen() {
   const [weight, setWeight] = useState("");
   const [unit, setUnit] = useState("kg");
   const [stock, setStock] = useState("");
-  const [lowStockAlert, setLowStockAlert] = useState("5");
   const [isPublished, setIsPublished] = useState(false);
   const [showUnits, setShowUnits] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
-  const [showCurrencies, setShowCurrencies] = useState(false);
 
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageRemoteUrl, setImageRemoteUrl] = useState<string | null>(null);
@@ -381,21 +377,17 @@ export default function FoodstuffAddScreen() {
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Currency</Text>
-              <TouchableOpacity onPress={() => setShowCurrencies((v) => !v)} style={styles.selectInput}>
+              {/* Read-only: a product's currency always inherits from the
+                  vendor's own store currency (see products.service.ts's
+                  createProduct — input.currency is ignored server-side), so
+                  letting a vendor "pick" a different one here was silently
+                  discarded, with no indication the price they typed would
+                  actually be stored/charged in their real store currency
+                  instead. Change the store currency from account settings. */}
+              <View style={[styles.selectInput, styles.selectInputDisabled]}>
                 <Text style={styles.selectText}>{CURRENCY_SYMBOLS[vendorCurrency] ?? ""} {vendorCurrency}</Text>
-                <Ionicons name={showCurrencies ? "chevron-up" : "chevron-down"} size={16} color="#858585" />
-              </TouchableOpacity>
-            </View>
-
-            {showCurrencies && (
-              <View style={styles.optionsList}>
-                {SUPPORTED_CURRENCIES.map((cur) => (
-                  <TouchableOpacity key={cur} onPress={() => { setVendorCurrency(cur); setShowCurrencies(false); }} style={[styles.optionItem, cur === vendorCurrency && styles.optionItemActive]}>
-                    <Text style={[styles.optionText, cur === vendorCurrency && styles.optionTextActive]}>{CURRENCY_SYMBOLS[cur] ?? ""} {cur}</Text>
-                  </TouchableOpacity>
-                ))}
               </View>
-            )}
+            </View>
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Price ({vendorCurrency})</Text>
@@ -450,10 +442,12 @@ export default function FoodstuffAddScreen() {
               <TextInput value={stock} onChangeText={setStock} placeholder="10" placeholderTextColor="#858585" keyboardType="numeric" style={styles.input} />
             </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Low stock alert</Text>
-              <TextInput value={lowStockAlert} onChangeText={setLowStockAlert} placeholder="5" placeholderTextColor="#858585" keyboardType="numeric" style={styles.input} />
-            </View>
+            {/* Not an editable per-product setting: the "Low stock" badge
+                threshold (5 units) is fixed platform-wide — see
+                normalizeProduct() and vendors-dashboard.service.ts. An
+                editable field here previously collected a number that was
+                never sent anywhere. */}
+            <Text style={styles.helperText}>Items show a "Low stock" badge once quantity drops to 5 or fewer.</Text>
 
             <View style={styles.toggleRow}>
               <Text style={styles.toggleLabel}>Publish immediately</Text>
@@ -627,6 +621,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  selectInputDisabled: {
+    opacity: 0.7,
   },
   selectText: {
     fontSize: 14,

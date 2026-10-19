@@ -30,8 +30,6 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   GBP: "£", USD: "$", EUR: "€", NGN: "₦", CAD: "C$", AUD: "A$", GHS: "₵", KES: "KSh",
 };
 
-const SUPPORTED_CURRENCIES = ["GBP", "USD", "EUR", "NGN", "GHS", "KES", "CAD"] as const;
-
 const UNITS = ["kg", "g", "lb", "oz", "pack", "bunch", "piece", "litre", "ml"];
 
 function parseMoneyInput(value: string): number {
@@ -61,7 +59,6 @@ export default function FoodstuffEditScreen() {
   const [imageRemoteUrl, setImageRemoteUrl] = useState<string | null>(selectedProduct?.images?.[0] ?? null);
 
   const [productCurrency, setProductCurrency] = useState(selectedProduct?.currency ?? "GBP");
-  const [showCurrencies, setShowCurrencies] = useState(false);
   const [showUnits, setShowUnits] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -464,21 +461,17 @@ export default function FoodstuffEditScreen() {
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Currency</Text>
-              <TouchableOpacity onPress={() => setShowCurrencies((v) => !v)} style={styles.selectInput}>
+              {/* Read-only: a product's currency always inherits from the
+                  vendor's own store currency and is explicitly discarded on
+                  update (see products.service.ts's updateProduct destructuring
+                  out `currency`) — letting a vendor "pick" a different one
+                  here was silently ignored, with no indication the price
+                  they typed would actually be stored/charged in their real
+                  store currency instead. */}
+              <View style={[styles.selectInput, styles.selectInputDisabled]}>
                 <Text style={styles.selectText}>{CURRENCY_SYMBOLS[productCurrency] ?? ""} {productCurrency}</Text>
-                <Ionicons name={showCurrencies ? "chevron-up" : "chevron-down"} size={16} color="#858585" />
-              </TouchableOpacity>
-            </View>
-
-            {showCurrencies && (
-              <View style={styles.optionsList}>
-                {SUPPORTED_CURRENCIES.map((cur) => (
-                  <TouchableOpacity key={cur} onPress={() => { setProductCurrency(cur); setShowCurrencies(false); }} style={[styles.optionItem, cur === productCurrency && styles.optionItemActive]}>
-                    <Text style={[styles.optionText, cur === productCurrency && styles.optionTextActive]}>{CURRENCY_SYMBOLS[cur] ?? ""} {cur}</Text>
-                  </TouchableOpacity>
-                ))}
               </View>
-            )}
+            </View>
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Price ({productCurrency})</Text>
@@ -636,6 +629,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  selectInputDisabled: {
+    opacity: 0.7,
   },
   selectText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
   optionsList: { gap: 6, marginBottom: 16 },

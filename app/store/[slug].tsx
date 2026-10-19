@@ -257,6 +257,17 @@ export default function PublicStoreScreen() {
   const createCheckout = useCartStore((state) => state.createCheckout);
   const serverItems = useCartStore((state) => state.serverItems);
   const deliveryEstimates = useCartStore((state) => state.deliveryEstimates);
+  const setPendingPromoCode = useCartStore((state) => state.setPendingPromoCode);
+
+  // The promo banner below previously just displayed the code with no
+  // effect on checkout at all (shareUrl's ?promo= was cosmetic). Carry it
+  // into the cart store now, so checkout.tsx can pre-fill it — still goes
+  // through the real validatePromo check there, never auto-applied.
+  useEffect(() => {
+    if (typeof promo === "string" && promo.trim()) {
+      setPendingPromoCode(promo.trim());
+    }
+  }, [promo, setPendingPromoCode]);
 
   const [vendor, setVendor] = useState<VendorSummary | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
