@@ -119,7 +119,13 @@ export default function ExploreScreen() {
   const filteredProducts = useMemo(
     () =>
       (products ?? []).filter((product) => {
-        if (!product || product.status !== "active") return false;
+        // "active"/"low_stock" are both the PUBLISHED status, just a
+        // stock-level refinement (see normalizeProduct) — excluding
+        // low_stock here was hiding real, purchasable, in-stock listings
+        // from the whole catalog the moment their stock dropped to 5 or
+        // below. Only out_of_stock/draft/pending/paused/rejected are
+        // genuinely not purchasable.
+        if (!product || (product.status !== "active" && product.status !== "low_stock")) return false;
         if (selectedCategory && product.category?.toLowerCase() !== selectedCategory.toLowerCase()) return false;
         if (!normalizedSearch) return true;
         const haystack = [product.name, product.category, product.description, product.vendorName, product.vendorCity]

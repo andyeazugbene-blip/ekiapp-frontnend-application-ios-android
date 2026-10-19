@@ -363,7 +363,12 @@ export default function PublicStoreScreen() {
         if (cancelled) return;
 
         setVendor(nextVendor);
-        setProducts(nextProducts.filter((product) => product.status === "active" && product.stock > 0));
+        // "active"/"low_stock" are both the PUBLISHED status, just a
+        // stock-level refinement (see normalizeProduct) — excluding
+        // low_stock hid real, purchasable listings from the storefront
+        // the moment their stock dropped to 5 or below. `stock > 0` alone
+        // already correctly excludes true out-of-stock items.
+        setProducts(nextProducts.filter((product) => (product.status === "active" || product.status === "low_stock") && product.stock > 0));
         setReviews(nextReviews);
         setInsights(analytics);
         if (!pageTrackedRef.current) {

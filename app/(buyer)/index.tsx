@@ -189,7 +189,11 @@ export default function BuyerHomeScreen() {
   }, [loadData]);
 
   const activeProducts = useMemo(
-    () => products.filter((product) => product && product.status === "active"),
+    // "active"/"low_stock" are both the PUBLISHED status (see
+    // normalizeProduct) — excluding low_stock here hid real, purchasable
+    // listings from the home feed the moment their stock dropped to 5 or
+    // below.
+    () => products.filter((product) => product && (product.status === "active" || product.status === "low_stock")),
     [products],
   );
 
