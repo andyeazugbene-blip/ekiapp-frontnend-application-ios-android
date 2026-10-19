@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 
 import { useAuthStore } from "../../stores/authStore";
+import { useVendorProfile } from "../../hooks/useVendorProfile";
 import { useOnboardingStore } from "../../stores/onboardingStore";
 import { productService } from "../../services/productService";
 import { deliveryService } from "../../services/deliveryService";
@@ -56,8 +57,9 @@ export default function ActivationScreen() {
   const [verificationSubmitted, setVerificationSubmitted] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const user = useAuthStore((s) => s.user);
-  const vendor = user?.role === "vendor" ? user : null;
+  // Gate on hasVendor (capability), not role — a buyer+seller dual-capability
+  // account (e.g. an admin demo account) stays role="buyer".
+  const { vendor } = useVendorProfile();
   const { hasSharedLink, setHasSharedLink } = useOnboardingStore();
 
   const storeUrl = getPublicStoreUrl({

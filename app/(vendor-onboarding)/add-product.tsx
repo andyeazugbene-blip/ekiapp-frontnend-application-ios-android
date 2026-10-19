@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useOnboardingStore } from "../../stores/onboardingStore";
-import { useAuthStore } from "../../stores/authStore";
+import { useVendorProfile } from "../../hooks/useVendorProfile";
 import { productService } from "../../services/productService";
 import { uploadService } from "../../services/uploadService";
 import { ApiRequestError } from "../../services/api";
@@ -41,8 +41,9 @@ function parseMoneyInput(value: string): number {
 export default function AddProductScreen() {
   const router = useRouter();
   const { updateFirstProduct, setFirstProductPublished } = useOnboardingStore();
-  const { user } = useAuthStore();
-  const vendor = user?.role === "vendor" ? user : null;
+  // Gate on hasVendor (capability), not role — a buyer+seller dual-capability
+  // account (e.g. an admin demo account) stays role="buyer".
+  const { vendor } = useVendorProfile();
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");

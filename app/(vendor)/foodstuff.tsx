@@ -5,7 +5,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { vendorService } from "../../services/vendorService";
-import { useAuthStore } from "../../stores/authStore";
+import { useVendorProfile } from "../../hooks/useVendorProfile";
 import { useInventoryStore } from "../../stores/inventoryStore";
 import { Product, ProductStatus } from "../../types/product";
 import { RemoteImage } from "../../components/ui/RemoteImage";
@@ -33,8 +33,9 @@ const CURRENCY_SYMBOL: Record<string, string> = {
 
 export default function FoodstuffScreen() {
   const router = useRouter();
-  const user = useAuthStore((s) => s.user);
-  const vendor = user?.role === "vendor" ? user : null;
+  // Gate on hasVendor (capability), not role — a buyer+seller dual-capability
+  // account (e.g. an admin demo account) stays role="buyer".
+  const { vendor } = useVendorProfile();
   const setSelectedProduct = useInventoryStore((s) => s.setSelectedProduct);
 
   const [activeTab, setActiveTab] = useState<TabKey>("All");

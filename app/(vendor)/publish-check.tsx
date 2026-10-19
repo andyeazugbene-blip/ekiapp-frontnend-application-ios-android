@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
-import { useAuthStore } from "../../stores/authStore";
+import { useVendorProfile } from "../../hooks/useVendorProfile";
 import { productService } from "../../services/productService";
 import { deliveryService } from "../../services/deliveryService";
 import { ApiRequestError } from "../../services/api";
@@ -28,8 +28,9 @@ export default function PublishCheckScreen() {
     category?: string;
     imageUrl?: string;
   }>();
-  const user = useAuthStore((s) => s.user);
-  const vendor = user?.role === "vendor" ? user : null;
+  // Gate on hasVendor (capability), not role — a buyer+seller dual-capability
+  // account (e.g. an admin demo account) stays role="buyer".
+  const { vendor } = useVendorProfile();
 
   const [hasDelivery, setHasDelivery] = useState(false);
   const [submitting, setSubmitting] = useState(false);

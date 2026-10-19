@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deriveEscrowStatus, getEscrowStatusColor, getEscrowStatusLabel } from "../../services/escrowStatus";
 import { orderService } from "../../services/orderService";
-import { useAuthStore } from "../../stores/authStore";
+import { useVendorProfile } from "../../hooks/useVendorProfile";
 import { Order } from "../../types/order";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { CurrencySelector } from "../../components/ui/CurrencySelector";
@@ -40,8 +40,9 @@ function formatStandardStatus(status: string): string {
 
 export default function OrdersScreen() {
   const router = useRouter();
-  const user = useAuthStore((state) => state.user);
-  const vendor = user?.role === "vendor" ? user : null;
+  // Gate on hasVendor (capability), not role — a buyer+seller dual-capability
+  // account (e.g. an admin demo account) stays role="buyer".
+  const { vendor } = useVendorProfile();
 
   const [activeTab, setActiveTab] = useState<TabKey>("New");
   const [orders, setOrders] = useState<Order[]>([]);

@@ -3,7 +3,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleShe
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useAuthStore } from "../../stores/authStore";
+import { useVendorProfile } from "../../hooks/useVendorProfile";
 import { productService } from "../../services/productService";
 import { marketingService } from "../../services/marketingService";
 import { Product } from "../../types/product";
@@ -12,8 +12,9 @@ import { getCurrencySymbol } from "../../utils/currency";
 
 export default function CreateBundleScreen() {
   const router = useRouter();
-  const user = useAuthStore((s) => s.user);
-  const vendor = user?.role === "vendor" ? user : null;
+  // Gate on hasVendor (capability), not role — a buyer+seller dual-capability
+  // account (e.g. an admin demo account) stays role="buyer".
+  const { vendor } = useVendorProfile();
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [name, setName] = useState("");

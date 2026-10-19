@@ -9,7 +9,7 @@ import { orderService } from "../../services/orderService";
 import { productService } from "../../services/productService";
 import { publicStoreService, type PublicStoreAnalyticsDetail } from "../../services/publicStoreService";
 import { vendorService } from "../../services/vendorService";
-import { useAuthStore } from "../../stores/authStore";
+import { useVendorProfile } from "../../hooks/useVendorProfile";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import type { Order } from "../../types/order";
 import type { Product } from "../../types/product";
@@ -440,8 +440,9 @@ function InsightAction({
 export default function VendorAnalyticsScreen() {
   const router = useRouter();
   const { selectedCurrency } = useCurrencyStore();
-  const user = useAuthStore((state) => state.user);
-  const vendor = user?.role === "vendor" ? user : null;
+  // Gate on hasVendor (capability), not role — a buyer+seller dual-capability
+  // account (e.g. an admin demo account) stays role="buyer".
+  const { vendor } = useVendorProfile();
   const storeSlug = toCompactStoreSlug(vendor?.storeSlug ?? vendor?.storeName);
 
   const [range, setRange] = useState<VendorAnalyticsRange>("month");

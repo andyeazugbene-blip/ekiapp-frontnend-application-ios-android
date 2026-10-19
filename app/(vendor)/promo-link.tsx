@@ -3,15 +3,16 @@ import { Linking, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } 
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
-import { useAuthStore } from "../../stores/authStore";
+import { useVendorProfile } from "../../hooks/useVendorProfile";
 import { getPublicStoreUrl } from "../../utils/shareLinks";
 import { goBackOrReplace } from "../../utils/navigation";
 import { FloatingCard, IconAvatar, OutlineButton, PremiumHeader, PrimaryButton, StatusPill, premiumStyles } from "../../components/shared/PremiumBlocks";
 
 export default function PromoLinkScreen() {
   const router = useRouter();
-  const user = useAuthStore((s) => s.user);
-  const vendor = user?.role === "vendor" ? user : null;
+  // Gate on hasVendor (capability), not role — a buyer+seller dual-capability
+  // account (e.g. an admin demo account) stays role="buyer".
+  const { vendor } = useVendorProfile();
   const params = useLocalSearchParams<{
     promo?: string;
     url?: string;

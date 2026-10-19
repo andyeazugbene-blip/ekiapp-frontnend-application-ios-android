@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useOnboardingStore } from "../../stores/onboardingStore";
 import { useAuthStore } from "../../stores/authStore";
+import { useVendorProfile } from "../../hooks/useVendorProfile";
 import { vendorService } from "../../services/vendorService";
 import {
   FieldLabel,
@@ -20,7 +21,10 @@ export default function BusinessInfoScreen() {
   const router = useRouter();
   const { updateBusinessInfo } = useOnboardingStore();
   const { user, setUser } = useAuthStore();
-  const vendor = user?.role === "vendor" ? user : null;
+  // Gate on hasVendor (capability), not role — see hooks/useVendorProfile.ts.
+  // `user` itself is kept separately below for the role check/update that
+  // genuinely needs the raw auth-store shape, not the fetched vendor data.
+  const { vendor } = useVendorProfile();
 
   const [region, setRegion] = useState<Region>(vendor?.sellerRegion ?? "africa");
   const [sellerType, setSellerType] = useState<SellerType | null>(

@@ -15,8 +15,7 @@ import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { marketingService, type Discount } from "../../services/marketingService";
 import { productService } from "../../services/productService";
-import { useAuthStore } from "../../stores/authStore";
-import type { VendorProfile } from "../../types/auth";
+import { useVendorProfile } from "../../hooks/useVendorProfile";
 import type { Product } from "../../types/product";
 import { getPublicStoreUrl } from "../../utils/shareLinks";
 import { goBackOrReplace } from "../../utils/navigation";
@@ -58,7 +57,9 @@ function getCouponStatus(discount: Discount) {
 
 export default function CouponHistoryScreen() {
   const router = useRouter();
-  const vendor = useAuthStore((state) => (state.user?.role === "vendor" ? (state.user as VendorProfile) : null));
+  // Gate on hasVendor (capability), not role — a buyer+seller dual-capability
+  // account (e.g. an admin demo account) stays role="buyer".
+  const { vendor } = useVendorProfile();
 
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [products, setProducts] = useState<Record<string, Product>>({});

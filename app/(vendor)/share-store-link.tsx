@@ -14,7 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuthStore } from "../../stores/authStore";
+import { useVendorProfile } from "../../hooks/useVendorProfile";
 import { getPublicStoreUrl, toCompactStoreSlug } from "../../utils/shareLinks";
 import { publicStoreService, type PublicStoreAnalyticsDetail } from "../../services/publicStoreService";
 import { goBackOrReplace } from "../../utils/navigation";
@@ -75,8 +75,9 @@ function formatPercent(value: number): string {
 
 export default function ShareStoreLinkScreen() {
   const router = useRouter();
-  const user = useAuthStore((state) => state.user);
-  const vendor = user?.role === "vendor" ? user : null;
+  // Gate on hasVendor (capability), not role — a buyer+seller dual-capability
+  // account (e.g. an admin demo account) stays role="buyer".
+  const { vendor } = useVendorProfile();
 
   const storeSlug = toCompactStoreSlug(vendor?.storeSlug ?? vendor?.storeName);
   const baseStoreUrl = getPublicStoreUrl({

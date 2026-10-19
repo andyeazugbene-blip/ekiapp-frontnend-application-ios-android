@@ -18,13 +18,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { PRODUCT_CATEGORIES, Product } from "../../types/product";
-import { useAuthStore } from "../../stores/authStore";
 import { productService } from "../../services/productService";
 import { uploadService } from "../../services/uploadService";
 import { ApiRequestError } from "../../services/api";
 import { deliveryService } from "../../services/deliveryService";
-import { vendorService } from "../../services/vendorService";
 import { goBackOrReplace } from "../../utils/navigation";
+import { useVendorProfile } from "../../hooks/useVendorProfile";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   GBP: "£", USD: "$", EUR: "€", NGN: "₦", CAD: "C$", AUD: "A$", GHS: "₵", KES: "KSh",
@@ -43,8 +42,15 @@ function parseMoneyInput(value: string): number {
 export default function FoodstuffAddScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const user = useAuthStore((s) => s.user);
-  const vendor = user?.role === "vendor" ? user : null;
+  // Gate on having a real Vendor row (hasVendor), not on role — same
+  // capability-based pattern used everywhere else in this app (see
+  // role-select.tsx / (vendor)/_layout.tsx). This screen previously gated
+  // on `user.role === "vendor"` directly, which is false for any buyer+
+  // seller dual-capability account (including an admin-created demo
+  // account, which deliberately stays role=BUYER) — "Please log in as a
+  // vendor to continue" fired even though the account genuinely has a
+  // store.
+  const { vendor } = useVendorProfile();
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
@@ -74,10 +80,11 @@ export default function FoodstuffAddScreen() {
     deliveryService.listZones()
       .then((zones) => setHasDelivery((zones ?? []).length > 0))
       .catch(() => setHasDelivery(false));
-    vendorService.getMyProfile()
-      .then((p) => { if (p?.currency) setVendorCurrency(p.currency); })
-      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (vendor?.currency) setVendorCurrency(vendor.currency);
+  }, [vendor?.currency]);
 
 
   const handlePickImage = async () => {
