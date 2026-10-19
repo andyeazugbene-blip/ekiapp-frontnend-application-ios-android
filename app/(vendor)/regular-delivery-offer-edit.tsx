@@ -33,7 +33,6 @@ const ALL_SUBSTITUTION_MODES: OfferSubstitutionMode[] = ["NO_SUBSTITUTION", "ASK
 export default function VendorRegularDeliveryOfferEditScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const isEdit = Boolean(id);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +63,15 @@ export default function VendorRegularDeliveryOfferEditScreen() {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [offerId, setOfferId] = useState<string | null>(id ?? null);
+  // Drives off offerId (set locally right after creating, below), not the
+  // URL param directly — this screen used to router.replace() itself onto
+  // its own route to pick up the new id, which is a real expo-router crash
+  // trigger (confirmed via a production Sentry stack trace on the
+  // identical pattern in app/(auth)/welcome.tsx: "Cannot read property
+  // 'ErrorBoundary' of undefined" from getQualifiedRouteComponent when a
+  // route replace()s itself). offerId already updates locally on create,
+  // so isEdit just needed to read from it instead.
+  const isEdit = Boolean(offerId);
   const [isActive, setIsActive] = useState(false);
 
   const load = useCallback(async () => {
@@ -186,7 +194,6 @@ export default function VendorRegularDeliveryOfferEditScreen() {
       setOfferId(offer.id);
       setIsActive(offer.isActive);
       Alert.alert("Saved", offer.isActive ? "Offer created and published." : "Offer saved as a draft. Publish it when ready.");
-      if (!isEdit) router.replace({ pathname: "/(vendor)/regular-delivery-offer-edit", params: { id: offer.id } } as any);
     } catch (err) {
       Alert.alert("Couldn't save offer", err instanceof Error ? err.message : "Please try again.");
     } finally {

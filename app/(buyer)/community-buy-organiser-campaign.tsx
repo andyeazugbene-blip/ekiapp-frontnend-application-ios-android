@@ -103,7 +103,19 @@ function formatDateTime(value?: string | null): string {
 
 export default function CommunityBuyOrganiserCampaignScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id: paramId } = useLocalSearchParams<{ id?: string }>();
+  // Set right after creating a draft, instead of router.replace()-ing this
+  // screen onto its own route with an id param — found 19 Oct 2026, via a
+  // production Sentry stack trace, that expo-router's lazy route loader
+  // (getQualifiedRouteComponent -> fromImport, useScreens.js) can crash
+  // with an uncaught "Cannot read property 'ErrorBoundary' of undefined"
+  // when a route replace()s itself (confirmed on app/(auth)/welcome.tsx's
+  // identical pattern). This local override feeds the same `id` the rest
+  // of the screen already keys off of, so switching from create to edit
+  // mode re-triggers load() exactly as the old navigation did — without
+  // ever re-entering this route through the router.
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const id = createdId ?? paramId;
   const isEdit = Boolean(id);
 
   const [loading, setLoading] = useState(true);
@@ -591,7 +603,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         const created = await communityBuyService.createCampaign({ title: title.trim(), country, currency: currency || undefined, ...sharedFields });
         baselineRef.current = formSnapshot;
         if (opts?.leaveAfter) leaveScreen();
-        else router.replace({ pathname: "/(buyer)/community-buy-organiser-campaign", params: { id: created.id } } as any);
+        else setCreatedId(created.id);
       }
       return true;
     } catch (err) {
