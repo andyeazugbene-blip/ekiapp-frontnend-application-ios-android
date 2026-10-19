@@ -22,7 +22,8 @@
         "EXPO_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAADbdUSFvS7twWicQ",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "202125496514-alrducvlk3ia17u9mscp2emv6umala4i.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "202125496514-tem3lnl161j203m0hi6eg8k2e9n3rp87.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "202125496514-rl2h7vft68ggk20bla444a1f1bpdjv7a.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "202125496514-rl2h7vft68ggk20bla444a1f1bpdjv7a.apps.googleusercontent.com",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://ac20f4553b0f36d871b191d2ff4815b3@o4512283283423232.ingest.de.sentry.io/4512283346010192"
       }
     },
     "preview": {
@@ -42,7 +43,8 @@
         "EXPO_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAADbdUSFvS7twWicQ",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "202125496514-alrducvlk3ia17u9mscp2emv6umala4i.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "202125496514-tem3lnl161j203m0hi6eg8k2e9n3rp87.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "202125496514-rl2h7vft68ggk20bla444a1f1bpdjv7a.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "202125496514-rl2h7vft68ggk20bla444a1f1bpdjv7a.apps.googleusercontent.com",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://ac20f4553b0f36d871b191d2ff4815b3@o4512283283423232.ingest.de.sentry.io/4512283346010192"
       },
       "android": {
         "buildType": "apk"
@@ -69,7 +71,8 @@
         "EXPO_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAADbdUSFvS7twWicQ",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "202125496514-alrducvlk3ia17u9mscp2emv6umala4i.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "202125496514-tem3lnl161j203m0hi6eg8k2e9n3rp87.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "202125496514-rl2h7vft68ggk20bla444a1f1bpdjv7a.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "202125496514-rl2h7vft68ggk20bla444a1f1bpdjv7a.apps.googleusercontent.com",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://ac20f4553b0f36d871b191d2ff4815b3@o4512283283423232.ingest.de.sentry.io/4512283346010192"
       },
       "android": {
         "credentialsSource": "local",

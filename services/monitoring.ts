@@ -1,5 +1,15 @@
 /**
- * Sentry monitoring — opt-in via EXPO_PUBLIC_SENTRY_DSN.
+ * Sentry monitoring.
+ *
+ * DSN is a hardcoded literal, not routed through process.env.EXPO_PUBLIC_*:
+ * found 19 Oct 2026, by diffing a from-scratch `expo export` against its own
+ * sourcemap, that this codebase's env-var inlining is unreliable for SOME
+ * EXPO_PUBLIC_ vars in a given build (confirmed independent of Sentry —
+ * EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY was *also* missing from a fresh export
+ * while EXPO_PUBLIC_API_URL was present in the same bundle) — not worth
+ * chasing further here since a Sentry DSN is a public client key by design
+ * (ingest-only, cannot read data), so there's no reason to route it through
+ * an env var at all. Sidesteps the whole class of build-pipeline risk.
  *
  * Lazy-required (same pattern as components/providers/StripeProvider.tsx):
  * @sentry/react-native's native module isn't available in Expo Go, and may
@@ -15,6 +25,11 @@
  * that re-throw).
  */
 import { setApiErrorReporter } from "./api";
+
+// Public client key — safe to hardcode (ingest-only, not a credential that
+// grants read access). See module comment above for why this isn't routed
+// through EXPO_PUBLIC_SENTRY_DSN.
+const SENTRY_DSN = "https://ac20f4553b0f36d871b191d2ff4815b3@o4512283283423232.ingest.de.sentry.io/4512283346010192";
 
 let initialized = false;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,8 +48,6 @@ function loadSentry(): any {
 
 export function initMonitoring() {
   if (initialized) return;
-  const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
-  if (!dsn) return;
 
   const enableInDev = process.env.EXPO_PUBLIC_SENTRY_ENABLE_DEV === "true";
   if (__DEV__ && !enableInDev) return;
@@ -50,7 +63,7 @@ export function initMonitoring() {
   // the app it's monitoring.
   try {
     Sentry.init({
-      dsn,
+      dsn: SENTRY_DSN,
       sendDefaultPii: false,
       tracesSampleRate: 0.2,
       enableNativeFramesTracking: false,
