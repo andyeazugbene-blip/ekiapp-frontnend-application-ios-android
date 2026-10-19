@@ -79,12 +79,6 @@ export function initMonitoring() {
     setApiErrorReporter((err, context) => {
       captureException(err, context);
     });
-
-    // TEMP sanity check (19 Oct 2026): confirms the SDK is actually
-    // connecting at all, independent of whether any specific crash gets
-    // captured. Remove once a real event has been confirmed in the
-    // dashboard — search Sentry for "sentry_init_check" to find it.
-    Sentry.captureMessage("sentry_init_check: mobile monitoring initialized", "info");
   } catch {
     initialized = false;
   }

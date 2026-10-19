@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,7 +20,17 @@ import { Ionicons } from "@expo/vector-icons";
 export default function WelcomeScreen() {
   const router = useRouter();
   const { role, ref } = useLocalSearchParams<{ role?: string; ref?: string }>();
-  const resolvedRole = role ?? "vendor";
+  // "Change role" toggles LOCAL state rather than router.replace()-ing to
+  // this same route — found 19 Oct 2026, via a real Sentry stack trace from
+  // production, that expo-router's lazy route loader (getQualifiedRouteComponent
+  // -> fromImport, useScreens.js) can return `undefined` from loadRoute()
+  // when a route replace()s itself, which fromImport then destructures
+  // un-guarded ("Cannot read property 'ErrorBoundary' of undefined") — an
+  // expo-router internal bug, not fixable from here. Never re-entering the
+  // same route sidesteps it entirely; the vendor/buyer marketing content
+  // swap needs no navigation at all, just a different local render.
+  const [currentRole, setCurrentRole] = useState(role ?? "vendor");
+  const resolvedRole = currentRole;
   const alternateRole = resolvedRole === "buyer" ? "vendor" : "buyer";
   const otherRoleLabel = resolvedRole === "vendor" ? "Buyer" : "Vendor";
   const sharedParams = typeof ref === "string" && ref.trim() ? { ref } : {};
@@ -29,8 +39,7 @@ export default function WelcomeScreen() {
     router.push({ pathname: "/(auth)/register", params: { role: resolvedRole, ...sharedParams } });
   const goLogin = () =>
     router.push({ pathname: "/(auth)/login", params: { role: resolvedRole, ...sharedParams } });
-  const goSwitch = () =>
-    router.replace({ pathname: "/(auth)/welcome", params: { role: alternateRole, ...sharedParams } });
+  const goSwitch = () => setCurrentRole(alternateRole);
 
   return (
     <View style={styles.container}>
