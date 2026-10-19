@@ -29,6 +29,35 @@ function isoString(v: Date | string | undefined | null): string {
   return v instanceof Date ? v.toISOString() : v;
 }
 
+/**
+ * weightGrams is always TRUE grams server-side (used directly in real
+ * delivery-fee math), but the vendor types the number in whatever unit
+ * they picked. Real mass units convert properly; count/volume units
+ * (pack/bunch/piece/litre/ml) have no real grams equivalent, so they
+ * pass through 1:1, same as before this unit was tracked at all.
+ */
+const WEIGHT_UNIT_TO_GRAMS: Record<string, number> = {
+  kg: 1000,
+  g: 1,
+  lb: 453.59237,
+  oz: 28.349523125,
+  pack: 1,
+  bunch: 1,
+  piece: 1,
+  litre: 1,
+  ml: 1,
+};
+
+function gramsToDisplayWeight(grams: number, unit: string | undefined): number {
+  const factor = WEIGHT_UNIT_TO_GRAMS[unit ?? "kg"] ?? 1000;
+  return grams / factor;
+}
+
+function displayWeightToGrams(weight: number, unit: string | undefined): number {
+  const factor = WEIGHT_UNIT_TO_GRAMS[unit ?? "kg"] ?? 1000;
+  return Math.round(weight * factor);
+}
+
 // ─── Product ───────────────────────────────────────────────────────────────────
 
 /**
@@ -93,9 +122,9 @@ export function normalizeProduct(raw: Record<string, any>): Product {
     status,
     weight:
       typeof raw.weightGrams === "number"
-        ? raw.weightGrams / 1000
+        ? gramsToDisplayWeight(raw.weightGrams, raw.weightUnit)
         : raw.weight,
-    unit: raw.unit,
+    unit: raw.weightUnit ?? raw.unit ?? "kg",
     createdAt: isoString(raw.createdAt),
     updatedAt: isoString(raw.updatedAt),
   };
@@ -130,7 +159,8 @@ export function toBackendProductInput(
   if (data.category !== undefined) out.category = data.category;
   if (data.stock !== undefined) out.stock = data.stock;
   if (data.weight !== undefined)
-    out.weightGrams = Math.round((data.weight as number) * 1000);
+    out.weightGrams = displayWeightToGrams(data.weight as number, data.unit);
+  if (data.unit !== undefined) out.weightUnit = data.unit;
 
   return out;
 }
