@@ -131,7 +131,17 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
       throw timeoutErr;
     }
     const networkErr = new NetworkError();
-    errorReporter?.(networkErr, { endpoint, method, raw: err instanceof Error ? err.message : String(err) });
+    // The OS itself cancels an in-flight request when the app is
+    // backgrounded mid-fetch (iOS: FetchRequestCanceledException from
+    // Expo's native fetch module; Android's OkHttp phrases its own
+    // cancellation similarly) — expected behavior, not a connectivity
+    // problem, and happens constantly for anyone who switches apps or
+    // locks their phone mid-request. Reporting every one of these to
+    // Sentry as an "error" would drown out real network failures.
+    const rawMessage = err instanceof Error ? err.message : String(err);
+    if (!/cancel/i.test(rawMessage)) {
+      errorReporter?.(networkErr, { endpoint, method, raw: rawMessage });
+    }
     throw networkErr;
   } finally {
     clearTimeout(timeoutId);
