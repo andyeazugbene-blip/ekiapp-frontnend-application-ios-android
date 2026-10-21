@@ -9,14 +9,20 @@ import { Order } from "../../types/order";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { CurrencySelector } from "../../components/ui/CurrencySelector";
 import { formatDisplayMoney } from "../../utils/currency";
-type TabKey = "New" | "Accepted" | "Shipped" | "Disputed" | "Cancelled";
+type TabKey = "New" | "Accepted" | "Shipped" | "Completed" | "Disputed" | "Cancelled";
 
-const TABS: TabKey[] = ["New", "Accepted", "Shipped", "Disputed", "Cancelled"];
+const TABS: TabKey[] = ["New", "Accepted", "Shipped", "Completed", "Disputed", "Cancelled"];
 
+// "completed" (buyer confirmed receipt, or the escrow auto-release timeout —
+// see normalizers.ts's STATUS_MAP: both COMPLETED and AUTO_RELEASED land here)
+// previously matched no tab at all, making every order a buyer finished
+// permanently invisible on this screen the moment it finished — exactly the
+// orders a vendor most needs to see to confirm they got paid.
 const TAB_TO_STATUSES: Record<TabKey, string[]> = {
   New: ["pending", "paid"],
   Accepted: ["confirmed", "processing"],
   Shipped: ["dispatched", "in_transit", "delivered"],
+  Completed: ["completed"],
   Disputed: ["disputed", "refunded"],
   Cancelled: ["cancelled"],
 };
@@ -29,6 +35,7 @@ const STANDARD_STATUS_COLOR: Record<string, string> = {
   dispatched: "#076B51",
   in_transit: "#076B51",
   delivered: "#1D7A57",
+  completed: "#096B4A",
   disputed: "#FB6363",
   refunded: "#B42318",
   cancelled: "#8A8F94",
