@@ -35,6 +35,34 @@ function StatCard({ label, value, sub, color }: { label: string; value: string |
   );
 }
 
+/** Stripe is encoded as payoutMethod.type "OTHER" + details.provider "stripe"
+ * (no dedicated enum value — see payouts.service.ts adminMarkPaid's own
+ * isStripe check). Surfaced here so an admin can tell, before approving,
+ * whether "Send payout" will auto-transfer via Stripe or needs them to
+ * have already wired the money manually before clicking it. */
+function isStripeMethod(item: AdminPayoutRequest): boolean {
+  return item.payoutMethod?.type === "OTHER" && item.payoutMethod?.details?.provider === "stripe";
+}
+
+function PayoutMethodLabel({ item }: { item: AdminPayoutRequest }) {
+  if (!item.payoutMethod) return <span className="text-slate-400">Not provided</span>;
+  if (isStripeMethod(item)) {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <Badge tone="blue">Stripe</Badge>
+        <span className="text-[11px] text-slate-400">auto-transfer</span>
+      </span>
+    );
+  }
+  const label = item.payoutMethod.label || (item.payoutMethod.type === "BANK_TRANSFER" ? "Bank transfer" : item.payoutMethod.type.replace(/_/g, " ").toLowerCase());
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span>{label}</span>
+      <span className="text-[11px] text-slate-400">manual</span>
+    </span>
+  );
+}
+
 function PayoutStatusBadge({ status }: { status: string }) {
   if (status === "PENDING") return <Badge tone="amber">Pending</Badge>;
   if (status === "APPROVED") return <Badge tone="green">Approved - not yet sent</Badge>;
@@ -116,7 +144,9 @@ function PayoutRequestsInner() {
     {
       title: "Reject this payout?",
       confirmLabel: "Reject payout",
-      description: `The vendor will see the reason. ${formatMajor(item.amount, item.currency)} for ${item.vendorName ?? "this vendor"}.`,
+      description: item.status === "ON_HOLD"
+        ? `${formatMajor(item.amount, item.currency)} is currently held (debited from ${item.vendorName ?? "this vendor"}'s balance after a failed transfer attempt). Rejecting returns it to their available balance so they can request again with a different payout method. The vendor will see the reason.`
+        : `The vendor will see the reason. ${formatMajor(item.amount, item.currency)} for ${item.vendorName ?? "this vendor"}.`,
       reasonLabel: "Rejection reason (shown to the vendor, recorded in the audit log)",
     },
     async (reason) => {
@@ -133,7 +163,9 @@ function PayoutRequestsInner() {
       confirmLabel: retry ? "Retry transfer" : "Send payout",
       description: retry
         ? "A duplicate transfer cannot be created - the same provider request is safely replayed."
-        : `This asks the provider to transfer ${formatMajor(item.amount, item.currency)} to ${item.vendorName ?? "the vendor"}. The payout only shows Paid once the transfer succeeds.`,
+        : isStripeMethod(item)
+          ? `This vendor is on Stripe — clicking Send payout triggers a real, automatic Stripe transfer of ${formatMajor(item.amount, item.currency)}. No further action needed from you; it only shows Paid once Stripe confirms.`
+          : `This is a manual method (${item.payoutMethod?.label || item.payoutMethod?.type?.replace(/_/g, " ").toLowerCase() || "not provided"}) — nothing is sent automatically. Only click this AFTER you've already transferred ${formatMajor(item.amount, item.currency)} to ${item.vendorName ?? "the vendor"} yourself; this just records it as paid.`,
       reasonLabel: "Reason / reference (recorded in the audit log)",
     },
     async (reason) => {
@@ -212,7 +244,7 @@ function PayoutRequestsInner() {
                       ) : null}
                     </td>
                     <td className="px-4 py-3.5 text-[12px] font-bold text-slate-800">{formatMajor(item.amount, item.currency)}</td>
-                    <td className="px-4 py-3.5 text-[12px] text-slate-600">{item.payoutMethod?.label || (item.payoutMethod?.type === "BANK_TRANSFER" ? "Bank transfer" : item.payoutMethod?.type?.replace(/_/g, " ").toLowerCase()) || "Not provided"}</td>
+                    <td className="px-4 py-3.5 text-[12px] text-slate-600"><PayoutMethodLabel item={item} /></td>
                     <td className="px-4 py-3.5 text-[12px] text-slate-500">{formatDateTime(item.createdAt)}</td>
                     <td className="px-4 py-3.5"><PayoutStatusBadge status={item.status} /></td>
                     <td className="px-4 py-3.5">
@@ -229,6 +261,9 @@ function PayoutRequestsInner() {
                           )}
                           {(item.status === "ON_HOLD" || item.status === "PROCESSING") && (
                             <button onClick={() => askMarkPaid(item, true)} className="rounded-lg bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-600 transition hover:bg-amber-100">Retry transfer</button>
+                          )}
+                          {item.status === "ON_HOLD" && (
+                            <button onClick={() => handleReject(item)} className="rounded-lg bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-500 transition hover:bg-red-100" title="Reverses the held debit back to the vendor's available balance, so they can be switched to a different payout method">Reject &amp; refund balance</button>
                           )}
                           {(item.status === "PAID" || item.status === "REJECTED") && <span className="text-[11px] text-slate-300">—</span>}
                         </div>
