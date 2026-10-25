@@ -419,6 +419,17 @@ export const publicStoreService = {
     return normalizeSummary(response.analytics, storeSlug);
   },
 
+  /** Record a completed vendor share-sheet action. Unlike public storefront
+   * analytics, this request must carry the signed-in vendor's auth token;
+   * the backend verifies that the caller owns the store before emitting the
+   * R10 stop-condition event. */
+  async recordVendorShare(storeSlug: string, source: PublicStoreSourceKey): Promise<void> {
+    await apiClient.post(
+      `/api/public/stores/${encodeURIComponent(storeSlug)}/events`,
+      { event: "share", source },
+    );
+  },
+
   async getDetailedAnalytics(storeSlug: string): Promise<PublicStoreAnalyticsDetail> {
     const response = await apiClient.get<AnalyticsDetailResponse>(
       `/api/vendors/me/public-store-analytics?storeSlug=${encodeURIComponent(storeSlug)}`,

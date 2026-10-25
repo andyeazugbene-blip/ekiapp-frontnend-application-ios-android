@@ -330,7 +330,12 @@ function RootLayout() {
         } else if (typeof type === "string" && type.startsWith("automation_")) {
           const role = useAuthStore.getState().user?.role;
           const campaignId = data.campaignId as string | undefined;
-          if (type === "automation_cart_recovery") {
+          if (type === "automation_store_share_reminder" && (role === "vendor" || role === "admin")) {
+            // R10: land on the actual vendor share flow. The screen is
+            // capability-gated by useVendorProfile, so an admin/buyer without
+            // a vendor profile cannot act on another vendor's store.
+            router.push(`/(vendor)/share-store-link`);
+          } else if (type === "automation_cart_recovery") {
             router.push(`/(buyer)/cart`);
           } else if (type === "automation_review_request") {
             router.push(`/(buyer)/orders`);
