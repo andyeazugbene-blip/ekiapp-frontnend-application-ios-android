@@ -173,11 +173,24 @@ function RootLayout() {
     // and getLastNotificationResponseAsync() (tap that COLD-STARTED the
     // app from fully killed) — addNotificationResponseReceivedListener
     // alone can race a cold start, since the native side may record the
-    // tap before this listener is even attached. router.push to a path
-    // the app is already on is a no-op, so both paths firing for the same
-    // tap is harmless.
-    const handleNotificationTap = (data: Record<string, unknown> | null | undefined) => {
+    // tap before this listener is even attached. Both paths can report the
+    // same response, so handleNotificationTap deduplicates by request and
+    // action identifier before navigating.
+    const handledTapIds = new Set<string>();
+    const handleNotificationTap = (
+      data: Record<string, unknown> | null | undefined,
+      tapId?: string,
+    ) => {
       if (!data) return;
+      if (tapId) {
+        if (handledTapIds.has(tapId)) return;
+        handledTapIds.add(tapId);
+        // Keep the in-memory guard bounded for long-running app sessions.
+        if (handledTapIds.size > 50) {
+          const oldestTapId = handledTapIds.values().next().value;
+          if (oldestTapId) handledTapIds.delete(oldestTapId);
+        }
+      }
       try {
         const router = require("expo-router").router;
         const type = data.type as string | undefined;
@@ -424,7 +437,8 @@ function RootLayout() {
     };
 
     const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
-      handleNotificationTap(response.notification.request.content.data);
+      const tapId = `${response.notification.request.identifier}:${response.actionIdentifier}`;
+      handleNotificationTap(response.notification.request.content.data, tapId);
     });
 
     // Cold start: the app was fully killed and the user tapped a
@@ -434,7 +448,10 @@ function RootLayout() {
     // response before this listener is attached.
     Notifications.getLastNotificationResponseAsync()
       .then(response => {
-        if (response) handleNotificationTap(response.notification.request.content.data);
+        if (response) {
+          const tapId = `${response.notification.request.identifier}:${response.actionIdentifier}`;
+          handleNotificationTap(response.notification.request.content.data, tapId);
+        }
       })
       .catch(() => {});
 
