@@ -15,6 +15,7 @@ export default function AdminPaymentAnomaliesScreen() {
   const [items, setItems] = useState<AdminPaymentAnomaly[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,6 +36,19 @@ export default function AdminPaymentAnomaliesScreen() {
     if (b.dedupeKey === anomalyKey) return 1;
     return Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt);
   }), [items, anomalyKey]);
+
+  const resolveIncident = async (item: AdminPaymentAnomaly) => {
+    setResolvingId(item.id);
+    setError("");
+    try {
+      await adminService.resolvePaymentAnomaly(item.id, "Resolved from the authenticated admin incident queue.");
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not resolve this incident.");
+    } finally {
+      setResolvingId(null);
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F7F9F8" }} edges={["top"]}>
@@ -84,6 +98,17 @@ export default function AdminPaymentAnomaliesScreen() {
                   Last observed: {new Date(item.lastSeenAt).toLocaleString()}
                 </Text>
                 {item.note ? <Text style={{ color: "#66716C", marginTop: 8, fontFamily: "Manrope-Regular" }}>Review note: {item.note}</Text> : null}
+                {item.status !== "RESOLVED" ? (
+                  <TouchableOpacity
+                    onPress={() => void resolveIncident(item)}
+                    disabled={resolvingId !== null}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Resolve ${titleCase(item.kind)} incident`}
+                    style={{ marginTop: 14, alignSelf: "flex-start", borderRadius: 10, backgroundColor: "#0A6C52", paddingHorizontal: 14, paddingVertical: 10, opacity: resolvingId && resolvingId !== item.id ? 0.55 : 1 }}
+                  >
+                    {resolvingId === item.id ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: "#FFFFFF", fontFamily: "Manrope-SemiBold" }}>Resolve incident</Text>}
+                  </TouchableOpacity>
+                ) : null}
               </View>
             );
           })}

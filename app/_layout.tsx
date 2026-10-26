@@ -296,7 +296,8 @@ function RootLayout() {
             router.push(conversationId
               ? `/(vendor)/messages?conversationId=${conversationId}`
               : "/(vendor)/contact-support");
-          } else if (destination === "admin_case" && role === "admin" && data.event === "critical_payment_anomaly") {
+          } else if (destination === "admin_case" && role === "admin"
+            && (data.event === "critical_payment_anomaly" || data.event === "critical_incident")) {
             const anomalyKey = param("anomalyKey");
             router.push(anomalyKey
               ? `/(admin)/payment-anomalies?anomalyKey=${anomalyKey}`

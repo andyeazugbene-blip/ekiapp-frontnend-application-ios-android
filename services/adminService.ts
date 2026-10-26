@@ -142,7 +142,9 @@ export interface AdminPaymentAnomaly {
   businessRefId: string;
   evidence: Record<string, unknown>;
   status: string;
+  severity?: string;
   note?: string | null;
+  resolvedAt?: string | null;
   createdAt: string;
   lastSeenAt: string;
 }
@@ -497,6 +499,13 @@ export const adminService = {
     const query = status ? `?status=${encodeURIComponent(status)}` : "";
     const res = await apiClient.get<{ items?: AdminPaymentAnomaly[] }>(`/api/admin/payment-anomalies${query}`);
     return res.items ?? [];
+  },
+
+  async resolvePaymentAnomaly(anomalyId: string, note: string): Promise<AdminPaymentAnomaly> {
+    const res = await apiClient.post<{ anomaly: AdminPaymentAnomaly }>(
+      `/api/admin/payment-anomalies/${anomalyId}/resolve`, { note },
+    );
+    return res.anomaly;
   },
 
   async resolveDispute(
