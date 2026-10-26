@@ -255,6 +255,11 @@ function RootLayout() {
             router.push(supportCampaignId
               ? `/(buyer)/community-buy-support-cases?campaignId=${supportCampaignId}`
               : "/(buyer)/contact-support");
+          } else if (destination === "support_case" && role === "vendor") {
+            // The app has a vendor support entry point, but no generic case
+            // detail API/screen. Keep this role-safe fallback rather than
+            // attempting to trust a caseId the vendor UI cannot authorize.
+            router.push("/(vendor)/contact-support");
           } else if (destination === "admin_case" && role === "admin" && data.event === "critical_payment_anomaly") {
             const anomalyKey = param("anomalyKey");
             router.push(anomalyKey
