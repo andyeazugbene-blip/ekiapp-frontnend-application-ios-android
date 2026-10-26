@@ -194,8 +194,17 @@ function RootLayout() {
       try {
         const router = require("expo-router").router;
         const type = data.type as string | undefined;
+        const destination = data.destination as string | undefined;
 
-        if (
+        if (destination === "admin_case" && data.event === "critical_payment_anomaly") {
+          const role = useAuthStore.getState().user?.role;
+          if (role === "admin") {
+            const anomalyKey = typeof data.anomalyKey === "string" ? data.anomalyKey : undefined;
+            router.push(anomalyKey
+              ? `/(admin)/payment-anomalies?anomalyKey=${encodeURIComponent(anomalyKey)}`
+              : "/(admin)/payment-anomalies");
+          }
+        } else if (
           type === "order_status" || type === "new_order" ||
           // P0 fix: these previously had no frontend branch at all (dead
           // taps) — buyer_order_shipped/delivered and vendor_first_order

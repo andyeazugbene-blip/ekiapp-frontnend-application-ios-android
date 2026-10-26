@@ -134,6 +134,19 @@ export interface AdminDispute {
   };
 }
 
+export interface AdminPaymentAnomaly {
+  id: string;
+  kind: string;
+  dedupeKey: string;
+  businessRefType: string;
+  businessRefId: string;
+  evidence: Record<string, unknown>;
+  status: string;
+  note?: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+}
+
 interface ListResponse<T> {
   items?: T[];
   users?: T[];
@@ -478,6 +491,12 @@ export const adminService = {
   async getDispute(disputeId: string): Promise<AdminDispute> {
     const res = await apiClient.get<{ dispute?: any }>(`/api/admin/disputes/${disputeId}`);
     return normalizeDispute(res.dispute ?? res);
+  },
+
+  async getPaymentAnomalies(status?: string): Promise<AdminPaymentAnomaly[]> {
+    const query = status ? `?status=${encodeURIComponent(status)}` : "";
+    const res = await apiClient.get<{ items?: AdminPaymentAnomaly[] }>(`/api/admin/payment-anomalies${query}`);
+    return res.items ?? [];
   },
 
   async resolveDispute(
