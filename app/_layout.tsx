@@ -196,15 +196,77 @@ function RootLayout() {
         const type = data.type as string | undefined;
         const destination = data.destination as string | undefined;
 
-        if (destination === "admin_case" && data.event === "critical_payment_anomaly") {
+        if (destination) {
           const role = useAuthStore.getState().user?.role;
-          if (role === "admin") {
-            const anomalyKey = typeof data.anomalyKey === "string" ? data.anomalyKey : undefined;
+          const param = (...keys: string[]) => {
+            for (const key of keys) {
+              const value = data[key];
+              if (typeof value === "string" && value.trim()) return encodeURIComponent(value);
+            }
+            return undefined;
+          };
+          const productId = param("productId", "id");
+          const orderId = param("orderId", "id");
+          const campaignId = param("campaignId", "id");
+          const subscriptionId = param("subscriptionId", "foodstuffSubscriptionId", "id");
+
+          if (destination === "store_setup" && role === "vendor") {
+            router.push("/(vendor-onboarding)/setup-store");
+          } else if (destination === "foodstuff_editor" && role === "vendor") {
+            router.push(productId ? `/(vendor)/foodstuff-edit?id=${productId}` : "/(vendor)/foodstuff-add");
+          } else if (destination === "verification" && role === "vendor") {
+            router.push("/(vendor-verification)/index");
+          } else if (destination === "inventory_detail" && role === "vendor") {
+            router.push(productId ? `/(vendor)/foodstuff-detail?id=${productId}` : "/(vendor)/foodstuff?filter=low_stock");
+          } else if (destination === "order_detail" && orderId) {
+            if (role === "admin") router.push(`/(admin)/order-detail?id=${orderId}`);
+            else if (role === "vendor") router.push(`/(vendor)/order-detail?id=${orderId}`);
+            else if (role === "buyer") router.push(`/(buyer)/track-order?id=${orderId}`);
+          } else if (destination === "order_detail") {
+            if (role === "admin") router.push("/(admin)/orders");
+            else if (role === "vendor") router.push("/(vendor)/orders");
+            else if (role === "buyer") router.push("/(buyer)/orders");
+          } else if (destination === "store_share" && role === "vendor") {
+            router.push("/(vendor)/share-store-link");
+          } else if (destination === "first_sale" && role === "vendor") {
+            router.push("/(vendor)/grow-sales");
+          } else if (destination === "automation_detail" && role === "vendor") {
+            const automationType = param("automationType", "type");
+            router.push(automationType ? `/(vendor)/automation-detail?type=${automationType}` : "/(vendor)/automation-center");
+          } else if (destination === "checkout" && role === "buyer") {
+            router.push("/(buyer)/checkout");
+          } else if (destination === "foodstuff_subscription" && role === "buyer") {
+            router.push(subscriptionId ? `/(buyer)/regular-delivery-detail?id=${subscriptionId}` : "/(buyer)/regular-deliveries");
+          } else if (destination === "community_buy_campaign" && campaignId) {
+            const audience = data.audience;
+            if (audience === "supplier") router.push(`/(supplier)/community-buy-supplier-fulfilment?id=${campaignId}`);
+            else if (role === "buyer" && audience === "organiser") router.push(`/(buyer)/community-buy-organiser-campaign?id=${campaignId}`);
+            else if (role === "buyer") router.push(`/(buyer)/community-buy-campaign?id=${campaignId}`);
+          } else if (destination === "community_buy_campaign" && role === "buyer") {
+            router.push("/(buyer)/community-buy");
+          } else if (destination === "community_buy_campaign" && data.audience === "supplier") {
+            router.push("/(supplier)/community-buy-supplier");
+          } else if (destination === "membership" && role === "vendor") {
+            router.push("/(vendor)/subscription-plans");
+          } else if (destination === "referral_rewards" && role === "buyer") {
+            router.push("/(buyer)/referral-program");
+          } else if (destination === "support_case" && role === "buyer") {
+            const supportCampaignId = param("campaignId");
+            router.push(supportCampaignId
+              ? `/(buyer)/community-buy-support-cases?campaignId=${supportCampaignId}`
+              : "/(buyer)/contact-support");
+          } else if (destination === "admin_case" && role === "admin" && data.event === "critical_payment_anomaly") {
+            const anomalyKey = param("anomalyKey");
             router.push(anomalyKey
-              ? `/(admin)/payment-anomalies?anomalyKey=${encodeURIComponent(anomalyKey)}`
+              ? `/(admin)/payment-anomalies?anomalyKey=${anomalyKey}`
               : "/(admin)/payment-anomalies");
           }
-        } else if (
+          // A semantic key is authoritative: when its role or required
+          // resource is missing, do not fall through to an unrelated route.
+          return;
+        }
+
+        if (
           type === "order_status" || type === "new_order" ||
           // P0 fix: these previously had no frontend branch at all (dead
           // taps) — buyer_order_shipped/delivered and vendor_first_order
