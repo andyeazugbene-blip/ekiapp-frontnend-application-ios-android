@@ -277,6 +277,15 @@ function RootLayout() {
             router.push(anomalyKey
               ? `/(admin)/payment-anomalies?anomalyKey=${anomalyKey}`
               : "/(admin)/payment-anomalies");
+          } else if (role === "vendor") {
+            // Semantic destinations are allow-listed above. If a stale or
+            // malformed payload targets another role, keep the tap useful
+            // without sending this account into a protected role's screen.
+            router.push("/(vendor)");
+          } else if (role === "admin") {
+            router.push("/(admin)");
+          } else if (role === "buyer") {
+            router.push("/(buyer)");
           }
           // A semantic key is authoritative: when its role or required
           // resource is missing, do not fall through to an unrelated route.
