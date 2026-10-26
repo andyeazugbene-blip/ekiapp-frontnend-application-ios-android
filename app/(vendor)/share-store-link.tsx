@@ -132,6 +132,18 @@ export default function ShareStoreLinkScreen() {
     [vendor?.storeName, withSource],
   );
 
+  const shareWithNativeSheet = async (source: "instagram" | "more") => {
+    const result = await Share.share({ message: shareMessage(source) });
+    // A dismissed share sheet is not evidence that the vendor shared their
+    // store. Only emit the reminder stop signal after the native API reports
+    // a completed share action; the authenticated backend checks ownership.
+    if (result.action === Share.sharedAction && storeSlug) {
+      void publicStoreService.recordVendorShare(storeSlug, source).catch(() => {
+        // Analytics must not interrupt the native share flow.
+      });
+    }
+  };
+
   const handleCopy = async () => {
     await Clipboard.setStringAsync(withSource("direct"));
     Alert.alert("Copied", "Your store link is ready to send.");
@@ -147,7 +159,7 @@ export default function ShareStoreLinkScreen() {
   };
 
   const handleInstagram = async () => {
-    await Share.share({ message: shareMessage("instagram") });
+    await shareWithNativeSheet("instagram");
   };
 
   const handleSms = async () => {
@@ -161,7 +173,7 @@ export default function ShareStoreLinkScreen() {
   };
 
   const handleMore = async () => {
-    await Share.share({ message: shareMessage("more") });
+    await shareWithNativeSheet("more");
   };
 
   return (

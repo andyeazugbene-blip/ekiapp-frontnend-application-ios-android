@@ -173,11 +173,24 @@ function RootLayout() {
     // and getLastNotificationResponseAsync() (tap that COLD-STARTED the
     // app from fully killed) — addNotificationResponseReceivedListener
     // alone can race a cold start, since the native side may record the
-    // tap before this listener is even attached. router.push to a path
-    // the app is already on is a no-op, so both paths firing for the same
-    // tap is harmless.
-    const handleNotificationTap = (data: Record<string, unknown> | null | undefined) => {
+    // tap before this listener is even attached. Both paths can report the
+    // same response, so handleNotificationTap deduplicates by request and
+    // action identifier before navigating.
+    const handledTapIds = new Set<string>();
+    const handleNotificationTap = (
+      data: Record<string, unknown> | null | undefined,
+      tapId?: string,
+    ) => {
       if (!data) return;
+      if (tapId) {
+        if (handledTapIds.has(tapId)) return;
+        handledTapIds.add(tapId);
+        // Keep the in-memory guard bounded for long-running app sessions.
+        if (handledTapIds.size > 50) {
+          const oldestTapId = handledTapIds.values().next().value;
+          if (oldestTapId) handledTapIds.delete(oldestTapId);
+        }
+      }
       try {
         const router = require("expo-router").router;
         const type = data.type as string | undefined;
@@ -330,7 +343,33 @@ function RootLayout() {
         } else if (typeof type === "string" && type.startsWith("automation_")) {
           const role = useAuthStore.getState().user?.role;
           const campaignId = data.campaignId as string | undefined;
-          if (type === "automation_cart_recovery") {
+          if (type === "automation_registration_reminder" && role === "vendor") {
+            // R01 is sent before a Vendor profile exists, so use the
+            // authenticated vendor's own store-setup flow.
+            router.push(`/(vendor-onboarding)/setup-store`);
+          } else if (type === "automation_first_product_reminder" && role === "vendor") {
+            // R03 has no product id by definition; open the vendor's
+            // create-product screen rather than passing a guessed id.
+            router.push(`/(vendor)/foodstuff-add`);
+          } else if (type === "automation_delivery_setup_reminder" && role === "vendor") {
+            router.push(`/(vendor)/delivery`);
+          } else if (type === "automation_verification_reminder" && role === "vendor") {
+            router.push(`/(vendor-verification)/index`);
+          } else if (type === "automation_low_stock_alert" && role === "vendor") {
+            // The backend payload is a product count, not product ids.
+            // Filter the authenticated vendor's inventory instead of
+            // constructing a detail URL for an unknown product.
+            router.push(`/(vendor)/foodstuff?filter=low_stock`);
+          } else if (type === "automation_first_sale" && role === "vendor") {
+            // There is no dedicated first-sale campaign screen in mobile;
+            // Grow Sales is the existing vendor campaign and promotion hub.
+            router.push(`/(vendor)/grow-sales`);
+          } else if (type === "automation_store_share_reminder" && role === "vendor") {
+            // R10: land on the actual vendor share flow. The screen is
+            // inside the vendor route group and uses the signed-in vendor's
+            // own profile; other roles must not be sent into that group.
+            router.push(`/(vendor)/share-store-link`);
+          } else if (type === "automation_cart_recovery") {
             router.push(`/(buyer)/cart`);
           } else if (type === "automation_review_request") {
             router.push(`/(buyer)/orders`);
@@ -368,6 +407,10 @@ function RootLayout() {
           // a dead tap on a just-shipped, client-approved feature.
           const subscriptionId = data.subscriptionId as string | undefined;
           router.push(subscriptionId ? `/(buyer)/regular-delivery-detail?id=${subscriptionId}` : `/(buyer)/regular-deliveries`);
+        } else if (type === "low_stock") {
+          // Legacy low-stock pushes have no product id either.
+          const role = useAuthStore.getState().user?.role;
+          if (role === "vendor") router.push(`/(vendor)/foodstuff?filter=low_stock`);
         } else if (type === "support_case_response") {
           // NOTIF-08 fix: previously no notification was ever sent for this
           // event at all. No per-case detail screen exists — the real,
@@ -394,7 +437,8 @@ function RootLayout() {
     };
 
     const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
-      handleNotificationTap(response.notification.request.content.data);
+      const tapId = `${response.notification.request.identifier}:${response.actionIdentifier}`;
+      handleNotificationTap(response.notification.request.content.data, tapId);
     });
 
     // Cold start: the app was fully killed and the user tapped a
@@ -404,7 +448,10 @@ function RootLayout() {
     // response before this listener is attached.
     Notifications.getLastNotificationResponseAsync()
       .then(response => {
-        if (response) handleNotificationTap(response.notification.request.content.data);
+        if (response) {
+          const tapId = `${response.notification.request.identifier}:${response.actionIdentifier}`;
+          handleNotificationTap(response.notification.request.content.data, tapId);
+        }
       })
       .catch(() => {});
 

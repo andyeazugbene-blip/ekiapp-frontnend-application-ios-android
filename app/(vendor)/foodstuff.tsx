@@ -1,7 +1,7 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { productService } from "../../services/productService";
 import { vendorService } from "../../services/vendorService";
@@ -33,6 +33,7 @@ const CURRENCY_SYMBOL: Record<string, string> = {
 
 export default function FoodstuffScreen() {
   const router = useRouter();
+  const { filter } = useLocalSearchParams<{ filter?: string | string[] }>();
   // Gate on hasVendor (capability), not role — a buyer+seller dual-capability
   // account (e.g. an admin demo account) stays role="buyer".
   const { vendor } = useVendorProfile();
@@ -44,6 +45,11 @@ export default function FoodstuffScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [readinessMessage, setReadinessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const requestedFilter = Array.isArray(filter) ? filter[0] : filter;
+    if (requestedFilter === "low_stock") setActiveTab("Low Stock");
+  }, [filter]);
 
   const load = useCallback(async () => {
     if (!vendor) return;
