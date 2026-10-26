@@ -264,6 +264,11 @@ function RootLayout() {
             router.push("/(buyer)/community-buy");
           } else if (destination === "community_buy_campaign" && data.audience === "supplier") {
             router.push("/(supplier)/community-buy-supplier");
+          } else if (destination === "membership" && role === "vendor"
+            && (data.type === "payout_action_required" || data.type === "payout_confirmed")) {
+            // The semantic key is shared with Membership alerts, but payout
+            // notices have a real authenticated history screen in the app.
+            router.push("/(vendor)/payout-history");
           } else if (destination === "membership" && role === "vendor") {
             router.push("/(vendor)/subscription-plans");
           } else if (destination === "referral_rewards" && role === "buyer") {
