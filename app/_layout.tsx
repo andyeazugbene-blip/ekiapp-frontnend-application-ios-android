@@ -269,6 +269,11 @@ function RootLayout() {
           } else if (destination === "referral_rewards" && role === "buyer") {
             router.push("/(buyer)/referral-program");
           } else if (destination === "support_case" && role === "buyer") {
+            const disputeId = param("disputeId");
+            if (disputeId) {
+              router.push(`/(buyer)/dispute-detail?disputeId=${disputeId}`);
+              return;
+            }
             const supportConversationId = param("conversationId");
             if (supportConversationId) {
               router.push(`/(buyer)/messages?conversationId=${supportConversationId}`);
@@ -280,6 +285,11 @@ function RootLayout() {
               ? `/(buyer)/community-buy-support-cases?campaignId=${supportCampaignId}${supportCaseId ? `&caseId=${supportCaseId}` : ""}`
               : "/(buyer)/contact-support");
           } else if (destination === "support_case" && role === "vendor") {
+            const disputeId = param("disputeId");
+            if (disputeId) {
+              router.push(`/(vendor)/dispute-detail?disputeId=${disputeId}`);
+              return;
+            }
             // General Eki Support replies use the authenticated messages
             // list; Community Buy cases remain report/recipient scoped.
             const conversationId = param("conversationId");
