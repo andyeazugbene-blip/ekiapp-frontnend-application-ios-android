@@ -38,7 +38,8 @@ function formatDate(value: string): string {
 
 export default function CommunityBuySupportCasesScreen() {
   const router = useRouter();
-  const { campaignId, campaignTitle } = useLocalSearchParams<{ campaignId?: string; campaignTitle?: string }>();
+  const { campaignId, campaignTitle, caseId: routeCaseId } = useLocalSearchParams<{ campaignId?: string; campaignTitle?: string; caseId?: string }>();
+  const caseId = typeof routeCaseId === "string" ? routeCaseId : undefined;
 
   const [cases, setCases] = useState<SupportCase[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,13 +55,18 @@ export default function CommunityBuySupportCasesScreen() {
     setLoading(true);
     setError("");
     try {
-      setCases(await communityBuyService.listMySupportCases());
+      const myCases = await communityBuyService.listMySupportCases();
+      setCases(myCases);
+      // Notification links may name a case that no longer belongs to this
+      // account (or is stale). Expand only a row returned by the authenticated
+      // caller's own-case endpoint; never trust the notification payload alone.
+      if (caseId) setExpandedId(myCases.some((supportCase) => supportCase.id === caseId) ? caseId : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load your support cases.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [caseId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 

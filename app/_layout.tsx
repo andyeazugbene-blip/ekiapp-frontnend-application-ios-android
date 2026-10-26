@@ -10,7 +10,7 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 import { StripeProvider } from "../components/providers/StripeProvider";
 import { useAuthStore } from "../stores/authStore";
 import { resolveBroadcastLink } from "../utils/broadcastLink";
-import { pushTokenService } from "../services/notificationService";
+import { notificationService, pushTokenService } from "../services/notificationService";
 import { initMonitoring, wrapRootComponent } from "../services/monitoring";
 import "../global.css";
 
@@ -203,6 +203,12 @@ function RootLayout() {
           if (oldestTapId) handledTapIds.delete(oldestTapId);
         }
       }
+      // Push payloads carry the persisted inbox row id. Mark it read only
+      // after auth restoration, so the API applies the update to the signed-in
+      // recipient; routing still proceeds if this best-effort update fails.
+      if (typeof data.notificationId === "string") {
+        void notificationService.markAsRead(data.notificationId).catch(() => undefined);
+      }
       try {
         const router = require("expo-router").router;
         const type = data.type as string | undefined;
@@ -264,8 +270,9 @@ function RootLayout() {
             router.push("/(buyer)/referral-program");
           } else if (destination === "support_case" && role === "buyer") {
             const supportCampaignId = param("campaignId");
+            const supportCaseId = param("caseId");
             router.push(supportCampaignId
-              ? `/(buyer)/community-buy-support-cases?campaignId=${supportCampaignId}`
+              ? `/(buyer)/community-buy-support-cases?campaignId=${supportCampaignId}${supportCaseId ? `&caseId=${supportCaseId}` : ""}`
               : "/(buyer)/contact-support");
           } else if (destination === "support_case" && role === "vendor") {
             // The app has a vendor support entry point, but no generic case
@@ -516,7 +523,8 @@ function RootLayout() {
           // navigates here with campaignId the same way for a self-service
           // "report issue" tap).
           const campaignId = data.campaignId as string | undefined;
-          router.push(campaignId ? `/(buyer)/community-buy-support-cases?campaignId=${campaignId}` : `/(buyer)/community-buy-support-cases`);
+          const caseId = data.caseId as string | undefined;
+          router.push(`/(buyer)/community-buy-support-cases${campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : ""}${caseId ? `${campaignId ? "&" : "?"}caseId=${encodeURIComponent(caseId)}` : ""}`);
         } else if (type === "vendor_verification_approved") {
           // P0 fix: previously unrecognized — dead tap. Static destination,
           // no id needed (a vendor has exactly one verification status).
