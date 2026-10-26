@@ -177,11 +177,23 @@ function RootLayout() {
     // same response, so handleNotificationTap deduplicates by request and
     // action identifier before navigating.
     const handledTapIds = new Set<string>();
+    const pendingTapResponses: Array<{ data: Record<string, unknown>; tapId: string }> = [];
     const handleNotificationTap = (
       data: Record<string, unknown> | null | undefined,
       tapId?: string,
     ) => {
       if (!data) return;
+      const auth = useAuthStore.getState();
+      // Cold-start responses can arrive before checkAuth() restores the
+      // session. Hold them until an authenticated role is available, or a
+      // valid role-based destination would be marked handled and dropped.
+      if (auth.isInitializing || !auth.isAuthenticated || !auth.user) {
+        if (tapId && !pendingTapResponses.some((pending) => pending.tapId === tapId)) {
+          pendingTapResponses.push({ data, tapId });
+          if (pendingTapResponses.length > 10) pendingTapResponses.shift();
+        }
+        return;
+      }
       if (tapId) {
         if (handledTapIds.has(tapId)) return;
         handledTapIds.add(tapId);
@@ -512,6 +524,12 @@ function RootLayout() {
       }
     };
 
+    const authSub = useAuthStore.subscribe((state) => {
+      if (state.isInitializing || !state.isAuthenticated || !state.user || pendingTapResponses.length === 0) return;
+      const pending = pendingTapResponses.splice(0);
+      for (const response of pending) handleNotificationTap(response.data, response.tapId);
+    });
+
     const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
       const tapId = `${response.notification.request.identifier}:${response.actionIdentifier}`;
       handleNotificationTap(response.notification.request.content.data, tapId);
@@ -534,6 +552,7 @@ function RootLayout() {
     return () => {
       receivedSub.remove();
       responseSub.remove();
+      authSub();
     };
   }, []);
 
