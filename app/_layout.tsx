@@ -269,22 +269,23 @@ function RootLayout() {
           } else if (destination === "referral_rewards" && role === "buyer") {
             router.push("/(buyer)/referral-program");
           } else if (destination === "support_case" && role === "buyer") {
+            const supportConversationId = param("conversationId");
+            if (supportConversationId) {
+              router.push(`/(buyer)/messages?conversationId=${supportConversationId}`);
+              return;
+            }
             const supportCampaignId = param("campaignId");
             const supportCaseId = param("caseId");
             router.push(supportCampaignId
               ? `/(buyer)/community-buy-support-cases?campaignId=${supportCampaignId}${supportCaseId ? `&caseId=${supportCaseId}` : ""}`
               : "/(buyer)/contact-support");
           } else if (destination === "support_case" && role === "vendor") {
-            // The app has a vendor support entry point, but no generic case
-            // detail API/screen. Keep this role-safe fallback rather than
-            // attempting to trust a caseId the vendor UI cannot authorize.
-            router.push("/(vendor)/contact-support");
-          } else if (destination === "support_conversation" && (role === "buyer" || role === "vendor")) {
-            // General Eki Support thread. The authenticated messages list
-            // re-loads only this user's conversations before opening the id.
+            // General Eki Support replies use the authenticated messages
+            // list; Community Buy cases remain report/recipient scoped.
             const conversationId = param("conversationId");
-            const base = role === "vendor" ? "/(vendor)/messages" : "/(buyer)/messages";
-            router.push(conversationId ? `${base}?conversationId=${conversationId}` : base);
+            router.push(conversationId
+              ? `/(vendor)/messages?conversationId=${conversationId}`
+              : "/(vendor)/contact-support");
           } else if (destination === "admin_case" && role === "admin" && data.event === "critical_payment_anomaly") {
             const anomalyKey = param("anomalyKey");
             router.push(anomalyKey
