@@ -279,6 +279,12 @@ function RootLayout() {
             // detail API/screen. Keep this role-safe fallback rather than
             // attempting to trust a caseId the vendor UI cannot authorize.
             router.push("/(vendor)/contact-support");
+          } else if (destination === "support_conversation" && (role === "buyer" || role === "vendor")) {
+            // General Eki Support thread. The authenticated messages list
+            // re-loads only this user's conversations before opening the id.
+            const conversationId = param("conversationId");
+            const base = role === "vendor" ? "/(vendor)/messages" : "/(buyer)/messages";
+            router.push(conversationId ? `${base}?conversationId=${conversationId}` : base);
           } else if (destination === "admin_case" && role === "admin" && data.event === "critical_payment_anomaly") {
             const anomalyKey = param("anomalyKey");
             router.push(anomalyKey
