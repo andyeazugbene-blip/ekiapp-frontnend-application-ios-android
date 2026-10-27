@@ -10,7 +10,7 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 import { StripeProvider } from "../components/providers/StripeProvider";
 import { useAuthStore } from "../stores/authStore";
 import { resolveBroadcastLink } from "../utils/broadcastLink";
-import { pushTokenService } from "../services/notificationService";
+import { notificationService, pushTokenService } from "../services/notificationService";
 import { initMonitoring, wrapRootComponent } from "../services/monitoring";
 import "../global.css";
 
@@ -177,11 +177,23 @@ function RootLayout() {
     // same response, so handleNotificationTap deduplicates by request and
     // action identifier before navigating.
     const handledTapIds = new Set<string>();
+    const pendingTapResponses: Array<{ data: Record<string, unknown>; tapId: string }> = [];
     const handleNotificationTap = (
       data: Record<string, unknown> | null | undefined,
       tapId?: string,
     ) => {
       if (!data) return;
+      const auth = useAuthStore.getState();
+      // Cold-start responses can arrive before checkAuth() restores the
+      // session. Hold them until an authenticated role is available, or a
+      // valid role-based destination would be marked handled and dropped.
+      if (auth.isInitializing || !auth.isAuthenticated || !auth.user) {
+        if (tapId && !pendingTapResponses.some((pending) => pending.tapId === tapId)) {
+          pendingTapResponses.push({ data, tapId });
+          if (pendingTapResponses.length > 10) pendingTapResponses.shift();
+        }
+        return;
+      }
       if (tapId) {
         if (handledTapIds.has(tapId)) return;
         handledTapIds.add(tapId);
@@ -191,9 +203,124 @@ function RootLayout() {
           if (oldestTapId) handledTapIds.delete(oldestTapId);
         }
       }
+      // Push payloads carry the persisted inbox row id. Mark it read only
+      // after auth restoration, so the API applies the update to the signed-in
+      // recipient; routing still proceeds if this best-effort update fails.
+      if (typeof data.notificationId === "string") {
+        void notificationService.markAsRead(data.notificationId).catch(() => undefined);
+      }
       try {
         const router = require("expo-router").router;
         const type = data.type as string | undefined;
+        const destination = data.destination as string | undefined;
+
+        if (destination) {
+          const role = useAuthStore.getState().user?.role;
+          const param = (...keys: string[]) => {
+            for (const key of keys) {
+              const value = data[key];
+              if (typeof value === "string" && value.trim()) return encodeURIComponent(value);
+            }
+            return undefined;
+          };
+          const productId = param("productId", "id");
+          const orderId = param("orderId", "id");
+          const campaignId = param("campaignId", "id");
+          const subscriptionId = param("subscriptionId", "foodstuffSubscriptionId", "id");
+
+          if (destination === "store_setup" && role === "vendor") {
+            router.push("/(vendor-onboarding)/setup-store");
+          } else if (destination === "foodstuff_editor" && role === "vendor") {
+            router.push(productId ? `/(vendor)/foodstuff-edit?id=${productId}` : "/(vendor)/foodstuff-add");
+          } else if (destination === "verification" && role === "vendor") {
+            router.push("/(vendor-verification)/index");
+          } else if (destination === "inventory_detail" && role === "vendor") {
+            router.push(productId ? `/(vendor)/foodstuff-detail?id=${productId}` : "/(vendor)/foodstuff?filter=low_stock");
+          } else if (destination === "order_detail" && orderId) {
+            if (role === "admin") router.push(`/(admin)/order-detail?id=${orderId}`);
+            else if (role === "vendor") router.push(`/(vendor)/order-detail?id=${orderId}`);
+            else if (role === "buyer") router.push(`/(buyer)/track-order?id=${orderId}`);
+          } else if (destination === "order_detail") {
+            if (role === "admin") router.push("/(admin)/orders");
+            else if (role === "vendor") router.push("/(vendor)/orders");
+            else if (role === "buyer") router.push("/(buyer)/orders");
+          } else if (destination === "store_share" && role === "vendor") {
+            router.push("/(vendor)/share-store-link");
+          } else if (destination === "first_sale" && role === "vendor") {
+            router.push("/(vendor)/grow-sales");
+          } else if (destination === "automation_detail" && role === "vendor") {
+            const automationType = param("automationType", "type");
+            router.push(automationType ? `/(vendor)/automation-detail?type=${automationType}` : "/(vendor)/automation-center");
+          } else if (destination === "checkout" && role === "buyer") {
+            router.push("/(buyer)/checkout");
+          } else if (destination === "foodstuff_subscription" && role === "buyer") {
+            router.push(subscriptionId ? `/(buyer)/regular-delivery-detail?id=${subscriptionId}` : "/(buyer)/regular-deliveries");
+          } else if (destination === "community_buy_campaign" && campaignId) {
+            const audience = data.audience;
+            if (audience === "supplier") router.push(`/(supplier)/community-buy-supplier-fulfilment?id=${campaignId}`);
+            else if (role === "buyer" && audience === "organiser") router.push(`/(buyer)/community-buy-organiser-campaign?id=${campaignId}`);
+            else if (role === "buyer") router.push(`/(buyer)/community-buy-campaign?id=${campaignId}`);
+          } else if (destination === "community_buy_campaign" && role === "buyer") {
+            router.push("/(buyer)/community-buy");
+          } else if (destination === "community_buy_campaign" && data.audience === "supplier") {
+            router.push("/(supplier)/community-buy-supplier");
+          } else if (destination === "membership" && role === "vendor"
+            && (data.type === "payout_action_required" || data.type === "payout_confirmed")) {
+            // The semantic key is shared with Membership alerts, but payout
+            // notices have a real authenticated history screen in the app.
+            router.push("/(vendor)/payout-history");
+          } else if (destination === "membership" && role === "vendor") {
+            router.push("/(vendor)/subscription-plans");
+          } else if (destination === "referral_rewards" && role === "buyer") {
+            router.push("/(buyer)/referral-program");
+          } else if (destination === "support_case" && role === "buyer") {
+            const disputeId = param("disputeId");
+            if (disputeId) {
+              router.push(`/(buyer)/dispute-detail?disputeId=${disputeId}`);
+              return;
+            }
+            const supportConversationId = param("conversationId");
+            if (supportConversationId) {
+              router.push(`/(buyer)/messages?conversationId=${supportConversationId}`);
+              return;
+            }
+            const supportCampaignId = param("campaignId");
+            const supportCaseId = param("caseId");
+            router.push(supportCampaignId
+              ? `/(buyer)/community-buy-support-cases?campaignId=${supportCampaignId}${supportCaseId ? `&caseId=${supportCaseId}` : ""}`
+              : "/(buyer)/contact-support");
+          } else if (destination === "support_case" && role === "vendor") {
+            const disputeId = param("disputeId");
+            if (disputeId) {
+              router.push(`/(vendor)/dispute-detail?disputeId=${disputeId}`);
+              return;
+            }
+            // General Eki Support replies use the authenticated messages
+            // list; Community Buy cases remain report/recipient scoped.
+            const conversationId = param("conversationId");
+            router.push(conversationId
+              ? `/(vendor)/messages?conversationId=${conversationId}`
+              : "/(vendor)/contact-support");
+          } else if (destination === "admin_case" && role === "admin"
+            && (data.event === "critical_payment_anomaly" || data.event === "critical_incident")) {
+            const anomalyKey = param("anomalyKey");
+            router.push(anomalyKey
+              ? `/(admin)/payment-anomalies?anomalyKey=${anomalyKey}`
+              : "/(admin)/payment-anomalies");
+          } else if (role === "vendor") {
+            // Semantic destinations are allow-listed above. If a stale or
+            // malformed payload targets another role, keep the tap useful
+            // without sending this account into a protected role's screen.
+            router.push("/(vendor)");
+          } else if (role === "admin") {
+            router.push("/(admin)");
+          } else if (role === "buyer") {
+            router.push("/(buyer)");
+          }
+          // A semantic key is authoritative: when its role or required
+          // resource is missing, do not fall through to an unrelated route.
+          return;
+        }
 
         if (
           type === "order_status" || type === "new_order" ||
@@ -419,7 +546,8 @@ function RootLayout() {
           // navigates here with campaignId the same way for a self-service
           // "report issue" tap).
           const campaignId = data.campaignId as string | undefined;
-          router.push(campaignId ? `/(buyer)/community-buy-support-cases?campaignId=${campaignId}` : `/(buyer)/community-buy-support-cases`);
+          const caseId = data.caseId as string | undefined;
+          router.push(`/(buyer)/community-buy-support-cases${campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : ""}${caseId ? `${campaignId ? "&" : "?"}caseId=${encodeURIComponent(caseId)}` : ""}`);
         } else if (type === "vendor_verification_approved") {
           // P0 fix: previously unrecognized — dead tap. Static destination,
           // no id needed (a vendor has exactly one verification status).
@@ -435,6 +563,12 @@ function RootLayout() {
         // Router not ready yet — ignore
       }
     };
+
+    const authSub = useAuthStore.subscribe((state) => {
+      if (state.isInitializing || !state.isAuthenticated || !state.user || pendingTapResponses.length === 0) return;
+      const pending = pendingTapResponses.splice(0);
+      for (const response of pending) handleNotificationTap(response.data, response.tapId);
+    });
 
     const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
       const tapId = `${response.notification.request.identifier}:${response.actionIdentifier}`;
@@ -458,6 +592,7 @@ function RootLayout() {
     return () => {
       receivedSub.remove();
       responseSub.remove();
+      authSub();
     };
   }, []);
 
