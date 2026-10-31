@@ -57,6 +57,8 @@ export default function FoodstuffAddScreen() {
   const [costPrice, setCostPrice] = useState("");
   const [weight, setWeight] = useState("");
   const [unit, setUnit] = useState("kg");
+  const [customUnitText, setCustomUnitText] = useState("");
+  const [showCustomUnitInput, setShowCustomUnitInput] = useState(false);
   const [stock, setStock] = useState("");
   const [isPublished, setIsPublished] = useState(false);
   const [showUnits, setShowUnits] = useState(false);
@@ -426,10 +428,37 @@ export default function FoodstuffAddScreen() {
             {showUnits && (
               <View style={styles.optionsList}>
                 {UNITS.map((item) => (
-                  <TouchableOpacity key={item} onPress={() => { setUnit(item); setShowUnits(false); }} style={styles.optionItem}>
+                  <TouchableOpacity key={item} onPress={() => { setUnit(item); setShowUnits(false); setShowCustomUnitInput(false); }} style={styles.optionItem}>
                     <Text style={styles.optionText}>{item}</Text>
                   </TouchableOpacity>
                 ))}
+                {!showCustomUnitInput ? (
+                  <TouchableOpacity
+                    onPress={() => { setCustomUnitText(UNITS.includes(unit) ? "" : unit); setShowCustomUnitInput(true); }}
+                    style={styles.optionItem}
+                  >
+                    <Text style={styles.optionText}>Other (type your own)</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.customUnitRow}>
+                    <TextInput
+                      value={customUnitText}
+                      onChangeText={setCustomUnitText}
+                      placeholder="e.g. crate, sack, dozen"
+                      placeholderTextColor="#858585"
+                      autoFocus
+                      maxLength={20}
+                      style={[styles.input, { flex: 1 }]}
+                    />
+                    <TouchableOpacity
+                      disabled={customUnitText.trim().length === 0}
+                      onPress={() => { setUnit(customUnitText.trim()); setShowUnits(false); setShowCustomUnitInput(false); }}
+                      style={[styles.customUnitDoneBtn, customUnitText.trim().length === 0 && { opacity: 0.4 }]}
+                    >
+                      <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -645,6 +674,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Outfit-Regular",
     color: "#282828",
+  },
+  customUnitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  customUnitDoneBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: "#076B51",
+    alignItems: "center",
+    justifyContent: "center",
   },
   optionItemActive: {
     backgroundColor: "#E8F5EE",
