@@ -53,6 +53,8 @@ export default function FoodstuffEditScreen() {
   const [costPrice, setCostPrice] = useState(String(selectedProduct?.costPrice ?? ""));
   const [weight, setWeight] = useState(String(selectedProduct?.weight ?? ""));
   const [unit, setUnit] = useState(selectedProduct?.unit ?? "kg");
+  const [customUnitText, setCustomUnitText] = useState("");
+  const [showCustomUnitInput, setShowCustomUnitInput] = useState(false);
   const [stock, setStock] = useState(String(selectedProduct?.stock ?? ""));
   const [togglingFlag, setTogglingFlag] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(selectedProduct?.images?.[0] ?? null);
@@ -510,10 +512,37 @@ export default function FoodstuffEditScreen() {
             {showUnits && (
               <View style={styles.optionsList}>
                 {UNITS.map((item) => (
-                  <TouchableOpacity key={item} onPress={() => { setUnit(item); setShowUnits(false); }} style={styles.optionItem}>
+                  <TouchableOpacity key={item} onPress={() => { setUnit(item); setShowUnits(false); setShowCustomUnitInput(false); }} style={styles.optionItem}>
                     <Text style={styles.optionText}>{item}</Text>
                   </TouchableOpacity>
                 ))}
+                {!showCustomUnitInput ? (
+                  <TouchableOpacity
+                    onPress={() => { setCustomUnitText(UNITS.includes(unit) ? "" : unit); setShowCustomUnitInput(true); }}
+                    style={styles.optionItem}
+                  >
+                    <Text style={styles.optionText}>Other (type your own)</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.customUnitRow}>
+                    <TextInput
+                      value={customUnitText}
+                      onChangeText={setCustomUnitText}
+                      placeholder="e.g. crate, sack, dozen"
+                      placeholderTextColor="#858585"
+                      autoFocus
+                      maxLength={20}
+                      style={[styles.input, { flex: 1 }]}
+                    />
+                    <TouchableOpacity
+                      disabled={customUnitText.trim().length === 0}
+                      onPress={() => { setUnit(customUnitText.trim()); setShowUnits(false); setShowCustomUnitInput(false); }}
+                      style={[styles.customUnitDoneBtn, customUnitText.trim().length === 0 && { opacity: 0.4 }]}
+                    >
+                      <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
 
@@ -637,6 +666,8 @@ const styles = StyleSheet.create({
   optionsList: { gap: 6, marginBottom: 16 },
   optionItem: { backgroundColor: "#F4F4F4", borderRadius: 10, height: 44, paddingHorizontal: 15, justifyContent: "center" },
   optionText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
+  customUnitRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  customUnitDoneBtn: { width: 44, height: 44, borderRadius: 10, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
   optionItemActive: { backgroundColor: "#E8F5EE", borderWidth: 1, borderColor: "#076B51" },
   optionTextActive: { color: "#076B51", fontFamily: "Outfit-Medium" },
   currencyInputRow: { flexDirection: "row", alignItems: "center", gap: 8 },

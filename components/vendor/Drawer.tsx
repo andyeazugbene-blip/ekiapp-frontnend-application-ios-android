@@ -15,7 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/authStore";
-import { VendorProfile } from "../../types/auth";
+import { LastDestination, VendorProfile } from "../../types/auth";
 import { TAB_BAR_RESERVED_SPACE } from "../layout/tabBarConstants";
 
 interface MenuEntry {
@@ -119,6 +119,15 @@ export function VendorDrawer({ visible, onClose }: DrawerProps) {
     router.replace("/(auth)/role-select" as any);
   };
 
+  // Mirrors the buyer side's "Switch to Vendor" entry in (buyer)/profile.tsx —
+  // every Eki account is universal, so a vendor can always switch back to
+  // their buyer view. Pure navigation + preference update, no backend call.
+  const handleSwitchToBuyer = () => {
+    onClose();
+    useAuthStore.getState().setLastDestination("buy" as LastDestination);
+    setTimeout(() => router.replace("/(buyer)" as any), 180);
+  };
+
   const matchedRoute = MENU_ITEMS.find((m) => {
     if (m.route === "/(vendor)") {
       return pathname === "/" || pathname === "/(vendor)" || pathname === "/vendor";
@@ -198,8 +207,17 @@ export function VendorDrawer({ visible, onClose }: DrawerProps) {
               })}
             </View>
 
-            {/* ── Logout (extra spacing above) ───────────────────────────── */}
+            {/* ── Switch to Buyer + Logout (extra spacing above) ──────────── */}
             <View style={styles.logoutWrap}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.78}
+                onPress={handleSwitchToBuyer}
+                style={[styles.menuItem, { marginBottom: 11 }]}
+              >
+                <Ionicons name="repeat-outline" size={21} color="#FFFFFF" />
+                <Text style={styles.menuLabel}>Switch to Buyer</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 accessibilityRole="button"
                 activeOpacity={0.78}

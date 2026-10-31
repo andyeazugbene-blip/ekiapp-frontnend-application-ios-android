@@ -34,7 +34,10 @@ function isoString(v: Date | string | undefined | null): string {
  * delivery-fee math), but the vendor types the number in whatever unit
  * they picked. Real mass units convert properly; count/volume units
  * (pack/bunch/piece/litre/ml) have no real grams equivalent, so they
- * pass through 1:1, same as before this unit was tracked at all.
+ * pass through 1:1, same as before this unit was tracked at all. A
+ * vendor-typed custom unit (e.g. "crate") is unknown by definition, so it
+ * must also pass through 1:1 — falling back to the kg factor here would
+ * silently multiply a custom quantity by 1000.
  */
 const WEIGHT_UNIT_TO_GRAMS: Record<string, number> = {
   kg: 1000,
@@ -49,12 +52,12 @@ const WEIGHT_UNIT_TO_GRAMS: Record<string, number> = {
 };
 
 function gramsToDisplayWeight(grams: number, unit: string | undefined): number {
-  const factor = WEIGHT_UNIT_TO_GRAMS[unit ?? "kg"] ?? 1000;
+  const factor = WEIGHT_UNIT_TO_GRAMS[unit ?? "kg"] ?? 1;
   return grams / factor;
 }
 
 function displayWeightToGrams(weight: number, unit: string | undefined): number {
-  const factor = WEIGHT_UNIT_TO_GRAMS[unit ?? "kg"] ?? 1000;
+  const factor = WEIGHT_UNIT_TO_GRAMS[unit ?? "kg"] ?? 1;
   return Math.round(weight * factor);
 }
 
