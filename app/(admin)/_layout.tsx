@@ -111,6 +111,7 @@ export default function AdminLayout() {
       <Tabs.Screen name="message-chat" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="order-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="dispute-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="payment-anomalies" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>
   );
 }
