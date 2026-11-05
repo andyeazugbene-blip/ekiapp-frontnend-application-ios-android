@@ -555,6 +555,14 @@ export default function VendorCommunityBuySupplierScreen() {
               ))}
             </ScrollView>
             {section === "home" ? (
+              <TouchableOpacity onPress={() => router.push("/(supplier)/bulk-offers" as any)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Supply bulk orders">
+                <FloatingCard style={{ gap: 4 }}>
+                  <Text style={styles.tileCount}>Supply bulk orders</Text>
+                  <Text style={styles.tileLabel}>Publish a bulk offer that organisers can build a Community Buy on.</Text>
+                </FloatingCard>
+              </TouchableOpacity>
+            ) : null}
+            {section === "home" ? (
               <View style={styles.tileRow}>
                 {homeTiles.map((tile) => (
                   <TouchableOpacity key={tile.key} onPress={() => setSection(tile.key)} activeOpacity={0.85} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`${tile.label}: ${tile.count}`}>

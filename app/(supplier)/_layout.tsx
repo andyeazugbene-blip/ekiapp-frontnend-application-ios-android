@@ -38,6 +38,7 @@ export default function SupplierLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="community-buy-supplier" />
+      <Stack.Screen name="bulk-offers" />
       <Stack.Screen name="community-buy-supplier-fulfilment" />
     </Stack>
   );

@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, Alert, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -48,6 +49,10 @@ function RootLayout() {
     "JosefinSans-Medium": require("../assets/fonts/JosefinSans-Medium.ttf"),
     "JosefinSans-Regular": require("../assets/fonts/JosefinSans-Regular.ttf"),
     "JosefinSans-SemiBold": require("../assets/fonts/JosefinSans-SemiBold.ttf"),
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
     "Manrope-Bold": require("../assets/fonts/Manrope-Bold.ttf"),
     "Manrope-ExtraBold": require("../assets/fonts/Manrope-ExtraBold.ttf"),
     "Manrope-Medium": require("../assets/fonts/Manrope-Medium.ttf"),

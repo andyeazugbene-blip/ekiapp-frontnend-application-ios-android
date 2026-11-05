@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, Touc
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
+import { startCommunityBuy } from "../../utils/startCommunityBuy";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { useFocusRefresh } from "../../hooks/useFocusRefresh";
@@ -226,7 +227,7 @@ export default function CommunityBuyDiscoveryScreen() {
               <Ionicons name="receipt-outline" size={18} color="#FFFFFF" />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => router.push("/(buyer)/community-buy-organiser-campaign" as any)}
+              onPress={() => void startCommunityBuy(router)}
               activeOpacity={0.85}
               style={styles.headerIconBtn}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -402,7 +403,7 @@ export default function CommunityBuyDiscoveryScreen() {
                   title={activeTab === "organised" ? "No campaigns yet" : "No drafts yet"}
                   body={activeTab === "organised" ? "Campaigns you're organising and have submitted will show up here." : "Start a campaign — it saves as a draft here until you're ready to submit it."}
                 />
-                <PrimaryButton label="Start a Community Buy" icon="add" onPress={() => router.push("/(buyer)/community-buy-organiser-campaign" as any)} style={{ marginTop: 12 }} />
+                <PrimaryButton label="Start a Community Buy" icon="add" onPress={() => void startCommunityBuy(router)} style={{ marginTop: 12 }} />
                 <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy-organiser" as any)} activeOpacity={0.8} style={{ alignSelf: "center", paddingVertical: 12 }} accessibilityRole="button" accessibilityLabel="Payouts and organiser settings">
                   <Text style={{ fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" }}>Payouts and organiser settings</Text>
                 </TouchableOpacity>

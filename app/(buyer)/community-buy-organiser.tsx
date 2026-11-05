@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
+import { startCommunityBuy } from "../../utils/startCommunityBuy";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import {
@@ -84,7 +85,7 @@ export default function CommunityBuyOrganiserScreen() {
     }
   };
 
-  const startCampaign = () => router.push("/(buyer)/community-buy-organiser-campaign" as any);
+  const startCampaign = () => void startCommunityBuy(router);
 
   return (
     <View style={premiumStyles.page}>
