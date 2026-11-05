@@ -82,19 +82,6 @@ function ProductDetail() {
       },
       async (reason) => setProduct(await productsAPI.restore(product.id, reason)),
     );
-  const deleteProduct = () =>
-    confirm.ask(
-      {
-        title: `Delete "${product.title}"?`,
-        description: "This permanently removes the listing — unlike Unpublish, the record is NOT kept and this cannot be undone. Only possible when the product has no order or subscription history; if it does, you'll get a clear error and should use Unpublish instead.",
-        confirmLabel: "Delete permanently",
-        reasonLabel: "Reason (recorded in the audit log before the record is removed)",
-      },
-      async (reason) => {
-        await productsAPI.deleteProduct(product.id, reason);
-        router.push("/products");
-      },
-    );
 
   return (
     <div className="space-y-5">
@@ -107,7 +94,6 @@ function ProductDetail() {
             {product.publicStoreUrl && product.status === "ACTIVE" ? <ExternalLink href={product.publicStoreUrl}>View store in live app</ExternalLink> : null}
             {canModerate && product.status === "ACTIVE" ? <Button variant="danger" onClick={unpublish}>Unpublish</Button> : null}
             {canModerate && product.status !== "ACTIVE" ? <Button onClick={restore}>{product.adminUnpublishedAt ? "Restore" : "Publish"}</Button> : null}
-            {canModerate && product.orderItems.length === 0 ? <Button variant="danger" onClick={deleteProduct}>Delete</Button> : null}
           </>
         }
       />

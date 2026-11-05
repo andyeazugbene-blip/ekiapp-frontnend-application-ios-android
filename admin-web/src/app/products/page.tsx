@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
-import { DataTable, FilterSelect, Pagination, SearchInput, StatusTabs, formatDate, formatMinor, useConfirm, type Column } from "@/components/AdminKit";
+import { DataTable, FilterSelect, Pagination, SearchInput, StatusTabs, formatDate, formatMinor, type Column } from "@/components/AdminKit";
 import { NoAccess } from "@/components/PageStates";
 import { APIError } from "@/lib/api";
 import { usePermissions } from "@/lib/hooks/usePermissions";
@@ -41,7 +41,6 @@ function ProductsInner() {
   const pathname = usePathname();
   const params = useSearchParams();
   const perms = usePermissions();
-  const confirm = useConfirm();
   const { selectedCurrency } = useAdminDisplayCurrency("EUR");
 
   const q = params.get("q") ?? "";
@@ -75,21 +74,6 @@ function ProductsInner() {
   useEffect(() => { if (perms.loading || perms.has("products.read")) void load(); }, [load, perms]);
 
   if (!perms.loading && !perms.has("products.read")) return <NoAccess what="products" />;
-  const canModerate = perms.has("products.mutate");
-
-  const deleteProduct = (p: AdminProductRow) =>
-    confirm.ask(
-      {
-        title: `Delete "${p.title}"?`,
-        description: "This permanently removes the listing — unlike Unpublish, the record is NOT kept and this cannot be undone. Only possible when the product has no order or subscription history; if it does, you'll get a clear error and should use Unpublish on the product page instead.",
-        confirmLabel: "Delete permanently",
-        reasonLabel: "Reason (recorded in the audit log before the record is removed)",
-      },
-      async (reason) => {
-        await productsAPI.deleteProduct(p.id, reason);
-        await load();
-      },
-    );
 
   const columns: Column<AdminProductRow>[] = [
     {
@@ -138,7 +122,6 @@ function ProductsInner() {
       render: (p) => (
         <div onClick={(e) => e.stopPropagation()} className="flex justify-end gap-2">
           <Button variant="ghost" className="h-9 px-3" onClick={() => router.push(`/products/${p.id}`)}>View</Button>
-          {canModerate ? <Button variant="danger" className="h-9 px-3" onClick={() => deleteProduct(p)}>Delete</Button> : null}
         </div>
       ),
     },
@@ -182,7 +165,6 @@ function ProductsInner() {
           </>
         )}
       </Card>
-      {confirm.dialog}
     </div>
   );
 }
