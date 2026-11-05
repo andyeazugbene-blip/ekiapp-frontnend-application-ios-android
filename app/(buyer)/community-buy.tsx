@@ -82,6 +82,11 @@ export default function CommunityBuyDiscoveryScreen() {
   // description/collectionCity for it.
   const [searchQuery, setSearchQuery] = useState("");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  // Only true once a market's Community Buys really do come from verified suppliers' offers.
+  const [offersOn, setOffersOn] = useState(false);
+  useEffect(() => {
+    communityBuyService.getMarketConfig("GB").then((config) => setOffersOn(config.communityBuyOffersRequired === true)).catch(() => {});
+  }, []);
   const [discoverLoading, setDiscoverLoading] = useState(true);
   const [discoverError, setDiscoverError] = useState("");
   const [discoverNeedsCountry, setDiscoverNeedsCountry] = useState(false);
@@ -209,7 +214,7 @@ export default function CommunityBuyDiscoveryScreen() {
     <View style={premiumStyles.page}>
       <PremiumHeader
         title={activeTab === "discover" ? "Explore Community Buys" : "Community Buy"}
-        subtitle={activeTab === "discover" ? "Find campaigns in your area." : "Bulk-buy together, unlock better prices"}
+        subtitle={offersOn ? "Buy together in bulk from verified suppliers." : activeTab === "discover" ? "Find campaigns in your area." : "Bulk-buy together, unlock better prices"}
         onBack={() => goBackOrReplace(router, "/(buyer)/profile" as any)}
         right={
           <View style={{ flexDirection: "row", gap: 8 }}>

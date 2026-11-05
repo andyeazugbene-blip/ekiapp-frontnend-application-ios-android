@@ -354,7 +354,7 @@ export default function ActivationScreen() {
 
             <View style={styles.infoNote}>
               <Text style={styles.infoNoteText}>
-                Orders placed on Eki are easier to track{"\n"}and protected for both you and your buyer
+                Orders placed on Eki are easier to track{"\n"}and easier to sort out if something goes wrong
               </Text>
             </View>
 

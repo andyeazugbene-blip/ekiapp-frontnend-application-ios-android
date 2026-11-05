@@ -80,7 +80,7 @@ export default function VendorMarketsScreen() {
     }
     Alert.alert(
       `Remove ${market.countryName}?`,
-      "Your store will no longer be eligible for Foodstuffs Subscription or Community Buy in this market.",
+      "Your store will no longer be eligible for Foodstuff Subscription or Community Buy in this market.",
       [
         { text: "Cancel", style: "cancel" },
         {

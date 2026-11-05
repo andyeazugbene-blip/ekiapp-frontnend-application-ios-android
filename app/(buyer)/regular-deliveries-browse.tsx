@@ -46,7 +46,7 @@ export default function RegularDeliveriesBrowseScreen() {
       setMarkets(marketList.filter((m) => m.regularDeliveriesEnabled));
       setOffers(offerList);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load Foodstuffs Subscription offers.");
+      setError(err instanceof Error ? err.message : "Could not load Foodstuff Subscription offers.");
     } finally {
       setLoading(false);
     }
@@ -57,7 +57,7 @@ export default function RegularDeliveriesBrowseScreen() {
   return (
     <View style={premiumStyles.page}>
       <PremiumHeader
-        title="Browse Foodstuffs Subscriptions"
+        title="Browse Foodstuff Subscriptions"
         subtitle="Recurring foodstuff orders from local vendors"
         onBack={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)}
       >
@@ -92,8 +92,8 @@ export default function RegularDeliveriesBrowseScreen() {
             <FloatingCard>
               <EmptyState
                 icon="repeat-outline"
-                title="No Foodstuffs Subscription offers right now"
-                body={countryFilter ? "No vendors in this market offer Foodstuffs Subscription yet." : "Check back soon as more vendors add recurring offers."}
+                title="No Foodstuff Subscription offers right now"
+                body={countryFilter ? "No vendors in this market offer Foodstuff Subscription yet." : "Check back soon as more vendors add recurring offers."}
               />
             </FloatingCard>
           </View>

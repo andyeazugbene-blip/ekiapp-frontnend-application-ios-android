@@ -631,7 +631,7 @@ export default function VendorDashboardScreen() {
               {regularDeliveriesEnabled && (
                 <ToolCard
                   icon="repeat-outline"
-                  label="Foodstuffs Subscription"
+                  label="Foodstuff Subscription"
                   badge={pendingRenewals.length > 0 ? pendingRenewals.length : undefined}
                   filled
                   onPress={() => navigate("/(vendor)/regular-deliveries")}

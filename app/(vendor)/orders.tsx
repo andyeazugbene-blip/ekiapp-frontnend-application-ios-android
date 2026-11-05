@@ -176,7 +176,7 @@ export default function OrdersScreen() {
                 </View>
 
                 {isEscrowOrder ? (
-                  <Text style={styles.escrowNote}>Payment is protected until delivery is confirmed or support resolves a case.</Text>
+                  <Text style={styles.escrowNote}>You're paid after delivery is confirmed or support resolves a case.</Text>
                 ) : null}
 
                 <TouchableOpacity

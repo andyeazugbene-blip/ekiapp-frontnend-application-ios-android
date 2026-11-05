@@ -62,7 +62,7 @@ export const NAV_MODULES: NavModule[] = [
       { name: "Disputes", href: "/disputes", perm: ["disputes.read"], badge: "disputes" },
       { name: "Products", href: "/products", perm: ["products.read"] },
       {
-        name: "Foodstuffs Subscriptions", href: "/subscriptions", perm: ["subscriptions.read"], badge: "subscriptions",
+        name: "Foodstuff Subscriptions", href: "/subscriptions", perm: ["subscriptions.read"], badge: "subscriptions",
         children: [{ name: "Exceptions", href: "/subscription-exceptions", perm: ["subscriptions.read"] }],
       },
       { name: "Gift Cards & Hot Deals", href: "/gift-cards", perm: ["rewards.read"], also: ["/hot-deals", "/gifts"] },

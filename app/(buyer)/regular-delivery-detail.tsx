@@ -77,7 +77,7 @@ export default function RegularDeliveryDetailScreen() {
     try {
       setSub(await regularDeliveriesService.getSubscription(id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load this Foodstuffs Subscription.");
+      setError(err instanceof Error ? err.message : "Could not load this Foodstuff Subscription.");
     } finally {
       setLoading(false);
     }
@@ -225,14 +225,14 @@ export default function RegularDeliveryDetailScreen() {
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title={sub?.offer?.title ?? "Foodstuffs Subscription"} subtitle={sub?.offer?.vendor?.storeName} onBack={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)} />
+      <PremiumHeader title={sub?.offer?.title ?? "Foodstuff Subscription"} subtitle={sub?.offer?.vendor?.storeName} onBack={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)} />
 
       {loading ? (
         <LoadingBlock />
       ) : error || !sub ? (
         <View style={premiumStyles.block}>
           <ErrorState
-            title="We couldn't load this Foodstuffs Subscription"
+            title="We couldn't load this Foodstuff Subscription"
             message={error || "Check your connection and try again."}
             onRetry={() => void load()}
           />
@@ -274,7 +274,7 @@ export default function RegularDeliveryDetailScreen() {
                   <Ionicons name="card-outline" size={18} color="#D6552F" />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.alertTitle}>Paused: we couldn't collect payment</Text>
-                    <Text style={styles.alertBody}>After several attempts the payment didn't go through, so this Foodstuffs Subscription is paused and nothing more will be charged. Choose a working card to restart it.</Text>
+                    <Text style={styles.alertBody}>After several attempts the payment didn't go through, so this Foodstuff Subscription is paused and nothing more will be charged. Choose a working card to restart it.</Text>
                   </View>
                 </View>
                 <TouchableOpacity onPress={() => void openCardSheet()} style={[styles.alertBtnPrimary, { backgroundColor: "#D6552F", alignSelf: "flex-start", marginTop: 10 }]} accessibilityRole="button" accessibilityLabel="Update payment method">
@@ -536,7 +536,7 @@ export default function RegularDeliveryDetailScreen() {
 
             {showCancelSheet ? (
               <FloatingCard style={{ gap: 12 }}>
-                <Text style={styles.sectionTitle}>Cancel this Foodstuffs Subscription?</Text>
+                <Text style={styles.sectionTitle}>Cancel this Foodstuff Subscription?</Text>
                 <Text style={styles.alertBody}>Future renewals will stop. This can't be undone. Telling us why helps vendors improve (optional).</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {CANCEL_REASONS.map((r) => {

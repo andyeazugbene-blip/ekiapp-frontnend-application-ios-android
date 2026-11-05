@@ -113,8 +113,8 @@ function ExceptionsInner() {
     <div className="space-y-5">
       <PageHeader
         title="Renewal exceptions"
-        subtitle="Foodstuffs Subscription renewals that need attention: failed payments, price approvals waiting on the buyer and stock waiting on the vendor."
-        actions={<Link href="/subscriptions" className="inline-flex h-11 items-center rounded-xl border border-[#096B4A] bg-white px-5 text-sm font-bold text-[#096B4A] hover:bg-emerald-50">All Foodstuffs Subscriptions</Link>}
+        subtitle="Foodstuff Subscription renewals that need attention: failed payments, price approvals waiting on the buyer and stock waiting on the vendor."
+        actions={<Link href="/subscriptions" className="inline-flex h-11 items-center rounded-xl border border-[#096B4A] bg-white px-5 text-sm font-bold text-[#096B4A] hover:bg-emerald-50">All Foodstuff Subscriptions</Link>}
       />
       {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
       {notice ? <Banner tone="success">{notice}</Banner> : null}

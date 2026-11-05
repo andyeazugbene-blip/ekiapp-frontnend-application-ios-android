@@ -53,9 +53,9 @@ function paymentProviderLabel(order?: Order | null): string {
 
 function supportCopy(order?: Order | null): string {
   if ((order?.escrowType ?? "").toLowerCase() !== "domestic_africa") {
-    return "This order uses standard payment protection.";
+    return "We pay the vendor after delivery is confirmed.";
   }
-  return "Your payment is protected and released to the vendor after delivery is confirmed or after the protection period.";
+  return "We pay the vendor after delivery is confirmed, or when the confirmation period ends.";
 }
 
 export default function TrackOrderScreen() {
@@ -145,7 +145,7 @@ export default function TrackOrderScreen() {
       setConfirmModalVisible(false);
       setConfirmCode("");
       await load();
-      Alert.alert("Delivery confirmed", "Thank you. The backend will release the protected funds to the vendor.");
+      Alert.alert("Delivery confirmed", "Thank you. We'll now pay the vendor.");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not confirm delivery.";
       Alert.alert("Confirmation failed", message);
@@ -182,7 +182,7 @@ export default function TrackOrderScreen() {
         "Report unavailable",
         isEscrowOrder
           ? "You can only report an issue after the order is shipped and before payment is released or refunded."
-          : "Support will need to review this issue manually for non-escrow orders.",
+          : "Our support team will review this issue.",
       );
       return;
     }
@@ -219,7 +219,7 @@ export default function TrackOrderScreen() {
       await orderService.openBuyerDispute(order.id, selectedIssue.label, { type: selectedIssue.type });
       setDisputeModalVisible(false);
       await load();
-      Alert.alert("Dispute opened", "The issue is now recorded and payment protection remains active while support reviews it.");
+      Alert.alert("Dispute opened", "The issue is now recorded and the vendor is not paid while support reviews it.");
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 409) {
         Alert.alert("Dispute already exists", err.message);

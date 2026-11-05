@@ -249,7 +249,7 @@ export default function LoginScreen() {
           <View style={styles.panel}>
             <View style={styles.panelTop}>
               <Text style={styles.panelTitle}>{isAdmin ? "Sign In" : "Log In"}</Text>
-              <Text style={styles.panelCaption}>{isAdmin ? "Marketplace oversight" : "Protected buyer and vendor access"}</Text>
+              <Text style={styles.panelCaption}>{isAdmin ? "Marketplace oversight" : "Buyer and vendor access"}</Text>
             </View>
 
             {error ? (

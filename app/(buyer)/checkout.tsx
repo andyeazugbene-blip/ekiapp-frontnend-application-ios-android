@@ -312,7 +312,7 @@ export default function CheckoutScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.protectionBanner}>
           <Ionicons name="shield-checkmark-outline" size={16} color="#076B51" />
-          <Text style={styles.protectionText}>Your payment is protected until delivery is confirmed</Text>
+          <Text style={styles.protectionText}>We pay the vendor after delivery is confirmed</Text>
         </View>
 
         <Text style={styles.fieldLabel}>Delivery address</Text>

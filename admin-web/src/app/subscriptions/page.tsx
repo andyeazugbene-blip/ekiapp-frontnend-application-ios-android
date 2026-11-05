@@ -137,7 +137,7 @@ function SubscriptionsInner() {
       setLoading(true); setError("");
       const res = await subscriptionsAdminAPI.list({ q, status, vendorId, renewalFrom, renewalTo, cursor });
       setRows(res.items); setNextCursor(res.nextCursor); setCounts(res.counts);
-    } catch (e) { setError(e instanceof APIError ? e.message : "Failed to load Foodstuffs Subscriptions"); }
+    } catch (e) { setError(e instanceof APIError ? e.message : "Failed to load Foodstuff Subscriptions"); }
     finally { setLoading(false); }
   }, [q, status, vendorId, renewalFrom, renewalTo, cursor]);
   useEffect(() => { if (view === "queue") void load(); }, [load, view]);
@@ -158,7 +158,7 @@ function SubscriptionsInner() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Foodstuffs Subscriptions"
+        title="Foodstuff Subscriptions"
         subtitle="Buyer baskets that renew on a schedule. Monitor every subscription, understand why a renewal is stuck and step in with an audited action."
         actions={<Link href="/subscription-exceptions" className="inline-flex h-11 items-center rounded-xl border border-[#096B4A] bg-white px-5 text-sm font-bold text-[#096B4A] hover:bg-emerald-50">Renewal exceptions queue</Link>}
       />
@@ -192,7 +192,7 @@ function SubscriptionsInner() {
               active={activeTab}
               onChange={(k) => setParams({ status: k })}
             />
-            {loading && rows.length === 0 ? <LoadingPanel label="Loading Foodstuffs Subscriptions…" /> : (
+            {loading && rows.length === 0 ? <LoadingPanel label="Loading Foodstuff Subscriptions…" /> : (
               <>
                 <DataTable columns={columns} rows={rows} rowKey={(s) => s.id} onRowClick={(s) => router.push(`/subscriptions/${s.id}`)} loading={loading} emptyTitle="No subscriptions match these filters" />
                 <Pagination
@@ -214,7 +214,7 @@ export default function SubscriptionsPage() {
   return (
     <ProtectedRoute>
       <AdminLayout>
-        {loading ? <LoadingPanel label="Checking access…" /> : !has("subscriptions.read") ? <NoAccess what="Foodstuffs Subscriptions" /> : (
+        {loading ? <LoadingPanel label="Checking access…" /> : !has("subscriptions.read") ? <NoAccess what="Foodstuff Subscriptions" /> : (
           <Suspense fallback={<LoadingPanel label="Loading…" />}><SubscriptionsInner /></Suspense>
         )}
       </AdminLayout>

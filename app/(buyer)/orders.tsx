@@ -117,7 +117,7 @@ export default function OrdersScreen() {
                     </Text>
                     <Text style={styles.orderAmount}>{formatDisplayMoney(order.total, order.currency, selectedCurrency)}</Text>
                   </View>
-                  {isEscrowOrder ? <Text style={styles.escrowHint}>Protected payment</Text> : null}
+                  {isEscrowOrder ? <Text style={styles.escrowHint}>Vendor paid after delivery</Text> : null}
                   {order.status === "disputed" || order.dispute ? (
                     <TouchableOpacity
                       onPress={(event) => {

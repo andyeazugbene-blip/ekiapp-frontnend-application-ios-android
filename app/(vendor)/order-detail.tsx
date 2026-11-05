@@ -271,7 +271,7 @@ export default function OrderDetailScreen() {
             <View>
               <Text style={styles.paymentTitle}>Payment Status</Text>
               <Text style={styles.paymentSubtitle}>
-                Payment: {escrowStatus === "RELEASED" || displayStatusLabel.toLowerCase().includes("paid") ? "Secured" : displayStatusLabel}
+                Payment: {escrowStatus === "RELEASED" || displayStatusLabel.toLowerCase().includes("paid") ? "Received" : displayStatusLabel}
               </Text>
             </View>
             <View style={[styles.paymentIcon, { backgroundColor: "rgba(255,255,255,0.14)" }]}>

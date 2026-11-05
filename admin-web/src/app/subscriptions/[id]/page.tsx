@@ -131,7 +131,7 @@ function DetailInner({ id }: { id: string }) {
 
   return (
     <div className="space-y-5">
-      <Link href="/subscriptions" className="text-sm font-bold text-[#096B4A] hover:underline">Back to Foodstuffs Subscriptions</Link>
+      <Link href="/subscriptions" className="text-sm font-bold text-[#096B4A] hover:underline">Back to Foodstuff Subscriptions</Link>
       <PageHeader
         title={`${buyer.name || "Buyer"} · ${vendor.storeName}`}
         subtitle={`${data.offer.title} · ${FREQUENCY_LABEL[s.frequency] ?? s.frequency} · started ${formatDate(s.createdAt)}`}
@@ -261,7 +261,7 @@ export default function SubscriptionDetailPage() {
   return (
     <ProtectedRoute>
       <AdminLayout>
-        {loading ? <LoadingPanel label="Checking access…" /> : !has("subscriptions.read") ? <NoAccess what="Foodstuffs Subscriptions" /> : <DetailInner id={params.id} />}
+        {loading ? <LoadingPanel label="Checking access…" /> : !has("subscriptions.read") ? <NoAccess what="Foodstuff Subscriptions" /> : <DetailInner id={params.id} />}
       </AdminLayout>
     </ProtectedRoute>
   );
