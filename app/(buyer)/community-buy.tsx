@@ -12,6 +12,7 @@ import {
   FloatingCard,
   LoadingBlock,
   PremiumHeader,
+  PrimaryButton,
   RangeProgressBar,
   StatusPill,
   premiumStyles,
@@ -29,6 +30,7 @@ import { countryDisplayName } from "../../utils/countries";
 import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 import { getDraftProgress } from "../../utils/campaignDraftProgress";
 import { useAuthStore } from "../../stores/authStore";
+import { CountryRequiredCard, isCountryRequiredError } from "../../components/shared/CountryRequiredCard";
 
 function daysLeft(deadline: string | null): string {
   if (!deadline) return "";
@@ -81,6 +83,7 @@ export default function CommunityBuyDiscoveryScreen() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
   const [discoverError, setDiscoverError] = useState("");
+  const [discoverNeedsCountry, setDiscoverNeedsCountry] = useState(false);
 
   const [joined, setJoined] = useState<MyCommunityBuy[]>([]);
   const [joinedLoading, setJoinedLoading] = useState(false);
@@ -97,9 +100,11 @@ export default function CommunityBuyDiscoveryScreen() {
   const loadDiscover = useCallback(async () => {
     setDiscoverLoading(true);
     setDiscoverError("");
+    setDiscoverNeedsCountry(false);
     try {
       setCampaigns(await communityBuyService.listLiveCampaigns(searchQuery || undefined));
     } catch (err) {
+      if (isCountryRequiredError(err)) setDiscoverNeedsCountry(true);
       setDiscoverError(err instanceof Error ? err.message : "Could not load Community Buy campaigns.");
     } finally {
       setDiscoverLoading(false);
@@ -275,6 +280,8 @@ export default function CommunityBuyDiscoveryScreen() {
         {activeTab === "discover" ? (
           discoverLoading ? (
             <LoadingBlock />
+          ) : discoverNeedsCountry ? (
+            <View style={premiumStyles.block}><CountryRequiredCard onSaved={() => void loadDiscover()} /></View>
           ) : discoverError ? (
             <View style={premiumStyles.block}><ErrorState message={discoverError} onRetry={() => void loadDiscover()} /></View>
           ) : campaigns.length === 0 ? (
@@ -395,6 +402,10 @@ export default function CommunityBuyDiscoveryScreen() {
                   title={activeTab === "organised" ? "No campaigns yet" : "No drafts yet"}
                   body={activeTab === "organised" ? "Campaigns you're organising and have submitted will show up here." : "Start a campaign — it saves as a draft here until you're ready to submit it."}
                 />
+                <PrimaryButton label="Start a Community Buy" icon="add" onPress={() => router.push("/(buyer)/community-buy-organiser-campaign" as any)} style={{ marginTop: 12 }} />
+                <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy-organiser" as any)} activeOpacity={0.8} style={{ alignSelf: "center", paddingVertical: 12 }} accessibilityRole="button" accessibilityLabel="Payouts and organiser settings">
+                  <Text style={{ fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" }}>Payouts and organiser settings</Text>
+                </TouchableOpacity>
               </FloatingCard>
             </View>
           ) : (

@@ -16,6 +16,7 @@ import { vendorService, type VendorMarket } from "../../services/vendorService";
 import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { goBackOrReplace } from "../../utils/navigation";
 import { COUNTRIES } from "../../utils/countries";
+import { CountrySelectField } from "../../components/shared/CountrySelectField";
 
 export default function VendorMarketsScreen() {
   const router = useRouter();
@@ -23,7 +24,6 @@ export default function VendorMarketsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyCode, setBusyCode] = useState<string | null>(null);
-  const [addPickerOpen, setAddPickerOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,7 +44,6 @@ export default function VendorMarketsScreen() {
   const addableCountries = COUNTRIES.filter((c) => !assignedCodes.has(c.code));
 
   const handleAdd = async (countryName: string) => {
-    setAddPickerOpen(false);
     setBusyCode("adding");
     setError("");
     try {
@@ -151,32 +150,22 @@ export default function VendorMarketsScreen() {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             {addableCountries.length > 0 ? (
-              <TouchableOpacity
-                onPress={() => setAddPickerOpen((v) => !v)}
-                activeOpacity={0.85}
-                style={styles.addButton}
-                disabled={busyCode === "adding"}
-              >
-                {busyCode === "adding" ? (
-                  <ActivityIndicator color="#076B51" />
-                ) : (
-                  <>
-                    <Ionicons name="add-circle-outline" size={20} color="#076B51" />
-                    <Text style={styles.addButtonText}>Add a market</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            ) : null}
-
-            {addPickerOpen ? (
-              <View style={styles.addList}>
-                {addableCountries.map((c) => (
-                  <TouchableOpacity key={c.code} onPress={() => void handleAdd(c.name)} activeOpacity={0.8} style={styles.addListRow}>
-                    <Text style={styles.addListText}>{c.name}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#8AA194" />
-                  </TouchableOpacity>
-                ))}
-              </View>
+              busyCode === "adding" ? (
+                <ActivityIndicator color="#076B51" style={{ marginTop: 14 }} />
+              ) : (
+                <View style={{ marginTop: 14 }}>
+                  <CountrySelectField
+                    options={addableCountries}
+                    value={null}
+                    onSelect={(code) => {
+                      const match = addableCountries.find((c) => c.code === code);
+                      if (match) void handleAdd(match.name);
+                    }}
+                    placeholder="Add a market"
+                    sheetTitle="Add a market"
+                  />
+                </View>
+              )
             ) : null}
 
             <View style={styles.notice}>
@@ -207,11 +196,6 @@ const styles = StyleSheet.create({
   removeButton: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#858585", padding: 16, textAlign: "center" },
   errorText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#FB6363", marginBottom: 12 },
-  addButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 52, borderRadius: 14, backgroundColor: "#EAF5F0", marginBottom: 8 },
-  addButtonText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  addList: { backgroundColor: "#FFFFFF", borderRadius: 16, marginBottom: 16, overflow: "hidden" },
-  addListRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: "#F4F4F4" },
-  addListText: { fontSize: 14, fontFamily: "Outfit-Regular", color: "#282828" },
   notice: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#EAF5F0", borderRadius: 16, padding: 14, marginTop: 4 },
   noticeText: { flex: 1, fontSize: 12, lineHeight: 18, fontFamily: "Outfit-Regular", color: "#24564A" },
 });

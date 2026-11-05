@@ -162,6 +162,9 @@ export interface AdminSupplierAccount {
   id: string;
   userId: string;
   supplierState: SupplierAccountState;
+  businessName?: string | null;
+  businessRegistrationNumber?: string | null;
+  fulfilmentMethods?: string[];
   categories: string[];
   coverageRegions: string[];
   collectionAreas: string[];
@@ -250,9 +253,13 @@ export interface MarketConfig {
   // PLEDGE_THEN_CHARGE model (client mandate 2026-09) — the payment mode
   // must be exactly this before any pledge can be created for a market.
   communityBuyPaymentMode: CommunityBuyPaymentMode | null;
-  // Eki's processing fee, basis points (500 = 5%). Null blocks supplier
+  // Eki's supplier commission, basis points (800 = 8%). Null blocks supplier
   // settlement release — never defaulted/invented client-side.
   communityBuyFeeBps: number | null;
+  organiserCommissionBps?: number;
+  buyerServiceFeeBps?: number;
+  buyerServiceFeeMinAmount?: number;
+  buyerServiceFeeMaxAmount?: number;
   // Handbook 14.9 - verified payment readiness (separate from the feature toggles above).
   providerSupported?: boolean;
   providerConfigChecked?: boolean;
@@ -311,6 +318,9 @@ export interface LedgerSummaryRow {
   totalRefunded: number;
   totalPaidToSupplier: number;
   netPosition: number;
+  buyerServiceFeeRevenue?: number;
+  organiserCommissionRevenue?: number;
+  supplierCommissionRevenue?: number;
 }
 
 export interface LedgerEntry {

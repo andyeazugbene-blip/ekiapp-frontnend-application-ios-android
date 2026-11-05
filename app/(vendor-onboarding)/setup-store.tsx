@@ -10,14 +10,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useOnboardingStore } from "../../stores/onboardingStore";
 import { useAuthStore } from "../../stores/authStore";
-import { consumePendingIntent } from "../../stores/pendingIntent";
 import { vendorService } from "../../services/vendorService";
-import { COUNTRIES, getCitiesForCountry } from "../../utils/countries";
+import { COUNTRIES, countryCodeForName, countryDisplayName, getCitiesForCountry } from "../../utils/countries";
+import { CountrySelectField } from "../../components/shared/CountrySelectField";
 import {
   FieldLabel,
   FormCard,
@@ -51,7 +50,6 @@ export default function SetupStoreScreen() {
   // read once so the copy below is honest about why they're here, and so
   // completion skips the retail-only onboarding steps (delivery zones,
   // first product) that a Community Buy supplier has no use for.
-  const [supplierIntent] = useState(() => consumePendingIntent() === "supplier");
 
   // markets[0] is whichever market was picked first — that's the primary
   // market/currency, matching exactly what the backend does with the same
@@ -131,15 +129,8 @@ export default function SetupStoreScreen() {
           await checkAuth();
         }
       }
-      if (supplierIntent) {
-        // Supplier Centre is its own independent route group now — no
-        // role/hasVendor check to satisfy, so no pre-emptive switchRole()
-        // is needed here any more either.
-        router.replace("/(supplier)/community-buy-supplier" as any);
-      } else {
-        useAuthStore.getState().setLastDestination("sell");
-        router.push("/(vendor-onboarding)/business-info" as any);
-      }
+      useAuthStore.getState().setLastDestination("sell");
+      router.push("/(vendor-onboarding)/business-info" as any);
     } catch (err) {
       Alert.alert(
         "Could not save store",
@@ -159,8 +150,8 @@ export default function SetupStoreScreen() {
       >
         <OnboardingHeader
           activeSegments={1}
-          subtitle={supplierIntent ? "Suppliers need a verified Eki store — this is how organisers and Eki will identify you" : "This is how buyers will identify your store"}
-          title={supplierIntent ? "Set up your supplier profile" : "Set up your store"}
+          subtitle="This is how buyers will identify your store"
+          title="Set up your store"
         />
 
         <FormCard>
@@ -169,8 +160,8 @@ export default function SetupStoreScreen() {
             contentContainerStyle={styles.scrollBody}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.sectionTitle}>{supplierIntent ? "Supplier Profile Setup" : "Store Setup"}</Text>
-            <Text style={styles.sectionSubtitle}>{supplierIntent ? "Suppliers need a verified Eki store — this is how organisers and Eki will identify you" : "This is how buyers will identify your store"}</Text>
+            <Text style={styles.sectionTitle}>Store Setup</Text>
+            <Text style={styles.sectionSubtitle}>This is how buyers will identify your store</Text>
 
             <View style={styles.fieldGroup}>
               <FieldLabel>Store name</FieldLabel>
@@ -188,26 +179,16 @@ export default function SetupStoreScreen() {
               <Text style={styles.marketsHint}>
                 Select every approved market you sell in. The first one you pick is your primary market and currency.
               </Text>
-              <View style={styles.marketsGrid}>
-                {COUNTRIES.map((c) => {
-                  const selected = markets.includes(c.name);
-                  return (
-                    <TouchableOpacity
-                      key={c.code}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: selected }}
-                      activeOpacity={0.78}
-                      onPress={() => toggleMarket(c.name)}
-                      style={[styles.marketChip, selected && styles.marketChipSelected]}
-                    >
-                      <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
-                        {selected ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
-                      </View>
-                      <Text style={[styles.marketChipText, selected && styles.marketChipTextSelected]}>{c.name}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <CountrySelectField
+                options={COUNTRIES}
+                value={null}
+                onSelect={() => {}}
+                values={markets.map(countryCodeForName).filter((code): code is string => !!code)}
+                onToggle={(code) => toggleMarket(countryDisplayName(code))}
+                placeholder="Choose your markets"
+                sheetTitle="Markets you serve"
+                accessibilityLabel={markets.length > 0 ? `Markets: ${markets.join(", ")}` : "Choose your markets"}
+              />
             </View>
 
             <View style={styles.fieldGroup}>
@@ -279,44 +260,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     marginBottom: 10,
-  },
-  marketsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  marketChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: "#F4F4F4",
-    borderWidth: 1,
-    borderColor: "#F4F4F4",
-  },
-  marketChipSelected: {
-    backgroundColor: "rgba(7,107,81,0.08)",
-    borderColor: "#076B51",
-  },
-  marketChipText: {
-    color: "#858585",
-    fontFamily: "Outfit-Regular",
-    fontSize: 13,
-  },
-  marketChipTextSelected: {
-    color: "#076B51",
-    fontFamily: "Outfit-SemiBold",
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: "#B8B8B8",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxSelected: {
-    backgroundColor: "#076B51",
-    borderColor: "#076B51",
   },
   description: {
     minHeight: 160,

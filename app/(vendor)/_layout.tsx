@@ -6,6 +6,9 @@ import { ColorValue, Platform, StyleSheet, View as RNView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TAB_BAR_HEIGHT, TAB_BAR_GAP } from "../../components/layout/tabBarConstants";
 import { useAuthStore } from "../../stores/authStore";
+import { EdgeSwipeBack } from "../../components/layout/EdgeSwipeBack";
+
+const VENDOR_TAB_SCREENS = ["orders", "foodstuff", "buyers", "earnings"] as const;
 
 export default function VendorLayout() {
   const insets = useSafeAreaInsets();
@@ -47,6 +50,7 @@ export default function VendorLayout() {
   }
 
   return (
+    <EdgeSwipeBack tabScreens={VENDOR_TAB_SCREENS}>
     <Tabs
       backBehavior="history"
       screenOptions={{
@@ -182,6 +186,7 @@ export default function VendorLayout() {
       <Tabs.Screen name="regular-delivery-subscriber-detail" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="regular-delivery-insights" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>
+    </EdgeSwipeBack>
   );
 }
 

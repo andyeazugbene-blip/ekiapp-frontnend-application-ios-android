@@ -15,7 +15,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "../../stores/authStore";
-import { peekPendingIntent } from "../../stores/pendingIntent";
+import { CountrySelectField } from "../../components/shared/CountrySelectField";
+import { COUNTRIES, countryCodeForName, countryDisplayName } from "../../utils/countries";
 import { UserRole } from "../../types/auth";
 import { authService } from "../../services/authService";
 import {
@@ -61,14 +62,6 @@ export default function RegisterScreen() {
 
   const resolvedRole = (role ?? "buyer") as UserRole;
   const isVendor = resolvedRole === "vendor";
-  // Client correction: a user who explicitly chose "Suppliers" on the Hero
-  // screen still registers through the vendor role (SupplierProfile
-  // requires a Vendor record — an existing, unchanged architecture fact),
-  // but must never see retail-seller copy while doing it. Peek only —
-  // never cleared here — setup-store.tsx still needs to consume this same
-  // flag later in the chain. Read once at mount so it can't flip mid-form
-  // if something else in the app calls setPendingIntent afterward.
-  const [isSupplierIntent] = useState(() => isVendor && peekPendingIntent() === "supplier");
 
   // Mount-once guard: if the user lands on /register while already signed
   // in under a DIFFERENT role/account, clear that stale session so they can
@@ -216,7 +209,7 @@ export default function RegisterScreen() {
       if (redirect) {
         router.replace(redirect as any);
       } else {
-        router.replace("/(buyer)" as any);
+        router.replace("/launcher" as any);
       }
     }
   };
@@ -286,9 +279,7 @@ export default function RegisterScreen() {
           activeSegments={activeSegments}
           title={
             isVendor
-              ? isSupplierIntent
-                ? "Create your supplier account"
-                : "Create your vendor account"
+              ? "Create your vendor account"
               : buyerStep === "otp"
               ? "Verify your email"
               : buyerStep === "details"
@@ -297,9 +288,7 @@ export default function RegisterScreen() {
           }
           subtitle={
             isVendor
-              ? isSupplierIntent
-                ? "Use your email to apply as an Eki Community Buy supplier."
-                : "Use your email to set up your store and seller profile."
+              ? "Use your email to set up your store and seller profile."
               : buyerStep === "otp"
               ? "Enter the code we sent before creating your buyer account."
               : buyerStep === "details"
@@ -449,13 +438,13 @@ export default function RegisterScreen() {
 
                 <View style={styles.fieldGroup}>
                   <FieldLabel>Country:</FieldLabel>
-                  <TextInput
-                    autoCapitalize="words"
-                    onChangeText={setCountry}
-                    placeholder="United Kingdom"
-                    placeholderTextColor="#858585"
-                    style={styles.input}
-                    value={country}
+                  <CountrySelectField
+                    options={COUNTRIES}
+                    value={countryCodeForName(country)}
+                    onSelect={(code) => setCountry(countryDisplayName(code))}
+                    placeholder="Select your country"
+                    sheetTitle="Select country"
+                    accessibilityLabel={country ? `Country: ${country}` : "Select your country"}
                   />
                 </View>
 
@@ -504,7 +493,7 @@ export default function RegisterScreen() {
             ) : null}
 
             {isVendor ? (
-              <Text style={styles.note}>{isSupplierIntent ? "You'll complete your supplier profile next" : "You'll set up your store in the next step"}</Text>
+              <Text style={styles.note}>You'll set up your store in the next step</Text>
             ) : null}
 
             {buyerStep === "account" ? (

@@ -78,6 +78,10 @@ type Draft = {
   legalTermsVersion: string;
   communityBuyPaymentMode: CommunityBuyPaymentMode | "";
   communityBuyFeeBps: string;
+  organiserCommissionBps: string;
+  buyerServiceFeeBps: string;
+  buyerServiceFeeMinAmount: string;
+  buyerServiceFeeMaxAmount: string;
 };
 
 function toDraft(m: MarketConfig): Draft {
@@ -97,6 +101,10 @@ function toDraft(m: MarketConfig): Draft {
     legalTermsVersion: m.legalTermsVersion ?? "",
     communityBuyPaymentMode: m.communityBuyPaymentMode ?? "",
     communityBuyFeeBps: m.communityBuyFeeBps != null ? String(m.communityBuyFeeBps) : "",
+    organiserCommissionBps: m.organiserCommissionBps != null ? String(m.organiserCommissionBps) : "",
+    buyerServiceFeeBps: m.buyerServiceFeeBps != null ? String(m.buyerServiceFeeBps) : "",
+    buyerServiceFeeMinAmount: m.buyerServiceFeeMinAmount != null ? String(m.buyerServiceFeeMinAmount) : "",
+    buyerServiceFeeMaxAmount: m.buyerServiceFeeMaxAmount != null ? String(m.buyerServiceFeeMaxAmount) : "",
   };
 }
 
@@ -119,6 +127,11 @@ function draftToUpdate(d: Draft): MarketConfigUpdate {
     legalTermsVersion: d.legalTermsVersion.trim() || null,
     communityBuyPaymentMode: d.communityBuyPaymentMode || null,
     communityBuyFeeBps: num(d.communityBuyFeeBps),
+    // Required columns on the server: a blank box leaves the saved value alone.
+    ...(d.organiserCommissionBps.trim() ? { organiserCommissionBps: num(d.organiserCommissionBps) } : {}),
+    ...(d.buyerServiceFeeBps.trim() ? { buyerServiceFeeBps: num(d.buyerServiceFeeBps) } : {}),
+    ...(d.buyerServiceFeeMinAmount.trim() ? { buyerServiceFeeMinAmount: num(d.buyerServiceFeeMinAmount) } : {}),
+    ...(d.buyerServiceFeeMaxAmount.trim() ? { buyerServiceFeeMaxAmount: num(d.buyerServiceFeeMaxAmount) } : {}),
   };
 }
 
@@ -333,8 +346,20 @@ function MarketCard({
                 <label className="space-y-1"><span className={labelClass}>Identity provider</span>
                   <input className={inputClass} placeholder="stripe_identity" value={draft.identityProvider} onChange={(e) => setDraft((d) => ({ ...d, identityProvider: e.target.value }))} />
                 </label>
-                <label className="space-y-1"><span className={labelClass}>Eki processing fee (basis points)</span>
+                <label className="space-y-1"><span className={labelClass}>Supplier commission (basis points, 800 = 8%)</span>
                   <input className={inputClass} type="number" min={0} max={10000} value={draft.communityBuyFeeBps} onChange={(e) => setDraft((d) => ({ ...d, communityBuyFeeBps: e.target.value }))} />
+                </label>
+                <label className="space-y-1"><span className={labelClass}>Organiser commission (basis points, 1000 = 10%)</span>
+                  <input className={inputClass} type="number" min={0} max={10000} value={draft.organiserCommissionBps} onChange={(e) => setDraft((d) => ({ ...d, organiserCommissionBps: e.target.value }))} />
+                </label>
+                <label className="space-y-1"><span className={labelClass}>Buyer service fee (basis points, 500 = 5%)</span>
+                  <input className={inputClass} type="number" min={0} max={10000} value={draft.buyerServiceFeeBps} onChange={(e) => setDraft((d) => ({ ...d, buyerServiceFeeBps: e.target.value }))} />
+                </label>
+                <label className="space-y-1"><span className={labelClass}>Buyer service fee minimum (minor units, 120 = 1.20)</span>
+                  <input className={inputClass} type="number" min={0} value={draft.buyerServiceFeeMinAmount} onChange={(e) => setDraft((d) => ({ ...d, buyerServiceFeeMinAmount: e.target.value }))} />
+                </label>
+                <label className="space-y-1"><span className={labelClass}>Buyer service fee maximum (minor units, 500 = 5.00)</span>
+                  <input className={inputClass} type="number" min={0} value={draft.buyerServiceFeeMaxAmount} onChange={(e) => setDraft((d) => ({ ...d, buyerServiceFeeMaxAmount: e.target.value }))} />
                 </label>
                 <label className="space-y-1"><span className={labelClass}>Organiser fee (basis points)</span>
                   <input className={inputClass} type="number" min={0} max={10000} value={draft.organiserFeeBps} onChange={(e) => setDraft((d) => ({ ...d, organiserFeeBps: e.target.value }))} />

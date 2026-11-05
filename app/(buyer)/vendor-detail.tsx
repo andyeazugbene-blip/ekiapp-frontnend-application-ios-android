@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { RegularDeliveryEntry } from "../../components/buyer/RegularDeliveryEntry";
 import { Ionicons } from "@expo/vector-icons";
 import { vendorService } from "../../services/vendorService";
 import { productService } from "../../services/productService";
@@ -163,6 +164,8 @@ export default function VendorDetailScreen() {
               <Text style={styles.infoStripText}>Message the vendor directly and keep everything on Eki.</Text>
             </View>
           ) : null}
+
+          <RegularDeliveryEntry vendorId={vendor.id} mode="store" />
 
           <Text style={styles.sectionTitle}>Available foodstuff</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productsScroll}>

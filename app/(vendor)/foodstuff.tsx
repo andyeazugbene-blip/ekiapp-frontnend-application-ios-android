@@ -31,6 +31,13 @@ const CURRENCY_SYMBOL: Record<string, string> = {
   NGN: "₦",
 };
 
+const FOODSTUFF_TOOLS = [
+  { label: "Discounts", icon: "pricetag-outline", route: "/(vendor)/coupon-history" },
+  { label: "Bundles", icon: "gift-outline", route: "/(vendor)/bundle-history" },
+  { label: "Flash sales", icon: "flash-outline", route: "/(vendor)/flash-sale-history" },
+  { label: "Subscription Offers", icon: "repeat-outline", route: "/(vendor)/regular-deliveries" },
+] as const;
+
 export default function FoodstuffScreen() {
   const router = useRouter();
   const { filter } = useLocalSearchParams<{ filter?: string | string[] }>();
@@ -113,6 +120,16 @@ export default function FoodstuffScreen() {
           <Ionicons name="add-circle-outline" size={22} color="#076B51" />
         </TouchableOpacity>
       </View>
+
+      {/* Spec E: selling tools that belong to Foodstuff */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.toolScroll} contentContainerStyle={styles.toolRow}>
+        {FOODSTUFF_TOOLS.map((tool) => (
+          <TouchableOpacity key={tool.label} onPress={() => router.push(tool.route as any)} activeOpacity={0.85} style={styles.toolChip} accessibilityRole="button" accessibilityLabel={tool.label}>
+            <Ionicons name={tool.icon} size={15} color="#076B51" />
+            <Text style={styles.toolChipText}>{tool.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
       {/* Tabs — fixed above the list so categories stay usable while scrolling */}
       <View style={styles.tabContainer}>
@@ -247,6 +264,10 @@ export default function FoodstuffScreen() {
 }
 
 const styles = StyleSheet.create({
+  toolScroll: { flexGrow: 0 },
+  toolRow: { gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
+  toolChip: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: "#EFF7F3" },
+  toolChipText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   container: { flex: 1, backgroundColor: "#F4F4F4" },
   header: { backgroundColor: "#076B51", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
   headerTitle: { fontSize: 28, fontFamily: "Manrope-Bold", color: "#FFFFFF", marginBottom: 4 },

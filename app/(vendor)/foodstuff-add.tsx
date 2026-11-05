@@ -20,7 +20,6 @@ import * as ImagePicker from "expo-image-picker";
 import { PRODUCT_CATEGORIES, Product } from "../../types/product";
 import { productService } from "../../services/productService";
 import { uploadService } from "../../services/uploadService";
-import { ApiRequestError } from "../../services/api";
 import { deliveryService } from "../../services/deliveryService";
 import { goBackOrReplace } from "../../utils/navigation";
 import { useVendorProfile } from "../../hooks/useVendorProfile";
@@ -170,18 +169,6 @@ export default function FoodstuffAddScreen() {
           : `"${payload.name}" has been ${title === "Published" ? "published" : "saved as a draft"}.`;
       Alert.alert(title, body, [{ text: "OK", onPress: () => goBackOrReplace(router, "/(vendor)/foodstuff" as any) }]);
     } catch (err) {
-      // 403 → vendor needs verification before listing publicly
-      if (err instanceof ApiRequestError && err.status === 403) {
-        Alert.alert(
-          "Verification required",
-          "You need to verify your account before publishing. We'll save this as a draft.",
-          [
-            { text: "Save as draft", onPress: () => handleSaveDraftFallback() },
-            { text: "Verify now", onPress: () => router.push("/(vendor-verification)" as any) },
-          ]
-        );
-        return;
-      }
       setError(err instanceof Error ? err.message : "Could not save product. Please try again.");
     } finally {
       setSubmitting(false);
@@ -215,38 +202,6 @@ export default function FoodstuffAddScreen() {
   };
 
   // Last-resort save-as-draft if backend rejected the publish.
-  const handleSaveDraftFallback = async () => {
-    if (!vendor) return;
-    setSubmitting(true);
-    try {
-      const parsedPrice = parseMoneyInput(price);
-      const parsedCostPrice = costPrice.trim() ? parseMoneyInput(costPrice) : undefined;
-      const parsedStock = Number(stock) || 0;
-      const parsedWeight = Number(weight) || 0;
-      await productService.createProduct({
-        name: name.trim(),
-        description: description.trim(),
-        price: parsedPrice,
-        costPrice: parsedCostPrice,
-        currency: vendorCurrency as Product["currency"],
-        images: imageRemoteUrl ? [imageRemoteUrl] : [],
-        category: category || "General",
-        vendorId: vendor.id,
-        vendorName: vendor.storeName,
-        vendorCity: vendor.city ?? "",
-        stock: parsedStock,
-        status: "draft",
-        weight: parsedWeight,
-        unit,
-      });
-      goBackOrReplace(router, "/(vendor)/foodstuff" as any);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save draft.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <View style={styles.page}>
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>

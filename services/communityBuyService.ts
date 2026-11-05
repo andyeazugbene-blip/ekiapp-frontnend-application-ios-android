@@ -371,7 +371,7 @@ export interface Campaign {
   // disclosure) — PER-SHARE preview of Eki's buyer service fee at the
   // market's CURRENT rate; a client multiplies by chosen quantity for the
   // real total. Null when there's no price yet or no market configured.
-  perShareFeeEstimate?: { productSubtotal: number; feeAmount: number; maxTotal: number; feeBps: number } | null;
+  perShareFeeEstimate?: { productSubtotal: number; feeAmount: number; maxTotal: number; feeBps: number; minAmount?: number; maxAmount?: number } | null;
 }
 
 export interface Contribution {
@@ -720,7 +720,8 @@ export type SupplierAccountState =
   | "PAUSED"
   | "RESTRICTED"
   | "SUSPENDED"
-  | "CLOSED";
+  | "CLOSED"
+  | "REJECTED";
 
 export const SUPPLIER_ACCOUNT_STATE_LABELS: Record<SupplierAccountState, string> = {
   NOT_STARTED: "Not started",
@@ -733,6 +734,7 @@ export const SUPPLIER_ACCOUNT_STATE_LABELS: Record<SupplierAccountState, string>
   RESTRICTED: "Restricted",
   SUSPENDED: "Suspended",
   CLOSED: "Closed",
+  REJECTED: "Not approved",
 };
 
 export interface SupplierAccount {
@@ -752,6 +754,9 @@ export interface SupplierAccount {
   pausedAt?: string | null;
   // M5
   collectionCapacityPerDay?: number | null;
+  businessName?: string | null;
+  businessRegistrationNumber?: string | null;
+  fulfilmentMethods?: string[];
   stripeRequirementsDue?: string[];
   suspendedAt?: string | null;
   closedAt?: string | null;
@@ -1026,7 +1031,7 @@ export const communityBuyService = {
     return apiClient.get<{ profile: SupplierProfile | null; account: SupplierAccount }>("/api/supplier/profile");
   },
 
-  async applyAsSupplier(input: { country: string; categories?: string[]; coverageRegions?: string[]; collectionCapacityPerDay?: number }): Promise<SupplierAccount> {
+  async applyAsSupplier(input: { country: string; categories?: string[]; coverageRegions?: string[]; collectionCapacityPerDay?: number; businessName?: string; businessRegistrationNumber?: string; fulfilmentMethods?: string[] }): Promise<SupplierAccount> {
     const res = await apiClient.post<{ account: SupplierAccount }>("/api/supplier/applications", input);
     return res.account;
   },

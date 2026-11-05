@@ -6,6 +6,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCartStore } from "../../stores/cartStore";
 import { useAuthStore } from "../../stores/authStore";
 import { TAB_BAR_HEIGHT, TAB_BAR_GAP } from "../../components/layout/tabBarConstants";
+import { EdgeSwipeBack } from "../../components/layout/EdgeSwipeBack";
+
+const BUYER_TAB_SCREENS = ["community-buy", "messages", "cart", "wallet"] as const;
 
 function CartBadge() {
   const items = useCartStore((s) => s.items);
@@ -39,6 +42,7 @@ export default function BuyerLayout() {
 
 
   return (
+    <EdgeSwipeBack tabScreens={BUYER_TAB_SCREENS}>
     <Tabs
       backBehavior="history"
       screenOptions={{
@@ -165,5 +169,6 @@ export default function BuyerLayout() {
       <Tabs.Screen name="community-buy-contribution-confirmed" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="community-buy-share" options={{ href: null, tabBarStyle: { display: "none" } }} />
     </Tabs>
+    </EdgeSwipeBack>
   );
 }

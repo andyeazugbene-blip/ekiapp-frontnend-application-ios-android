@@ -14,6 +14,8 @@ import { orderService } from "../../services/orderService";
 import { addressService, type SavedAddress } from "../../services/addressService";
 import { formatDisplayMoney } from "../../utils/currency";
 import { goBackOrReplace } from "../../utils/navigation";
+import { CountrySelectField } from "../../components/shared/CountrySelectField";
+import { COUNTRIES, countryCodeForName, countryDisplayName } from "../../utils/countries";
 
 function formatAddress(a: SavedAddress): string {
   return [a.line1, a.line2, a.city, a.postalCode, a.country].filter(Boolean).join(", ");
@@ -334,7 +336,15 @@ export default function CheckoutScreen() {
               <TextInput style={[styles.input, { flex: 1 }]} placeholder="City" placeholderTextColor="#858585" value={newAddress.city} onChangeText={(v) => setNewAddress((p) => ({ ...p, city: v }))} />
               <TextInput style={[styles.input, { flex: 1 }]} placeholder="Postal code" placeholderTextColor="#858585" value={newAddress.postalCode} onChangeText={(v) => setNewAddress((p) => ({ ...p, postalCode: v }))} />
             </View>
-            <TextInput style={[styles.input, { marginTop: 8 }]} placeholder="Country" placeholderTextColor="#858585" autoCapitalize="words" value={newAddress.country} onChangeText={(v) => setNewAddress((p) => ({ ...p, country: v }))} />
+            <View style={{ marginTop: 8 }}>
+              <CountrySelectField
+                options={COUNTRIES}
+                value={countryCodeForName(newAddress.country)}
+                onSelect={(code) => setNewAddress((p) => ({ ...p, country: countryDisplayName(code) }))}
+                placeholder="Select country"
+                sheetTitle="Select country"
+              />
+            </View>
             <TextInput style={[styles.input, { marginTop: 8 }]} placeholder="Phone (optional)" placeholderTextColor="#858585" keyboardType="phone-pad" value={newAddress.phone} onChangeText={(v) => setNewAddress((p) => ({ ...p, phone: v }))} />
             <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
               <TouchableOpacity onPress={handleSaveNewAddress} disabled={savingAddress} activeOpacity={0.85} style={[styles.addAddressBtn, { flex: 1 }, savingAddress && { opacity: 0.6 }]}>

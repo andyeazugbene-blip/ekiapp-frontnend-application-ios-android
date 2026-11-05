@@ -126,7 +126,9 @@ function Content() {
                       {a.legacySupplierProfileId ? <Badge tone="blue">Legacy-linked</Badge> : null}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-600">
+                      {a.businessName ? <p className="font-medium">{a.businessName}{a.businessRegistrationNumber ? ` (${a.businessRegistrationNumber})` : ""}</p> : null}
                       <p>{a.categories.length > 0 ? a.categories.join(", ") : "No categories listed"}</p>
+                      {a.fulfilmentMethods?.length ? <p className="mt-0.5">Fulfils by: {a.fulfilmentMethods.join(", ").toLowerCase()}</p> : null}
                       <p className="mt-0.5">{formatCoverage(a.coverageRegions)}</p>
                     </td>
                     <td className="px-4 py-3"><ApplicationBadge status={a.statuses?.application} /></td>

@@ -16,6 +16,8 @@ import {
 import { communityBuyService, type MarketConfig } from "../../services/communityBuyService";
 import { regularDeliveriesService, FREQUENCY_LABELS, type PublicOfferSummary } from "../../services/regularDeliveriesService";
 import { countryDisplayName } from "../../utils/countries";
+import { CountrySelectField } from "../../components/shared/CountrySelectField";
+import { Ionicons } from "@expo/vector-icons";
 
 /**
  * Real public discovery for Regular Delivery offers (architecture gap
@@ -60,16 +62,23 @@ export default function RegularDeliveriesBrowseScreen() {
         onBack={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)}
       >
         {markets.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-            <TouchableOpacity onPress={() => setCountryFilter(null)} activeOpacity={0.85} style={[styles.chip, !countryFilter && styles.chipActive]}>
-              <Text style={[styles.chipText, !countryFilter && styles.chipTextActive]}>All markets</Text>
-            </TouchableOpacity>
-            {markets.map((m) => (
-              <TouchableOpacity key={m.countryCode} onPress={() => setCountryFilter(m.countryCode)} activeOpacity={0.85} style={[styles.chip, countryFilter === m.countryCode && styles.chipActive]}>
-                <Text style={[styles.chipText, countryFilter === m.countryCode && styles.chipTextActive]}>{countryDisplayName(m.countryCode)}</Text>
+          <View style={styles.filterRow}>
+            <View style={{ flex: 1 }}>
+              <CountrySelectField
+                options={markets.map((m) => ({ code: m.countryCode, name: countryDisplayName(m.countryCode) }))}
+                value={countryFilter}
+                onSelect={setCountryFilter}
+                placeholder="All markets"
+                sheetTitle="Select market"
+                accessibilityLabel={countryFilter ? `Market: ${countryDisplayName(countryFilter)}` : "All markets"}
+              />
+            </View>
+            {countryFilter ? (
+              <TouchableOpacity onPress={() => setCountryFilter(null)} activeOpacity={0.85} style={styles.clearFilter} accessibilityRole="button" accessibilityLabel="Show all markets">
+                <Ionicons name="close" size={18} color="#FFFFFF" />
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+            ) : null}
+          </View>
         ) : null}
       </PremiumHeader>
 
@@ -120,11 +129,8 @@ export default function RegularDeliveriesBrowseScreen() {
 }
 
 const styles = StyleSheet.create({
-  filterRow: { gap: 8, paddingTop: 16 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.14)" },
-  chipActive: { backgroundColor: "#FFFFFF" },
-  chipText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
-  chipTextActive: { color: "#076B51" },
+  filterRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 },
+  clearFilter: { width: 44, height: 44, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center" },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   cardTitle: { flex: 1, fontSize: 15, fontFamily: "Manrope-Bold", color: "#151E1B" },
   countryPill: { backgroundColor: "#F4F6F5", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },

@@ -26,6 +26,9 @@ interface CountrySelectFieldProps {
   disabled?: boolean;
   sheetTitle?: string;
   accessibilityLabel?: string;
+  /** Multi-select mode: pass both. The sheet stays open until Done. */
+  values?: string[];
+  onToggle?: (code: string) => void;
 }
 
 export function CountrySelectField({
@@ -36,11 +39,22 @@ export function CountrySelectField({
   disabled = false,
   sheetTitle = "Select market",
   accessibilityLabel,
+  values,
+  onToggle,
 }: CountrySelectFieldProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
-  const selected = options.find((o) => o.code === value) ?? null;
+  const isMulti = !!onToggle;
+  const selected = options.find((o) => o.code === (isMulti ? values?.[0] : value)) ?? null;
+  const chosen = isMulti ? (values ?? []).map((code) => options.find((o) => o.code === code)).filter((o): o is CountrySelectOption => !!o) : [];
+  const fieldLabel = !selected
+    ? placeholder
+    : isMulti && chosen.length > 2
+      ? `${chosen.slice(0, 2).map((o) => o.name).join(", ")} +${chosen.length - 2}`
+      : isMulti
+        ? chosen.map((o) => o.name).join(", ")
+        : selected.name;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -54,6 +68,10 @@ export function CountrySelectField({
   };
 
   const handleSelect = (code: string) => {
+    if (onToggle) {
+      onToggle(code);
+      return;
+    }
     onSelect(code);
     close();
   };
@@ -65,13 +83,13 @@ export function CountrySelectField({
         activeOpacity={0.85}
         disabled={disabled}
         accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? (selected ? `Market: ${selected.name}` : placeholder)}
+        accessibilityLabel={accessibilityLabel ?? (selected ? `Market: ${fieldLabel}` : placeholder)}
         style={[styles.field, disabled && styles.fieldDisabled]}
       >
         <View style={styles.fieldContent}>
           <Text style={styles.flag}>{selected ? countryFlagEmoji(selected.code) : "🌐"}</Text>
           <Text style={[styles.fieldText, !selected && styles.fieldPlaceholder]} numberOfLines={1}>
-            {selected ? selected.name : placeholder}
+            {fieldLabel}
           </Text>
         </View>
         <Ionicons name="chevron-down" size={18} color="#6A7B72" />
@@ -113,14 +131,14 @@ export function CountrySelectField({
                 keyboardShouldPersistTaps="handled"
                 style={styles.list}
                 renderItem={({ item }) => {
-                  const isSelected = item.code === value;
+                  const isSelected = isMulti ? (values ?? []).includes(item.code) : item.code === value;
                   return (
                     <TouchableOpacity
                       onPress={() => handleSelect(item.code)}
                       activeOpacity={0.75}
-                      accessibilityRole="radio"
+                      accessibilityRole={isMulti ? "checkbox" : "radio"}
                       accessibilityLabel={item.name}
-                      accessibilityState={{ selected: isSelected }}
+                      accessibilityState={isMulti ? { checked: isSelected } : { selected: isSelected }}
                       style={[styles.row, isSelected && styles.rowActive]}
                     >
                       <Text style={styles.flag}>{countryFlagEmoji(item.code)}</Text>
@@ -131,6 +149,11 @@ export function CountrySelectField({
                 }}
               />
             )}
+            {isMulti ? (
+              <TouchableOpacity onPress={close} activeOpacity={0.85} style={styles.doneButton} accessibilityRole="button" accessibilityLabel="Done">
+                <Text style={styles.doneText}>Done{chosen.length > 0 ? ` (${chosen.length} selected)` : ""}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -192,4 +215,6 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, fontSize: 14, fontFamily: "Outfit-Medium", color: "#151E1B" },
   emptyState: { paddingVertical: 24, alignItems: "center" },
   emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  doneButton: { marginTop: 10, height: 50, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
+  doneText: { fontSize: 15, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
 });

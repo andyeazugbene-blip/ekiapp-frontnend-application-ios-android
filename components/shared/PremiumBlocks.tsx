@@ -267,6 +267,7 @@ export function PremiumHeader({
                 onPress={onBack}
                 activeOpacity={0.82}
                 style={styles.backButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 accessibilityRole="button"
                 accessibilityLabel="Go back"
               >
