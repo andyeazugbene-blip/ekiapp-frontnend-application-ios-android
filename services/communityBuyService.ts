@@ -215,6 +215,8 @@ export interface MarketConfig {
   organiserApplicationsEnabled: boolean;
   supplierApplicationsEnabled: boolean;
   regularDeliveriesEnabled: boolean;
+  // Phase 1: organisers build on approved supplier offers in this market.
+  communityBuyOffersRequired?: boolean;
   // Eki's real, admin-configured processing fee (basis points, e.g. 500 =
   // 5%) — taken from the supplier's payout at release time, never an extra
   // charge to the organiser or participant. organiserFeeBps is a separate,
