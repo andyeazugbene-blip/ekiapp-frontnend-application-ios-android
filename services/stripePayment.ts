@@ -115,7 +115,13 @@ export async function presentPayment(params: {
 export async function presentSetupIntent(params: {
   clientSecret: string;
   merchantDisplayName?: string;
+  /** Set when the card belongs in a supplier's connected account (two-stage Community Buys). */
+  stripeAccountId?: string;
 }): Promise<PaymentResult> {
+  if (params.stripeAccountId) {
+    const { stripeAccountId, ...rest } = params;
+    return withConnectedAccount(stripeAccountId, () => presentSetupIntent(rest));
+  }
   const stripe = loadStripe();
   if (!stripe) {
     return {
@@ -150,4 +156,41 @@ export async function presentSetupIntent(params: {
   }
 
   return { status: "succeeded" };
+}
+
+/**
+ * Points the Stripe SDK at a supplier's connected account for one action, then
+ * always back at the platform so ordinary checkout is never affected.
+ */
+async function withConnectedAccount(stripeAccountId: string, action: () => Promise<PaymentResult>): Promise<PaymentResult> {
+  const stripe = loadStripe();
+  if (!stripe || typeof stripe.initStripe !== "function") {
+    return { status: "unsupported", message: "Stripe is not available in this build." };
+  }
+  await stripe.initStripe({ publishableKey: STRIPE_PUBLISHABLE_KEY, stripeAccountId });
+  try {
+    return await action();
+  } finally {
+    await stripe.initStripe({ publishableKey: STRIPE_PUBLISHABLE_KEY });
+  }
+}
+
+/** Runs the buyer's bank check (3-D Secure) for a hold placed on a saved card. */
+export async function completeHoldBankCheck(params: {
+  clientSecret: string;
+  stripeAccountId: string;
+  paymentMethodId: string;
+  needsConfirmation: boolean;
+}): Promise<PaymentResult> {
+  return withConnectedAccount(params.stripeAccountId, async () => {
+    const stripe = loadStripe();
+    const { error } = params.needsConfirmation
+      ? await stripe.confirmPayment(params.clientSecret, { paymentMethodType: "Card", paymentMethodData: { paymentMethodId: params.paymentMethodId } })
+      : await stripe.handleNextAction(params.clientSecret, "ekiapp://stripe-redirect");
+    if (error) {
+      if (error.code === "Canceled") return { status: "cancelled", message: "Bank check cancelled." };
+      return { status: "failed", message: error.message ?? "Your bank didn't approve this." };
+    }
+    return { status: "succeeded" };
+  });
 }

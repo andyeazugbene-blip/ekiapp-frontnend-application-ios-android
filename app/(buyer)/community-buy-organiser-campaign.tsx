@@ -4,6 +4,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { goBackOrReplace } from "../../utils/navigation";
+import { HOLD_OUTCOME_STATUSES, OrganiserHoldOutcome } from "../../components/buyer/OrganiserHoldOutcome";
 import { formatDisplayMoney } from "../../utils/currency";
 import { getDraftProgress, type DraftStepKey } from "../../utils/campaignDraftProgress";
 import { useCurrencyStore } from "../../stores/currencyStore";
@@ -1281,8 +1282,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
             ) : campaign?.status === "CANCELLED" ? (
               <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
                 <Ionicons name="return-down-back-outline" size={18} color="#6A7B72" />
-                <Text style={styles.outcomeHint}>This campaign was ended. Contributions are being refunded.</Text>
+                <Text style={styles.outcomeHint}>{campaign.paymentMode === "AUTHORISE_THEN_CAPTURE" ? "This campaign was ended. Every hold has been released and nobody was charged." : "This campaign was ended. Contributions are being refunded."}</Text>
               </FloatingCard>
+            ) : campaign && HOLD_OUTCOME_STATUSES.includes(campaign.status) ? (
+              <OrganiserHoldOutcome campaign={campaign} onChanged={setCampaign} />
             ) : campaign?.status === "LIVE" ? (
               <>
                 {/* CBO-13 fix: a healthy LIVE campaign previously had no

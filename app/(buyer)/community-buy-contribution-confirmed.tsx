@@ -108,7 +108,7 @@ export default function CommunityBuyContributionConfirmedScreen() {
           <FloatingCard style={{ width: "100%", gap: 6, backgroundColor: "#FFF8E1" }}>
             <Text style={styles.whatsNextTitle}>What happens next</Text>
             <Text style={styles.infoText}>
-              Your payment is confirmed only once the campaign reaches its target. If it does, you'll be charged {formatDisplayMoney(maxTotal / 100, contribution.currency, selectedCurrency)} (including Eki's service fee{isDelivery ? " and delivery fee" : ""}). If it doesn't, you're never charged.
+              {campaign?.paymentMode === "AUTHORISE_THEN_CAPTURE" ? "A temporary hold is placed on your card shortly before the deadline. If it goes ahead, " : "Your payment is confirmed only once the campaign reaches its target. If it does, "}you'll be charged {formatDisplayMoney(maxTotal / 100, contribution.currency, selectedCurrency)} (including Eki's service fee{isDelivery ? " and delivery fee" : ""}). If it doesn't, you're never charged.
             </Text>
           </FloatingCard>
 

@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, Touc
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
+import { HOLD_PAYMENT_LINE, changeHoldCard, finishHoldBankCheck } from "../../utils/communityBuyHold";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { CountryRequiredCard, isCountryRequiredError } from "../../components/shared/CountryRequiredCard";
@@ -144,6 +145,20 @@ export default function CommunityBuyCampaignScreen() {
       Alert.alert("Couldn't send this report", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setReportingProblem(false);
+    }
+  };
+
+  const runHoldStep = async (step: (contributionId: string) => Promise<string | null>) => {
+    if (!contribution || retrying) return;
+    setRetrying(true);
+    try {
+      const problem = await step(contribution.id);
+      if (problem) Alert.alert("That didn't work", problem);
+      setContribution(await communityBuyService.getContribution(contribution.id));
+    } catch (err) {
+      Alert.alert("That didn't work", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setRetrying(false);
     }
   };
 
@@ -391,6 +406,35 @@ export default function CommunityBuyCampaignScreen() {
                     ) : null}
                   </View>
                 </FloatingCard>
+              ) : contribution?.status === "PLEDGED" && contribution.paymentAuthorisation?.holdStatus === "HOLD_SUCCEEDED" ? (
+                <FloatingCard style={styles.outcomeCard}>
+                  <Ionicons name="time-outline" size={20} color="#076B51" />
+                  <Text style={styles.outcomeText}>A temporary hold is on your card. You're only charged if the Community Buy goes ahead.</Text>
+                </FloatingCard>
+              ) : contribution?.status === "PLEDGED" && (contribution.paymentAuthorisation?.holdStatus === "REQUIRES_ACTION" || contribution.paymentAuthorisation?.holdStatus === "HOLD_DECLINED") ? (
+                <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#B48A00" />
+                  <View style={{ flex: 1, gap: 8 }}>
+                    <Text style={styles.outcomeText}>
+                      {contribution.paymentAuthorisation.holdStatus === "REQUIRES_ACTION"
+                        ? "Your bank needs one more security check to place this hold. Finish it to keep your place."
+                        : "We couldn't place a hold on your card. Use a different card to keep your place."}
+                    </Text>
+                    {contribution.paymentAuthorisation.holdStatus === "REQUIRES_ACTION" ? (
+                      <TouchableOpacity onPress={() => void runHoldStep(finishHoldBankCheck)} disabled={retrying} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="Finish bank check">
+                        <Text style={styles.holdActionText}>{retrying ? "Please wait..." : "Finish bank check"}</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    <TouchableOpacity onPress={() => void runHoldStep(changeHoldCard)} disabled={retrying} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="Use a different card">
+                      <Text style={styles.holdActionText}>{retrying ? "Please wait..." : "Use a different card"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </FloatingCard>
+              ) : contribution?.status === "PLEDGED" && contribution.paymentAuthorisation ? (
+                <FloatingCard style={styles.outcomeCard}>
+                  <Ionicons name="bookmark-outline" size={20} color="#076B51" />
+                  <Text style={styles.outcomeText}>You've joined for {contribution.quantity} share{contribution.quantity === 1 ? "" : "s"}. {HOLD_PAYMENT_LINE}</Text>
+                </FloatingCard>
               ) : contribution?.status === "PLEDGED" ? (
                 <FloatingCard style={styles.outcomeCard}>
                   <Ionicons name="bookmark-outline" size={20} color="#076B51" />
@@ -582,6 +626,7 @@ export default function CommunityBuyCampaignScreen() {
 }
 
 const styles = StyleSheet.create({
+  holdActionText: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#076B51" },
   headerIconBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
   statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   countryPill: { backgroundColor: "#F4F6F5", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },

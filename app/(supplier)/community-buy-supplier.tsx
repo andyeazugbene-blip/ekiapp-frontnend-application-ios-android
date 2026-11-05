@@ -246,6 +246,13 @@ export default function VendorCommunityBuySupplierScreen() {
   };
 
   /** Doc screens 115-117 — confirms the supplier can fulfil every confirmed quantity between the minimum and maximum before the organiser can submit for admin review. */
+  const handleReconfirm = (campaignId: string, action: "confirm" | "decline") => {
+    communityBuyService
+      .reconfirmSupply(campaignId, action)
+      .then(() => load())
+      .catch((err: unknown) => Alert.alert("That didn't work", err instanceof Error ? err.message : "Please try again."));
+  };
+
   const handleAcceptCampaign = (campaignId: string, title: string) => {
     Alert.alert(
       "Accept this campaign?",
@@ -651,6 +658,17 @@ export default function VendorCommunityBuySupplierScreen() {
                       <Text style={styles.cardMeta}>Organiser: {c.organiser?.user?.name ?? "Unknown"}</Text>
                       {c.description ? <Text style={styles.cardDescription}>{c.description}</Text> : null}
                       <Text style={styles.cardMeta}>Deadline: {formatDeadline(c.deadline)}</Text>
+                      {c.status === "AWAITING_SUPPLIER_RECONFIRMATION" ? (
+                        <View style={{ gap: 8, marginTop: 4 }}>
+                          <Text style={styles.cardDescription}>Fewer shares than the minimum have a confirmed hold. Can you supply {c.reconfirmationQuantity ?? "the confirmed number of"} share{c.reconfirmationQuantity === 1 ? "" : "s"}? If not, every hold is released and nobody is charged.</Text>
+                          <TouchableOpacity onPress={() => handleReconfirm(c.id, "confirm")} activeOpacity={0.85} style={styles.acceptBtn} accessibilityRole="button" accessibilityLabel="Accept final quantity">
+                            <Text style={styles.acceptBtnText}>Accept final quantity</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => handleReconfirm(c.id, "decline")} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Decline final quantity">
+                            <Text style={styles.cardMeta}>Decline</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : null}
                       {["LIVE", "PAUSED", "RESCUE_WINDOW", "UNDER_REVIEW", "APPROVED"].includes(c.status) ? (
                         <RangeProgressBar value={c.confirmedShares} min={c.minimumShares!} goal={c.goalShares!} max={c.maximumShares!} />
                       ) : null}
