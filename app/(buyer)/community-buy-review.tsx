@@ -7,7 +7,7 @@ import { useCurrencyStore } from "../../stores/currencyStore";
 import { ErrorState, FloatingCard, LoadingBlock, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, FULFILMENT_METHOD_LABELS, type Campaign, type CampaignFulfilment } from "../../services/communityBuyService";
 import { countryDisplayName } from "../../utils/countries";
-import { BUYER_SERVICE_FEE_MAX_MINOR, BUYER_SERVICE_FEE_MIN_MINOR, calculateBuyerServiceFee } from "../../utils/communityBuyFees";
+import { BUYER_SERVICE_FEE_MAX_MINOR, BUYER_SERVICE_FEE_MIN_MINOR, DEFAULT_BUYER_SERVICE_FEE_BPS, calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 
 function formatDeadline(value: string): string {
   const d = new Date(value);
@@ -69,7 +69,12 @@ export default function CommunityBuyReviewScreen() {
   // Nullable on a draft, but this screen only ever shows a LIVE campaign —
   // submit() (backend) guarantees these are set by then.
   const amount = quantity * campaign.pricePerShareMinor!;
-  const serviceFee = calculateBuyerServiceFee(amount, campaign.perShareFeeEstimate?.feeBps);
+  // The market's live fee settings, so an Admin change shows without a release.
+  const feeEstimate = campaign.perShareFeeEstimate;
+  const feeBps = feeEstimate?.feeBps ?? DEFAULT_BUYER_SERVICE_FEE_BPS;
+  const feeMin = feeEstimate?.minAmount ?? BUYER_SERVICE_FEE_MIN_MINOR;
+  const feeMax = feeEstimate?.maxAmount ?? BUYER_SERVICE_FEE_MAX_MINOR;
+  const serviceFee = calculateBuyerServiceFee(amount, feeBps, feeMin, feeMax);
   // Phase 6 (delivery + collection/tracking) — flat per pledge, not per
   // share; separate from Eki's service fee above and never folded into it.
   const isDelivery = campaign.deliveryPreference === "DELIVERY";
@@ -83,12 +88,15 @@ export default function CommunityBuyReviewScreen() {
         <View style={[premiumStyles.block, { gap: 14 }]}>
           <FloatingCard style={{ gap: 10 }}>
             <View style={styles.row}><Text style={styles.label}>Campaign</Text><Text style={styles.value} numberOfLines={1}>{campaign.title}</Text></View>
-            <View style={styles.row}><Text style={styles.label}>Fulfilment</Text><Text style={styles.value} numberOfLines={1}>{campaign.fulfilmentOwner === "SELF" ? "Organiser" : (campaign.supplier?.vendor?.storeName ?? "Verified supplier")}</Text></View>
+            {campaign.organiserDisplayName ? (
+              <View style={styles.row}><Text style={styles.label}>Organiser</Text><Text style={styles.value} numberOfLines={1}>{campaign.organiserDisplayName}</Text></View>
+            ) : null}
+            <View style={styles.row}><Text style={styles.label}>Supplied by</Text><Text style={styles.value} numberOfLines={1}>{campaign.fulfilmentOwner === "SELF" ? "Organiser" : (campaign.supplier?.vendor?.storeName ?? campaign.supplierAccount?.user?.name ?? "Verified supplier")}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Market</Text><Text style={styles.value}>{countryDisplayName(campaign.country)}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Quantity</Text><Text style={styles.value}>{quantity} share{quantity === 1 ? "" : "s"}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Price per share</Text><Text style={styles.value}>{formatDisplayMoney(campaign.pricePerShareMinor! / 100, campaign.currency, selectedCurrency)}</Text></View>
             <View style={styles.row}><Text style={styles.label}>Product subtotal</Text><Text style={styles.value}>{formatDisplayMoney(amount / 100, campaign.currency, selectedCurrency)}</Text></View>
-            <View style={styles.row}><Text style={styles.label}>Eki service fee (5%, min {formatDisplayMoney(BUYER_SERVICE_FEE_MIN_MINOR / 100, campaign.currency, selectedCurrency)}, max {formatDisplayMoney(BUYER_SERVICE_FEE_MAX_MINOR / 100, campaign.currency, selectedCurrency)})</Text><Text style={styles.value}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text></View>
+            <View style={styles.row}><Text style={styles.label}>Eki service fee ({feeBps / 100}%, min {formatDisplayMoney(feeMin / 100, campaign.currency, selectedCurrency)}, max {formatDisplayMoney(feeMax / 100, campaign.currency, selectedCurrency)})</Text><Text style={styles.value}>{formatDisplayMoney(serviceFee / 100, campaign.currency, selectedCurrency)}</Text></View>
             {isDelivery ? (
               <View style={styles.row}><Text style={styles.label}>Delivery fee</Text><Text style={styles.value}>{deliveryFee > 0 ? formatDisplayMoney(deliveryFee / 100, campaign.currency, selectedCurrency) : "Free"}</Text></View>
             ) : null}

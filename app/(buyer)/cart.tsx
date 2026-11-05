@@ -2,6 +2,7 @@ import React, { useCallback } from "react";
 import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
+import { RegularDeliveryEntry } from "../../components/buyer/RegularDeliveryEntry";
 import { Ionicons } from "@expo/vector-icons";
 
 import { TAB_BAR_RESERVED_SPACE } from "../../components/layout/tabBarConstants";
@@ -214,6 +215,14 @@ export default function CartScreen() {
                 <Text style={styles.totalValue}>{formatDisplayMoney(grandTotal, checkoutCurrency, selectedCurrency)}</Text>
               </View>
             </View>
+            {/* A subscription belongs to one vendor, so this only appears for a single-seller basket. */}
+            {vendorCount === 1 ? (
+              <RegularDeliveryEntry
+                vendorId={items[0]?.product.vendorId}
+                mode="basket"
+                items={items.map((item) => ({ productId: item.product.id, quantity: item.quantity }))}
+              />
+            ) : null}
           </>
         )}
       </ScrollView>

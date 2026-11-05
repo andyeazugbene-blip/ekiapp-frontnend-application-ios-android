@@ -116,6 +116,7 @@ export default function ProfileScreen() {
     { icon: "heart-outline", label: "Favorites", action: "navigate", target: "/(buyer)/favorites" },
     { icon: "chatbubble-ellipses-outline", label: "Messages", action: "navigate", target: "/(buyer)/messages" },
     { icon: "people-outline", label: "Refer a Friend", action: "navigate", target: "/(buyer)/referral-program" },
+    { icon: "apps-outline", label: "What do you want to do on Eki?", action: "navigate", target: "/launcher" },
     ...(user?.hasVendor ? [{ icon: "storefront-outline", label: "Switch to Vendor", action: "navigate", target: "/(vendor)" } as MenuItem] : []),
     { icon: "warning-outline", label: "Report an issue", action: "navigate", target: "/(buyer)/report-issue" },
     // Client decision (2026-09-22): in-app messaging replaces email as the

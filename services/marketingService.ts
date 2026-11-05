@@ -88,6 +88,7 @@ export interface OfferInput {
 export interface Offer {
   id: string;
   audience: OfferAudience;
+  delivery?: { sent: number; alreadySent: number; failed: number };
   buyerId?: string;
   message: string;
   shareUrl?: string;
@@ -344,16 +345,17 @@ export const marketingService = {
       throw new Error("No matching buyers were found for this audience yet.");
     }
 
-    for (const recipient of recipientIds) {
-      const conversation = await messageService.createConversation(recipient.buyerId, recipient.orderId);
-      await messageService.sendMessage(conversation.id, { text: message });
-    }
+    const delivery = await apiClient.post<{ sent: number; alreadySent: number; failed: number }>("/api/vendors/me/offers", {
+      buyerIds: recipientIds.map((recipient) => recipient.buyerId),
+      message,
+    });
 
     return {
       id: `offer_${Date.now()}`,
       audience: input.audience,
       buyerId: input.buyerId,
       message,
+      delivery,
       createdAt: new Date().toISOString(),
     };
   },

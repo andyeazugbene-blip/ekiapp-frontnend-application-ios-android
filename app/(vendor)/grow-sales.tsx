@@ -6,6 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { goBackOrReplace } from "../../utils/navigation";
 import { FloatingCard, IconAvatar, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { marketingService } from "../../services/marketingService";
+import { usePlanLimits } from "../../hooks/usePlanLimits";
 
 const GRID_TOOLS = [
   {
@@ -14,6 +15,7 @@ const GRID_TOOLS = [
     subtitle: "Share a real promo code",
     route: "/(vendor)/create-discount",
     tone: "success",
+    planFeature: "discounts",
   },
   {
     icon: "cube-outline",
@@ -21,6 +23,7 @@ const GRID_TOOLS = [
     subtitle: "Sell foodstuff together",
     route: "/(vendor)/create-bundle",
     tone: "success",
+    planFeature: "bundles",
   },
   {
     icon: "flash-outline",
@@ -28,6 +31,7 @@ const GRID_TOOLS = [
     subtitle: "Time-limited price drop",
     route: "/(vendor)/create-flash-sale",
     tone: "warning",
+    planFeature: "flashSales",
   },
   {
     icon: "chatbubble-ellipses-outline",
@@ -73,6 +77,7 @@ export default function GrowSalesScreen() {
   const router = useRouter();
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(true);
+  const { limits } = usePlanLimits({ refreshOnFocus: true });
 
   const loadActivity = useCallback(() => {
     setLoadingActivity(true);
@@ -107,15 +112,31 @@ export default function GrowSalesScreen() {
           <Text style={styles.sectionTitle}>Marketing campaigns</Text>
 
           <View style={styles.grid}>
-            {GRID_TOOLS.map((tool) => (
-              <TouchableOpacity key={tool.title} onPress={() => router.push(tool.route as any)} activeOpacity={0.85} style={styles.gridItem}>
-                <FloatingCard style={styles.gridCard}>
-                  <IconAvatar icon={tool.icon as any} tone={tool.tone} size={48} />
-                  <Text style={styles.gridLabel}>{tool.title}</Text>
-                  <Text style={styles.gridSubtitle}>{tool.subtitle}</Text>
-                </FloatingCard>
-              </TouchableOpacity>
-            ))}
+            {GRID_TOOLS.map((tool) => {
+              // Only lock on a real answer: while limits load the server still decides.
+              const locked = "planFeature" in tool && limits != null && !limits[tool.planFeature];
+              return (
+                <TouchableOpacity
+                  key={tool.title}
+                  onPress={() => router.push((locked ? "/(vendor)/upgrade-prompt" : tool.route) as any)}
+                  activeOpacity={0.85}
+                  style={styles.gridItem}
+                  accessibilityRole="button"
+                  accessibilityLabel={locked ? `${tool.title}. Upgrade to unlock` : tool.title}
+                >
+                  <FloatingCard style={styles.gridCard}>
+                    {locked ? (
+                      <View style={styles.lockBadge}>
+                        <Ionicons name="lock-closed" size={12} color="#FFFFFF" />
+                      </View>
+                    ) : null}
+                    <IconAvatar icon={tool.icon as any} tone={tool.tone} size={48} />
+                    <Text style={styles.gridLabel}>{tool.title}</Text>
+                    <Text style={styles.gridSubtitle}>{locked ? "Upgrade to unlock" : tool.subtitle}</Text>
+                  </FloatingCard>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           <TouchableOpacity onPress={() => router.push("/(vendor)/send-offer" as any)} activeOpacity={0.88} style={styles.sendOfferButton}>
@@ -185,6 +206,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "space-between" },
   gridItem: { width: "48%" },
+  lockBadge: { position: "absolute", top: 10, right: 10, width: 24, height: 24, borderRadius: 12, backgroundColor: "#12221A", alignItems: "center", justifyContent: "center" },
   gridCard: { alignItems: "center", justifyContent: "center", minHeight: 150, gap: 4 },
   gridLabel: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B", textAlign: "center", marginTop: 6 },
   gridSubtitle: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72", textAlign: "center" },

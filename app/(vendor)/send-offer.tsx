@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { buyerService, type VendorBuyerSummary } from "../../services/buyerService";
 import { marketingService, type OfferAudience } from "../../services/marketingService";
@@ -29,6 +29,7 @@ export default function SendOfferScreen() {
   const [buyers, setBuyers] = useState<VendorBuyerSummary[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingBuyers, setLoadingBuyers] = useState(true);
+  const [buyersError, setBuyersError] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [selectedBuyerId, setSelectedBuyerId] = useState<string | undefined>(paramBuyerId);
   const [selectedProductId, setSelectedProductId] = useState<string | undefined>();
@@ -36,13 +37,19 @@ export default function SendOfferScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const loadBuyers = useCallback(() => {
+    setLoadingBuyers(true);
+    setBuyersError(false);
     buyerService
       .listMyBuyers()
       .then((list) => setBuyers(list ?? []))
-      .catch(() => {})
+      .catch(() => setBuyersError(true))
       .finally(() => setLoadingBuyers(false));
   }, []);
+
+  useEffect(() => {
+    loadBuyers();
+  }, [loadBuyers]);
 
   useEffect(() => {
     productService
@@ -105,13 +112,27 @@ export default function SendOfferScreen() {
 
     setSubmitting(true);
     try {
-      await marketingService.sendOffer({
+      const offer = await marketingService.sendOffer({
         audience,
         buyerId: audience === "specific_buyer" ? selectedBuyerId : undefined,
         productId: audience === "bought_specific_product" ? selectedProductId : undefined,
         message: message.trim(),
       });
-      goBackOrReplace(router, "/(vendor)/buyers" as any);
+      const { sent = 0, alreadySent = 0, failed = 0 } = offer.delivery ?? {};
+      if (sent === 0 && alreadySent === 0) {
+        setError("This offer couldn't be delivered. Please try again.");
+        return;
+      }
+      if (failed > 0) {
+        // Stay here so the vendor can retry: buyers already messaged are skipped.
+        setError(`Sent to ${sent + alreadySent} of ${sent + alreadySent + failed} buyers. Tap send again to retry the rest.`);
+        return;
+      }
+      Alert.alert(
+        "Offer sent",
+        sent > 0 ? `Sent to ${sent} buyer${sent === 1 ? "" : "s"}.` : "These buyers already received this offer today.",
+        [{ text: "OK", onPress: () => goBackOrReplace(router, "/(vendor)/buyers" as any) }],
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send offer.");
     } finally {
@@ -130,6 +151,14 @@ export default function SendOfferScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
           <View style={[premiumStyles.block, { gap: 14 }]}>
+            {buyersError ? (
+              <FloatingCard style={{ gap: 8 }}>
+                <Text style={styles.sectionTitle}>Couldn't load your buyers</Text>
+                <TouchableOpacity onPress={loadBuyers} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Try loading buyers again">
+                  <Text style={styles.retryLink}>Try again</Text>
+                </TouchableOpacity>
+              </FloatingCard>
+            ) : null}
             <FloatingCard style={{ gap: 8 }}>
               <Text style={styles.sectionTitle}>Audience</Text>
               <View style={styles.chipRow}>
@@ -232,6 +261,7 @@ export default function SendOfferScreen() {
 }
 
 const styles = StyleSheet.create({
+  retryLink: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
   sectionTitle: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
   fieldLabel: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#516A60" },
   helperText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: 2 },

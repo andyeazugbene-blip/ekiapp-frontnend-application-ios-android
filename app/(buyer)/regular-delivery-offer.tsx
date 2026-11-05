@@ -7,6 +7,8 @@ import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
 import { addressService, type SavedAddress } from "../../services/addressService";
 import { presentSetupIntent } from "../../services/stripePayment";
+import { CountrySelectField } from "../../components/shared/CountrySelectField";
+import { COUNTRIES, countryCodeForName, countryDisplayName } from "../../utils/countries";
 import {
   ErrorState,
   FloatingCard,
@@ -25,9 +27,15 @@ import {
   type SubscriptionOffer,
 } from "../../services/regularDeliveriesService";
 
+// Mirrors the backend's subscribe check (buyer-subscriptions.service.ts), so a
+// paused or sold-out product is never preselected and rejected on submit.
+function isOfferProductAvailable(p: SubscriptionOffer["products"][number]): boolean {
+  return !p.pausedAt && p.product.isActive !== false && (p.product.stock === undefined || p.product.stock > 0);
+}
+
 export default function RegularDeliveryOfferScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, items: requestedItems } = useLocalSearchParams<{ id: string; items?: string }>();
   const { selectedCurrency } = useCurrencyStore();
 
   const [offer, setOffer] = useState<SubscriptionOffer | null>(null);
@@ -63,9 +71,18 @@ export default function RegularDeliveryOfferScreen() {
       ]);
       setOffer(offerData);
       setFrequency(offerData.frequencies[0] ?? null);
-      setSelectedProductIds(new Set(offerData.products.map((p) => p.productId)));
+      // Entered from a product or basket: start from exactly those items.
+      const requested = new Map(
+        (requestedItems ?? "").split(",").filter(Boolean).map((entry) => {
+          const [productId, quantity] = entry.split(":");
+          return [productId, Math.max(1, Number(quantity) || 1)] as const;
+        }),
+      );
+      const available = offerData.products.filter(isOfferProductAvailable);
+      const startingItems = available.filter((p) => requested.has(p.productId));
+      setSelectedProductIds(new Set((startingItems.length > 0 ? startingItems : available).map((p) => p.productId)));
       const qty: Record<string, number> = {};
-      offerData.products.forEach((p) => { qty[p.productId] = 1; });
+      offerData.products.forEach((p) => { qty[p.productId] = requested.get(p.productId) ?? 1; });
       setQuantities(qty);
 
       setAddresses(addressList);
@@ -80,7 +97,7 @@ export default function RegularDeliveryOfferScreen() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, requestedItems]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -231,14 +248,25 @@ export default function RegularDeliveryOfferScreen() {
               <View style={{ gap: 8 }}>
                 {offer.products.map((p) => {
                   const selected = selectedProductIds.has(p.productId);
+                  const available = isOfferProductAvailable(p);
                   return (
                     <FloatingCard key={p.productId} style={[styles.productRow, !selected && styles.productRowMuted]}>
-                      <TouchableOpacity onPress={() => toggleProduct(p.productId)} activeOpacity={0.8} style={[styles.checkbox, !selected && styles.checkboxOff]}>
+                      <TouchableOpacity
+                        onPress={() => toggleProduct(p.productId)}
+                        disabled={!available}
+                        activeOpacity={0.8}
+                        style={[styles.checkbox, !selected && styles.checkboxOff]}
+                        accessibilityRole="checkbox"
+                        accessibilityLabel={p.product.title}
+                        accessibilityState={{ checked: selected, disabled: !available }}
+                      >
                         {selected ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
                       </TouchableOpacity>
                       <View style={styles.productCopy}>
                         <Text style={styles.productTitle} numberOfLines={1}>{p.product.title}</Text>
-                        <Text style={styles.productPrice}>{formatDisplayMoney(p.product.priceInCents / 100, p.product.currency, selectedCurrency)}</Text>
+                        <Text style={styles.productPrice}>
+                          {available ? formatDisplayMoney(p.product.priceInCents / 100, p.product.currency, selectedCurrency) : "Currently unavailable"}
+                        </Text>
                       </View>
                       {selected ? (
                         <View style={styles.stepper}>
@@ -293,7 +321,13 @@ export default function RegularDeliveryOfferScreen() {
                     <TextInput placeholder="Address line" placeholderTextColor="#8AA194" style={styles.input} value={newAddress.line1} onChangeText={(v) => setNewAddress((p) => ({ ...p, line1: v }))} />
                     <TextInput placeholder="City" placeholderTextColor="#8AA194" style={styles.input} value={newAddress.city} onChangeText={(v) => setNewAddress((p) => ({ ...p, city: v }))} />
                     <TextInput placeholder="Postal code" placeholderTextColor="#8AA194" style={styles.input} value={newAddress.postalCode} onChangeText={(v) => setNewAddress((p) => ({ ...p, postalCode: v }))} />
-                    <TextInput placeholder="Country" placeholderTextColor="#8AA194" style={styles.input} value={newAddress.country} onChangeText={(v) => setNewAddress((p) => ({ ...p, country: v }))} />
+                    <CountrySelectField
+                      options={COUNTRIES}
+                      value={countryCodeForName(newAddress.country)}
+                      onSelect={(code) => setNewAddress((p) => ({ ...p, country: countryDisplayName(code) }))}
+                      placeholder="Select country"
+                      sheetTitle="Select country"
+                    />
                     <TextInput placeholder="Phone (optional)" placeholderTextColor="#8AA194" style={styles.input} value={newAddress.phone} onChangeText={(v) => setNewAddress((p) => ({ ...p, phone: v }))} />
                     <PrimaryButton label="Save address" onPress={() => void handleAddAddress()} loading={savingAddress} style={{ marginTop: 2 }} />
                   </FloatingCard>

@@ -2,6 +2,12 @@ import { LoginCredentials, OAuthOutcome, RegisterPayload } from "../types/auth";
 import { apiClient, ApiRequestError } from "./api";
 import { tokenStorage } from "./api/tokenStorage";
 
+export interface AccountDestinations {
+  sell: { storeState: "none" | "setup" | "live" | "restricted"; ordersNeedingAttention: number };
+  communityBuy: { activeCount: number };
+  supply: { supplierState: string; invitationCount: number };
+}
+
 interface AuthResponse {
   user: any;
   token: string;
@@ -92,6 +98,12 @@ export const authService = {
 
   async updateProfile(data: Record<string, unknown>) {
     return apiClient.patch<{ user: any }>("/api/auth/me", data);
+  },
+
+  /** Server-derived status for the post-login launcher cards. */
+  async getDestinations(): Promise<AccountDestinations> {
+    const res = await apiClient.get<{ destinations: AccountDestinations }>("/api/auth/me/destinations");
+    return res.destinations;
   },
 
   async deleteAccount() {

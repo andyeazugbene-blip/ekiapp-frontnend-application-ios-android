@@ -57,9 +57,8 @@ export default function LoginScreen() {
       // no backend role flip to wait for here any more.
       if (user.role === "admin") { router.replace("/(admin)"); return; }
       if (resolvedRole === "vendor" && !user.hasVendor) { router.replace("/(vendor-onboarding)/setup-store" as any); return; }
-      if (resolvedRole === "vendor" && user.hasVendor) { router.replace("/(vendor)"); return; }
       if (redirect) { router.replace(redirect as any); return; }
-      router.replace("/(buyer)");
+      router.replace("/launcher" as any);
     }
   }, [isAuthenticated, router, user, redirect, resolvedRole]);
 
@@ -115,10 +114,9 @@ export default function LoginScreen() {
     if (currentUser) {
       if (currentUser.role === "admin") { router.replace("/(admin)"); return; }
       if (resolvedRole === "vendor" && !currentUser.hasVendor) { router.replace("/(vendor-onboarding)/setup-store" as any); return; }
-      if (resolvedRole === "vendor" && currentUser.hasVendor) { router.replace("/(vendor)"); return; }
-    }
+      }
     if (redirect) { router.replace(redirect as any); return; }
-    router.replace("/(buyer)");
+    router.replace("/launcher" as any);
   };
 
   const [socialError, setSocialError] = useState("");
@@ -133,9 +131,8 @@ export default function LoginScreen() {
       const loggedInUser = outcome.user;
       if (loggedInUser.role === "admin") { router.replace("/(admin)"); return; }
       if (loggedInUser.role === "vendor" && !loggedInUser.hasVendor) { router.replace("/(vendor-onboarding)/setup-store" as any); return; }
-      if (loggedInUser.role === "vendor") { router.replace("/(vendor)"); return; }
       if (redirect) { router.replace(redirect as any); return; }
-      router.replace("/(buyer)");
+      router.replace("/launcher" as any);
       return;
     }
     if (outcome.status === "LINK_REQUIRED") {

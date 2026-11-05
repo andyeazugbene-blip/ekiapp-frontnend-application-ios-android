@@ -7,7 +7,6 @@ import { goBackOrReplace } from "../../utils/navigation";
 import { useVendorProfile } from "../../hooks/useVendorProfile";
 import { productService } from "../../services/productService";
 import { deliveryService } from "../../services/deliveryService";
-import { ApiRequestError } from "../../services/api";
 import { Product } from "../../types/product";
 
 function parseMoneyInput(value: string): number {
@@ -35,7 +34,6 @@ export default function PublishCheckScreen() {
   const [hasDelivery, setHasDelivery] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [needsVerification, setNeedsVerification] = useState(false);
   const [result, setResult] = useState<{ id: string; name: string; mode: "live" | "pending" } | null>(null);
 
   useEffect(() => {
@@ -64,7 +62,6 @@ export default function PublishCheckScreen() {
     if (!allDone || !vendor) return;
     setSubmitting(true);
     setError("");
-    setNeedsVerification(false);
     try {
       const payload: Omit<Product, "id" | "createdAt" | "updatedAt"> = {
         name: name.trim(),
@@ -84,23 +81,17 @@ export default function PublishCheckScreen() {
       };
       const product = await productService.createProduct(payload);
       // The frontend must use the actual persisted backend status, never
-      // assume success from a 2xx response. A complete listing from an
-      // unverified vendor comes back "pending_activation" — ready, saved,
-      // intent preserved, but not yet visible to buyers; it auto-publishes
-      // the moment verification + delivery readiness are both met (see
-      // vendor-activation.service.ts on the backend). A "draft" here means
-      // the checklist above somehow missed a genuine incompleteness.
+      // assume success from a 2xx response. "pending_activation" can still
+      // exist on older rows and is shown as not yet visible. A "draft" here
+      // means the checklist above missed a genuine incompleteness.
       if (product.status === "draft") {
         setError("Saved as a draft — please check the image and price, then try publishing again.");
         return;
       }
       setResult({ id: product.id, name: product.name, mode: product.status === "pending_activation" ? "pending" : "live" });
     } catch (err) {
-      if (err instanceof ApiRequestError && err.status === 403) {
-        setError("You need to verify your account before publishing.");
-        setNeedsVerification(true);
-        return;
-      }
+      // Verification is required at withdrawal, not publishing, so a refusal
+      // here (plan limit, suspension) must show the backend's real reason.
       setError(err instanceof Error ? err.message : "Could not publish foodstuff.");
     } finally {
       setSubmitting(false);
@@ -222,17 +213,6 @@ export default function PublishCheckScreen() {
           ) : null}
 
           {error ? <Text style={styles.warningText}>{error}</Text> : null}
-
-          {needsVerification ? (
-            <TouchableOpacity
-              accessibilityRole="button"
-              activeOpacity={0.86}
-              onPress={() => router.push("/(vendor-verification)" as any)}
-              style={styles.verifyNowButton}
-            >
-              <Text style={styles.verifyNowText}>Verify now</Text>
-            </TouchableOpacity>
-          ) : null}
         </View>
       </ScrollView>
 
@@ -360,20 +340,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
     marginLeft: 12,
-  },
-  verifyNowButton: {
-    height: 46,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#076B51",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 12,
-  },
-  verifyNowText: {
-    color: "#076B51",
-    fontFamily: "Manrope-SemiBold",
-    fontSize: 14,
   },
   bottomBar: {
     paddingHorizontal: 20,

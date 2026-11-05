@@ -78,6 +78,7 @@ export default function ShareStoreLinkScreen() {
   // Gate on hasVendor (capability), not role — a buyer+seller dual-capability
   // account (e.g. an admin demo account) stays role="buyer".
   const { vendor } = useVendorProfile();
+  const isVerified = vendor?.verificationStatus === "verified";
 
   const storeSlug = toCompactStoreSlug(vendor?.storeSlug ?? vendor?.storeName);
   const baseStoreUrl = getPublicStoreUrl({
@@ -185,7 +186,7 @@ export default function ShareStoreLinkScreen() {
           </View>
           <Text style={styles.topTitle}>My Store</Text>
           <TouchableOpacity
-            onPress={() => goBackOrReplace(router, "/(vendor)/subscription-plans" as any)}
+            onPress={() => goBackOrReplace(router, "/(vendor)/grow-sales" as any)}
             activeOpacity={0.85}
             style={styles.moreButton}
           >
@@ -197,7 +198,7 @@ export default function ShareStoreLinkScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.storeName}>{vendor?.storeName ?? "Your store"}</Text>
             <Text style={styles.storeMeta}>
-              {[vendor?.city, vendor?.country].filter(Boolean).join(", ") || "Vendor"} {"  \u00B7  "} Verified
+              {[vendor?.city, vendor?.country].filter(Boolean).join(", ") || "Vendor"} {"  \u00B7  "} {isVerified ? "Verified" : "Not verified yet"}
             </Text>
           </View>
           <TouchableOpacity
@@ -210,9 +211,11 @@ export default function ShareStoreLinkScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Your web store is live</Text>
+          <Text style={styles.cardTitle}>{isVerified ? "Your web store link" : "Your web store isn't live yet"}</Text>
           <Text style={styles.cardBody}>
-            Buyers can order directly from your public store and track their order without waiting for DMs.
+            {isVerified
+              ? "Buyers can order directly from your public store and track their order without waiting for DMs."
+              : "Complete verification and your published foodstuff becomes visible at this link."}
           </Text>
 
           <View style={styles.linkRow}>

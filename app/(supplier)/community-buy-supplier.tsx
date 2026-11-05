@@ -59,6 +59,28 @@ const DECLINE_REASONS = [
 // only closes the door to new work) — SUSPENDED/CLOSED do not.
 const DASHBOARD_VISIBLE_STATES: SupplierAccountState[] = ["APPROVED", "PAUSED", "RESTRICTED"];
 
+// Spec F: Supplier Centre sections.
+type CentreSection = "home" | "invitations" | "campaigns" | "fulfilment" | "payouts";
+const CENTRE_SECTIONS: { key: CentreSection; label: string }[] = [
+  { key: "home", label: "Home" },
+  { key: "invitations", label: "Invitations" },
+  { key: "campaigns", label: "Campaigns" },
+  { key: "fulfilment", label: "Fulfilment" },
+  { key: "payouts", label: "Payouts" },
+];
+const AFTER_CAPTURE_STATUSES = ["SUCCEEDED", "FULFILLING", "COMPLETED", "FINANCIALLY_CLOSED"];
+const SECTION_EMPTY: Record<CentreSection, string> = {
+  home: "",
+  invitations: "No invitations are waiting for your answer.",
+  campaigns: "Campaigns you've accepted will show up here.",
+  fulfilment: "Campaigns appear here once they succeed and are ready to fulfil.",
+  payouts: "Payouts appear here once a campaign you supplied has succeeded.",
+};
+const FULFILMENT_METHOD_OPTIONS = [
+  { value: "DELIVERY", label: "Delivery" },
+  { value: "COLLECTION", label: "Collection" },
+];
+
 // Community Buy Workstream 2: a campaign's deadline is nullable while
 // still a draft — a supplier can be invited to (and see) a campaign
 // before the organiser has finished the wizard (SUPPLIER_RESPONSE_
@@ -91,6 +113,11 @@ export default function VendorCommunityBuySupplierScreen() {
   // a one-tap "Apply for {country}") — country + categories + coverage.
   const [formCountry, setFormCountry] = useState<string | null>(null);
   const [formCategories, setFormCategories] = useState("");
+  const [formBusinessName, setFormBusinessName] = useState("");
+  const [formRegistration, setFormRegistration] = useState("");
+  const [formMethods, setFormMethods] = useState<string[]>([]);
+  const [formCapacity, setFormCapacity] = useState("");
+  const [section, setSection] = useState<CentreSection>("home");
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState("");
 
@@ -119,11 +146,16 @@ export default function VendorCommunityBuySupplierScreen() {
         communityBuyService.listMarketConfigs().catch(() => [] as MarketConfig[]),
       ]);
       setAccount(profileData.account);
+      // A re-application starts from what was already submitted.
+      setFormBusinessName((current) => current || profileData.account?.businessName || "");
+      setFormRegistration((current) => current || profileData.account?.businessRegistrationNumber || "");
+      setFormMethods((current) => (current.length > 0 ? current : profileData.account?.fulfilmentMethods ?? []));
+      setFormCategories((current) => current || (profileData.account?.categories ?? []).join(", "));
       // Workstream 3 fix: this used to also require the caller to already
       // have a Vendor with an active market assignment before ANY market
       // would show at all — exactly the no-Vendor-required onboarding this
       // workstream exists to fix. Every market open for supplier
-      // applications is offered; the backend re-validates on submit.
+      // applications is offered.
       setMarkets(marketList.filter((m) => m.supplierApplicationsEnabled));
       if (profileData.account && DASHBOARD_VISIBLE_STATES.includes(profileData.account.supplierState)) {
         const myCampaigns = await communityBuyService.listMySupplierCampaigns();
@@ -148,11 +180,38 @@ export default function VendorCommunityBuySupplierScreen() {
       setApplyError("Choose a market first.");
       return;
     }
+    // Admin approval is blocked while categories are empty (backend
+    // computeRequirementsDue), so an empty form could never be approved.
+    const categories = formCategories.split(",").map((c) => c.trim()).filter(Boolean);
+    if (!formBusinessName.trim()) {
+      setApplyError("Add your business name.");
+      return;
+    }
+    if (categories.length === 0) {
+      setApplyError("Add at least one category you can supply.");
+      return;
+    }
+    if (formMethods.length === 0) {
+      setApplyError("Choose how you can fulfil orders.");
+      return;
+    }
+    const capacity = formCapacity.trim() ? Number(formCapacity) : undefined;
+    if (capacity !== undefined && (!Number.isInteger(capacity) || capacity < 1)) {
+      setApplyError("Daily capacity must be a whole number, or leave it blank.");
+      return;
+    }
     setApplying(true);
     setApplyError("");
     try {
-      const categories = formCategories.split(",").map((c) => c.trim()).filter(Boolean);
-      setAccount(await communityBuyService.applyAsSupplier({ country: formCountry, categories, coverageRegions: [formCountry] }));
+      setAccount(await communityBuyService.applyAsSupplier({
+        country: formCountry,
+        categories,
+        coverageRegions: [formCountry],
+        businessName: formBusinessName.trim(),
+        businessRegistrationNumber: formRegistration.trim() || undefined,
+        fulfilmentMethods: formMethods,
+        collectionCapacityPerDay: capacity,
+      }));
     } catch (err) {
       setApplyError(err instanceof Error ? err.message : "Could not submit your application.");
     } finally {
@@ -259,6 +318,27 @@ export default function VendorCommunityBuySupplierScreen() {
         <Text style={styles.emptyText}>Supplier applications aren't open in any market yet.</Text>
       ) : (
         <FloatingCard style={{ gap: 10 }}>
+          <Text style={styles.formSection}>Business information</Text>
+          <Text style={styles.formLabel}>Business name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Ade Foods Ltd"
+            placeholderTextColor="#8AA194"
+            value={formBusinessName}
+            onChangeText={setFormBusinessName}
+            accessibilityLabel="Business name"
+          />
+          <Text style={styles.formLabel}>Company registration number (optional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="If your business has one"
+            placeholderTextColor="#8AA194"
+            value={formRegistration}
+            onChangeText={setFormRegistration}
+            accessibilityLabel="Company registration number, optional"
+          />
+
+          <Text style={[styles.formSection, { marginTop: 8 }]}>Products and coverage</Text>
           <Text style={styles.formLabel}>Market</Text>
           <CountrySelectField
             options={markets.map((m) => ({ code: m.countryCode, name: countryDisplayName(m.countryCode) }))}
@@ -277,7 +357,40 @@ export default function VendorCommunityBuySupplierScreen() {
             onChangeText={setFormCategories}
             accessibilityLabel="Categories, comma separated"
           />
-          <Text style={styles.hint}>Comma-separated. An admin reviews every application before you can be selected for a campaign.</Text>
+          <Text style={styles.hint}>Separate each category with a comma.</Text>
+
+          <Text style={[styles.formSection, { marginTop: 8 }]}>Fulfilment capability</Text>
+          <Text style={styles.formLabel}>How you can fulfil orders</Text>
+          <View style={styles.methodRow}>
+            {FULFILMENT_METHOD_OPTIONS.map((option) => {
+              const selected = formMethods.includes(option.value);
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  onPress={() => setFormMethods((current) => (selected ? current.filter((m) => m !== option.value) : [...current, option.value]))}
+                  activeOpacity={0.85}
+                  style={[styles.methodChip, selected && styles.methodChipActive]}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={option.label}
+                  accessibilityState={{ checked: selected }}
+                >
+                  <Ionicons name={selected ? "checkbox" : "square-outline"} size={18} color={selected ? "#076B51" : "#8AA194"} />
+                  <Text style={styles.methodText}>{option.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.formLabel}>Orders you can handle per day (optional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 50"
+            placeholderTextColor="#8AA194"
+            keyboardType="number-pad"
+            value={formCapacity}
+            onChangeText={setFormCapacity}
+            accessibilityLabel="Orders you can handle per day, optional"
+          />
+          <Text style={styles.hint}>Next you'll verify your business with Stripe, then Eki reviews your application.</Text>
           {applyError ? <Text style={styles.errorText}>{applyError}</Text> : null}
           <TouchableOpacity
             onPress={() => void handleApply()}
@@ -314,7 +427,7 @@ export default function VendorCommunityBuySupplierScreen() {
           icon: "people-circle-outline",
           tone: "success",
           title: "Become a Community Buy supplier",
-          body: "Suppliers fulfil bulk orders raised by organisers in your market. No store or Vendor account is required — an admin reviews every application.",
+          body: "Suppliers fulfil bulk orders raised by organisers in your market. You don't need a retail store on Eki.",
         });
       case "VERIFICATION_REQUIRED":
         return renderApplicationForm({
@@ -340,13 +453,63 @@ export default function VendorCommunityBuySupplierScreen() {
             })}
           </View>
         );
-      case "UNDER_REVIEW":
-        return renderInfoState({
-          icon: "time-outline",
-          tone: "warning",
-          title: "Application under review",
-          body: "Your Supplier Centre application is being reviewed. You'll be notified once organisers can select you for a campaign.",
-        });
+      case "REJECTED":
+        return (
+          <View style={{ gap: 12 }}>
+            {renderInfoState({
+              icon: "alert-circle-outline",
+              tone: "error",
+              title: "Application not approved",
+              body: account?.reasonCode ?? "Eki couldn't approve this application. You can correct your details and apply again.",
+            })}
+            {renderApplicationForm({
+              icon: "create-outline",
+              tone: "warning",
+              title: "Apply again",
+              body: "Update your details and resubmit.",
+            })}
+          </View>
+        );
+      case "UNDER_REVIEW": {
+        const stripeDone = !!account?.detailsSubmitted && !!account?.payoutsEnabled;
+        return (
+          <View style={[premiumStyles.block, { gap: 12 }]}>
+            <FloatingCard style={{ gap: 14 }}>
+              <Text style={styles.introTitle}>Your application</Text>
+              <View style={styles.stepRow}>
+                <Ionicons name="checkmark-circle" size={20} color="#076B51" />
+                <Text style={styles.stepText}>Application submitted</Text>
+              </View>
+              <View style={styles.stepRow}>
+                <Ionicons name={stripeDone ? "checkmark-circle" : "ellipse-outline"} size={20} color={stripeDone ? "#076B51" : "#B7791F"} />
+                <View style={{ flex: 1, gap: 8 }}>
+                  <Text style={styles.stepText}>{stripeDone ? "Stripe verification complete" : "Verify your business with Stripe"}</Text>
+                  {!stripeDone ? (
+                    <>
+                      <Text style={styles.cardMeta}>Needed before organisers can select you and before you can be paid.</Text>
+                      <TouchableOpacity
+                        onPress={() => void handleConnectPayouts()}
+                        disabled={connectingPayouts}
+                        activeOpacity={0.88}
+                        style={[styles.acceptBtn, { marginTop: 0 }]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Verify with Stripe"
+                        accessibilityState={{ busy: connectingPayouts, disabled: connectingPayouts }}
+                      >
+                        {connectingPayouts ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.acceptBtnText}>Verify with Stripe</Text>}
+                      </TouchableOpacity>
+                    </>
+                  ) : null}
+                </View>
+              </View>
+              <View style={styles.stepRow}>
+                <Ionicons name="time-outline" size={20} color="#B7791F" />
+                <Text style={styles.stepText}>Eki is reviewing your application. We'll notify you when it's decided.</Text>
+              </View>
+            </FloatingCard>
+          </View>
+        );
+      }
       case "SUSPENDED":
         return renderInfoState({
           icon: "close-circle-outline",
@@ -363,9 +526,46 @@ export default function VendorCommunityBuySupplierScreen() {
         });
       case "APPROVED":
       case "PAUSED":
-      case "RESTRICTED":
+      case "RESTRICTED": {
+        const isPending = (c: Campaign) => SUPPLIER_RESPONSE_STATUSES.includes(c.status) && !c.supplierCommitted && !c.supplierDeclinedAt;
+        const invitations = campaigns.filter(isPending);
+        const afterCapture = campaigns.filter((c) => AFTER_CAPTURE_STATUSES.includes(c.status));
+        const accepted = campaigns.filter((c) => !isPending(c) && !AFTER_CAPTURE_STATUSES.includes(c.status));
+        const sectionCampaigns = section === "invitations" ? invitations : section === "campaigns" ? accepted : section === "home" ? [] : afterCapture;
+        const homeTiles: { key: CentreSection; label: string; count: number }[] = [
+          { key: "invitations", label: "Invitations waiting", count: invitations.length },
+          { key: "campaigns", label: "Active campaigns", count: accepted.length },
+          { key: "fulfilment", label: "To fulfil", count: afterCapture.length },
+        ];
         return (
           <View style={[premiumStyles.block, { gap: 14 }]}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionRow}>
+              {CENTRE_SECTIONS.map(({ key, label }) => (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => setSection(key)}
+                  activeOpacity={0.85}
+                  style={[styles.sectionTab, section === key && styles.sectionTabActive]}
+                  accessibilityRole="tab"
+                  accessibilityLabel={label}
+                  accessibilityState={{ selected: section === key }}
+                >
+                  <Text style={[styles.sectionTabText, section === key && styles.sectionTabTextActive]}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            {section === "home" ? (
+              <View style={styles.tileRow}>
+                {homeTiles.map((tile) => (
+                  <TouchableOpacity key={tile.key} onPress={() => setSection(tile.key)} activeOpacity={0.85} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`${tile.label}: ${tile.count}`}>
+                    <FloatingCard style={styles.tile}>
+                      <Text style={styles.tileCount}>{tile.count}</Text>
+                      <Text style={styles.tileLabel}>{tile.label}</Text>
+                    </FloatingCard>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
             {state === "PAUSED" ? (
               <FloatingCard style={styles.bannerCard}>
                 <Ionicons name="pause-circle-outline" size={18} color="#B7791F" />
@@ -391,7 +591,7 @@ export default function VendorCommunityBuySupplierScreen() {
                 <Text style={styles.bannerText}>Your supplier account is restricted{account?.reasonCode ? `: ${account.reasonCode}` : ""}. You can't take on new campaigns, but existing ones are unaffected.</Text>
               </FloatingCard>
             ) : null}
-            {state === "APPROVED" ? (
+            {state === "APPROVED" && section === "home" ? (
               <TouchableOpacity
                 onPress={() => void handleTogglePause(false)}
                 disabled={togglingPause}
@@ -407,7 +607,7 @@ export default function VendorCommunityBuySupplierScreen() {
                 </FloatingCard>
               </TouchableOpacity>
             ) : null}
-            {!account?.payoutsEnabled ? (
+            {!account?.payoutsEnabled && (section === "home" || section === "payouts") ? (
               <FloatingCard style={styles.bannerCard}>
                 <Ionicons name="card-outline" size={18} color="#076B51" />
                 <View style={{ flex: 1, gap: 6 }}>
@@ -427,12 +627,11 @@ export default function VendorCommunityBuySupplierScreen() {
               </FloatingCard>
             ) : null}
 
-            <Text style={styles.section}>Assigned campaigns</Text>
-            {campaigns.length === 0 ? (
-              <Text style={styles.emptyText}>No campaigns have selected you as supplier yet.</Text>
+            {section === "home" ? null : sectionCampaigns.length === 0 ? (
+              <Text style={styles.emptyText}>{SECTION_EMPTY[section]}</Text>
             ) : (
               <View style={{ gap: 10 }}>
-                {campaigns.map((c) => {
+                {sectionCampaigns.map((c) => {
                   const pendingDecision = SUPPLIER_RESPONSE_STATUSES.includes(c.status) && !c.supplierCommitted && !c.supplierDeclinedAt;
                   const canPostUpdate = UPDATE_POSTABLE_STATUSES.includes(c.status);
                   return (
@@ -662,6 +861,7 @@ export default function VendorCommunityBuySupplierScreen() {
             )}
           </View>
         );
+      }
       default:
         return renderInfoState({ icon: "help-circle-outline", tone: "info", title: SUPPLIER_ACCOUNT_STATE_LABELS[state], body: "" });
     }
@@ -669,7 +869,7 @@ export default function VendorCommunityBuySupplierScreen() {
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title="Community Buy" subtitle="Supplier dashboard" onBack={() => goBackOrReplace(router, "/(buyer)" as any)} />
+      <PremiumHeader title="Supplier Centre" subtitle="Wholesale Supply" onBack={() => goBackOrReplace(router, "/launcher" as any)} />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         {loading ? <LoadingBlock /> : error ? (
@@ -681,6 +881,22 @@ export default function VendorCommunityBuySupplierScreen() {
 }
 
 const styles = StyleSheet.create({
+  formSection: { fontSize: 14, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
+  methodRow: { flexDirection: "row", gap: 10 },
+  methodChip: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minHeight: 46, paddingHorizontal: 12, borderRadius: 12, backgroundColor: "#F4F6F5", borderWidth: 1, borderColor: "transparent" },
+  methodChipActive: { borderColor: "#076B51", backgroundColor: "#EFF7F3" },
+  methodText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  stepRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  stepText: { flex: 1, fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B", lineHeight: 19 },
+  sectionRow: { gap: 8, paddingRight: 8 },
+  sectionTab: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, backgroundColor: "#EEF2F0", alignItems: "center", justifyContent: "center" },
+  sectionTabActive: { backgroundColor: "#076B51" },
+  sectionTabText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#3E5148" },
+  sectionTabTextActive: { color: "#FFFFFF" },
+  tileRow: { flexDirection: "row", gap: 8 },
+  tile: { alignItems: "center", gap: 4, paddingHorizontal: 6 },
+  tileCount: { fontSize: 22, fontFamily: "Manrope-ExtraBold", color: "#076B51" },
+  tileLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#5B6D64", textAlign: "center" },
   wholesaleCard: { gap: 6, backgroundColor: "#F4F6F5" },
   wholesaleTitle: { fontSize: 12, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
   previewRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },

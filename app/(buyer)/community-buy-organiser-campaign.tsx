@@ -76,8 +76,7 @@ const FULFILMENT_STEP_LABEL: Record<CampaignFulfilment["status"], string> = {
 // Community Buy Workstream 2 — mirrors the exact `missing` codes
 // submit() (backend, community-campaigns.service.ts) can return.
 const MISSING_FIELD_LABELS: Record<string, string> = {
-  organiser_profile: "Organiser application",
-  organiser_verification: "Organiser verification (pending admin review)",
+  organiser_profile: "Organiser details",
   organiser_restricted: "Organiser account is restricted",
   country: "Market",
   currency: "Currency",
@@ -1561,29 +1560,29 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                   onPress={() => setFulfilmentOwner("SELF")}
                   activeOpacity={0.85}
                   accessibilityRole="radio"
-                  accessibilityLabel="I will handle this myself"
+                  accessibilityLabel="I will supply this Community Buy"
                   accessibilityState={{ selected: fulfilmentOwner === "SELF" }}
                 >
                   <FloatingCard style={[styles.optionRow, fulfilmentOwner === "SELF" && styles.optionRowActive]}>
                     <Ionicons name={fulfilmentOwner === "SELF" ? "radio-button-on" : "radio-button-off"} size={18} color={fulfilmentOwner === "SELF" ? "#076B51" : "#8AA194"} />
-                    <Text style={styles.optionText}>I will handle this myself</Text>
+                    <Text style={styles.optionText}>I will supply this Community Buy</Text>
                   </FloatingCard>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setFulfilmentOwner("SUPPLIER")}
                   activeOpacity={0.85}
                   accessibilityRole="radio"
-                  accessibilityLabel="Choose a supplier"
+                  accessibilityLabel="Use a verified Eki supplier"
                   accessibilityState={{ selected: fulfilmentOwner === "SUPPLIER" }}
                 >
                   <FloatingCard style={[styles.optionRow, fulfilmentOwner === "SUPPLIER" && styles.optionRowActive]}>
                     <Ionicons name={fulfilmentOwner === "SUPPLIER" ? "radio-button-on" : "radio-button-off"} size={18} color={fulfilmentOwner === "SUPPLIER" ? "#076B51" : "#8AA194"} />
-                    <Text style={styles.optionText}>Choose a supplier</Text>
+                    <Text style={styles.optionText}>Use a verified Eki supplier</Text>
                   </FloatingCard>
                 </TouchableOpacity>
                 <Text style={styles.fieldHint}>
                   {fulfilmentOwner === "SELF"
-                    ? "You're responsible for getting shares to participants yourself."
+                    ? "Your own stock, or an outside supplier you arrange and pay privately. You're responsible for getting shares to participants."
                     : "Optional — a supplier can accept or decline, but this campaign can still be submitted and go live either way."}
                 </Text>
 

@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
+import { CountryRequiredCard, isCountryRequiredError } from "../../components/shared/CountryRequiredCard";
 import {
   ErrorState,
   FloatingCard,
@@ -53,6 +54,7 @@ export default function CommunityBuyCampaignScreen() {
   const [fulfilment, setFulfilment] = useState<CampaignFulfilment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [needsCountry, setNeedsCountry] = useState(false);
   const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
 
@@ -73,6 +75,7 @@ export default function CommunityBuyCampaignScreen() {
     if (!id) return;
     setLoading(true);
     setError("");
+    setNeedsCountry(false);
     try {
       setCampaign(await communityBuyService.getCampaign(id));
       setUpdates(await communityBuyService.getCampaignUpdates(id).catch(() => []));
@@ -91,6 +94,7 @@ export default function CommunityBuyCampaignScreen() {
         }
       }
     } catch (err) {
+      if (isCountryRequiredError(err)) setNeedsCountry(true);
       setError(err instanceof Error ? err.message : "Could not load this campaign.");
     } finally {
       setLoading(false);
@@ -170,11 +174,15 @@ export default function CommunityBuyCampaignScreen() {
       <View style={premiumStyles.page}>
         <PremiumHeader title="Campaign" onBack={() => goBackOrReplace(router, "/(buyer)/community-buy" as any)} />
         <View style={premiumStyles.block}>
-          <ErrorState
-            title="We couldn't load this campaign"
-            message={error || "Check your connection and try again."}
-            onRetry={() => void load()}
-          />
+          {needsCountry ? (
+            <CountryRequiredCard onSaved={() => void load()} />
+          ) : (
+            <ErrorState
+              title="We couldn't load this campaign"
+              message={error || "Check your connection and try again."}
+              onRetry={() => void load()}
+            />
+          )}
         </View>
       </View>
     );

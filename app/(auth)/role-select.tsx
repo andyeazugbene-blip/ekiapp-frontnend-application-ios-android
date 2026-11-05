@@ -6,7 +6,6 @@ import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../stores/authStore";
-import { setPendingIntent } from "../../stores/pendingIntent";
 
 // Client correction: Eki is four independent entry points, not a
 // vendor/buyer binary — "community_buy" and "supplier" are real product
@@ -16,8 +15,8 @@ type Role = "vendor" | "buyer" | "community_buy" | "supplier";
 
 /**
  * "What do you want to do on Eki?" — Hero / role-selection screen.
- * Four selectable cards: Foodstuffs (sell), Buyers (buy), Community Buy,
- * Suppliers.
+ * Four selectable cards using the same names as the post-login launcher:
+ * Sell Foodstuffs, Shop Foodstuffs, Community Buy, Wholesale Supply.
  */
 export default function RoleSelectScreen() {
   const router = useRouter();
@@ -80,8 +79,9 @@ export default function RoleSelectScreen() {
       return;
     }
     if (selected === "supplier") {
-      setPendingIntent("supplier");
-      router.push({ pathname: "/(auth)/register", params: { role: "vendor", ...refParams } });
+      // Spec H: supplying needs no retail store, so this is an ordinary Eki
+      // account that lands in Supplier Centre once registered.
+      router.push({ pathname: "/(auth)/register", params: { role: "buyer", redirect: "/(supplier)/community-buy-supplier", ...refParams } });
       return;
     }
 
@@ -111,7 +111,7 @@ export default function RoleSelectScreen() {
 
           <RoleCard
             iconName="home-outline"
-            title="Foodstuffs"
+            title="Sell Foodstuffs"
             subtitle={"Start selling to buyers in UK, US,\nCanada and Europe"}
             selected={selected === "vendor"}
             onPress={() => setSelected("vendor")}
@@ -119,7 +119,7 @@ export default function RoleSelectScreen() {
 
           <RoleCard
             iconName="bag-outline"
-            title="Buyers"
+            title="Shop Foodstuffs"
             subtitle={"Order authentic African foodstuff\nfrom trusted vendors"}
             selected={selected === "buyer"}
             onPress={() => setSelected("buyer")}
@@ -135,7 +135,7 @@ export default function RoleSelectScreen() {
 
           <RoleCard
             iconName="cube-outline"
-            title="Suppliers"
+            title="Wholesale Supply"
             subtitle={"Fulfil Community Buy campaigns\nas a verified Eki supplier"}
             selected={selected === "supplier"}
             onPress={() => setSelected("supplier")}

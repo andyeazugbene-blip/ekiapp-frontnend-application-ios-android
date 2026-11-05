@@ -510,21 +510,21 @@ export default function VendorDashboardScreen() {
                 tone="light"
                 icon="pricetag-outline"
                 title="Create discount"
-                onPress={() => navigate("/(vendor)/create-discount")}
+                onPress={() => navigate(agg.limits && !agg.limits.discounts ? "/(vendor)/upgrade-prompt" : "/(vendor)/create-discount")}
                 locked={agg.limits ? !agg.limits.discounts : false}
               />
               <GrowCard
                 tone="dark"
                 icon="gift-outline"
                 title="Create bundle"
-                onPress={() => navigate("/(vendor)/create-bundle")}
+                onPress={() => navigate(agg.limits && !agg.limits.bundles ? "/(vendor)/upgrade-prompt" : "/(vendor)/create-bundle")}
                 locked={agg.limits ? !agg.limits.bundles : false}
               />
               <GrowCard
                 tone="black"
                 icon="flash-outline"
                 title="Flash sale"
-                onPress={() => navigate("/(vendor)/create-flash-sale")}
+                onPress={() => navigate(agg.limits && !agg.limits.flashSales ? "/(vendor)/upgrade-prompt" : "/(vendor)/create-flash-sale")}
                 locked={agg.limits ? !agg.limits.flashSales : false}
               />
               <GrowCard
@@ -653,7 +653,7 @@ export default function VendorDashboardScreen() {
                   <ToolCard
                     icon="megaphone-outline"
                     eyebrow="Community Buy"
-                    label="Organize a campaign"
+                    label="Organise a campaign"
                     onPress={() => router.push({ pathname: "/(buyer)/community-buy-organiser", params: { from: "vendor" } } as any)}
                   />
                 </>
@@ -890,9 +890,10 @@ function GrowCard({
 
   return (
     <TouchableOpacity
-      activeOpacity={locked ? 1 : 0.85}
-      onPress={locked ? undefined : onPress}
-      disabled={locked}
+      activeOpacity={0.85}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={locked ? `${title}. Upgrade to unlock` : title}
       style={cardStyle}
     >
       {locked ? (

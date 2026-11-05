@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, Platform, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as Notifications from "expo-notifications";
 import * as Updates from "expo-updates";
@@ -91,7 +91,19 @@ function RootLayout() {
       try {
         const result = await Updates.checkForUpdateAsync();
         if (!result.isAvailable) return;
-        await Updates.fetchUpdateAsync();
+        const fetched = await Updates.fetchUpdateAsync();
+        if (!fetched.isNew) return;
+        // A downloaded update otherwise only applies after a full close and
+        // reopen, which testers don't know to do. Ask rather than reload, so
+        // nobody is thrown out mid-login (see the note above).
+        Alert.alert(
+          "Update ready",
+          "A new version of Eki has been downloaded. Restart now to use it?",
+          [
+            { text: "Later", style: "cancel" },
+            { text: "Restart", onPress: () => void Updates.reloadAsync().catch(() => {}) },
+          ],
+        );
       } catch {
         // No network, update server unreachable, etc. — the app keeps
         // running on whatever version is already active.
@@ -477,6 +489,7 @@ function RootLayout() {
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />
+            <Stack.Screen name="launcher" />
             <Stack.Screen name="(buyer)" />
             <Stack.Screen name="(vendor)" />
             <Stack.Screen name="(supplier)" />

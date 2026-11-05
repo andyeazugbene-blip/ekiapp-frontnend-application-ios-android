@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { RestockCard } from "../../components/buyer/RestockCard";
 import { Ionicons } from "@expo/vector-icons";
 import { ApiRequestError } from "../../services/api";
 import {
@@ -391,6 +392,8 @@ export default function TrackOrderScreen() {
             </TouchableOpacity>
           </View>
         ) : null}
+
+        {order && (order.status === "delivered" || order.status === "completed") && order.items.length > 0 ? <RestockCard order={order} /> : null}
 
         {proofItems.length > 0 ? (
           <View style={styles.sectionCard}>

@@ -69,7 +69,7 @@ export const VENDOR_RENEWAL_STATUS_LABELS: Record<RenewalStatus, string> = {
 
 export interface OfferProduct {
   productId: string;
-  product: { id: string; title: string; priceInCents: number; currency: string; imageUrl?: string | null };
+  product: { id: string; title: string; priceInCents: number; currency: string; imageUrl?: string | null; stock?: number; isActive?: boolean };
   pausedAt?: string | null;
   pauseReason?: string | null;
   pauseExpectedReturnAt?: string | null;

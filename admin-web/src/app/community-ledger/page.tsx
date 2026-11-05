@@ -91,6 +91,9 @@ export default function CommunityLedgerPage() {
         total_refunded: centsToUnit(r.totalRefunded).toFixed(2),
         total_paid_to_supplier: centsToUnit(r.totalPaidToSupplier).toFixed(2),
         net_position: centsToUnit(r.netPosition).toFixed(2),
+        buyer_service_fee_revenue: centsToUnit(r.buyerServiceFeeRevenue ?? 0).toFixed(2),
+        organiser_commission_revenue: centsToUnit(r.organiserCommissionRevenue ?? 0).toFixed(2),
+        supplier_commission_revenue: centsToUnit(r.supplierCommissionRevenue ?? 0).toFixed(2),
       })),
     );
   };
@@ -98,6 +101,9 @@ export default function CommunityLedgerPage() {
   const totalContributed = rows.reduce((sum, r) => sum + r.totalContributed, 0);
   const totalRefunded = rows.reduce((sum, r) => sum + r.totalRefunded, 0);
   const totalPaidToSupplier = rows.reduce((sum, r) => sum + r.totalPaidToSupplier, 0);
+  const buyerServiceFeeRevenue = rows.reduce((sum, r) => sum + (r.buyerServiceFeeRevenue ?? 0), 0);
+  const organiserCommissionRevenue = rows.reduce((sum, r) => sum + (r.organiserCommissionRevenue ?? 0), 0);
+  const supplierCommissionRevenue = rows.reduce((sum, r) => sum + (r.supplierCommissionRevenue ?? 0), 0);
   const displayCurrency = rows[0]?.currency ?? "GBP";
   const singleCurrency = rows.every((r) => r.currency === displayCurrency);
 
@@ -134,6 +140,9 @@ export default function CommunityLedgerPage() {
                   <MetricCard icon="money" label="Total contributed" value={money(totalContributed, displayCurrency)} tone="green" />
                   <MetricCard icon="refresh" label="Total refunded" value={money(totalRefunded, displayCurrency)} tone="amber" />
                   <MetricCard icon="cash" label="Total paid to suppliers" value={money(totalPaidToSupplier, displayCurrency)} tone="blue" />
+                  <MetricCard icon="money" label="Buyer service fee revenue" value={money(buyerServiceFeeRevenue, displayCurrency)} tone="green" />
+                  <MetricCard icon="money" label="Organiser commission revenue" value={money(organiserCommissionRevenue, displayCurrency)} tone="green" />
+                  <MetricCard icon="money" label="Supplier commission revenue" value={money(supplierCommissionRevenue, displayCurrency)} tone="green" />
                 </div>
               ) : null}
 
@@ -148,6 +157,9 @@ export default function CommunityLedgerPage() {
                         <th className="px-4 py-3">Contributed</th>
                         <th className="px-4 py-3">Refunded</th>
                         <th className="px-4 py-3">Paid to supplier</th>
+                        <th className="px-4 py-3">Buyer fees</th>
+                        <th className="px-4 py-3">Organiser commission</th>
+                        <th className="px-4 py-3">Supplier commission</th>
                         <th className="px-4 py-3">Net position</th>
                         <th className="px-4 py-3" />
                       </tr>
@@ -168,6 +180,9 @@ export default function CommunityLedgerPage() {
                             <td className="px-4 py-3">{money(r.totalContributed, r.currency)}</td>
                             <td className="px-4 py-3">{money(r.totalRefunded, r.currency)}</td>
                             <td className="px-4 py-3">{money(r.totalPaidToSupplier, r.currency)}</td>
+                            <td className="px-4 py-3">{money(r.buyerServiceFeeRevenue ?? 0, r.currency)}</td>
+                            <td className="px-4 py-3">{money(r.organiserCommissionRevenue ?? 0, r.currency)}</td>
+                            <td className="px-4 py-3">{money(r.supplierCommissionRevenue ?? 0, r.currency)}</td>
                             <td className="px-4 py-3 font-semibold">{money(r.netPosition, r.currency)}</td>
                             <td className="px-4 py-3">
                               <Button variant="ghost" onClick={() => void toggleExpand(r.campaignId)}>
@@ -177,7 +192,7 @@ export default function CommunityLedgerPage() {
                           </tr>
                           {expandedId === r.campaignId ? (
                             <tr>
-                              <td colSpan={8} className="bg-slate-50 px-4 py-4">
+                              <td colSpan={11} className="bg-slate-50 px-4 py-4">
                                 {detailLoading ? (
                                   <p className="text-sm text-slate-500">Loading entries...</p>
                                 ) : detail && detail.campaign.id === r.campaignId ? (
