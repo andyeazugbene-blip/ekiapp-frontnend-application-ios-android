@@ -246,6 +246,8 @@ export const regularDeliveriesService = {
     deliveryAddressId: string;
     paymentMethodId: string;
     items: { productId: string; quantity: number }[];
+    recurringConsent: true;
+    firstDeliveryDate: string;
   }): Promise<BuyerSubscription> {
     const res = await apiClient.post<{ subscription: BuyerSubscription }>("/api/buyer/subscriptions", input);
     return res.subscription;
