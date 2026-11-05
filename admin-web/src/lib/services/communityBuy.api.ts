@@ -237,6 +237,7 @@ export interface MarketConfig {
   organiserApplicationsEnabled: boolean;
   supplierApplicationsEnabled: boolean;
   regularDeliveriesEnabled: boolean;
+  communityBuyOffersRequired: boolean;
   paymentMode: MarketPaymentMode;
   paymentProvider: string | null;
   identityProvider: string | null;
@@ -290,6 +291,7 @@ export type MarketConfigUpdate = Partial<{
   organiserApplicationsEnabled: boolean;
   supplierApplicationsEnabled: boolean;
   regularDeliveriesEnabled: boolean;
+  communityBuyOffersRequired: boolean;
   paymentMode: MarketPaymentMode;
   paymentProvider: string | null;
   identityProvider: string | null;
