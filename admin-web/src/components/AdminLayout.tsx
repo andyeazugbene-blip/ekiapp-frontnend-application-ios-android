@@ -110,7 +110,8 @@ export const NAV_MODULES: NavModule[] = [
     items: [
       { name: "Settings", href: "/settings", perm: ["settings.read"] },
       { name: "Audit log", href: "/activity-logs", perm: ["audit.read"] },
-      { name: "Approvals", href: "/approvals", perm: ["approvals.read"] },
+      { name: "Approvals", href: "/review-queue", perm: ["community_buy.read"] },
+      { name: "Two-person approvals", href: "/approvals", perm: ["approvals.read"] },
       { name: "Seller plans", href: "/subscription-plans", perm: ["subscriptions.read"] },
       { name: "Delivery zones", href: "/delivery-zones", perm: ["delivery_zones.read"] },
     ],
