@@ -101,7 +101,7 @@ export const subscriptionExceptionsAPI = {
   },
 };
 
-// ─── Foodstuffs Subscription admin module ──────────────────────────────────
+// ─── Foodstuff Subscription admin module ──────────────────────────────────
 
 export type SubscriptionQueue =
   | "all" | "active" | "paused" | "skip-requested" | "renewal-due" | "payment-failed" | "stock-exception" | "cancelled";

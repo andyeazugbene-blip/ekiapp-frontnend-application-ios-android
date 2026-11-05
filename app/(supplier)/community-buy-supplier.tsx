@@ -359,7 +359,7 @@ export default function VendorCommunityBuySupplierScreen() {
           />
           <Text style={styles.hint}>Separate each category with a comma.</Text>
 
-          <Text style={[styles.formSection, { marginTop: 8 }]}>Fulfilment capability</Text>
+          <Text style={[styles.formSection, { marginTop: 8 }]}>How you fulfil orders</Text>
           <Text style={styles.formLabel}>How you can fulfil orders</Text>
           <View style={styles.methodRow}>
             {FULFILMENT_METHOD_OPTIONS.map((option) => {

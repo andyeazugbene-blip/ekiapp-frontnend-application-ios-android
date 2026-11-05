@@ -250,7 +250,7 @@ export default function ProductDetailScreen() {
           <RegularDeliveryEntry vendorId={product?.vendorId} mode="product" items={product ? [{ productId: product.id, quantity: 1 }] : []} />
           <View style={styles.paymentBanner}>
             <Ionicons name="shield-checkmark-outline" size={20} color="#076B51" />
-            <Text style={styles.paymentBannerText}>Payment is protected until delivery is confirmed</Text>
+            <Text style={styles.paymentBannerText}>We pay the vendor after delivery is confirmed</Text>
           </View>
 
           <TouchableOpacity

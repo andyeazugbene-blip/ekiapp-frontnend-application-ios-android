@@ -33,7 +33,7 @@ const FEATURE_FLAGS: { key: "communityBuyEnabled" | "organiserApplicationsEnable
   { key: "organiserApplicationsEnabled", label: "Organiser applications", note: "Buyers in this market can apply to become organisers. Needs Community Buy on." },
   { key: "supplierApplicationsEnabled", label: "Supplier applications", note: "Suppliers in this market can apply. Needs Community Buy on." },
   { key: "communityBuyOffersRequired", label: "Community Buys built on supplier offers", note: "Organisers must choose an approved supplier offer, and can't set their own price. Turn on only once offers are live and phone codes reach this market." },
-  { key: "regularDeliveriesEnabled", label: "Foodstuffs Subscription", note: "Buyers can browse and subscribe to Foodstuffs Subscription offers. Needs a payment provider and a payment mode other than DISABLED." },
+  { key: "regularDeliveriesEnabled", label: "Foodstuff Subscription", note: "Buyers can browse and subscribe to Foodstuff Subscription offers. Needs a payment provider and a payment mode other than DISABLED." },
 ];
 
 const PAYMENT_MODE_OPTIONS: MarketPaymentMode[] = ["DISABLED", "TEST", "LIVE"];

@@ -52,7 +52,7 @@ export default function OrderConfirmationScreen() {
         <Text style={styles.title}>Order Placed Successfully</Text>
         <Text style={styles.subtitle}>
           {isEscrowOrder
-            ? "Your payment is protected while the vendor prepares and dispatches your order."
+            ? "The vendor prepares and dispatches your order. We pay them after delivery is confirmed."
             : "Your vendor has been notified and will process your order."}
         </Text>
 
@@ -60,7 +60,7 @@ export default function OrderConfirmationScreen() {
           <View style={styles.protectionCard}>
             <Ionicons name="shield-checkmark-outline" size={18} color="#076B51" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.protectionTitle}>Protected payment</Text>
+              <Text style={styles.protectionTitle}>How your payment works</Text>
               <Text style={styles.protectionBody}>
                 Funds stay held until delivery is confirmed or the protection window ends.
               </Text>

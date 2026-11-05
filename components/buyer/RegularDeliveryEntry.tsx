@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { regularDeliveriesService, type PublicOfferSummary } from "../../services/regularDeliveriesService";
 
 const COPY = {
-  store: { title: "Foodstuffs Subscription", action: "See this store's regular delivery offer" },
+  store: { title: "Foodstuff Subscription", action: "See this store's regular delivery offer" },
   product: { title: "Receive regularly", action: "Set up a regular delivery of this product" },
   basket: { title: "Make this a regular order", action: "Get these items delivered on a schedule" },
 } as const;

@@ -25,7 +25,7 @@ export const REAL_STATUS_LABEL: Record<RealProductStatus, string> = {
 export const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
   STANDARD: "Standard",
   COMMUNITY_BUY: "Community Buy",
-  REGULAR_DELIVERY: "Foodstuffs Subscription",
+  REGULAR_DELIVERY: "Foodstuff Subscription",
 };
 
 export interface SellerReadiness {
