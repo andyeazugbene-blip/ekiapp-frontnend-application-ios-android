@@ -121,39 +121,6 @@ function VerificationInner() {
     } finally { setDrawerBusy(false); }
   };
 
-  const legacyApprove = () => {
-    if (!selected) return;
-    confirm.ask(
-      {
-        title: "Approve legacy verification",
-        tone: "primary",
-        confirmLabel: "Approve",
-        description: "Legacy document review only. The vendor has no Stripe record, so Eki staff are the reviewer of record. This is audited.",
-        requireReason: false,
-      },
-      async () => {
-        setSelected(await verificationAPI.approveVendor(selected.vendor.vendorId));
-        await load();
-      },
-    );
-  };
-
-  const legacyReject = () => {
-    if (!selected) return;
-    confirm.ask(
-      {
-        title: "Reject legacy verification",
-        confirmLabel: "Reject",
-        description: "The reason is sent to the vendor.",
-        reasonLabel: "Rejection reason (shown to the vendor)",
-      },
-      async (reason) => {
-        setSelected(await verificationAPI.rejectVendor(selected.vendor.vendorId, reason));
-        await load();
-      },
-    );
-  };
-
   const deleteFiles = () => {
     if (!selected) return;
     confirm.ask(
@@ -277,9 +244,9 @@ function VerificationInner() {
 
               {selected.proofs.length > 0 || selected.verificationMethod !== "STRIPE_IDENTITY" ? (
                 <section>
-                  <h3 className="mb-1 text-lg font-black text-[#101820]">Legacy document review <Badge tone="gray">Read-only for Stripe vendors</Badge></h3>
+                  <h3 className="mb-1 text-lg font-black text-[#101820]">Legacy document review <Badge tone="gray">Read-only</Badge></h3>
                   <p className="mb-3 text-xs font-semibold text-slate-500">
-                    Pre-Stripe records. {selected.manualReviewAllowed ? "This vendor has no Stripe record, so manual review is still possible." : "Manual decisions are disabled because Stripe controls this vendor's verification."}
+                    Records from before Stripe verification, kept for reference. Verification now happens through Stripe.
                   </p>
                   {selected.rejectionReason ? <Banner tone="danger">{selected.rejectionReason}</Banner> : null}
                   {selected.proofs.length === 0 ? (
@@ -308,12 +275,6 @@ function VerificationInner() {
                     </div>
                   )}
                   <div className="mt-4 flex flex-wrap gap-3">
-                    {canMutate && selected.manualReviewAllowed ? (
-                      <>
-                        <Button onClick={legacyApprove} disabled={drawerBusy}>Approve (legacy)</Button>
-                        <Button variant="danger" onClick={legacyReject} disabled={drawerBusy}>Reject (legacy)</Button>
-                      </>
-                    ) : null}
                     {canMutate ? <Button variant="ghost" onClick={deleteFiles} disabled={drawerBusy || selected.docsAlreadyDeleted}>Delete proof files now</Button> : null}
                   </div>
                 </section>

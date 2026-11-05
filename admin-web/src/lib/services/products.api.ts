@@ -160,11 +160,6 @@ export const productsAPI = {
     return res.product;
   },
 
-  /** Hard delete — only succeeds when the product has no order/subscription history (backend enforces this; expect a 409 PRODUCT_HAS_HISTORY otherwise). */
-  async deleteProduct(productId: string, reason: string): Promise<void> {
-    await apiClient.delete(`/admin/products/${productId}`, { body: JSON.stringify({ reason }) });
-  },
-
   async preloadProduct(productId: string): Promise<void> {
     await apiClient.prefetch(`/admin/products/${productId}`);
   },
