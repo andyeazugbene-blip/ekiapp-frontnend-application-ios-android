@@ -207,7 +207,7 @@ export interface PublicOfferSummary {
 export const regularDeliveriesService = {
   // ─── Public / buyer: offers ───────────────────────────────────────────
   async getOffer(offerId: string): Promise<SubscriptionOffer> {
-    const res = await apiClient.get<{ offer: SubscriptionOffer }>(`/api/subscription-offers/${offerId}`, { skipAuth: true });
+    const res = await apiClient.get<{ offer: SubscriptionOffer }>(`/api/subscription-offers/${offerId}`);
     return res.offer;
   },
 
@@ -217,7 +217,7 @@ export const regularDeliveriesService = {
     if (filters?.country) query.set("country", filters.country);
     if (filters?.vendorId) query.set("vendorId", filters.vendorId);
     const suffix = query.toString() ? `?${query.toString()}` : "";
-    const res = await apiClient.get<{ items?: PublicOfferSummary[] }>(`/api/subscription-offers/public${suffix}`, { skipAuth: true });
+    const res = await apiClient.get<{ items?: PublicOfferSummary[] }>(`/api/subscription-offers/public${suffix}`);
     return res.items ?? [];
   },
 

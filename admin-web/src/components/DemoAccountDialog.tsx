@@ -27,6 +27,8 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
   const [withStore, setWithStore] = useState(true);
   const [storeName, setStoreName] = useState("Demo Store");
   const [withSupplier, setWithSupplier] = useState(true);
+  const [fullFeature, setFullFeature] = useState(true);
+  const [showcase, setShowcase] = useState<{ companionStoreName: string | null; created: string[]; warnings: string[] } | null>(null);
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,6 +43,8 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
       setWithStore(true);
       setStoreName("Demo Store");
       setWithSupplier(true);
+      setFullFeature(true);
+      setShowcase(null);
       setReason("");
       setError("");
       setResult(null);
@@ -57,9 +61,11 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
       const creditMinor = creditEuros ? Math.round(Number(creditEuros) * 100) : undefined;
       const res = await peopleAPI.createDemoAccount({
         email: email.trim().toLowerCase(), password, name: name.trim() || undefined, reason: reason.trim(), creditMinor,
-        storeName: withStore ? storeName.trim() || "Demo Store" : undefined,
-        supplier: withSupplier,
+        storeName: fullFeature || withStore ? storeName.trim() || "Demo Store" : undefined,
+        supplier: fullFeature || withSupplier,
+        fullFeature,
       });
+      setShowcase(res.showcase ?? null);
       setResult({ email: res.email, password, walletBalanceMinor: res.walletBalanceMinor, currency: res.currency, vendor: res.vendor, supplierAccount: res.supplierAccount });
       onCreated?.();
     } catch (e) {
@@ -94,6 +100,18 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
               <p><span className="font-black text-slate-500">Wallet balance:</span> {(result.walletBalanceMinor / 100).toFixed(2)} {result.currency}</p>
               {result.vendor ? <p><span className="font-black text-slate-500">Store:</span> {result.vendor.storeName} (/store/{result.vendor.storeSlug})</p> : null}
             </div>
+            {showcase ? (
+              <div className="mt-3 rounded-xl border border-slate-200 p-4 text-sm text-slate-700">
+                <p className="font-black text-slate-500">Showcase ready{showcase.companionStoreName ? ` · Companion store: ${showcase.companionStoreName}` : ""}</p>
+                <p className="mt-1">{showcase.created.join(", ")}</p>
+                {showcase.warnings.length > 0 ? (
+                  <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 font-bold text-red-700">
+                    <p>Not ready, check before demoing:</p>
+                    {showcase.warnings.map((warning) => <p key={warning}>{warning}</p>)}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <div className="mt-5 flex gap-3">
               <Button className="flex-1" variant="primary" onClick={() => { void navigator.clipboard?.writeText(`${result.email} / ${result.password}`); }}>Copy email + password</Button>
               <Button className="flex-1" variant="ghost" onClick={onClose}>Done</Button>
@@ -126,6 +144,10 @@ export function DemoAccountDialog({ open, onClose, onCreated }: { open: boolean;
               <label className="block">
                 <span className="text-xs font-black uppercase tracking-wide text-slate-500">Wallet credit (EUR)</span>
                 <input type="number" min="1" max="10000" value={creditEuros} onChange={(e) => setCreditEuros(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#096B4A]" />
+              </label>
+              <label className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-slate-700">
+                <input type="checkbox" checked={fullFeature} onChange={(e) => setFullFeature(e.target.checked)} className="mt-0.5 h-4 w-4" />
+                <span>Full-feature showcase: marketing tools, store with an order, live Community Buys, a supplier invitation and subscription offers. Hidden from real customers; no real money moves.</span>
               </label>
               <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                 <input type="checkbox" checked={withStore} onChange={(e) => setWithStore(e.target.checked)} className="h-4 w-4 accent-[#096B4A]" />

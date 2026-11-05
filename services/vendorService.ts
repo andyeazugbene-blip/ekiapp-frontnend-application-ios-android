@@ -242,8 +242,7 @@ export const vendorService = {
 
     const endpoint = filter?.admin ? "/api/admin/vendors" : "/api/vendors";
     const response = await apiClient.get<VendorListResponse>(
-      `${endpoint}${qs ? `?${qs}` : ""}`,
-      filter?.admin ? undefined : { skipAuth: true }
+      `${endpoint}${qs ? `?${qs}` : ""}`
     );
     return (response.vendors ?? response.items ?? []).map(normalizeVendor);
   },
@@ -259,7 +258,7 @@ export const vendorService = {
     }
 
     try {
-      const response = await apiClient.get<VendorMeResponse>(`/api/vendors/${id}`, { skipAuth: true });
+      const response = await apiClient.get<VendorMeResponse>(`/api/vendors/${id}`);
       const normalized = normalizeVendor(response.vendor ?? response.store);
       if (normalized.id && normalized.storeName) {
         return normalized;
@@ -441,8 +440,7 @@ export const vendorService = {
 
   async getNewVendors() {
     const response = await apiClient.get<VendorListResponse>(
-      "/api/vendors?sort=newest&limit=4",
-      { skipAuth: true }
+      "/api/vendors?sort=newest&limit=4"
     );
     return (response.vendors ?? response.items ?? []).map(normalizeVendor);
   },
