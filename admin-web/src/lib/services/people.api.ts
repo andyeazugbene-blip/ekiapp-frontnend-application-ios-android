@@ -233,12 +233,13 @@ export const peopleAPI = {
    * wallet-balance branch.
    */
   async createDemoAccount(
-    body: { email: string; password: string; name?: string; reason: string; creditMinor?: number; currency?: string; storeName?: string; country?: string; supplier?: boolean },
+    body: { fullFeature?: boolean; email: string; password: string; name?: string; reason: string; creditMinor?: number; currency?: string; storeName?: string; country?: string; supplier?: boolean },
     twoFactorCode?: string,
   ): Promise<{
     userId: string; email: string; isTest: boolean; walletBalanceMinor: number; currency: string;
     vendor: { id: string; storeName: string; storeSlug: string } | null;
     supplierAccount: { id: string } | null;
+    showcase?: { companionStoreName: string | null; created: string[]; warnings: string[] } | null;
   }> {
     return apiClient.post("/admin/users/demo-create", body, { twoFactorCode });
   },

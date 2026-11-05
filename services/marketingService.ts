@@ -372,6 +372,6 @@ export const marketingService = {
     bundles: Array<{ id: string; vendorId: string; code: string; value: number; type: string; storeName: string; productIds: string[] }>;
     flashSales: Array<{ id: string; vendorId: string; code: string; value: number; type: string; storeName: string; productId: string; endsAt: string | null }>;
   }> {
-    return apiClient.get("/api/promo-codes/deals", { skipAuth: true });
+    return apiClient.get("/api/promo-codes/deals");
   },
 };

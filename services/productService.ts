@@ -26,7 +26,7 @@ export const productService = {
       query.set("limit", String(pageSize));
       if (cursor) query.set("cursor", cursor);
 
-      const response = await apiClient.get<ProductListResponse>(`/api/products?${query.toString()}`, { skipAuth: true });
+      const response = await apiClient.get<ProductListResponse>(`/api/products?${query.toString()}`);
       const items = response?.items ?? response?.products ?? [];
       all.push(...items);
       cursor = response?.nextCursor ?? undefined;
@@ -36,7 +36,7 @@ export const productService = {
   },
 
   async getById(id: string) {
-    const response = await apiClient.get<ProductResponse>(`/api/products/${id}`, { skipAuth: true });
+    const response = await apiClient.get<ProductResponse>(`/api/products/${id}`);
     return normalizeProduct(response.product);
   },
 
@@ -46,7 +46,7 @@ export const productService = {
   },
 
   async getVendorProducts(vendorId: string) {
-    const response = await apiClient.get<ProductListResponse>(`/api/products?vendorId=${vendorId}`, { skipAuth: true });
+    const response = await apiClient.get<ProductListResponse>(`/api/products?vendorId=${vendorId}`);
     return normalizeProducts(response?.items ?? response?.products ?? []);
   },
 
@@ -61,12 +61,12 @@ export const productService = {
   },
 
   async getHotDeals() {
-    const response = await apiClient.get<ProductListResponse>("/api/products?featured=true&limit=3", { skipAuth: true });
+    const response = await apiClient.get<ProductListResponse>("/api/products?featured=true&limit=3");
     return normalizeProducts(response?.items ?? response?.products ?? []);
   },
 
   async getPopularProducts() {
-    const response = await apiClient.get<ProductListResponse>("/api/products?sort=popular&limit=6", { skipAuth: true });
+    const response = await apiClient.get<ProductListResponse>("/api/products?sort=popular&limit=6");
     return normalizeProducts(response?.items ?? response?.products ?? []);
   },
 
