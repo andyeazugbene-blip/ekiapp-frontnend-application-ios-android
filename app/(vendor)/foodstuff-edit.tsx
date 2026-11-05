@@ -21,7 +21,6 @@ import { PRODUCT_CATEGORIES, Product } from "../../types/product";
 import { useInventoryStore } from "../../stores/inventoryStore";
 import { productService } from "../../services/productService";
 import { uploadService } from "../../services/uploadService";
-import { ApiRequestError } from "../../services/api";
 import { deliveryService } from "../../services/deliveryService";
 import { goBackOrReplace } from "../../utils/navigation";
 
@@ -91,13 +90,6 @@ export default function FoodstuffEditScreen() {
       setProduct(updated);
       setSelectedProduct(updated);
     } catch (err) {
-      if (err instanceof ApiRequestError && err.status === 403 && value) {
-        Alert.alert("Verification required", "You need to verify your account before publishing.", [
-          { text: "Verify now", onPress: () => router.push("/(vendor-verification)" as any) },
-          { text: "Cancel", style: "cancel" },
-        ]);
-        return;
-      }
       setError(err instanceof Error ? err.message : "Could not update.");
     } finally {
       setTogglingFlag(false);
@@ -219,43 +211,7 @@ export default function FoodstuffEditScreen() {
       setSelectedProduct(updated);
       router.replace("/(vendor)/foodstuff" as any);
     } catch (err) {
-      if (err instanceof ApiRequestError && err.status === 403) {
-        Alert.alert(
-          "Verification required",
-          "You need to verify your account before publishing. Save as draft instead?",
-          [
-            { text: "Verify now", onPress: () => router.push("/(vendor-verification)" as any) },
-            { text: "Save as draft", onPress: () => persistAsDraft() },
-          ]
-        );
-        return;
-      }
       setError(err instanceof Error ? err.message : "Could not save changes.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const persistAsDraft = async () => {
-    if (!product) return;
-    setSubmitting(true);
-    try {
-      const updated = await productService.updateProduct(product.id, {
-        name: name.trim(),
-        description: description.trim(),
-        price: parseMoneyInput(price),
-        costPrice: costPrice.trim() ? parseMoneyInput(costPrice) : null,
-        category: category || product.category,
-        stock: Number(stock) || 0,
-        weight: Number(weight) || 0,
-        unit,
-        status: "draft",
-        images: imageRemoteUrl ? [imageRemoteUrl] : product.images,
-      });
-      setSelectedProduct(updated);
-      router.replace("/(vendor)/foodstuff" as any);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save draft.");
     } finally {
       setSubmitting(false);
     }

@@ -16,7 +16,6 @@ import { formatCurrency } from "../../utils/formatters";
 import { useInventoryStore } from "../../stores/inventoryStore";
 import { Product, ProductStatus } from "../../types/product";
 import { productService } from "../../services/productService";
-import { ApiRequestError } from "../../services/api";
 import { RemoteImage } from "../../components/ui/RemoteImage";
 import { goBackOrReplace } from "../../utils/navigation";
 
@@ -80,13 +79,6 @@ export default function FoodstuffDetailScreen() {
       setProduct(merged);
       setSelectedProduct(merged);
     } catch (err) {
-      if (err instanceof ApiRequestError && err.status === 403 && value) {
-        Alert.alert("Verification required", "You need to verify your account before publishing.", [
-          { text: "Verify now", onPress: () => router.push("/(vendor-verification)" as any) },
-          { text: "Cancel", style: "cancel" },
-        ]);
-        return;
-      }
       setError(err instanceof Error ? err.message : "Could not update.");
     } finally {
       setSavingFlag(false);
