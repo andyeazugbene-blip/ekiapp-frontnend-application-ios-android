@@ -28,10 +28,11 @@ import { ADDABLE_MARKETS, COUNTRIES, marketLabel } from "@/lib/countries";
  * and appears in the per-market history (read from the immutable audit log).
  */
 
-const FEATURE_FLAGS: { key: "communityBuyEnabled" | "organiserApplicationsEnabled" | "supplierApplicationsEnabled" | "regularDeliveriesEnabled"; label: string; note: string }[] = [
+const FEATURE_FLAGS: { key: "communityBuyEnabled" | "organiserApplicationsEnabled" | "supplierApplicationsEnabled" | "regularDeliveriesEnabled" | "communityBuyOffersRequired"; label: string; note: string }[] = [
   { key: "communityBuyEnabled", label: "Community Buy", note: "Campaigns can be created and published in this market." },
   { key: "organiserApplicationsEnabled", label: "Organiser applications", note: "Buyers in this market can apply to become organisers. Needs Community Buy on." },
   { key: "supplierApplicationsEnabled", label: "Supplier applications", note: "Suppliers in this market can apply. Needs Community Buy on." },
+  { key: "communityBuyOffersRequired", label: "Community Buys built on supplier offers", note: "Organisers must choose an approved supplier offer, and can't set their own price. Turn on only once offers are live and phone codes reach this market." },
   { key: "regularDeliveriesEnabled", label: "Foodstuffs Subscription", note: "Buyers can browse and subscribe to Foodstuffs Subscription offers. Needs a payment provider and a payment mode other than DISABLED." },
 ];
 
