@@ -286,6 +286,7 @@ export interface CampaignDraftInput {
 }
 
 export interface Campaign {
+  disputedAt?: string | null;
   id: string;
   organiserId: string;
   // Client-corrected flow: supplier is an optional fulfilment choice — null

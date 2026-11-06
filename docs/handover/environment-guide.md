@@ -66,4 +66,4 @@ Admin → Settings → **Operational thresholds**: reminders, grace period, refe
 
 ## Test accounts
 
-Demo accounts are made in Admin → Users → Create demo account. They are flagged `isTest`, can't reach real stores or money, and are left out of reports. Never create accounts on production for testing any other way.
+Demo accounts are made in Admin → Users → Create demo account. They are flagged `isTest`, can't reach real stores or money, and are left out of reports. A full-feature one starts with an open supplier account and an example of every status. To fill one made earlier, open it and choose Fill demo data. Never create accounts on production for testing any other way.

@@ -6,7 +6,7 @@ Recorded 2026-11-06. **This is engineering evidence, not acceptance.** The Handb
 
 | Check | Result |
 |---|---|
-| Backend tests (`npx vitest run`, with `DATABASE_URL` unset) | 223 files, 3474 tests passing |
+| Backend tests (`npx vitest run`, with `DATABASE_URL` unset) | 224 files, 3480 tests passing |
 | Backend CI: type-check, scaffolding check, coverage map | Passing on each merged PR |
 | App and admin type-check | Clean |
 
@@ -30,6 +30,7 @@ These ran against the real API with a throwaway PostgreSQL database and a Stripe
 | Events and email results | 26 | Resend webhook signatures and repeats, once-only events, attribution, window setting |
 | Privacy and dispute hold | 30 | Masking, audited reveal, permissions, dispute hold on money |
 | Product ranking | 16 | Ranking inputs, paging, search, sort, demo and inactive products |
+| Demo account and field privacy | 43 | Every status, open supplier account, jobs skip demo data, what each person can see |
 
 Mobile screens were also checked in a browser, using the web build at phone width.
 
@@ -39,7 +40,6 @@ Mobile screens were also checked in a browser, using the web build at phone widt
 - **Card holds (`AUTHORISE_THEN_CAPTURE`) have not run against real Stripe Connect**, because the test key's account doesn't have Connect. The UK stays on pledge mode. See K12.
 - **Real SMS** hasn't been sent.
 - **Backup restore** hasn't been run. See `database-package.md`.
-- **The 10-minute scheduler is failing** on production. See K11.
 - Stripe Identity, bank verification and live payouts need real accounts.
 - Email delivered, opened and clicked results need the Resend webhook set up. See `webhook-register.md`.
 

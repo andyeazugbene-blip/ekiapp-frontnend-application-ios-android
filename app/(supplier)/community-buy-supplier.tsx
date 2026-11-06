@@ -691,6 +691,7 @@ export default function VendorCommunityBuySupplierScreen() {
                         <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
                         <StatusPill label={CAMPAIGN_STATUS_LABELS[c.status]} tone={CAMPAIGN_STATUS_TONE[c.status]} />
                       </View>
+                      {c.disputedAt ? <Text style={styles.cardMeta}>Under review: Eki is reviewing a dispute. Your payment is on hold until it&apos;s resolved.</Text> : null}
                       <Text style={styles.cardMeta}>Organiser: {c.organiser?.user?.name ?? "Unknown"}</Text>
                       {c.minimumShares != null ? <Text style={styles.cardMeta}>Minimum quantity: {c.minimumShares}</Text> : null}
                       {c.goalShares != null ? <Text style={styles.cardMeta}>Goal quantity: {c.goalShares}</Text> : null}

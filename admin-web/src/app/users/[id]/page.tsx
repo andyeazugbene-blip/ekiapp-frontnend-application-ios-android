@@ -15,6 +15,7 @@ import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { peopleAPI, userState } from "@/lib/services/people.api";
 import RevealContact from "@/components/RevealContact";
+import FillDemoData from "@/components/FillDemoData";
 
 const NA = "Not provided";
 
@@ -101,6 +102,7 @@ export default function UserDetailPage() {
             <Badge tone={user.role === "ADMIN" ? "blue" : user.role === "VENDOR" ? "green" : "gray"}>{user.role}</Badge>
             <Badge tone={anonymised ? "gray" : state === "suspended" ? "red" : "green"}>{anonymised ? "Anonymised" : state === "suspended" ? "Suspended" : "Active"}</Badge>
             {user.isTest ? <Badge tone="amber">TEST RECORD</Badge> : null}
+            {user.isTest ? <FillDemoData userId={user.id} /> : null}
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">

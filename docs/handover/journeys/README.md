@@ -35,5 +35,6 @@ Journeys create their own data, so a database that has already been used can giv
 | `e2e_e.cjs` | Events, Resend webhook, attribution. Needs `RESEND_WEBHOOK_SECRET` set to the local server's value |
 | `e2e_f.cjs` | Contact masking, audited reveal, Community Buy dispute hold |
 | `e2e_g.cjs` | Product ranking, search, paging |
+| `e2e_h.cjs` | Demo account with every status, job safety, what each person can see. Needs `CRON_SECRET` set to the local server's value |
 | `e2e_hold.cjs` | Harness for two-stage payment. It doesn't replace a real Stripe Connect run |
 | `seed_vendor_ui.cjs` | Creates a local vendor for checking screens |

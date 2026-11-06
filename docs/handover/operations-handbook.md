@@ -17,7 +17,9 @@ Everything runs from one Vercel cron, once a day at 12:00 UTC: `/api/internal/jo
 
 Jobs: `verification-proof-cleanup`, `event-outbox`, `notification-deliveries`, `run-scheduled-communications`, `automation-sweep`, `renewals-sweep`, `community-buy-sweep`, `community-buy-authorisation-sweep`, `privacy-expiry-sweep`, `escrow-sweep`, `escrow-balance-check`, `cart-cleanup`, `reconciliation-sweep`, `payment-anomaly-scan`, `fulfilment-delay-scan`, `order-unacknowledged-sweep`, `order-dispatch-due-sweep`, `community-buy-capture-pending-review-sweep`, `membership-capabilities-paused-sweep`, `push-receipt-check`, `support-retention-sweep`, `suspension-expiry`, `first-sale-campaign-sweep`, `demand-matching`, `demand-digest`, `vendor-trial-ending-events`.
 
-**Open problem.** A GitHub workflow (`automation-scheduler.yml`) is meant to run the time-sensitive jobs every 10 minutes, but the `CRON_SECRET` repository secret reaches it empty, so every run fails. See known issue K11. Until it's fixed, reminders and deadlines can be up to a day late.
+A GitHub workflow (`automation-scheduler.yml`) also runs the time-sensitive jobs every 10 minutes, using the `CRON_SECRET` repository secret. It must match the Vercel value.
+
+These jobs skip demo campaigns and demo subscriptions, so a demo can never be closed, charged or refunded, and its status stays as seeded.
 
 ## Health checks
 
@@ -44,6 +46,7 @@ Jobs: `verification-proof-cleanup`, `event-outbox`, `notification-deliveries`, `
 | A Community Buy is disputed | Community Campaigns → the campaign → Mark as disputed, with a reason. Fulfilment carries on. Supplier and organiser money can't be released until you Resolve dispute |
 | A participant reports a money or delivery problem | Their open case holds supplier and organiser money automatically. Close it in Community Support Cases to lift the hold |
 | You need someone's email or phone | Open their record → Reveal contact details, with a reason. It's recorded in the audit log as `pii.reveal`. Lists and exports stay masked |
+| A demo account needs test data | Users → the demo account → Fill demo data. It opens the supplier account and adds every Community Buy, supplier, order and subscription status. Running it again only adds what's missing. It's refused on a real account. New full-feature demo accounts get this automatically |
 | Someone needs a receipt | They open it in the app. Links last 15 minutes, so ask them to open it again if it has expired |
 
 ## Escalation
