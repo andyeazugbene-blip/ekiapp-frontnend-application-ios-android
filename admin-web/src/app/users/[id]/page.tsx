@@ -47,9 +47,9 @@ export default function UserDetailPage() {
   const deleteUser = () =>
     confirm.ask(
       {
-        title: `Delete ${user.name || user.email}?`,
-        description: "If this account has no real order/payment/review history, the record is permanently removed. If it does, that history can never be erased — the account is anonymised and suspended instead. This account will never be able to log in again, but the same email can sign up fresh.",
-        confirmLabel: "Delete account",
+        title: `Close ${user.name || user.email}'s account?`,
+        description: "Open orders, disputes and unpaid payouts must be resolved first. If this account has no real order/payment/review history, the record is permanently removed. If it does, that history can never be erased — the account is anonymised and suspended instead. This account will never be able to log in again, but the same email can sign up fresh.",
+        confirmLabel: "Close account",
         reasonLabel: "Reason (recorded in the audit log)",
       },
       async (reason) => {
@@ -78,7 +78,7 @@ export default function UserDetailPage() {
                 {!canSuspend || user.role === "ADMIN" || anonymised ? null : state === "suspended"
                   ? <Button onClick={() => setMode("restore")}>Restore account</Button>
                   : <Button variant="danger" onClick={() => setMode("suspend")}>Suspend account</Button>}
-                {canDelete && user.role !== "ADMIN" && !anonymised ? <Button variant="danger" onClick={deleteUser}>Delete account</Button> : null}
+                {canDelete && user.role !== "ADMIN" && !anonymised ? <Button variant="danger" onClick={deleteUser}>Close account</Button> : null}
               </>
             }
           />

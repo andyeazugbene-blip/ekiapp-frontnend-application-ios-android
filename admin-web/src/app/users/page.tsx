@@ -118,9 +118,9 @@ function UsersInner() {
   const deleteUser = (u: UserRow) =>
     confirm.ask(
       {
-        title: `Delete ${u.name || u.email}?`,
-        description: "If this account has no real order/payment/review history, the record is permanently removed. If it does, that history can never be erased — the account is anonymised and suspended instead (their email, name and other personal data are scrubbed, but the order history stays intact). This account will never be able to log in again, but the same email can sign up fresh.",
-        confirmLabel: "Delete account",
+        title: `Close ${u.name || u.email}'s account?`,
+        description: "Open orders, disputes and unpaid payouts must be resolved first. If this account has no real order/payment/review history, the record is permanently removed. If it does, that history can never be erased — the account is anonymised and suspended instead (their email, name and other personal data are scrubbed, but the order history stays intact). This account will never be able to log in again, but the same email can sign up fresh.",
+        confirmLabel: "Close account",
         reasonLabel: "Reason (recorded in the audit log)",
       },
       async (reason) => {
@@ -180,7 +180,7 @@ function UsersInner() {
             ? <Button variant="secondary" className="h-9 px-3" onClick={() => setTarget({ user: u, mode: "restore" })}>Restore</Button>
             : <Button variant="ghost" className="h-9 px-3 text-red-600" onClick={() => setTarget({ user: u, mode: "suspend" })}>Suspend</Button>}
           {canDelete && u.role !== "ADMIN" && !u.anonymisedAt ? (
-            <Button variant="danger" className="h-9 px-3" onClick={() => deleteUser(u)}>Delete</Button>
+            <Button variant="danger" className="h-9 px-3" onClick={() => deleteUser(u)}>Close account</Button>
           ) : null}
         </div>
       ),
