@@ -63,3 +63,4 @@ Mobile screens were also checked in a browser, using the web build at phone widt
 | Contact masking, dispute hold | 72 | 31 | Not needed (admin) |
 | Product ranking, insights, wording | 73 | 32 | `b4a758af` |
 | Community Buy wording | - | 33 | `2295124a` |
+| Field privacy, demo job safety, demo data | 74 | 35 | `9339de83` |
