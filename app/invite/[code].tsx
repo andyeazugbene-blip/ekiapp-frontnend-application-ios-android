@@ -26,10 +26,17 @@ import { routeAfterSignIn, saveEntryContext } from "../../utils/entryContext";
  */
 export default function InviteDeepLinkRedirect() {
   const router = useRouter();
-  const { code, intent } = useLocalSearchParams<{ code?: string; intent?: string }>();
+  const { code, intent, ref } = useLocalSearchParams<{ code?: string; intent?: string; ref?: string }>();
 
   useEffect(() => {
     const user = useAuthStore.getState().user;
+
+    // A vendor inviting a vendor: their code is a referral, not a partner's.
+    if (intent === "sell" && ref === "1") {
+      if (user) router.replace("/(buyer)" as any);
+      else router.replace({ pathname: "/(auth)/register", params: { role: "vendor", ref: code } } as any);
+      return;
+    }
 
     // A partner's link says what the person came to do. Without one, this is a buyer's referral.
     if (intent === "sell" || intent === "supply") {
@@ -48,7 +55,7 @@ export default function InviteDeepLinkRedirect() {
 
     // Logged in already: no post-registration referral redemption exists.
     router.replace("/(buyer)" as any);
-  }, [code, intent, router]);
+  }, [code, intent, ref, router]);
 
   return (
     <View style={premiumStyles.page}>

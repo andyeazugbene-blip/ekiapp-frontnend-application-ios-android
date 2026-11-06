@@ -104,6 +104,7 @@ export const NAV_MODULES: NavModule[] = [
       { name: "Analytics", href: "/analytics", perm: ["analytics.read"] },
       { name: "Vendor Funnel", href: "/vendor-funnel", perm: ["analytics.read"] },
       { name: "Partner sign-ups", href: "/partner-cohorts", perm: ["analytics.read"] },
+      { name: "Growth programmes", href: "/growth", perm: ["subscriptions.read"] },
     ],
   },
   {

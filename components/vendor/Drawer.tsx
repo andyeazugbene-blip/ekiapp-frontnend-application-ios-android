@@ -40,6 +40,8 @@ const MENU_ITEMS: MenuEntry[] = [
   { icon: "people-circle-outline", label: "Community Buy", route: "/(buyer)/community-buy?tab=organised" },
   { icon: "chatbubble-ellipses-outline", label: "Messages", route: "/(vendor)/messages" },
   { icon: "link-outline", label: "Share store", route: "/(vendor)/promo-link" },
+  { icon: "rocket-outline", label: "First Sale Campaign", route: "/(vendor)/first-sale-campaign" },
+  { icon: "person-add-outline", label: "Invite other vendors", route: "/(vendor)/referrals" },
   { icon: "cash-outline", label: "Withdraw payout", route: "/(vendor)/earnings" },
   { icon: "flash-outline", label: "Automation Center", route: "/(vendor)/automation-center" },
   { icon: "apps-outline", label: "Sell, supply or organise", route: "/launcher" },

@@ -64,6 +64,11 @@ export function getPublicReferralUrl(code: string | undefined | null): string {
   return safe ? `${PUBLIC_DOMAIN}/?ref=${encodeURIComponent(safe)}` : PUBLIC_DOMAIN;
 }
 
+/** A vendor inviting another vendor. The page tells them to add this code when they sign up. */
+export function getPublicVendorReferralUrl(code: string): string {
+  return `${PUBLIC_DOMAIN}/invite/${encodeURIComponent(code.trim())}?intent=sell&ref=1`;
+}
+
 /**
  * Build a public product URL for sharing a single product page.
  */
