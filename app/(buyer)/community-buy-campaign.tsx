@@ -67,6 +67,7 @@ export default function CommunityBuyCampaignScreen() {
   const [retrying, setRetrying] = useState(false);
   // M5 — participant fulfilment evidence: receipt confirmation + problem report.
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
+  const [refundTimeframe, setRefundTimeframe] = useState("5 to 10 business days");
   const [receiptConfirmed, setReceiptConfirmed] = useState(false);
   const [showProblemForm, setShowProblemForm] = useState(false);
   const [problemDescription, setProblemDescription] = useState("");
@@ -78,7 +79,11 @@ export default function CommunityBuyCampaignScreen() {
     setError("");
     setNeedsCountry(false);
     try {
-      setCampaign(await communityBuyService.getCampaign(id));
+      const loaded = await communityBuyService.getCampaign(id);
+      setCampaign(loaded);
+      if (loaded.country) {
+        communityBuyService.getMarketConfig(loaded.country).then((m) => { if (m.marketRefundTimeframe) setRefundTimeframe(m.marketRefundTimeframe); }).catch(() => undefined);
+      }
       setUpdates(await communityBuyService.getCampaignUpdates(id).catch(() => []));
       setFulfilment(await communityBuyService.getCampaignFulfilment(id).catch(() => null));
       const mine = await communityBuyService.listMyContributions().catch(() => []);
@@ -302,12 +307,16 @@ export default function CommunityBuyCampaignScreen() {
           ) : campaign.status === "RESCUE_WINDOW" ? (
             <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
               <Ionicons name="time-outline" size={20} color="#B48A00" />
-              <Text style={styles.outcomeText}>This campaign has not reached its minimum yet. The organiser has until the rescue deadline to complete the remaining requirement. No supplier order has been created and no additional payment is required from you.</Text>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={styles.outcomeText}>The campaign needs more time. {Math.max(0, (campaign.minimumShares ?? 0) - campaign.confirmedShares)} more shares are needed.</Text>
+                <Text style={styles.outcomeText}>The organiser may purchase missing shares, invite another participant or request an approved extension.</Text>
+                <Text style={styles.outcomeText}>Your confirmed contribution remains part of the campaign while this period is open. No supplier order has been created yet.</Text>
+              </View>
             </FloatingCard>
           ) : campaign.status === "FAILED" ? (
             <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
               <Ionicons name="time-outline" size={20} color="#B48A00" />
-              <Text style={styles.outcomeText}>This campaign did not reach its minimum. No supplier order will be created — no participant was ever charged, so there is nothing to refund. Any saved pledge has been cancelled.</Text>
+              <Text style={styles.outcomeText}>The campaign did not reach its minimum. {contribution?.refund ? "We are preparing the applicable refund for your contribution." : "No supplier order will be created, and you were not charged."}</Text>
             </FloatingCard>
           ) : campaign.status === "REFUNDING" ? (
             <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
@@ -323,7 +332,7 @@ export default function CommunityBuyCampaignScreen() {
                       <Text style={styles.outcomeText}>Your refund</Text>
                       <StatusPill label={CONTRIBUTION_STATUS_LABELS[contribution.refund.status as keyof typeof CONTRIBUTION_STATUS_LABELS] ?? contribution.refund.status} tone={CONTRIBUTION_STATUS_TONE[contribution.refund.status as keyof typeof CONTRIBUTION_STATUS_TONE] ?? "warning"} />
                     </View>
-                    <Text style={styles.outcomeText}>{formatDisplayMoney(contribution.refund.amount / 100, contribution.currency, selectedCurrency)} being returned to your original payment method.</Text>
+                    <Text style={styles.outcomeText}>{formatDisplayMoney(contribution.refund.amount / 100, contribution.currency, selectedCurrency)} is being returned through your original payment route. Refunds may take {refundTimeframe} to appear, depending on your payment method.</Text>
                   </View>
                 ) : (
                   <Text style={styles.outcomeText}>Your refund is being processed — this appears here as soon as it's created.</Text>
@@ -345,7 +354,7 @@ export default function CommunityBuyCampaignScreen() {
                       <Text style={styles.outcomeText}>This campaign was ended. Your refund</Text>
                       <StatusPill label={CONTRIBUTION_STATUS_LABELS[contribution.refund.status as keyof typeof CONTRIBUTION_STATUS_LABELS] ?? contribution.refund.status} tone={CONTRIBUTION_STATUS_TONE[contribution.refund.status as keyof typeof CONTRIBUTION_STATUS_TONE] ?? "warning"} />
                     </View>
-                    <Text style={styles.outcomeText}>{formatDisplayMoney(contribution.refund.amount / 100, contribution.currency, selectedCurrency)} being returned to your original payment method.</Text>
+                    <Text style={styles.outcomeText}>{formatDisplayMoney(contribution.refund.amount / 100, contribution.currency, selectedCurrency)} is being returned through your original payment route. Refunds may take {refundTimeframe} to appear, depending on your payment method.</Text>
                   </View>
                 ) : (
                   <Text style={styles.outcomeText}>This campaign was ended. Your pledge was cancelled — you were never charged, so there is nothing to refund.</Text>
@@ -443,13 +452,13 @@ export default function CommunityBuyCampaignScreen() {
               ) : contribution?.status === "PAYMENT_PROCESSING" ? (
                 <FloatingCard style={styles.outcomeCard}>
                   <ActivityIndicator size="small" color="#076B51" />
-                  <Text style={styles.outcomeText}>Payment pending — this campaign succeeded and we're collecting payment from your saved card now.</Text>
+                  <Text style={styles.outcomeText}>Payment under review. Please don't pay again. A processing contribution does not count towards campaign progress until verified.</Text>
                 </FloatingCard>
               ) : contribution?.status === "CHARGE_FAILED" ? (
                 <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
                   <Ionicons name="alert-circle-outline" size={20} color="#B48A00" />
                   <View style={{ flex: 1, gap: 8 }}>
-                    <Text style={styles.outcomeText}>Payment failed — we couldn't collect payment for your pledge. Retry now or update your card to keep your place.</Text>
+                    <Text style={styles.outcomeText}>Your payment was not completed. You can try again using an available payment method.</Text>
                     <TouchableOpacity
                       onPress={() => void handleRetryCharge()}
                       disabled={retrying}

@@ -115,10 +115,10 @@ export const CONTRIBUTION_STATUS_LABELS: Record<ContributionStatus, string> = {
   PAID: "Payment confirmed",
   PAYMENT_FAILED: "Payment failed",
   CHARGE_FAILED: "Payment failed",
-  REFUND_PENDING: "Refund started",
+  REFUND_PENDING: "Your refund has started",
   REFUND_PROCESSING: "Refund in progress",
   REFUNDED: "Refund completed",
-  REFUND_FAILED: "Refund needs attention",
+  REFUND_FAILED: "We could not complete your refund automatically.",
   CANCELLED: "Pledge cancelled",
 };
 
@@ -221,6 +221,7 @@ export interface SupplierProposal {
 }
 
 export interface MarketConfig {
+  marketRefundTimeframe?: string;
   countryCode: string;
   currency?: string;
   communityBuyEnabled: boolean;
