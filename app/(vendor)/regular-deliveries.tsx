@@ -73,6 +73,13 @@ function formatDate(value?: string | null): string {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
+/** S22 to S24: what a vendor must and mustn't do with a renewal in this state. */
+const RENEWAL_NOTICE: Partial<Record<Renewal["status"], string>> = {
+  PAYMENT_FAILED: "Payment for this renewal was not completed. Do not prepare or dispatch this order. Eki has notified the buyer and will follow the configured retry process.",
+  PAYMENT_PROCESSING: "The payment provider has not returned a final status. Do not prepare the renewal or attempt payment again. Eki will continue checking and update this renewal when the result is confirmed.",
+  CANCELLED: "This renewal was cancelled before payment. The buyer will not be charged and no order will be created.",
+};
+
 export default function VendorRegularDeliveriesScreen() {
   const router = useRouter();
   const { selectedCurrency } = useCurrencyStore();
@@ -384,6 +391,7 @@ export default function VendorRegularDeliveriesScreen() {
                   </FloatingCard>
                 ))}
                 <Text style={styles.sectionTitle}>Upcoming renewals</Text>
+                <Text style={styles.cardMeta}>Confirm what you can supply before buyers are charged.</Text>
                 {renderFilterRow(Object.keys(RENEWAL_FILTERS), renewalFilter, setRenewalFilter)}
                 {visibleRenewals.length === 0 ? (
                   <FloatingCard><EmptyState icon="repeat-outline" title="No renewals here" body="Upcoming renewal cycles for your customers will show up here." /></FloatingCard>
@@ -399,6 +407,7 @@ export default function VendorRegularDeliveriesScreen() {
                           tone={r.status === "ORDER_CREATED" ? "success" : r.status === "PAYMENT_FAILED" ? "error" : "neutral"}
                         />
                       </View>
+                      {RENEWAL_NOTICE[r.status] ? <Text style={styles.cardMeta}>{RENEWAL_NOTICE[r.status]}</Text> : null}
                       {r.status === "AWAITING_STOCK" ? (
                         <TouchableOpacity disabled={busyId === r.id} onPress={() => void confirmStock(r.id)} style={[styles.smallBtn, { alignSelf: "flex-start", marginTop: 10 }]} accessibilityRole="button">
                           {busyId === r.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.smallBtnText}>Confirm stock</Text>}

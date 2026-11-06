@@ -287,12 +287,12 @@ export default function VendorCommunityBuySupplierScreen() {
 
   const handleAcceptCampaign = (campaignId: string, title: string) => {
     Alert.alert(
-      "Accept this campaign?",
-      `You're committing to fulfil "${title}" if it succeeds. This is a real supply obligation.`,
+      "Confirm supply commitment",
+      `For "${title}", I confirm that:\n\n• The product details are accurate\n• I can fulfil every confirmed quantity between the minimum and maximum\n• The participant price remains valid across the approved range\n• I can meet the fulfilment date\n• My payout information is current\n\nAcceptance does not guarantee an order. The supplier order is created only if the campaign reaches its approved minimum.`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Accept",
+          text: "Confirm acceptance",
           onPress: async () => {
             setCommitting(campaignId);
             try {
@@ -746,7 +746,7 @@ export default function VendorCommunityBuySupplierScreen() {
 
                       {c.supplierCommitted && canPostUpdate ? (
                         <View style={{ gap: 6, marginTop: 4 }}>
-                          <Text style={styles.formLabel}>Inventory status</Text>
+                          <Text style={styles.formLabel}>Confirm campaign inventory</Text>
                           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                             {INVENTORY_OPTIONS.map(([value, label]) => {
                               const on = (inventoryChoice[c.id] ?? c.supplierInventoryStatus) === value;

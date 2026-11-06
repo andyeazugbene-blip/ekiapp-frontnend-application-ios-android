@@ -914,7 +914,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         participantTermsUnchanged: true,
       });
       setShowExtensionForm(false);
-      Alert.alert("Extension requested", "Eki must approve this before your deadline changes. We'll notify you and your participants.");
+      Alert.alert("Extension request under review", "Eki is reviewing your request. The existing deadline remains active until a decision is made.");
     } catch (err) {
       Alert.alert("Couldn't submit your request", err instanceof Error ? err.message : "Please try again.");
     } finally {
@@ -925,10 +925,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const handleEndRescue = () => {
     if (!campaign) return;
     Alert.alert(
-      "End campaign and begin refunds?",
-      "Participants who contributed will be refunded. This can't be undone.",
+      "End this campaign?",
+      "The campaign is below its minimum. This will stop new contributions, prevent a supplier order and create individual refund records for anyone who paid. This can't be undone.",
       [
-        { text: "Keep deciding", style: "cancel" },
+        { text: "Keep completion period open", style: "cancel" },
         {
           text: "End campaign",
           style: "destructive",
@@ -976,7 +976,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                       onChange={setExtensionDeadline}
                       minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
                     />
-                    <Text style={styles.label}>Reason for extension</Text>
+                    <Text style={styles.label}>Reason for request</Text>
                     <TextInput
                       style={[styles.input, styles.inputMultiline]}
                       placeholder="Explain why this campaign should remain open"
@@ -1014,7 +1014,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     </TouchableOpacity>
                       </>
                     )}
-                    <Text style={styles.outcomeHint}>An extension is not automatic. Eki must approve it and notify every participant.</Text>
+                    <Text style={styles.outcomeHint}>An extension requires Eki approval. Participants will be notified if it is approved. Only one extension request is permitted.</Text>
                     <TouchableOpacity
                       onPress={handleSubmitExtension}
                       disabled={decisionBusy !== null}
@@ -1147,7 +1147,8 @@ export default function CommunityBuyOrganiserCampaignScreen() {
             {campaign?.status === "RESCUE_WINDOW" ? (
               <FloatingCard style={{ gap: 10 }}>
                 {/* RESCUE_WINDOW only follows submit()/publish(), which guarantee these are set. */}
-                <Text style={styles.outcomeTitle}>This campaign needs {Math.max(0, campaign.minimumShares! - campaign.confirmedShares)} more participant{Math.max(0, campaign.minimumShares! - campaign.confirmedShares) === 1 ? "" : "s"}</Text>
+                <Text style={styles.outcomeTitle}>Campaign completion period</Text>
+                <Text style={styles.outcomeHint}>The campaign ended below its minimum. {Math.max(0, campaign.minimumShares! - campaign.confirmedShares)} more shares are needed.</Text>
                 <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares!} goal={campaign.goalShares!} max={campaign.maximumShares!} />
                 <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Status</Text><Text style={styles.outcomeValue}>No supplier order has been created</Text></View>
                 <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Time remaining</Text><Text style={styles.outcomeValue}>{formatDateTime(campaign.rescueEndsAt)}</Text></View>
@@ -1214,10 +1215,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     activeOpacity={0.88}
                     style={[styles.secondaryBtn, { flex: 1, marginTop: 0 }]}
                     accessibilityRole="button"
-                    accessibilityLabel={campaign.extensionCount >= 1 ? "Extension already used" : "Request extension"}
+                    accessibilityLabel={campaign.extensionCount >= 1 ? "Extension already used" : "Request one extension"}
                     accessibilityState={{ disabled: decisionBusy !== null || campaign.extensionCount >= 1, expanded: showExtensionForm }}
                   >
-                    <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request extension"}</Text>
+                    <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request one extension"}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleEndRescue}
@@ -1329,10 +1330,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     activeOpacity={0.88}
                     style={[styles.secondaryBtn, { marginTop: 0 }]}
                     accessibilityRole="button"
-                    accessibilityLabel={campaign.extensionCount >= 1 ? "Extension already used" : "Request extension"}
+                    accessibilityLabel={campaign.extensionCount >= 1 ? "Extension already used" : "Request one extension"}
                     accessibilityState={{ disabled: decisionBusy !== null || campaign.extensionCount >= 1, expanded: showExtensionForm }}
                   >
-                    <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request extension"}</Text>
+                    <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request one extension"}</Text>
                   </TouchableOpacity>
                   {extensionForm}
                 </FloatingCard>

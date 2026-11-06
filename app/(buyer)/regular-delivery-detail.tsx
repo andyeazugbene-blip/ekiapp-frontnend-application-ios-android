@@ -298,6 +298,13 @@ export default function RegularDeliveryDetailScreen() {
               </FloatingCard>
             ) : null}
 
+            {latestRenewal?.status === "PAYMENT_PROCESSING" ? (
+              <FloatingCard style={styles.alertCardWarning}>
+                <Text style={styles.alertTitle}>Confirming your renewal payment</Text>
+                <Text style={styles.alertBody}>Payment under review. Please don't pay again. Your payment provider has not returned a final status yet. We will continue checking and notify you when the result is confirmed.</Text>
+              </FloatingCard>
+            ) : null}
+
             {pausedForPayment ? (
               <FloatingCard style={styles.alertCardError}>
                 <View style={styles.alertRow}>
@@ -359,6 +366,8 @@ export default function RegularDeliveryDetailScreen() {
               </View>
               <Text style={styles.nextRenewalLabel}>Next renewal</Text>
               <Text style={styles.nextRenewalValue}>{isPaused ? "Paused" : formatDate(sub.nextRenewalAt)}</Text>
+              {isPaused && sub.pausedUntil ? <Text style={styles.alertBody}>Deliveries are scheduled to resume on {formatDate(sub.pausedUntil)}.</Text> : null}
+              {sub.status === "CANCELLED" ? <Text style={styles.alertBody}>You will not be charged for future renewals. Any order already paid is not affected and will continue separately.</Text> : null}
               {isActive ? (
                 <TouchableOpacity onPress={() => { setNewDeliveryDate(null); setShowDateSheet(true); }} activeOpacity={0.85} style={{ marginTop: 8 }} accessibilityRole="button" accessibilityLabel="Choose a new date for next delivery">
                   <Text style={styles.editLink}>Choose a new date for next delivery</Text>
@@ -448,15 +457,22 @@ export default function RegularDeliveryDetailScreen() {
                   <ActionButton icon="pause-outline" label="Pause" busy={actionBusy === "pause"} onPress={() => setShowPauseSheet(true)} />
                   <ActionButton icon="play-skip-forward-outline" label="Skip next" busy={actionBusy === "skip"} onPress={() => Alert.alert("Skip your next delivery?", `You will not be charged for the renewal scheduled for ${formatDate(sub.nextRenewalAt)}.`, [
                     { text: "Keep it", style: "cancel" },
-                    { text: "Skip this delivery", onPress: () => void runAction("skip", () => regularDeliveriesService.skipNextRenewal(sub.id)) },
+                    { text: "Skip this delivery", onPress: () => void runAction("skip", async () => {
+                      const result = await regularDeliveriesService.skipNextRenewal(sub.id);
+                      Alert.alert("Your next delivery has been skipped", "You will not be charged for it. Your Foodstuff Subscription remains active.");
+                      return result;
+                    }) },
                   ])} />
                   <ActionButton icon="repeat-outline" label="Change frequency" busy={false} onPress={openFrequencySheet} />
                 </>
               ) : isPaused ? (
-                <ActionButton icon="play-outline" label="Resume" busy={actionBusy === "resume"} onPress={() => void runAction("resume", () => regularDeliveriesService.resumeSubscription(sub.id))} />
+                <ActionButton icon="play-outline" label="Resume" busy={actionBusy === "resume"} onPress={() => Alert.alert("Resume your Foodstuff Subscription?", "We'll schedule your next renewal.", [
+                  { text: "Keep it paused", style: "cancel" },
+                  { text: "Resume", onPress: () => void runAction("resume", () => regularDeliveriesService.resumeSubscription(sub.id)) },
+                ])} />
               ) : null}
               {isActive || isPaused ? (
-                <ActionButton icon="close-circle-outline" label="Cancel" tone="danger" busy={actionBusy === "cancel"} onPress={confirmCancel} />
+                <ActionButton icon="close-circle-outline" label="Cancel Foodstuff Subscription" tone="danger" busy={actionBusy === "cancel"} onPress={confirmCancel} />
               ) : null}
             </View>
 
@@ -553,7 +569,8 @@ export default function RegularDeliveryDetailScreen() {
 
             {showCardSheet ? (
               <FloatingCard style={{ gap: 12 }}>
-                <Text style={styles.sectionTitle}>Choose a card</Text>
+                <Text style={styles.sectionTitle}>Choose payment method</Text>
+                <Text style={styles.alertBody}>Choose another payment method for this renewal and future eligible renewals.</Text>
                 {cards.length === 0 ? (
                   <Text style={styles.alertBody}>No saved cards found. Add a card from your payment methods, then come back here.</Text>
                 ) : cards.map((c) => (
@@ -585,10 +602,10 @@ export default function RegularDeliveryDetailScreen() {
                 </View>
                 <View style={{ flexDirection: "row", gap: 10 }}>
                   <TouchableOpacity onPress={() => setShowCancelSheet(false)} disabled={actionBusy === "cancel"} activeOpacity={0.85} style={styles.editCancelBtn}>
-                    <Text style={styles.editCancelBtnText}>Keep it</Text>
+                    <Text style={styles.editCancelBtnText}>Keep it active</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => void submitCancel()} disabled={actionBusy === "cancel"} activeOpacity={0.85} style={[styles.editSaveBtn, { backgroundColor: "#D6552F" }]}>
-                    {actionBusy === "cancel" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.editSaveBtnText}>Cancel subscription</Text>}
+                    {actionBusy === "cancel" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.editSaveBtnText}>Cancel Foodstuff Subscription</Text>}
                   </TouchableOpacity>
                 </View>
               </FloatingCard>

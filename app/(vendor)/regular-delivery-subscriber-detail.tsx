@@ -109,6 +109,7 @@ export default function VendorSubscriberDetailScreen() {
                 ))}
               </View>
             )}
+            <Text style={styles.buyerEmail}>You can't view a buyer's full payment-card or bank-account details.</Text>
           </View>
         )}
       </ScrollView>
