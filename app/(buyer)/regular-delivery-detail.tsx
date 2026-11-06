@@ -29,7 +29,7 @@ import {
   type SubscriptionFrequency,
 } from "../../services/regularDeliveriesService";
 
-const CANCEL_REASONS = ["Too expensive", "I don't need it anymore", "Delivery problems", "Product quality", "Moving away", "Other"];
+const CANCEL_REASONS = ["Too expensive", "Deliveries are too frequent", "Products are often unavailable", "Delivery problem", "I no longer need it", "Other"];
 
 function formatDate(value?: string | null): string {
   if (!value) return "—";
@@ -318,8 +318,8 @@ export default function RegularDeliveryDetailScreen() {
                 <View style={styles.alertRow}>
                   <Ionicons name="card-outline" size={18} color="#D6552F" />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.alertTitle}>Payment failed</Text>
-                    <Text style={styles.alertBody}>{latestRenewal.failureReason ?? "We couldn't collect payment for your last delivery."}</Text>
+                    <Text style={styles.alertTitle}>Your payment was not completed</Text>
+                    <Text style={styles.alertBody}>We could not complete payment for your upcoming Foodstuff Subscription. Your order has not been created. Update your payment method and try again.</Text>
                   </View>
                 </View>
                 <TouchableOpacity
@@ -446,7 +446,10 @@ export default function RegularDeliveryDetailScreen() {
               {isActive ? (
                 <>
                   <ActionButton icon="pause-outline" label="Pause" busy={actionBusy === "pause"} onPress={() => setShowPauseSheet(true)} />
-                  <ActionButton icon="play-skip-forward-outline" label="Skip next" busy={actionBusy === "skip"} onPress={() => void runAction("skip", () => regularDeliveriesService.skipNextRenewal(sub.id))} />
+                  <ActionButton icon="play-skip-forward-outline" label="Skip next" busy={actionBusy === "skip"} onPress={() => Alert.alert("Skip your next delivery?", `You will not be charged for the renewal scheduled for ${formatDate(sub.nextRenewalAt)}.`, [
+                    { text: "Keep it", style: "cancel" },
+                    { text: "Skip this delivery", onPress: () => void runAction("skip", () => regularDeliveriesService.skipNextRenewal(sub.id)) },
+                  ])} />
                   <ActionButton icon="repeat-outline" label="Change frequency" busy={false} onPress={openFrequencySheet} />
                 </>
               ) : isPaused ? (
@@ -566,8 +569,9 @@ export default function RegularDeliveryDetailScreen() {
 
             {showCancelSheet ? (
               <FloatingCard style={{ gap: 12 }}>
-                <Text style={styles.sectionTitle}>Cancel this Foodstuff Subscription?</Text>
-                <Text style={styles.alertBody}>Future renewals will stop. This can't be undone. Telling us why helps vendors improve (optional).</Text>
+                <Text style={styles.sectionTitle}>Cancel your Foodstuff Subscription?</Text>
+                <Text style={styles.alertBody}>Future unpaid renewals will be cancelled. This will not cancel an order that has already been paid or dispatched.</Text>
+                <Text style={styles.alertBody}>Reason for cancelling (optional)</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {CANCEL_REASONS.map((r) => {
                     const on = cancelReason === r;
@@ -592,7 +596,8 @@ export default function RegularDeliveryDetailScreen() {
 
             {showPauseSheet ? (
               <FloatingCard style={{ gap: 14 }}>
-                <Text style={styles.sectionTitle}>Pause this delivery</Text>
+                <Text style={styles.sectionTitle}>Pause your Foodstuff Subscription</Text>
+                <Text style={styles.alertBody}>Choose when deliveries should resume. You will not be charged while your Foodstuff Subscription is paused.</Text>
                 <DatePickerField
                   label="Resume on (optional)"
                   value={pauseResumeDate}

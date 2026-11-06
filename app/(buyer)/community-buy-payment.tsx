@@ -198,7 +198,7 @@ export default function CommunityBuyPaymentScreen() {
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title="Payment method" subtitle={campaign.title} onBack={backToReview} />
+      <PremiumHeader title="Complete your contribution" subtitle="Pay securely using an available payment method." onBack={backToReview} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         <View style={[premiumStyles.block, { gap: 14 }]}>
           <FloatingCard style={{ gap: 10 }}>
