@@ -13,6 +13,7 @@ import { APIError } from "@/lib/api";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   subscriptionsAdminAPI,
+  type SubscriptionOperationsSummary,
   type SubscriptionCounts,
   type SubscriptionReports,
   type SubscriptionRow,
@@ -122,6 +123,10 @@ function SubscriptionsInner() {
   }, [params, pathname, router]);
 
   const [rows, setRows] = useState<SubscriptionRow[]>([]);
+  const [operations, setOperations] = useState<SubscriptionOperationsSummary | null>(null);
+  useEffect(() => {
+    subscriptionsAdminAPI.operationsSummary().then(setOperations).catch(() => setOperations(null));
+  }, []);
   const [counts, setCounts] = useState<SubscriptionCounts | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -169,10 +174,23 @@ function SubscriptionsInner() {
 
       {view === "reports" ? <ReportsView /> : (
         <>
+          {operations ? (
+            <Card>
+              <h2 className="text-2xl font-black">Regular Delivery operations</h2>
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <QueueTile label="Active subscriptions" value={operations.activeSubscriptions} tone="green" />
+                <QueueTile label="Upcoming renewals" value={operations.upcomingRenewals} tone="blue" hint="Next 7 days" />
+                <QueueTile label="Payments under review" value={operations.paymentsUnderReview} tone="amber" />
+                <QueueTile label="Failed renewal payments" value={operations.failedRenewalPayments} tone={operations.failedRenewalPayments > 0 ? "red" : "gray"} />
+                <QueueTile label="Price approvals outstanding" value={operations.priceApprovalsOutstanding} tone="amber" />
+                <QueueTile label="Subscription exceptions" value={operations.subscriptionExceptions} tone={operations.subscriptionExceptions > 0 ? "red" : "gray"} />
+              </div>
+            </Card>
+          ) : null}
           {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
           <Card className="space-y-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <SearchInput value={q} onChange={(v) => setParams({ q: v })} placeholder="Search buyer name, email, vendor store or subscription ID" />
+              <SearchInput value={q} onChange={(v) => setParams({ q: v })} placeholder="Search subscription, renewal or order reference, buyer, email, vendor store or subscription ID" />
               <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                 Next renewal from
                 <input type="date" value={renewalFrom} onChange={(e) => setParams({ renewalFrom: e.target.value })} className="h-11 rounded-xl border border-slate-200 px-3 text-sm" />

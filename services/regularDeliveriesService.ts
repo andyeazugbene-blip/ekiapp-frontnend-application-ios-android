@@ -317,6 +317,15 @@ export const regularDeliveriesService = {
   },
 
   // ─── Buyer: renewal actions ─────────────────────────────────────────────
+  async removeRenewalItem(renewalId: string, productId: string): Promise<Renewal> {
+    return (await apiClient.post<{ renewal: Renewal }>(`/api/renewals/${renewalId}/remove-item`, { productId })).renewal;
+  },
+
+  /** A short-lived link to a receipt the buyer can open, save or print. */
+  async getRenewalReceiptLink(renewalId: string): Promise<string> {
+    return (await apiClient.post<{ url: string }>(`/api/renewals/${renewalId}/receipt-link`, {})).url;
+  },
+
   async decideRenewalPriceChange(renewalId: string, decision: "accepted" | "declined"): Promise<Renewal> {
     const res = await apiClient.post<{ renewal: Renewal }>(`/api/renewals/${renewalId}/price-change`, { decision });
     return res.renewal;

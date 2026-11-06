@@ -14,6 +14,7 @@ import {
   premiumStyles,
 } from "../../components/shared/PremiumBlocks";
 import { DatePickerField } from "../../components/shared/DatePickerField";
+import * as WebBrowser from "expo-web-browser";
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
@@ -93,6 +94,14 @@ export default function RegularDeliveryDetailScreen() {
       Alert.alert("Couldn't complete that", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setActionBusy(null);
+    }
+  };
+
+  const openRenewalReceipt = async (renewalId: string) => {
+    try {
+      await WebBrowser.openBrowserAsync(await regularDeliveriesService.getRenewalReceiptLink(renewalId));
+    } catch (err) {
+      Alert.alert("Couldn't open your receipt", err instanceof Error ? err.message : "Please try again.");
     }
   };
 
@@ -218,6 +227,7 @@ export default function RegularDeliveryDetailScreen() {
   const isActive = sub?.status === "ACTIVE";
   const isPaused = sub?.status === "PAUSED";
   const latestRenewal = sub?.renewals?.[0];
+  const changedItems = (latestRenewal?.items ?? []).filter((item) => item.currentUnitPrice > item.previousUnitPrice);
   const needsPriceApproval = latestRenewal?.status === "AWAITING_PRICE_APPROVAL";
   const needsPaymentRetry = latestRenewal?.status === "PAYMENT_FAILED";
   const isAwaitingStock = latestRenewal?.status === "AWAITING_STOCK";
@@ -245,24 +255,44 @@ export default function RegularDeliveryDetailScreen() {
                 <View style={styles.alertRow}>
                   <Ionicons name="pricetag-outline" size={18} color="#B48A00" />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.alertTitle}>Price change needs your approval</Text>
-                    <Text style={styles.alertBody}>{sub.offer?.vendor?.storeName ?? "Your vendor"} updated a price on your next delivery.</Text>
+                    <Text style={styles.alertTitle}>A price has changed</Text>
+                    <Text style={styles.alertBody}>Your payment is paused until you decide.</Text>
                   </View>
                 </View>
+                {changedItems.map((item) => (
+                  <View key={item.productId} style={{ gap: 4 }}>
+                    <Text style={styles.alertTitle}>{item.product?.title ?? "Foodstuff"}</Text>
+                    <Text style={styles.alertBody}>Previous price {formatDisplayMoney(item.previousUnitPrice / 100, latestRenewal.currency, selectedCurrency)}</Text>
+                    <Text style={styles.alertBody}>New price {formatDisplayMoney(item.currentUnitPrice / 100, latestRenewal.currency, selectedCurrency)}</Text>
+                    {(latestRenewal.items ?? []).length > 1 ? (
+                      <TouchableOpacity
+                        disabled={actionBusy !== null}
+                        onPress={() => Alert.alert("Remove this item?", "It comes off this renewal and future ones. The rest of your basket stays the same.", [
+                          { text: "Go back", style: "cancel" },
+                          { text: "Remove this item", style: "destructive", onPress: () => void runRenewalAction(`remove-${item.productId}`, () => regularDeliveriesService.removeRenewalItem(latestRenewal.id, item.productId)) },
+                        ])}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${item.product?.title ?? "this item"}`}
+                      >
+                        <Text style={styles.alertBtnGhostText}>Remove this item</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                ))}
                 <View style={styles.alertActions}>
                   <TouchableOpacity
                     disabled={actionBusy === "price-accept"}
                     onPress={() => void runRenewalAction("price-accept", () => regularDeliveriesService.decideRenewalPriceChange(latestRenewal.id, "accepted"))}
                     style={styles.alertBtnPrimary}
                   >
-                    {actionBusy === "price-accept" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.alertBtnPrimaryText}>Approve</Text>}
+                    {actionBusy === "price-accept" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.alertBtnPrimaryText}>Accept new price</Text>}
                   </TouchableOpacity>
                   <TouchableOpacity
                     disabled={actionBusy === "price-decline"}
                     onPress={() => void runRenewalAction("price-decline", () => regularDeliveriesService.decideRenewalPriceChange(latestRenewal.id, "declined"))}
                     style={styles.alertBtnGhost}
                   >
-                    {actionBusy === "price-decline" ? <ActivityIndicator size="small" color="#516A60" /> : <Text style={styles.alertBtnGhostText}>Skip this delivery</Text>}
+                    {actionBusy === "price-decline" ? <ActivityIndicator size="small" color="#516A60" /> : <Text style={styles.alertBtnGhostText}>Skip this renewal</Text>}
                   </TouchableOpacity>
                 </View>
               </FloatingCard>
@@ -614,6 +644,11 @@ export default function RegularDeliveryDetailScreen() {
                           <Text style={styles.renewalAmount}>{formatDisplayMoney(r.subtotalAmount / 100, r.currency, selectedCurrency)}</Text>
                         ) : null}
                         {trackable ? <Ionicons name="chevron-forward" size={16} color="#C7D2CB" /> : null}
+                        {trackable ? (
+                          <TouchableOpacity onPress={() => void openRenewalReceipt(r.id)} accessibilityRole="button" accessibilityLabel="Download receipt" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Ionicons name="receipt-outline" size={18} color="#076B51" />
+                          </TouchableOpacity>
+                        ) : null}
                       </FloatingCard>
                     );
                     return trackable ? (
