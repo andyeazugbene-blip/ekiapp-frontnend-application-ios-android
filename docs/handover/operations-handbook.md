@@ -47,6 +47,11 @@ These jobs skip demo campaigns and demo subscriptions, so a demo can never be cl
 | A participant reports a money or delivery problem | Their open case holds supplier and organiser money automatically. Close it in Community Support Cases to lift the hold |
 | You need someone's email or phone | Open their record → Reveal contact details, with a reason. It's recorded in the audit log as `pii.reveal`. Lists and exports stay masked |
 | A demo account needs test data | Users → the demo account → Fill demo data. It opens the supplier account and adds every Community Buy, supplier, order and subscription status. Running it again only adds what's missing. It's refused on a real account. New full-feature demo accounts get this automatically |
+| A Community Buy contribution looks wrong | Community Campaigns → the campaign → contributions → **Recheck provider**. It asks Stripe and only provider evidence changes it. If Stripe can't be reached it says so and changes nothing. The row also shows whether it counts towards the campaign |
+| A supplier declines the final quantity | An escalated case opens automatically in Community Support Cases, and the campaign is cancelled before any charge |
+| A bank chargeback on a Community Buy payment | The campaign is marked disputed, which holds supplier and organiser money, and an escalated case opens. If the supplier was already paid, its internal notes say **Financial exception**, and someone must resolve that by hand |
+| A vendor changes a renewal price | The vendor gives a reason, and it applies to that renewal only. Above the buyer's limit, the buyer must approve it and sees the reason. It's recorded as `renewal.price_change_proposed` |
+| A decision needs changing | Settings → Launch decisions. The Launch tab also links to markets and plans. See section F of `OWNER_PRODUCT_DECISIONS.md` |
 | Someone needs a receipt | They open it in the app. Links last 15 minutes, so ask them to open it again if it has expired |
 
 ## Escalation

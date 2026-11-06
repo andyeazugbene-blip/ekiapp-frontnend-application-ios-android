@@ -100,6 +100,20 @@ Handbook screen 08 shows "Sales influenced, Carts recovered, Buyers brought back
 | Event requirements | Needs `message_delivered`, `message_clicked` (click tracking links), `order_*`, `payment_succeeded` | engineering | click tracking must be built after source decision | TD | |
 | Reporting dimensions | Vendor, automation type, market, period, currency | engineering | as listed, per-currency never summed | TD | accepted by default |
 
+## F. Defaults shipped for the client's open decisions (2026-11-07)
+
+Each one works today with the default below. An admin changes it without a release. Where the choice changes prices or money, the default keeps today's behaviour.
+
+| Decision | Default | Client document says | Where to change it |
+|---|---|---|---|
+| Can unverified vendors sell? | Yes, they verify before withdrawing (owner, 19 October 2026) | Verify first | Settings → Launch decisions → Unverified vendors can sell |
+| Delivery fee formula | Base fee plus cost per kg | Higher of weight cost and minimum fee | Settings → Launch decisions → Charge delivery as weight cost with a minimum fee |
+| Phone numbers in chat | Hidden, except in support conversations | Keep conversations on Eki | Settings → Launch decisions → Hide phone numbers |
+| Comparison group for incremental revenue | 0%, so off | Needs a comparison group | Settings → Launch decisions → Comparison group |
+| Community Buy payment mode, and what counts towards progress | Pledge, then charge | Verified contributions only | Community Buy markets → Payment mode. New campaigns only |
+| Organiser fee, commission, buyer service fee | As set per market | Varies by document | Community Buy markets |
+| Vendor plan price | £19.99, £29.99, £49.99 | $20 in one document | Subscription plans |
+
 ## E. Other items (non-business)
 | Item | Class |
 |---|---|

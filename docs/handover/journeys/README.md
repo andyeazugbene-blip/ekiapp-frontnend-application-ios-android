@@ -23,6 +23,7 @@ Journeys create their own data, so a database that has already been used can giv
 | `e2e.cjs` | Full regression: sign-up, orders, payments, refunds, roles |
 | `e2e_p1.cjs` | Phase 1: account, routing, Community Buy |
 | `e2e_settings.cjs` | Launch settings |
+| `e2e_i.cjs` | Admin decision settings and the remaining client gaps |
 | `e2e_entry.cjs` | Partner codes, guest browsing, web page |
 | `e2e_ext.cjs` | Extension requests and supplier reconfirmation |
 | `e2e_cb4.cjs` | Community Buy flags, notify me, receipts, operations |

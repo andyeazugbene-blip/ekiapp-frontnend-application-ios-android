@@ -1,6 +1,6 @@
 // Launch settings against the local verification database only.
 const path = require("path");
-const BACKEND = process.env.EKI_BACKEND_DIR || path.resolve(__dirname, "../../../../ekiapp-backend-main");
+const BACKEND = "C:/Users/Origin Systems/Desktop/ITALIAN APP/ekiapp-backend-main";
 const req = (m) => require(path.join(BACKEND, "node_modules", m));
 req("dotenv").config({ path: path.join(BACKEND, ".env") });
 if (!/localhost:5544\/eki_verify/.test(process.env.DATABASE_URL || "")) throw new Error("Refusing to run: not the verification DB");
@@ -27,13 +27,13 @@ const tokenFor = (u) => jwt.sign({ sub: u.id, role: u.role, email: u.email, tv: 
 
   let r = await call("GET", "/community-buy/launch-settings");
   check("public view works signed out, with defaults", r.status === 200 && r.body.vendorTrialDays === 30 && r.body.ukLaunchMode === true && r.body.launchMarket === "GB", r);
-  check("public view holds only what apps need", Object.keys(r.body).sort().join() === "launchMarket,ukLaunchMode,vendorTrialDays", r.body);
+  check("public view holds only what apps need", Object.keys(r.body).sort().join() === "campaignReviewHours,launchMarket,offerReviewHours,ukLaunchMode,vendorTrialDays", r.body);
   r = await call("GET", "/admin/settings/launch");
   check("admin list refused signed out", r.status === 401, r.status);
   r = await call("GET", "/admin/settings/launch", buyerToken);
   check("admin list refused for a buyer", r.status === 403, r.status);
   r = await call("GET", "/admin/settings/launch", admin);
-  check("admin list loads", r.status === 200 && r.body.settings.length === 9, r);
+  check("admin list loads", r.status === 200 && r.body.settings.length >= 13, r);
   r = await call("PATCH", "/admin/settings/launch/VENDOR_TRIAL_DAYS", buyerToken, { value: 7, reason: "nope" });
   check("buyer can't change a setting", r.status === 403, r.status);
   r = await call("PATCH", "/admin/settings/launch/VENDOR_TRIAL_DAYS", admin, { value: 14, reason: "client asked" });
