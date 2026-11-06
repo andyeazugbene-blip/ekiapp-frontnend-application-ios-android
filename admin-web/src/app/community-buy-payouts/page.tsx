@@ -36,6 +36,8 @@ const BLOCKER_LABEL: Record<string, string> = {
   stripe_payouts_disabled: "Supplier's Stripe payouts capability is disabled",
   fulfilment_not_completed: "Fulfilment is not yet marked completed",
   dispute_or_refund_exposure: "Open dispute or refund exposure on this campaign's captured holds",
+  campaign_disputed: "This Community Buy is marked as disputed",
+  open_participant_issue: "A participant has an open issue about money or delivery",
 };
 
 const money = (amountMinor: number, currency: string): string => formatMinor(amountMinor, currency);

@@ -5,6 +5,7 @@ import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { Button, Card, ErrorPanel, LoadingPanel, PageHeader } from "@/components/AdminUI";
 import { apiClient, APIError } from "@/lib/api";
+import { formatDateTime } from "@/components/AdminKit";
 import { SUPPORTED_CURRENCIES, formatDisplayMoney, useAdminDisplayCurrency } from "@/lib/displayCurrency";
 
 export default function WalletTxDetailPage() {
@@ -28,7 +29,7 @@ export default function WalletTxDetailPage() {
             <div><span className="text-sm text-gray-500">Type</span><p className="font-bold">{tx.type}</p></div>
             <div><span className="text-sm text-gray-500">Amount</span><p className="font-bold">{formatDisplayMoney((tx.amount ?? 0) / 100, tx.currency, selectedCurrency)}</p></div>
             <div><span className="text-sm text-gray-500">Description</span><p className="font-bold">{tx.description || "—"}</p></div>
-            <div><span className="text-sm text-gray-500">Date</span><p className="font-bold">{tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "—"}</p></div>
+            <div><span className="text-sm text-gray-500">Date</span><p className="font-bold">{formatDateTime(tx.createdAt)}</p></div>
           </div></Card>
         {tx.vendor && <Card><h2 className="text-lg font-bold mb-4">Vendor</h2><div className="space-y-3">
           <div><span className="text-sm text-gray-500">Store</span><p className="font-bold">{tx.vendor.storeName}</p></div>

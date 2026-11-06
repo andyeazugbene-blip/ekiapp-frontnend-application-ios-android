@@ -11,6 +11,8 @@ export type FundingOutcome = "PENDING" | "GOAL_REACHED" | "MINIMUM_REACHED" | "B
 
 export interface AdminCampaign {
   id: string;
+  disputedAt?: string | null;
+  disputeReason?: string | null;
   title: string;
   description?: string | null;
   country: string;
@@ -565,6 +567,12 @@ export const communityBuyAdminAPI = {
   },
   campaignMonitoring(id: string): Promise<CampaignMonitoring> {
     return apiClient.get(`/admin/community-campaigns/${id}/monitoring`, { bypassCache: true });
+  },
+  async disputeCampaign(id: string, reason: string) {
+    return apiClient.post(`/admin/community-campaigns/${id}/dispute`, { reason });
+  },
+  async resolveCampaignDispute(id: string, reason: string) {
+    return apiClient.post(`/admin/community-campaigns/${id}/dispute/resolve`, { reason });
   },
   async pauseCampaign(id: string, reason: string): Promise<AdminCampaign> {
     const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/pause`, { reason });

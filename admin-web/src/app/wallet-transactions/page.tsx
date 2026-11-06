@@ -5,6 +5,7 @@ import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { walletTransactionsAPI, AdminWalletTransaction } from "@/lib/services/wallet-transactions.api";
 import { APIError } from "@/lib/api";
+import { formatDateTime } from "@/components/AdminKit";
 import { useRouter } from "next/navigation";
 
 export default function WalletTransactionsPage() {
@@ -115,7 +116,7 @@ export default function WalletTransactionsPage() {
                         {tx.description || "-"}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(tx.createdAt).toLocaleDateString()}
+                        {formatDateTime(tx.createdAt)}
                       </td>
                     </tr>
                   ))}
