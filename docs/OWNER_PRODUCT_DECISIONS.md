@@ -21,7 +21,7 @@ The owner asked for open decisions to ship as defaults an admin can change, rath
 | Review targets | 72, 24, 24 and 24 hours | Settings → Launch decisions |
 | New vendor boost | 30 days | Settings → Launch decisions |
 | Dashboard states | No sale, has sales, repeat buyers | Code |
-| Attribution | Not built. Still needs a decision on section D below | |
+| Attribution window | 7 days, last automation before the order. Incremental revenue isn't estimated | Settings → Launch decisions |
 
 
 Nothing here has been decided by engineering. No value, amount, window or rule below is implemented. "Recommended" marks the lowest-risk option for activation, not a business choice made on your behalf. Fill the last column; engineering then builds exactly that.

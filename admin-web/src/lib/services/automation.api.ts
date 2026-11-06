@@ -90,6 +90,19 @@ export interface PerformanceResponse {
   note: string;
 }
 
+export interface AttributionResponse {
+  reportDays: number;
+  windowDays: number;
+  runsConsidered: number;
+  runsCapped: boolean;
+  buyersReached: number;
+  assisted: { type: string; currency: string; orders: number; gross: number; refunds: number; net: number }[];
+  subscriptionRecovery: { currency: string; count: number; amount: number }[];
+  qualifiedReferrals: number | null;
+  estimatedIncremental: null;
+  notes: { assisted: string; net: string; incremental: string; recovery: string };
+}
+
 export interface EventRow {
   id: string; name: string; occurredAt: string; timezone: string; actorType: string | null; actorId: string | null;
   entityType: string | null; entityId: string | null; source: string | null; amountMinor: number | null; currency: string | null; payload: Record<string, unknown> | null;
@@ -115,6 +128,7 @@ export const automationAPI = {
   retryRun: (id: string, reason: string) => apiClient.post<{ id: string; status: string }>(`/admin/automation/runs/${id}/retry`, { reason }),
   failures: () => apiClient.get<FailuresResponse>("/admin/automation/failures"),
   performance: () => apiClient.get<PerformanceResponse>("/admin/automation/performance"),
+  attribution: (vendorId?: string) => apiClient.get<AttributionResponse>(`/admin/automation/attribution${qs({ vendorId })}`),
   events: (q: { name?: string; entityType?: string; entityId?: string; from?: string; to?: string; cursor?: string; limit?: number }) =>
     apiClient.get<{ items: EventRow[]; nextCursor: string | null }>(`/admin/events${qs(q)}`),
 };

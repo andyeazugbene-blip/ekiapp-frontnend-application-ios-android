@@ -71,7 +71,7 @@ export interface TestSendResult {
   testToken?: string;
 }
 
-export interface ChannelCounts { eligible: number; queued: number; sent: number; delivered: number; failed: number; read?: number }
+export interface ChannelCounts { eligible: number; queued: number; sent: number; delivered: number; failed: number; opened?: number; clicked?: number; read?: number }
 
 export interface BroadcastRecord {
   id: string;
