@@ -123,6 +123,8 @@ export interface RegularDeliveryInsights {
   paidRenewalsLast30Days: number;
   revenueLast30Days: { currency: string; amount: number }[];
   upcomingRenewalsNext7Days: number;
+  renewalSuccessRate?: number | null;
+  mostSubscribedProduct?: string | null;
 }
 
 export interface SubscriptionItem {

@@ -23,7 +23,7 @@ Status column is updated as each fix is verified. "Needs live proof" means code 
 | K14 | Major | Progress counting | In pledge mode, a pledge counts towards campaign progress before any payment. The client's copy says only verified contributions count, so that line isn't used | Andy | Open: true once the UK moves to holds, or rule on it |
 | K15 | Major | Exact copy | Community Buy 112 of 314 sentences and Regular Delivery 170 of 247 match word for word. See `copy-differences.md` | dev/Andy | Partly done |
 | K16 | Major | Legal | Terms and policies still say "Payment Protection" | Eki | Open: owner sign-off |
-| K17 | Minor | Discovery | Product lists aren't ranked, and shipping compatibility isn't a ranking input. Vendor lists are ranked | dev | Backlog |
+| K17 | Minor | Discovery | Marketplace products are ranked on relevance, vendor rating, sales, delivery to the buyer's country and the new vendor boost. Signed-out buyers get no delivery input, because their country isn't known | dev | Done, awaiting review of real listings |
 | K18 | Minor | App size | The QR code library added about 0.8 MB to the update bundle | dev | Accepted |
 | K19 | Major | Database | One of seven production health checks on 2026-11-06 reported a connection pool timeout (limit 5, timeout 10s). The next six passed. Cause not established | dev | Open: check Vercel logs and the Neon pooled connection string |
 

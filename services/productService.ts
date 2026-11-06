@@ -23,6 +23,7 @@ export const productService = {
       const query = new URLSearchParams();
       if (params?.category) query.set("category", params.category);
       if (params?.vendorId) query.set("vendorId", params.vendorId);
+      if (params?.search) query.set("search", params.search);
       query.set("limit", String(pageSize));
       if (cursor) query.set("cursor", cursor);
 
