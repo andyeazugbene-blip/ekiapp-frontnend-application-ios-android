@@ -45,6 +45,8 @@ If this fails with `git --help exited with status 3221225794`, that's a Windows 
 
 Don't edit the working tree between export and publish.
 
+Check that the publish printed an update group. On a poor connection it can return nothing, and the export can be published again without rebuilding.
+
 ## Admin panel
 
 Admin deploys from `main` through Vercel. Check the page you changed after the deploy finishes.
