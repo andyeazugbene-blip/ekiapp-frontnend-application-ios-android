@@ -136,7 +136,7 @@ const events = (name, where = {}) => prisma.event.count({ where: { name, ...wher
   check(`report answers with the default window [${r.status}]`, r.status === 200 && r.body.windowDays === 7, r.body);
   check("counts only the paid order inside the window", row1?.orders === 1 && row1?.gross === 5000, row1);
   check("net is after the completed refund", row1?.refunds === 1000 && row1?.net === 4000, row1);
-  check("incremental stays unestimated", r.body?.estimatedIncremental === null && /comparison or holdout/.test(r.body?.notes?.incremental));
+  check("incremental stays unestimated", r.body?.estimatedIncremental === null && /comparison group/i.test(r.body?.notes?.incremental));
 
   r = await call("PATCH", "/admin/settings/launch/ATTRIBUTION_WINDOW_DAYS", adminToken, { value: 30, reason: "Testing a longer window" });
   check(`admin can change the window [${r.status}]`, r.status === 200, r.body);

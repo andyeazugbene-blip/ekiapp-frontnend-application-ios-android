@@ -1,12 +1,12 @@
 # Test evidence (Handbook §17)
 
-Recorded 2026-11-06. **This is engineering evidence, not acceptance.** The Handbook requires the product owner to observe each journey on real devices and accounts. `acceptance-evidence-matrix.md` lists what is still needed.
+Recorded 2026-11-07. **This is engineering evidence, not acceptance.** The Handbook requires the product owner to observe each journey on real devices and accounts. `acceptance-evidence-matrix.md` lists what is still needed.
 
 ## Automated tests
 
 | Check | Result |
 |---|---|
-| Backend tests (`npx vitest run`, with `DATABASE_URL` unset) | 224 files, 3480 tests passing |
+| Backend tests (`npx vitest run`, with `DATABASE_URL` unset) | 225 files, 3491 tests passing |
 | Backend CI: type-check, scaffolding check, coverage map | Passing on each merged PR |
 | App and admin type-check | Clean |
 
@@ -17,6 +17,8 @@ These ran against the real API with a throwaway PostgreSQL database and a Stripe
 | Journey | Checks | Covers |
 |---|---|---|
 | Full regression | 129 | Sign-up, orders, payments, refunds, roles |
+| Remaining gaps and admin decisions | 56 | Settings, delivery fee and weight limit, phone hiding, comparison group, closing at maximum, supplier refusal, provider recheck, evidence, vendor price change |
+| Demo account, all 21 statuses | 43 | Every status, supplier, orders, subscriptions, job safety |
 | Phase 1 | 68 | Account, routing, Community Buy |
 | Entry routing | 21 | Partner codes, guest browsing, web page |
 | Extensions | 25 | Extension requests, supplier reconfirmation |
@@ -64,3 +66,4 @@ Mobile screens were also checked in a browser, using the web build at phone widt
 | Product ranking, insights, wording | 73 | 32 | `b4a758af` |
 | Community Buy wording | - | 33 | `2295124a` |
 | Field privacy, demo job safety, demo data | 74 | 35 | `9339de83` |
+| Remaining client gaps and admin decisions | 75 | 37 | `c810f37e` |
