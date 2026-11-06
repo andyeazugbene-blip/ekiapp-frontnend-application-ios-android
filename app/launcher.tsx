@@ -9,6 +9,8 @@ import { useFocusRefresh } from "../hooks/useFocusRefresh";
 import { authService, type AccountDestinations } from "../services/authService";
 import { useAuthStore } from "../stores/authStore";
 import type { LastDestination } from "../types/auth";
+import { goBackOrReplace } from "../utils/navigation";
+import { startCommunityBuy } from "../utils/startCommunityBuy";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -29,7 +31,7 @@ function plural(count: number, one: string, many: string): string {
 }
 
 function sellCopy(data: AccountDestinations | null, hasStore: boolean) {
-  if (!hasStore || data?.sell.storeState === "none") return { status: null, action: "Start selling on Eki" };
+  if (!hasStore || data?.sell.storeState === "none") return { status: null, action: "Create your store" };
   if (!data) return { status: null, action: "Open your store" };
   const orders = data.sell.ordersNeedingAttention;
   const action = orders > 0 ? `${plural(orders, "order needs", "orders need")} attention` : "Open your store";
@@ -40,7 +42,7 @@ function sellCopy(data: AccountDestinations | null, hasStore: boolean) {
 
 function communityCopy(data: AccountDestinations | null) {
   const active = data?.communityBuy.activeCount ?? 0;
-  return { status: active > 0 ? `${active} active` : null, action: "Join or manage Community Buys" };
+  return { status: active > 0 ? `${active} active` : null, action: "Create a Community Buy" };
 }
 
 function supplyCopy(data: AccountDestinations | null) {
@@ -52,7 +54,7 @@ function supplyCopy(data: AccountDestinations | null) {
       action: invitationCount > 0 ? `${plural(invitationCount, "invitation", "invitations")} waiting` : "Open Supplier Centre",
     };
   }
-  return SUPPLIER_STATUS[supplierState] ?? { status: null, action: "Become a verified supplier" };
+  return SUPPLIER_STATUS[supplierState] ?? { status: null, action: "Prepare your first offer" };
 }
 
 /**
@@ -85,7 +87,7 @@ export default function LauncherScreen() {
   if (isInitializing) {
     return <View style={[styles.container, styles.center]}><ActivityIndicator color="#076B51" /></View>;
   }
-  if (!isAuthenticated) return <Redirect href="/(auth)/role-select" />;
+  if (!isAuthenticated) return <Redirect href={{ pathname: "/(auth)/login", params: { redirect: "/launcher" } }} />;
 
   const go = (destination: LastDestination, href: string) => {
     setLastDestination(destination);
@@ -102,35 +104,34 @@ export default function LauncherScreen() {
       <LinearGradient colors={["#7DD8B0", "#A7E5C7", "#D4F1E0", "#F4F9F5"]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={styles.title} accessibilityRole="header">What do you want{"\n"}to do on Eki?</Text>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} style={styles.back} accessibilityRole="button" accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={24} color="#101A16" />
+          </TouchableOpacity>
+          <Text style={styles.title} accessibilityRole="header">Sell, supply{"\n"}or organise</Text>
 
           <DestinationCard
             icon="storefront-outline"
-            title="Sell Foodstuffs"
+            title="Sell foodstuff"
             status={sell.status}
             action={sell.action}
             onPress={() => go("sell", hasStore ? "/(vendor)" : "/(vendor-onboarding)/setup-store")}
           />
           <DestinationCard
-            icon="bag-outline"
-            title="Shop Foodstuffs"
-            status={null}
-            action="Continue shopping"
-            onPress={() => go("buy", "/(buyer)")}
-          />
-          <DestinationCard
-            icon="people-outline"
-            title="Community Buy"
-            status={community.status}
-            action={community.action}
-            onPress={() => go("community_buy", "/(buyer)/community-buy")}
-          />
-          <DestinationCard
             icon="cube-outline"
-            title="Wholesale Supply"
+            title="Supply bulk orders"
             status={supply.status}
             action={supply.action}
             onPress={() => go("supply", "/(supplier)/community-buy-supplier")}
+          />
+          <DestinationCard
+            icon="people-outline"
+            title="Organise a Community Buy"
+            status={community.status}
+            action={community.action}
+            onPress={() => {
+              setLastDestination("community_buy");
+              void startCommunityBuy(router);
+            }}
           />
 
           {loading ? <ActivityIndicator color="#076B51" style={{ marginTop: 6 }} /> : null}
@@ -173,6 +174,7 @@ function DestinationCard({ icon, title, status, action, onPress }: {
 }
 
 const styles = StyleSheet.create({
+  back: { width: 44, height: 44, alignItems: "center", justifyContent: "center", marginLeft: -8 },
   container: { flex: 1, backgroundColor: "#F4F9F5" },
   center: { alignItems: "center", justifyContent: "center" },
   content: { paddingHorizontal: 20, paddingTop: 28, paddingBottom: 28, gap: 14 },

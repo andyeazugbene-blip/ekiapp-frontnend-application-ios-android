@@ -1,6 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Text, View } from "react-native";
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, Tabs, useSegments } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCartStore } from "../../stores/cartStore";
@@ -21,11 +21,16 @@ function CartBadge() {
   );
 }
 
+/** What someone can see before they have an account. Everything else asks them to sign in, then returns. */
+const GUEST_SCREENS = new Set(["index", "explore", "product-detail", "vendor-detail"]);
+
 export default function BuyerLayout() {
   const insets = useSafeAreaInsets();
   const isInitializing = useAuthStore((s) => s.isInitializing);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const role = useAuthStore((s) => s.user?.role);
+  const segments = useSegments() as string[];
+  const screen = segments[1] ?? "index";
 
   if (isInitializing) {
     return (
@@ -35,8 +40,9 @@ export default function BuyerLayout() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <Redirect href={{ pathname: "/(auth)/login", params: { role: "buyer" } }} />;
+  // This layout stays mounted while the app moves elsewhere, so only act on its own screens.
+  if (!isAuthenticated && segments[0] === "(buyer)" && !GUEST_SCREENS.has(screen)) {
+    return <Redirect href={{ pathname: "/(auth)/login", params: { redirect: `/(buyer)/${screen}` } }} />;
   }
 
 

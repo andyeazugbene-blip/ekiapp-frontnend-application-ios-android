@@ -27,6 +27,7 @@ export type HomeRoute =
   | "/(admin)"
   | "/(vendor)"
   | "/(buyer)"
+  | "/(buyer)/community-buy"
   | "/(supplier)/community-buy-supplier";
 
 export function resolveHomeRoute(user: HomeRouteUser, lastDestination: LastDestination | null | undefined): HomeRoute {
@@ -41,7 +42,10 @@ export function resolveHomeRoute(user: HomeRouteUser, lastDestination: LastDesti
       return "/(supplier)/community-buy-supplier";
     case "buy":
       return "/(buyer)";
-    // "community_buy" (and no preference at all) open the account's default
+    // Phase 1: a returning organiser opens on My Community Buys.
+    case "community_buy":
+      return "/(buyer)/community-buy";
+    // No preference at all opens the account's default
     // Home: Vendor Home if they have a vendor profile, otherwise Buyer Home.
     // Community Buy is a feature reached from Home, not a Home of its own.
     case "community_buy":

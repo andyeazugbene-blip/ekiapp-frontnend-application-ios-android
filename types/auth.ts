@@ -102,6 +102,7 @@ export interface RegisterPayload {
   postcode?: string;
   deliveryAddress?: string;
   referralCode?: string;
+  partnerCode?: string;
 }
 
 // Google/Apple Sign-In — mirrors the backend's three-state resolution

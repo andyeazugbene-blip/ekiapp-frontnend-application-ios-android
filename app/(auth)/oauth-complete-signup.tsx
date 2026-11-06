@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../stores/authStore";
 import { authService } from "../../services/authService";
 import { FieldLabel, FormCard, OnboardingHeader, OptionRow, PrimaryButton } from "../../components/onboarding/FigmaNativeUI";
+import { loadEntryContext } from "../../utils/entryContext";
 
 /**
  * "Complete your Eki profile" — shown only when Google/Apple didn't supply
@@ -46,11 +47,13 @@ export default function OAuthCompleteSignupScreen() {
 
     setSubmitting(true);
     try {
+      const entry = await loadEntryContext();
       const { user, token } = await authService.completeOAuthSignup({
         ticket: params.ticket,
         name: needsName ? name.trim() : undefined,
         email: needsEmail ? email.trim().toLowerCase() : undefined,
         role,
+        partnerCode: entry?.partnerCode,
       });
       useAuthStore.getState().finalizeOAuthSession(user, token);
 

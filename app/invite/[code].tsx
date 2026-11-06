@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { LoadingBlock, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { useAuthStore } from "../../stores/authStore";
+import { routeAfterSignIn, saveEntryContext } from "../../utils/entryContext";
 
 /**
  * Universal/app-link destination for https://culinarytales.app/invite/:code.
@@ -25,10 +26,20 @@ import { useAuthStore } from "../../stores/authStore";
  */
 export default function InviteDeepLinkRedirect() {
   const router = useRouter();
-  const { code } = useLocalSearchParams<{ code?: string }>();
+  const { code, intent } = useLocalSearchParams<{ code?: string; intent?: string }>();
 
   useEffect(() => {
     const user = useAuthStore.getState().user;
+
+    // A partner's link says what the person came to do. Without one, this is a buyer's referral.
+    if (intent === "sell" || intent === "supply") {
+      void saveEntryContext({ intent, partnerCode: code }).then(() => {
+        if (user) void routeAfterSignIn(router);
+        else if (intent === "sell") router.replace({ pathname: "/(auth)/register", params: { role: "vendor" } } as any);
+        else router.replace({ pathname: "/(auth)/register", params: { role: "buyer" } } as any);
+      });
+      return;
+    }
 
     if (!user) {
       router.replace({ pathname: "/(auth)/register", params: code ? { ref: code } : {} } as any);
@@ -37,7 +48,7 @@ export default function InviteDeepLinkRedirect() {
 
     // Logged in already: no post-registration referral redemption exists.
     router.replace("/(buyer)" as any);
-  }, [code, router]);
+  }, [code, intent, router]);
 
   return (
     <View style={premiumStyles.page}>

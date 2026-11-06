@@ -42,7 +42,7 @@ const MENU_ITEMS: MenuEntry[] = [
   { icon: "link-outline", label: "Share store", route: "/(vendor)/promo-link" },
   { icon: "cash-outline", label: "Withdraw payout", route: "/(vendor)/earnings" },
   { icon: "flash-outline", label: "Automation Center", route: "/(vendor)/automation-center" },
-  { icon: "apps-outline", label: "What do you want to do on Eki?", route: "/launcher" },
+  { icon: "apps-outline", label: "Sell, supply or organise", route: "/launcher" },
   { icon: "settings-outline", label: "Settings", route: "/(vendor)/settings" },
 ];
 
@@ -118,7 +118,7 @@ export function VendorDrawer({ visible, onClose }: DrawerProps) {
   const handleLogout = async () => {
     onClose();
     await logout();
-    router.replace("/(auth)/role-select" as any);
+    router.replace("/(buyer)" as any);
   };
 
   // Mirrors the buyer side's "Switch to Vendor" entry in (buyer)/profile.tsx —

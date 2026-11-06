@@ -68,6 +68,7 @@ export const authService = {
         postcode: payload.postcode,
         deliveryAddress: payload.deliveryAddress,
         referralCode: payload.referralCode,
+        partnerCode: payload.partnerCode,
       },
       { skipAuth: true }
     );
@@ -187,7 +188,7 @@ export const authService = {
     return { user: normalizeUser(response.user), token: response.token };
   },
 
-  async completeOAuthSignup(payload: { ticket: string; name?: string; email?: string; role: "BUYER" | "VENDOR"; referralCode?: string }) {
+  async completeOAuthSignup(payload: { ticket: string; name?: string; email?: string; role: "BUYER" | "VENDOR"; referralCode?: string; partnerCode?: string }) {
     const response = await apiClient.post<AuthResponse>("/api/auth/oauth/complete-signup", payload, { skipAuth: true });
     await tokenStorage.setToken(response.token);
     return { user: normalizeUser(response.user), token: response.token };

@@ -87,6 +87,10 @@ export default function ProductDetailScreen() {
 
 
   const handleAddToCart = async () => {
+    if (!userId) {
+      router.push({ pathname: "/(auth)/login", params: { redirect: `/product/${id}` } } as any);
+      return;
+    }
     if (!product) return;
     setAdding(true);
     try {
