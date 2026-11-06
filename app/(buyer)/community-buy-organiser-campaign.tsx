@@ -959,7 +959,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
       setUpdateTitleInput("");
       setUpdateMessageInput("");
       setShowUpdateForm(false);
-      Alert.alert("Update posted", "Every participant has been notified.");
+      Alert.alert("Update posted", "Participants have been notified.");
     } catch (err) {
       Alert.alert("Couldn't post this update", err instanceof Error ? err.message : "Please try again.");
     } finally {
@@ -1151,7 +1151,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <Text style={styles.outcomeHint}>The campaign ended below its minimum. {Math.max(0, campaign.minimumShares! - campaign.confirmedShares)} more shares are needed.</Text>
                 <RangeProgressBar value={campaign.confirmedShares} min={campaign.minimumShares!} goal={campaign.goalShares!} max={campaign.maximumShares!} />
                 <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Status</Text><Text style={styles.outcomeValue}>No supplier order has been created</Text></View>
-                <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Time remaining</Text><Text style={styles.outcomeValue}>{formatDateTime(campaign.rescueEndsAt)}</Text></View>
+                <View style={styles.outcomeRow}><Text style={styles.outcomeLabel}>Decision time remaining</Text><Text style={styles.outcomeValue}>{formatDateTime(campaign.rescueEndsAt)}</Text></View>
                 <Text style={styles.outcomeHint}>You have until then to complete one of these actions. Do not collect payment from participants outside Eki.</Text>
 
                 <Text style={styles.rescueSectionLabel}>Pledge the remaining share(s)</Text>
@@ -1215,10 +1215,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     activeOpacity={0.88}
                     style={[styles.secondaryBtn, { flex: 1, marginTop: 0 }]}
                     accessibilityRole="button"
-                    accessibilityLabel={campaign.extensionCount >= 1 ? "Extension already used" : "Request one extension"}
+                    accessibilityLabel={campaign.extensionCount >= 1 ? "Extension already used" : "Request a deadline extension"}
                     accessibilityState={{ disabled: decisionBusy !== null || campaign.extensionCount >= 1, expanded: showExtensionForm }}
                   >
-                    <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request one extension"}</Text>
+                    <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request a deadline extension"}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleEndRescue}
@@ -1240,7 +1240,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
                   <Ionicons name="checkmark-circle-outline" size={18} color="#076B51" />
                   <Text style={styles.outcomeHint}>
-                    {campaign.fundingOutcome === "GOAL_REACHED" ? "Your campaign goal was reached." : "The minimum requirement was reached — this campaign will proceed."} Confirmed quantity: {campaign.confirmedShares}.
+                    {campaign.fundingOutcome === "GOAL_REACHED" ? "Campaign goal reached. The campaign has reached its intended target." : "The minimum requirement was reached — this campaign will proceed."} Confirmed quantity: {campaign.confirmedShares}.
                   </Text>
                 </View>
                 {fulfilment ? (
@@ -1330,10 +1330,10 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     activeOpacity={0.88}
                     style={[styles.secondaryBtn, { marginTop: 0 }]}
                     accessibilityRole="button"
-                    accessibilityLabel={campaign.extensionCount >= 1 ? "Extension already used" : "Request one extension"}
+                    accessibilityLabel={campaign.extensionCount >= 1 ? "Extension already used" : "Request a deadline extension"}
                     accessibilityState={{ disabled: decisionBusy !== null || campaign.extensionCount >= 1, expanded: showExtensionForm }}
                   >
-                    <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request one extension"}</Text>
+                    <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request a deadline extension"}</Text>
                   </TouchableOpacity>
                   {extensionForm}
                 </FloatingCard>
@@ -2010,8 +2010,8 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                               : "Supplier invited — awaiting response"}
                       </Text>
                     </View>
-                    <View style={styles.previewRow}><Text style={styles.fieldHint}>Participant price</Text><Text style={styles.previewValue}>{formatDisplayMoney(Number(pricePerShare) || 0, currency, selectedCurrency)} / share</Text></View>
-                    <View style={styles.previewRow}><Text style={styles.fieldHint}>Minimum / goal / maximum</Text><Text style={styles.previewValue}>{minimumShares || "—"} / {goalShares || "—"} / {maximumShares || "—"}</Text></View>
+                    <View style={styles.previewRow}><Text style={styles.fieldHint}>Participant price per share</Text><Text style={styles.previewValue}>{formatDisplayMoney(Number(pricePerShare) || 0, currency, selectedCurrency)} / share</Text></View>
+                    <View style={styles.previewRow}><Text style={styles.fieldHint}>Minimum, goal and maximum</Text><Text style={styles.previewValue}>{minimumShares || "—"} / {goalShares || "—"} / {maximumShares || "—"}</Text></View>
                     {perBuyerMinShares || perBuyerMaxShares ? (
                       <View style={styles.previewRow}><Text style={styles.fieldHint}>Per-buyer limit</Text><Text style={styles.previewValue}>{perBuyerMinShares || "—"} – {perBuyerMaxShares || "—"}</Text></View>
                     ) : null}

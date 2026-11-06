@@ -290,6 +290,24 @@ export default function CommunityBuyCampaignScreen() {
                 Minimum reached — this campaign will proceed. {remainingCapacity} additional slot{remainingCapacity === 1 ? "" : "s"} remain available{campaign.goalShares && campaign.goalShares > campaign.minimumShares! ? ` up to the goal of ${campaign.goalShares}` : ""}.
               </Text>
             )}
+            {isLive && campaign.goalShares && campaign.goalShares > 0 ? (
+              campaign.confirmedShares >= campaign.goalShares ? (
+                <View>
+                  <Text style={styles.progressMetaText}>The campaign has reached its goal</Text>
+                  <Text style={styles.progressMetaSub}>Thank you for helping the campaign reach its target.</Text>
+                </View>
+              ) : minimumReached ? (
+                <View>
+                  <Text style={styles.progressMetaText}>The campaign has reached its minimum</Text>
+                  <Text style={styles.progressMetaSub}>The campaign can now proceed with the confirmed quantity. There is still time to move closer to the campaign goal.</Text>
+                </View>
+              ) : (
+                <View>
+                  <Text style={styles.progressMetaText}>The campaign is {Math.floor((campaign.confirmedShares / campaign.goalShares) * 100)}% of the way to its goal</Text>
+                  <Text style={styles.progressMetaSub}>{campaign.goalShares - campaign.confirmedShares} more shares are needed to reach the goal before {formatDeadline(campaign.deadline!)}.</Text>
+                </View>
+              )
+            ) : null}
             <View style={styles.progressMetaRow}>
               <Text style={styles.progressMetaSub}>Closes {formatDeadline(campaign.deadline!)}</Text>
             </View>

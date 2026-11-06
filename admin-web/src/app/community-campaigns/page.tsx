@@ -504,7 +504,7 @@ export default function CommunityCampaignsPage() {
 
             <Card>
               <h2 className="text-2xl font-black">Supplier payments</h2>
-              <p className="mt-1 text-sm text-slate-500">Never release if the supplier&apos;s payout account changed since campaign approval without reverification.</p>
+              <p className="mt-1 text-sm text-slate-500">Do not release payment if the payout account changed after campaign approval without reverification.</p>
               {supplierPayments.length === 0 ? (
                 <p className="mt-8 text-slate-500">No supplier payments recorded yet.</p>
               ) : (
