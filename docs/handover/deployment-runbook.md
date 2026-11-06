@@ -11,7 +11,7 @@ Backend always goes first. An app update can rely on a new API, but the API must
 
 ## Migrations
 
-Vercel runs `prisma migrate deploy` during the build, so a migration reaches production when its PR merges.
+`scripts/vercel-migrate.js` runs `prisma migrate deploy` during production builds only, so a migration reaches production when its PR merges. Preview builds skip it. Never set `FORCE_MIGRATE=1` on a project that shares the production database.
 
 - Migrations must be additive: new tables, new nullable or defaulted columns, new enum values.
 - Never remove or rename something the running app reads in the same release.
@@ -55,7 +55,7 @@ Admin deploys from `main` through Vercel. Check the page you changed after the d
 |---|---|
 | App | Republish the previous update group: `eas-cli update:republish --group <id>` (see Update history) |
 | Backend | Promote the previous deployment in Vercel. This doesn't undo a migration, which is why they must be additive |
-| Setting | Change it back in admin. Every change is in its history |
+| Setting | Change it back in admin. Every change is recorded in the audit log |
 | Migration | Write a new forward migration. Don't edit one that has run |
 
 ## Approvals

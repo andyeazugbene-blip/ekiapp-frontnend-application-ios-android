@@ -19,7 +19,7 @@ Start a throwaway database. Tests must never point at production.
 docker run -d --name eki-verify-pg -e POSTGRES_PASSWORD=verify -e POSTGRES_DB=eki_verify -p 5544:5432 postgres:16-alpine
 ```
 
-Then, in `ekiapp-backend-main`, with `DATABASE_URL` and `DIRECT_URL` set to `postgresql://postgres:verify@localhost:5544/eki_verify?schema=public`:
+Then, in `ekiapp-backend-main`, with `DATABASE_URL` set to `postgresql://postgres:verify@localhost:5544/eki_verify?schema=public`:
 
 ```bash
 npx prisma migrate deploy
@@ -43,7 +43,7 @@ npm run dev
 
 | Group | Names |
 |---|---|
-| Core | `NODE_ENV`, `PORT`, `CORS_ORIGINS`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `FRONTEND_URL`, `CRON_SECRET`, `LOG_LEVEL` |
+| Core | `NODE_ENV`, `PORT`, `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `FRONTEND_URL`, `CRON_SECRET`, `LOG_LEVEL` |
 | Payments | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_IDENTITY_WEBHOOK_SECRET`, `DEFAULT_CURRENCY`, `PLATFORM_FEE_BPS` |
 | Email and SMS | `RESEND_API_KEY`, `EMAIL_FROM`, `OPS_ALERT_EMAIL`, `SMS_PROVIDER`, `SMS_API_KEY`, `AT_USERNAME`, `SMS_SENDER_ID` |
 | Push | `EXPO_ACCESS_TOKEN` |
