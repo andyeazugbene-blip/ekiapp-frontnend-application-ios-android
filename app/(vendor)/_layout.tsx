@@ -130,6 +130,8 @@ export default function VendorLayout() {
         }}
       />
 
+      <Tabs.Screen name="first-sale-campaign" options={{ href: null, tabBarStyle: { display: "none" } }} />
+      <Tabs.Screen name="referrals" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="messages" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="contact-support" options={{ href: null, tabBarStyle: { display: "none" } }} />
       <Tabs.Screen name="settings" options={{ href: null, tabBarStyle: { display: "none" } }} />

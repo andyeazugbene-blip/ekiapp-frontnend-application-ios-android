@@ -477,6 +477,18 @@ export default function VendorDashboardScreen() {
             )}
 
             {data?.state === "NO_SALE" ? renderFirstOrder() : null}
+            {/* Handbook 8.6: the invite prompt only appears after a real sale. */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => navigate(data?.state === "NO_SALE" ? "/(vendor)/first-sale-campaign" : "/(vendor)/referrals")}
+              style={styles.growthRow}
+              accessibilityRole="button"
+              accessibilityLabel={data?.state === "NO_SALE" ? "First Sale Campaign" : "Invite other vendors"}
+            >
+              <Ionicons name={data?.state === "NO_SALE" ? "rocket-outline" : "person-add-outline"} size={20} color="#076B51" />
+              <Text style={styles.growthRowText}>{data?.state === "NO_SALE" ? "First Sale Campaign" : "Invite other vendors"}</Text>
+              <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
+            </TouchableOpacity>
             {/* ── Your Sales (live earnings) ──────────────────────────── */}
             <Text style={styles.section}>Your Sales</Text>
             <View style={styles.salesGrid}>
@@ -1183,6 +1195,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   // ── Section title ────────────────────────────────────────────────────
+  growthRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14, marginHorizontal: 16, marginBottom: 12, borderRadius: 14, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E4EDE8" },
+  growthRowText: { flex: 1, fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#102118" },
   section: {
     color: "#1A1A1A",
     fontSize: 18,
