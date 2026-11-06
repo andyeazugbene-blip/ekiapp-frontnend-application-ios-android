@@ -82,7 +82,21 @@ export interface OfferCampaign {
 
 export type OfferCampaignOutcome = "LIVE" | "IN_REVIEW";
 
+export interface SupplierOfferOrder {
+  id: string;
+  title: string;
+  status: string;
+  deadline: string | null;
+  extensionRequests?: { id: string; requestedDeadline: string; reason: string; supplierReconfirmed: boolean }[];
+}
+
 export const supplierOffersService = {
+  async listOrders(): Promise<SupplierOfferOrder[]> {
+    return (await apiClient.get<{ items: SupplierOfferOrder[] }>("/api/supplier/offer-orders")).items;
+  },
+  async reconfirmExtension(extensionId: string, canSupply: boolean): Promise<void> {
+    await apiClient.post(`/api/supplier/offer-extensions/${extensionId}/reconfirm`, { canSupply });
+  },
   async listMine(): Promise<SupplierOffer[]> {
     return (await apiClient.get<{ items: SupplierOffer[] }>("/api/supplier/offers")).items;
   },

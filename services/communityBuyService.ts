@@ -111,7 +111,7 @@ export type ContributionStatus =
 export const CONTRIBUTION_STATUS_LABELS: Record<ContributionStatus, string> = {
   INITIATED: "Starting your pledge",
   PLEDGED: "Payment method saved — awaiting outcome",
-  PAYMENT_PROCESSING: "Payment pending",
+  PAYMENT_PROCESSING: "Payment under review. Please don't pay again.",
   PAID: "Payment confirmed",
   PAYMENT_FAILED: "Payment failed",
   CHARGE_FAILED: "Payment failed",
@@ -341,6 +341,7 @@ export interface Campaign {
   supplierDeclineReason?: string | null;
   rescueEndsAt?: string | null;
   extensionCount: number;
+  supplierOfferId?: string | null;
   paidTotal?: number;
   progressPct?: number;
   participantCount?: number;

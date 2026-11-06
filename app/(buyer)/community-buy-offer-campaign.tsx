@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { ApiRequestError, NetworkError } from "../../services/api/client";
+import { useLaunchSettings } from "../../services/launchSettingsService";
+import { communityBuyService } from "../../services/communityBuyService";
 import {
   EmptyState,
   ErrorState,
@@ -45,6 +47,8 @@ function deadlineOptions(windowEndsAt: string): string[] {
 
 export default function OfferCampaignScreen() {
   const router = useRouter();
+  const { campaignReviewHours } = useLaunchSettings();
+  const { id: resumeId } = useLocalSearchParams<{ id?: string }>();
   const [step, setStep] = useState<Step>("choose");
   const [offers, setOffers] = useState<OfferCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +84,29 @@ export default function OfferCampaignScreen() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Drafts save after every step, so opening one from My Community Buys continues it.
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (!resumeId || resumed.current || offers.length === 0) return;
+    resumed.current = true;
+    void guarded(async () => {
+      const draft = await communityBuyService.getCampaign(resumeId);
+      const card = offers.find((candidate) => candidate.id === draft.supplierOfferId);
+      if (!card) {
+        setError("This offer isn't available any more. Choose another to continue.");
+        return;
+      }
+      setOffer(card);
+      setCampaign(draft as unknown as OfferCampaign);
+      setGoal(draft.goalShares ?? card.maximumShares);
+      setDeadline(draft.deadline ?? deadlineOptions(card.windowEndsAt)[0]);
+      setMethod(card.fulfilmentMethods[0]);
+      setGroupName(draft.title);
+      setStep("details");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeId, offers]);
 
   const guarded = async (action: () => Promise<void>) => {
     if (busy) return;
@@ -314,7 +341,7 @@ export default function OfferCampaignScreen() {
   const renderInReview = () => (
     <>
       <View style={styles.resultIcon}><Ionicons name="time-outline" size={56} color="#076B51" /></View>
-      <Text style={[styles.stepTitle, styles.center]}>We're checking your Community Buy. Usually within 24 hours.</Text>
+      <Text style={[styles.stepTitle, styles.center]}>We're checking your Community Buy. Usually within {campaignReviewHours} hours.</Text>
       <Text style={[styles.body, styles.center]}>You can share a coming soon link now. People can show interest, and nobody pays anything.</Text>
       <PrimaryButton label="Share preview" onPress={share} />
       <View style={styles.actionRow}>

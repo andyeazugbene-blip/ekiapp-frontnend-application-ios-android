@@ -909,7 +909,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         requestedDeadline: deadlineDate.toISOString(),
         reason: extensionReason.trim(),
         supplierReconfirmed,
-        priceUnchangedConfirmed,
+        priceUnchangedConfirmed: campaign.supplierOfferId ? true : priceUnchangedConfirmed,
         participantTermsUnchanged: true,
       });
       setShowExtensionForm(false);
@@ -967,6 +967,67 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   };
 
   const isDraftLike = campaign ? ["DRAFT", "CHANGES_REQUIRED"].includes(campaign.status) : true;
+  const extensionForm = showExtensionForm ? (
+                  <View style={styles.extensionForm}>
+                    <DatePickerField
+                      label="Requested new deadline"
+                      value={extensionDeadline}
+                      onChange={setExtensionDeadline}
+                      minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
+                    />
+                    <Text style={styles.label}>Reason for extension</Text>
+                    <TextInput
+                      style={[styles.input, styles.inputMultiline]}
+                      placeholder="Explain why this campaign should remain open"
+                      placeholderTextColor="#8AA194"
+                      value={extensionReason}
+                      onChangeText={setExtensionReason}
+                      multiline
+                      accessibilityLabel="Reason for extension"
+                    />
+                    {campaign?.supplierOfferId ? (
+                      <Text style={styles.outcomeHint}>We'll ask the supplier to confirm they can keep this offer open.</Text>
+                    ) : (
+                      <>
+<TouchableOpacity
+                      onPress={() => setSupplierReconfirmed((v) => !v)}
+                      activeOpacity={0.85}
+                      style={styles.checkboxRow}
+                      accessibilityRole="checkbox"
+                      accessibilityLabel="The supplier confirms the product, price and inventory remain available"
+                      accessibilityState={{ checked: supplierReconfirmed }}
+                    >
+                      <Ionicons name={supplierReconfirmed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
+                      <Text style={styles.checkboxText}>The supplier confirms the product, price and inventory remain available.</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setPriceUnchangedConfirmed((v) => !v)}
+                      activeOpacity={0.85}
+                      style={styles.checkboxRow}
+                      accessibilityRole="checkbox"
+                      accessibilityLabel="The participant price is unchanged"
+                      accessibilityState={{ checked: priceUnchangedConfirmed }}
+                    >
+                      <Ionicons name={priceUnchangedConfirmed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
+                      <Text style={styles.checkboxText}>The participant price is unchanged.</Text>
+                    </TouchableOpacity>
+                      </>
+                    )}
+                    <Text style={styles.outcomeHint}>An extension is not automatic. Eki must approve it and notify every participant.</Text>
+                    <TouchableOpacity
+                      onPress={handleSubmitExtension}
+                      disabled={decisionBusy !== null}
+                      activeOpacity={0.88}
+                      style={styles.primaryBtnInline}
+                      accessibilityRole="button"
+                      accessibilityLabel="Submit extension request"
+                      accessibilityState={{ busy: decisionBusy === "extension", disabled: decisionBusy !== null }}
+                    >
+                      {decisionBusy === "extension" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Submit extension request</Text>}
+                    </TouchableOpacity>
+                  </View>
+                ) : null;
+
   const isLiveLike = campaign ? ["LIVE", "PAUSED", "RESCUE_WINDOW"].includes(campaign.status) : false;
   // Financial terms (min/goal/max/price/deadline) can only change in draft.
   // Title/description stay editable while live too — "Edit Live Campaign"
@@ -1170,60 +1231,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {showExtensionForm ? (
-                  <View style={styles.extensionForm}>
-                    <DatePickerField
-                      label="Requested new deadline"
-                      value={extensionDeadline}
-                      onChange={setExtensionDeadline}
-                      minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
-                    />
-                    <Text style={styles.label}>Reason for extension</Text>
-                    <TextInput
-                      style={[styles.input, styles.inputMultiline]}
-                      placeholder="Explain why this campaign should remain open"
-                      placeholderTextColor="#8AA194"
-                      value={extensionReason}
-                      onChangeText={setExtensionReason}
-                      multiline
-                      accessibilityLabel="Reason for extension"
-                    />
-                    <TouchableOpacity
-                      onPress={() => setSupplierReconfirmed((v) => !v)}
-                      activeOpacity={0.85}
-                      style={styles.checkboxRow}
-                      accessibilityRole="checkbox"
-                      accessibilityLabel="The supplier confirms the product, price and inventory remain available"
-                      accessibilityState={{ checked: supplierReconfirmed }}
-                    >
-                      <Ionicons name={supplierReconfirmed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
-                      <Text style={styles.checkboxText}>The supplier confirms the product, price and inventory remain available.</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setPriceUnchangedConfirmed((v) => !v)}
-                      activeOpacity={0.85}
-                      style={styles.checkboxRow}
-                      accessibilityRole="checkbox"
-                      accessibilityLabel="The participant price is unchanged"
-                      accessibilityState={{ checked: priceUnchangedConfirmed }}
-                    >
-                      <Ionicons name={priceUnchangedConfirmed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
-                      <Text style={styles.checkboxText}>The participant price is unchanged.</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.outcomeHint}>An extension is not automatic. Eki must approve it and notify every participant.</Text>
-                    <TouchableOpacity
-                      onPress={handleSubmitExtension}
-                      disabled={decisionBusy !== null}
-                      activeOpacity={0.88}
-                      style={styles.primaryBtnInline}
-                      accessibilityRole="button"
-                      accessibilityLabel="Submit extension request"
-                      accessibilityState={{ busy: decisionBusy === "extension", disabled: decisionBusy !== null }}
-                    >
-                      {decisionBusy === "extension" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Submit extension request</Text>}
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
+                {extensionForm}
               </FloatingCard>
             ) : campaign?.status === "FULFILLING" || campaign?.status === "SUCCEEDED" || campaign?.status === "COMPLETED" ? (
               <FloatingCard style={{ gap: 8 }}>
@@ -1313,6 +1321,20 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                     <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
                   </FloatingCard>
                 </TouchableOpacity>
+                <FloatingCard style={{ gap: 10 }}>
+                  <TouchableOpacity
+                    onPress={() => setShowExtensionForm((v) => !v)}
+                    disabled={decisionBusy !== null || campaign.extensionCount >= 1}
+                    activeOpacity={0.88}
+                    style={[styles.secondaryBtn, { marginTop: 0 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={campaign.extensionCount >= 1 ? "Extension already used" : "Request extension"}
+                    accessibilityState={{ disabled: decisionBusy !== null || campaign.extensionCount >= 1, expanded: showExtensionForm }}
+                  >
+                    <Text style={styles.secondaryBtnText}>{campaign.extensionCount >= 1 ? "Extension already used" : "Request extension"}</Text>
+                  </TouchableOpacity>
+                  {extensionForm}
+                </FloatingCard>
               </>
             ) : null}
 

@@ -309,11 +309,15 @@ export default function ReviewQueuePage() {
                     <div className="space-y-4">
                       <Button disabled={busy} onClick={() => void decide(() => reviewQueueAPI.approve(detail.request.id), "Approved")}>Approve</Button>
 
-                      <div className="space-y-2 border-t border-slate-100 pt-4">
-                        <label className="block text-xs font-bold text-slate-500" htmlFor="info-message">Request information</label>
-                        <textarea id="info-message" className={fieldClass} rows={2} value={infoMessage} onChange={(e) => setInfoMessage(e.target.value)} placeholder="What do you need from them?" />
-                        <Button variant="ghost" disabled={busy || !infoMessage.trim()} onClick={() => void decide(() => reviewQueueAPI.requestInformation(detail.request.id, infoMessage), "Information requested")}>Send request</Button>
-                      </div>
+                      {detail.request.type === "EXTENSION" ? (
+                        <p className="text-sm text-slate-500">Approve only once the supplier has confirmed. Otherwise this is refused. Reject with a reason, and the organiser can ask again.</p>
+                      ) : (
+                        <div className="space-y-2 border-t border-slate-100 pt-4">
+                          <label className="block text-xs font-bold text-slate-500" htmlFor="info-message">Request information</label>
+                          <textarea id="info-message" className={fieldClass} rows={2} value={infoMessage} onChange={(e) => setInfoMessage(e.target.value)} placeholder="What do you need from them?" />
+                          <Button variant="ghost" disabled={busy || !infoMessage.trim()} onClick={() => void decide(() => reviewQueueAPI.requestInformation(detail.request.id, infoMessage), "Information requested")}>Send request</Button>
+                        </div>
+                      )}
 
                       <div className="space-y-2 border-t border-slate-100 pt-4">
                         <label className="block text-xs font-bold text-slate-500" htmlFor="reject-reason">Reject</label>
