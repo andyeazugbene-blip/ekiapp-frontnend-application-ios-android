@@ -27,6 +27,7 @@ import {
 } from "../../components/onboarding/FigmaNativeUI";
 import { SocialAuthButtons } from "../../components/auth/SocialAuthButtons";
 import type { OAuthOutcome } from "../../types/auth";
+import { clearEntryContext, loadEntryContext, routeAfterSignIn } from "../../utils/entryContext";
 
 type BuyerSignupStep = "account" | "otp" | "details";
 
@@ -50,6 +51,12 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [referralCode, setReferralCode] = useState(() => (typeof ref === "string" ? ref.trim() : ""));
+  const [partnerCode, setPartnerCode] = useState("");
+
+  // A partner link's code travels to sign-up, and can also be typed in by anyone who installed from one.
+  useEffect(() => {
+    void loadEntryContext().then((context) => { if (context?.partnerCode) setPartnerCode(context.partnerCode); });
+  }, []);
   const [buyerStep, setBuyerStep] = useState<BuyerSignupStep>("account");
   const [otpCode, setOtpCode] = useState("");
   const [otpSending, setOtpSending] = useState(false);
@@ -140,6 +147,7 @@ export default function RegisterScreen() {
       password,
       role: resolvedRole,
       referralCode: referralCode.trim() || undefined,
+      partnerCode: partnerCode.trim() || undefined,
     });
 
     // Navigate imperatively right here, once, instead of via a reactive
@@ -148,6 +156,7 @@ export default function RegisterScreen() {
     // early return above), so the only valid destination is the OTP screen.
     const state = useAuthStore.getState();
     if (state.isAuthenticated && state.user && state.user.role === "vendor") {
+      void clearEntryContext();
       router.replace("/(vendor-onboarding)/otp" as any);
     }
   };
@@ -202,6 +211,7 @@ export default function RegisterScreen() {
       postcode: postcode.trim() || undefined,
       deliveryAddress: deliveryAddress.trim(),
       referralCode: referralCode.trim() || undefined,
+      partnerCode: partnerCode.trim() || undefined,
     });
 
     const state = useAuthStore.getState();
@@ -209,7 +219,7 @@ export default function RegisterScreen() {
       if (redirect) {
         router.replace(redirect as any);
       } else {
-        router.replace("/launcher" as any);
+        void routeAfterSignIn(router);
       }
     }
   };
@@ -354,6 +364,18 @@ export default function RegisterScreen() {
                     secureTextEntry
                     style={styles.input}
                     value={password}
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <FieldLabel>Partner code (optional):</FieldLabel>
+                  <TextInput
+                    autoCapitalize="characters"
+                    onChangeText={setPartnerCode}
+                    placeholder="Enter partner code"
+                    placeholderTextColor="#858585"
+                    style={styles.input}
+                    value={partnerCode}
                   />
                 </View>
 

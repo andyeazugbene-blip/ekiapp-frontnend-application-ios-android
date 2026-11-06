@@ -50,14 +50,15 @@ export default function Index() {
         return;
       }
 
-      // Not signed in — if onboarding has been seen, go straight to role-select.
-      if (state.hasSeenOnboarding) {
-        hasNavigated.current = true;
-        router.replace({ pathname: "/(auth)/role-select", params: typeof ref === "string" && ref.trim() ? { ref } : {} } as any);
+      // Phase 1: where someone came from decides their first screen, and an
+      // organic install opens on the shopping home. A referral link still
+      // goes straight to sign-up so its code isn't lost.
+      hasNavigated.current = true;
+      if (typeof ref === "string" && ref.trim()) {
+        router.replace({ pathname: "/(auth)/register", params: { role: "buyer", ref } } as any);
         return;
       }
-
-      setReady(true);
+      router.replace("/(buyer)" as any);
     };
 
     // Check immediately (handles case where checkAuth already finished)

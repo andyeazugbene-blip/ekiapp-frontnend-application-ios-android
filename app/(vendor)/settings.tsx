@@ -81,7 +81,7 @@ export default function VendorSettingsScreen() {
           setSigningOut(true);
           try {
             await logout();
-            router.replace("/(auth)/role-select");
+            router.replace("/(buyer)");
           } catch {
             Alert.alert("Error", "Could not sign out. Please try again.");
           } finally {

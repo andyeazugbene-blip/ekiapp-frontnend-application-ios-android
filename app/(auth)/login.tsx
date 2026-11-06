@@ -9,6 +9,7 @@ import { SocialAuthButtons } from "../../components/auth/SocialAuthButtons";
 import { useAuthStore } from "../../stores/authStore";
 import { goBackOrReplace } from "../../utils/navigation";
 import type { OAuthOutcome } from "../../types/auth";
+import { routeAfterSignIn } from "../../utils/entryContext";
 
 const ROLE_LABELS: Record<string, string> = {
   buyer: "Buyer",
@@ -58,7 +59,7 @@ export default function LoginScreen() {
       if (user.role === "admin") { router.replace("/(admin)"); return; }
       if (resolvedRole === "vendor" && !user.hasVendor) { router.replace("/(vendor-onboarding)/setup-store" as any); return; }
       if (redirect) { router.replace(redirect as any); return; }
-      router.replace("/launcher" as any);
+      void routeAfterSignIn(router);
     }
   }, [isAuthenticated, router, user, redirect, resolvedRole]);
 
@@ -98,7 +99,8 @@ export default function LoginScreen() {
     if (isAuthenticated || user) {
       await beginFreshAuthFlow().catch(() => {});
     }
-    setLastDestination(resolvedRole === "vendor" ? "sell" : "buy");
+    // Only an explicit vendor sign-in changes where this account opens next.
+    if (resolvedRole === "vendor") setLastDestination("sell");
     await login({
       email: email.trim().toLowerCase(),
       password,
@@ -116,7 +118,7 @@ export default function LoginScreen() {
       if (resolvedRole === "vendor" && !currentUser.hasVendor) { router.replace("/(vendor-onboarding)/setup-store" as any); return; }
       }
     if (redirect) { router.replace(redirect as any); return; }
-    router.replace("/launcher" as any);
+    void routeAfterSignIn(router);
   };
 
   const [socialError, setSocialError] = useState("");
@@ -132,7 +134,7 @@ export default function LoginScreen() {
       if (loggedInUser.role === "admin") { router.replace("/(admin)"); return; }
       if (loggedInUser.role === "vendor" && !loggedInUser.hasVendor) { router.replace("/(vendor-onboarding)/setup-store" as any); return; }
       if (redirect) { router.replace(redirect as any); return; }
-      router.replace("/launcher" as any);
+      void routeAfterSignIn(router);
       return;
     }
     if (outcome.status === "LINK_REQUIRED") {
@@ -219,7 +221,7 @@ export default function LoginScreen() {
     <View style={styles.page}>
       <SafeAreaView edges={["top"]} style={styles.heroSafe}>
         <View style={styles.hero}>
-          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(auth)/role-select" as any)} activeOpacity={0.86} style={styles.backButton}>
+          <TouchableOpacity onPress={() => goBackOrReplace(router, "/(buyer)" as any)} activeOpacity={0.86} style={styles.backButton}>
             <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
           </TouchableOpacity>
 

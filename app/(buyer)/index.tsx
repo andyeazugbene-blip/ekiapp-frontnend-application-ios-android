@@ -146,7 +146,7 @@ export default function BuyerHomeScreen() {
     setCampaignsLoading(true);
     setCampaignsError("");
     try {
-      const myCampaigns = await campaignService.getMyCampaigns();
+      const myCampaigns = user ? await campaignService.getMyCampaigns() : [];
       setCampaigns(myCampaigns);
     } catch (err) {
       setCampaignsError(err instanceof Error ? err.message : "Could not load campaigns.");
@@ -439,40 +439,15 @@ export default function BuyerHomeScreen() {
           </View>
         ) : null}
 
-        {communityBuyEnabled ? (
-          <View style={styles.sectionBlock}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sectionTitleInline}>Suppliers</Text>
-                <Text style={styles.communityBuySubtitle}>Fulfil Community Buy campaigns as a verified Eki supplier</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => {
-                // Supplier Centre (Workstream 1/3) is an independent
-                // SupplierAccount capability — it does not require a Vendor
-                // row, and the screen itself renders every state (apply /
-                // under review / approved) from the real backend response.
-                // hasVendor is irrelevant here; routing every authenticated
-                // user straight there is what "no Vendor required" actually
-                // means. (vendor)/_layout.tsx no longer gates this specific
-                // route on hasVendor either, so no role pre-switch is needed.
-                router.push("/(supplier)/community-buy-supplier" as any);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Open Supplier Centre"
-            >
-              <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-                <Ionicons name="cube-outline" size={20} color="#076B51" />
-                <Text style={[styles.communityBuyCardVendor, { flex: 1 }]}>
-                  {user?.hasVendor ? "Open your supplier dashboard — invitations, accepted campaigns, fulfilment" : "Suppliers fulfil bulk orders raised by Community Buy organisers — no vendor store required."}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
-              </FloatingCard>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+        <View style={styles.sectionBlock}>
+          <TouchableOpacity activeOpacity={0.85} onPress={() => router.push("/launcher" as any)} accessibilityRole="button" accessibilityLabel="Sell, supply or organise">
+            <FloatingCard style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+              <Ionicons name="apps-outline" size={20} color="#076B51" />
+              <Text style={[styles.communityBuyCardVendor, { flex: 1 }]}>Sell, supply or organise</Text>
+              <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
+            </FloatingCard>
+          </TouchableOpacity>
+        </View>
 
         {loading ? (
           <View style={styles.loaderBlock}>
