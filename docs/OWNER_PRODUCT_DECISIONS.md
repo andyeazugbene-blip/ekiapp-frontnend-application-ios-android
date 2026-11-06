@@ -22,6 +22,9 @@ The owner asked for open decisions to ship as defaults an admin can change, rath
 | New vendor boost | 30 days | Settings → Launch decisions |
 | Dashboard states | No sale, has sales, repeat buyers | Code |
 | Attribution window | 7 days, last automation before the order. Incremental revenue isn't estimated | Settings → Launch decisions |
+| Product ranking points | Relevance, vendor rating, sales in 90 days, delivery to the buyer's country, new vendor boost | Code (`product-ranking.ts`). The boost length is in Settings → Launch decisions |
+| Contact masking | Every admin read is masked. Any admin with the record's read permission can reveal, with a reason and an audit entry | Code |
+| Community Buy dispute hold | An open money, refund, delivery or supplier issue holds supplier and organiser money automatically. An admin marks or resolves a dispute | Code |
 
 
 Nothing here has been decided by engineering. No value, amount, window or rule below is implemented. "Recommended" marks the lowest-risk option for activation, not a business choice made on your behalf. Fill the last column; engineering then builds exactly that.

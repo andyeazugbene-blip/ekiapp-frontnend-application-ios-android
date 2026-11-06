@@ -74,7 +74,7 @@ const CENTRE_SECTIONS: { key: CentreSection; label: string }[] = [
 const AFTER_CAPTURE_STATUSES = ["SUCCEEDED", "FULFILLING", "COMPLETED", "FINANCIALLY_CLOSED"];
 const SECTION_EMPTY: Record<CentreSection, string> = {
   home: "",
-  invitations: "No invitations are waiting for your answer.",
+  invitations: "No invitations are waiting for your answer. Review invitations from approved organisers here.",
   campaigns: "Campaigns you've accepted will show up here.",
   fulfilment: "Campaigns appear here once they succeed and are ready to fulfil.",
   payouts: "Payouts appear here once a campaign you supplied has succeeded.",
@@ -701,7 +701,7 @@ export default function VendorCommunityBuySupplierScreen() {
                         <View style={{ gap: 8, marginTop: 4 }}>
                           <Text style={styles.cardDescription}>Fewer shares than the minimum have a confirmed hold. Can you supply {c.reconfirmationQuantity ?? "the confirmed number of"} share{c.reconfirmationQuantity === 1 ? "" : "s"}? If not, every hold is released and nobody is charged.</Text>
                           <TouchableOpacity onPress={() => handleReconfirm(c.id, "confirm")} activeOpacity={0.85} style={styles.acceptBtn} accessibilityRole="button" accessibilityLabel="Accept final quantity">
-                            <Text style={styles.acceptBtnText}>Accept final quantity</Text>
+                            <Text style={styles.acceptBtnText}>Accept final order</Text>
                           </TouchableOpacity>
                           <TouchableOpacity onPress={() => handleReconfirm(c.id, "decline")} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Decline final quantity">
                             <Text style={styles.cardMeta}>Decline</Text>

@@ -21,7 +21,7 @@ Status column is updated as each fix is verified. "Needs live proof" means code 
 | K12 | Blocker | Card holds | Two-stage payment has never run against real Stripe Connect, because the local test key's account has no Connect. The UK stays on pledge mode until it has | Eki/dev | Open: enable Connect on that account |
 | K13 | Major | Deep links | A code can't survive an app store install without a provider and a native build. Partners' codes are typed at sign-up instead | Eki | Open: choose a provider |
 | K14 | Major | Progress counting | In pledge mode, a pledge counts towards campaign progress before any payment. The client's copy says only verified contributions count, so that line isn't used | Andy | Open: true once the UK moves to holds, or rule on it |
-| K15 | Major | Exact copy | Community Buy 112 of 314 sentences and Regular Delivery 170 of 247 match word for word. See `copy-differences.md` | dev/Andy | Partly done |
+| K15 | Major | Exact copy | Community Buy 136 of 314 sentences and Regular Delivery 196 of 247 match word for word. See `copy-differences.md` | dev/Andy | Partly done |
 | K16 | Major | Legal | Terms and policies still say "Payment Protection" | Eki | Open: owner sign-off |
 | K17 | Minor | Discovery | Marketplace products are ranked on relevance, vendor rating, sales, delivery to the buyer's country and the new vendor boost. Signed-out buyers get no delivery input, because their country isn't known | dev | Done, awaiting review of real listings |
 | K18 | Minor | App size | The QR code library added about 0.8 MB to the update bundle | dev | Accepted |

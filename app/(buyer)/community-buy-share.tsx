@@ -104,7 +104,8 @@ export default function CommunityBuyShareScreen() {
         <View style={[premiumStyles.block, { gap: 14 }]}>
           <FloatingCard style={{ gap: 12 }}>
             <Text style={styles.title}>Share this Community Buy</Text>
-            <Text style={styles.body}>Help your group reach the target.</Text>
+            <Text style={styles.body}>{(campaign.minimumShares != null && campaign.confirmedShares < campaign.minimumShares) ? "Help this campaign reach its minimum" : "Help this campaign reach its goal"}</Text>
+            <Text style={styles.body}>Invite friends, family or community members before {deadlineText}.</Text>
 
             <View style={styles.linkRow}>
               <Text style={styles.linkText} numberOfLines={1}>{url}</Text>

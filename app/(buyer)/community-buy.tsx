@@ -387,7 +387,7 @@ export default function CommunityBuyDiscoveryScreen() {
           ) : filteredCampaigns.length === 0 ? (
             <View style={premiumStyles.block}>
               <FloatingCard>
-                <EmptyState icon="people-circle-outline" title="No live campaigns right now" body="Check back soon, or start your own as an organiser." />
+                <EmptyState icon="people-circle-outline" title="No Community Buy campaigns are available right now." body="Check again later for new campaigns in your market." />
               </FloatingCard>
             </View>
           ) : (
