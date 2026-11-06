@@ -27,11 +27,12 @@ import {
   type Campaign,
   type MyCommunityBuy,
 } from "../../services/communityBuyService";
-import { countryDisplayName } from "../../utils/countries";
+import { countryCodeForName, countryDisplayName } from "../../utils/countries";
 import { calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 import { getDraftProgress } from "../../utils/campaignDraftProgress";
 import { useAuthStore } from "../../stores/authStore";
 import { CountryRequiredCard, isCountryRequiredError } from "../../components/shared/CountryRequiredCard";
+import * as WebBrowser from "expo-web-browser";
 
 function daysLeft(deadline: string | null): string {
   if (!deadline) return "";
@@ -54,6 +55,28 @@ function formatDate(value: string | null): string {
 // Organised/Drafts share one backend list (listMyOrganiserCampaigns) split
 // client-side by status — the full per-organiser list is real data, not
 // paginated or large enough to warrant a second endpoint.
+const FILTERS = ["All", "Ending soon", "Near minimum", "New", "Collection", "Delivery"] as const;
+type DiscoverFilter = (typeof FILTERS)[number];
+
+function matchesFilter(c: Campaign, filter: DiscoverFilter, now = Date.now()): boolean {
+  switch (filter) {
+    case "Ending soon":
+      return !!c.deadline && new Date(c.deadline).getTime() - now < 3 * 86_400_000;
+    case "Near minimum": {
+      const minimum = c.minimumShares ?? 0;
+      return minimum > 0 && c.confirmedShares < minimum && c.confirmedShares / minimum >= 0.7;
+    }
+    case "New":
+      return now - new Date(c.createdAt).getTime() < 7 * 86_400_000;
+    case "Collection":
+      return c.deliveryPreference !== "DELIVERY";
+    case "Delivery":
+      return c.deliveryPreference === "DELIVERY";
+    default:
+      return true;
+  }
+}
+
 type HomeTab = "discover" | "organised" | "joined" | "completed" | "failed";
 
 const COMPLETED_STATUSES = new Set(["COMPLETED", "FINANCIALLY_CLOSED"]);
@@ -85,6 +108,10 @@ export default function CommunityBuyDiscoveryScreen() {
   // location" is one combined field — the backend matches title/
   // description/collectionCity for it.
   const [searchQuery, setSearchQuery] = useState("");
+  const user = useAuthStore((state) => state.user) as { country?: string } | null;
+  const [filter, setFilter] = useState<DiscoverFilter>("All");
+  const [unavailableMarket, setUnavailableMarket] = useState<string | null>(null);
+  const [notifyState, setNotifyState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   // Only true once a market's Community Buys really do come from verified suppliers' offers.
   const [offersOn, setOffersOn] = useState(false);
@@ -112,6 +139,10 @@ export default function CommunityBuyDiscoveryScreen() {
     setDiscoverError("");
     setDiscoverNeedsCountry(false);
     try {
+      // CB02: the market comes from the account, and an unavailable one never reaches a broken payment route.
+      const market = countryCodeForName(user?.country ?? "");
+      const config = market ? await communityBuyService.getMarketConfig(market).catch(() => null) : null;
+      setUnavailableMarket(market && (!config || !config.communityBuyEnabled) ? market : null);
       setCampaigns(await communityBuyService.listLiveCampaigns(searchQuery || undefined));
     } catch (err) {
       if (isCountryRequiredError(err)) setDiscoverNeedsCountry(true);
@@ -163,6 +194,14 @@ export default function CommunityBuyDiscoveryScreen() {
     }, [loadOrganised]),
   );
 
+  const openReceipt = async (contributionId: string) => {
+    try {
+      await WebBrowser.openBrowserAsync(await communityBuyService.getContributionReceiptLink(contributionId));
+    } catch (err) {
+      Alert.alert("Couldn't open your receipt", err instanceof Error ? err.message : "Please try again.");
+    }
+  };
+
   const handleDeleteDraft = (draft: Campaign) => {
     if (deletingDraftId) return;
     Alert.alert(
@@ -213,6 +252,7 @@ export default function CommunityBuyDiscoveryScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabParam]);
 
+  const filteredCampaigns = campaigns.filter((c) => matchesFilter(c, filter));
   // Drafts sit first so an unfinished Community Buy is easy to pick back up.
   const organisingCampaigns = [
     ...myCampaigns.filter((c) => DRAFT_STATUSES.has(c.status)),
@@ -228,8 +268,8 @@ export default function CommunityBuyDiscoveryScreen() {
   return (
     <View style={premiumStyles.page}>
       <PremiumHeader
-        title={activeTab === "discover" ? "Explore Community Buys" : "My Community Buys"}
-        subtitle={offersOn ? "Buy together in bulk from verified suppliers." : activeTab === "discover" ? "Find campaigns in your area." : "Bulk-buy together, unlock better prices"}
+        title={activeTab === "discover" ? "Community Buy" : "My Community Buys"}
+        subtitle={offersOn ? "Buy together in bulk from verified suppliers." : activeTab === "discover" ? "Join other buyers to purchase eligible foodstuff together." : "Bulk-buy together, unlock better prices"}
         onBack={() => goBackOrReplace(router, "/(buyer)/profile" as any)}
         right={
           <View style={{ flexDirection: "row", gap: 8 }}>
@@ -296,17 +336,55 @@ export default function CommunityBuyDiscoveryScreen() {
             />
           </View>
         ) : null}
+        {activeTab === "discover" ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            {FILTERS.map((option) => (
+              <TouchableOpacity
+                key={option}
+                onPress={() => setFilter(option)}
+                activeOpacity={0.85}
+                style={[styles.filterChip, filter === option && styles.tabActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: filter === option }}
+              >
+                <Text style={[styles.tabText, filter === option && styles.tabTextActive]}>{option}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        ) : null}
       </PremiumHeader>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         {activeTab === "discover" ? (
           discoverLoading ? (
             <LoadingBlock />
+          ) : unavailableMarket ? (
+            <View style={premiumStyles.block}>
+              <FloatingCard style={{ gap: 12 }}>
+                <EmptyState icon="globe-outline" title="Community Buy is not available in your market yet" body="We will let you know when eligible campaigns become available in your country." />
+                {notifyState === "saved" ? (
+                  <Text style={styles.cardMetaText}>We'll let you know.</Text>
+                ) : (
+                  <PrimaryButton
+                    label="Notify me when available"
+                    loading={notifyState === "saving"}
+                    onPress={() => {
+                      setNotifyState("saving");
+                      communityBuyService.notifyWhenMarketOpens(unavailableMarket).then(() => setNotifyState("saved")).catch(() => setNotifyState("failed"));
+                    }}
+                  />
+                )}
+                {notifyState === "failed" ? <Text style={styles.cardMetaText}>We couldn't save that. Check your connection and try again.</Text> : null}
+                <TouchableOpacity onPress={() => router.replace("/(buyer)" as any)} accessibilityRole="button" style={{ alignItems: "center", paddingVertical: 8 }}>
+                  <Text style={{ fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#076B51" }}>Return home</Text>
+                </TouchableOpacity>
+              </FloatingCard>
+            </View>
           ) : discoverNeedsCountry ? (
             <View style={premiumStyles.block}><CountryRequiredCard onSaved={() => void loadDiscover()} /></View>
           ) : discoverError ? (
             <View style={premiumStyles.block}><ErrorState message={discoverError} onRetry={() => void loadDiscover()} /></View>
-          ) : campaigns.length === 0 ? (
+          ) : filteredCampaigns.length === 0 ? (
             <View style={premiumStyles.block}>
               <FloatingCard>
                 <EmptyState icon="people-circle-outline" title="No live campaigns right now" body="Check back soon, or start your own as an organiser." />
@@ -314,7 +392,7 @@ export default function CommunityBuyDiscoveryScreen() {
             </View>
           ) : (
             <View style={[premiumStyles.block, { gap: 10 }]}>
-              {campaigns.map((c) => (
+              {filteredCampaigns.map((c) => (
                 <TouchableOpacity
                   key={c.id}
                   activeOpacity={0.85}
@@ -404,6 +482,11 @@ export default function CommunityBuyDiscoveryScreen() {
                       </Text>
                       <Text style={styles.cardMetaText}>{formatDate(item.campaign.deadline)}</Text>
                     </View>
+                    {item.totalPaid > 0 ? (
+                      <TouchableOpacity onPress={() => void openReceipt(item.latestContribution.id)} accessibilityRole="button" accessibilityLabel="Download receipt">
+                        <Text style={{ fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" }}>Download receipt</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </FloatingCard>
                 </TouchableOpacity>
                 );
@@ -553,6 +636,8 @@ export default function CommunityBuyDiscoveryScreen() {
 const styles = StyleSheet.create({
   headerIconBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
   tabRow: { flexDirection: "row", gap: 6, marginTop: 14 },
+  filterRow: { flexDirection: "row", gap: 6, marginTop: 10 },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.12)" },
   tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, alignItems: "center", backgroundColor: "rgba(255,255,255,0.12)" },
   tabActive: { backgroundColor: "#FFFFFF" },
   tabText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },

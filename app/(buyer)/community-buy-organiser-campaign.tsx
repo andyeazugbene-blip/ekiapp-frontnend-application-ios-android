@@ -211,6 +211,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   const [supplierReconfirmed, setSupplierReconfirmed] = useState(false);
   const [priceUnchangedConfirmed, setPriceUnchangedConfirmed] = useState(false);
   const [participants, setParticipants] = useState<CampaignParticipant[]>([]);
+  const [participantSearch, setParticipantSearch] = useState("");
   const [refundProgress, setRefundProgress] = useState<RefundProgress | null>(null);
   const [fulfilment, setFulfilment] = useState<CampaignFulfilment | null>(null);
   const [confirmingCompletion, setConfirmingCompletion] = useState(false);
@@ -1861,11 +1862,22 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               <View>
                 <Text style={styles.sectionOutside}>Participants ({participants.length})</Text>
                 {participants.length > 0 ? (
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Search participants"
+                    placeholderTextColor="#8AA194"
+                    value={participantSearch}
+                    onChangeText={setParticipantSearch}
+                    accessibilityLabel="Search participants"
+                  />
+                ) : null}
+                {participants.length > 0 ? (
                   <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
-                    {participants.map((p, index) => (
+                    {participants.filter((p) => !participantSearch.trim() || (p.name ?? "Participant").toLowerCase().includes(participantSearch.trim().toLowerCase())).map((p, index) => (
                       <View key={p.userId} style={[styles.participantRow, index > 0 && styles.participantRowBorder]}>
                         {/* M4 (AT-44): name is omitted for a self-supply campaign — the organiser gets only fulfilment-necessary data, same as a third-party supplier's masked manifest. */}
                         <Text style={styles.optionText}>{p.name ?? "Participant"}{p.isOrganiser ? " (you)" : ""}</Text>
+                        {p.contributionStatus ? <Text style={styles.fieldHint}>{p.contributionStatus}</Text> : null}
                         <Text style={styles.fieldHint}>{p.totalQuantity} share{p.totalQuantity === 1 ? "" : "s"} · {formatDisplayMoney(p.totalPaid / 100, currency, selectedCurrency)}</Text>
                         {/* Phase 3 — present only for a DELIVERY campaign, only for this campaign's owning organiser. */}
                         {p.deliveryAddress ? (
@@ -1879,6 +1891,11 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 ) : (
                   <FloatingCard><Text style={styles.emptyText}>No participants yet.</Text></FloatingCard>
                 )}
+                {participants.length > 0 && campaign && UPDATE_POSTABLE_STATUSES.includes(campaign.status) ? (
+                  <TouchableOpacity onPress={() => setActiveTab("updates")} activeOpacity={0.88} style={styles.secondaryBtn} accessibilityRole="button" accessibilityLabel="Message participants">
+                    <Text style={styles.secondaryBtnText}>Message participants</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             ) : null}
 

@@ -12,8 +12,7 @@ import { APIError } from "@/lib/api";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   communityBuyAdminAPI, isPendingApproval,
-  type AdminContribution, type AdminSupplierPayment, type CampaignAdminDetail, type CampaignStatus,
-} from "@/lib/services/communityBuy.api";
+  type AdminContribution, type AdminSupplierPayment, type CampaignAdminDetail, type CampaignStatus, type CampaignMonitoring } from "@/lib/services/communityBuy.api";
 import { marketLabel } from "@/lib/countries";
 import { ReviewDecisionDialog } from "../ReviewDecisionDialog";
 
@@ -67,8 +66,11 @@ function Content() {
   const [dialogError, setDialogError] = useState("");
   const c = useConfirm();
 
+  const [monitoring, setMonitoring] = useState<CampaignMonitoring | null>(null);
+
   const load = useCallback(async (bypassCache = false) => {
     if (!params.id) return;
+    communityBuyAdminAPI.campaignMonitoring(params.id).then(setMonitoring).catch(() => setMonitoring(null));
     const opts = bypassCache ? { bypassCache: true } : undefined;
     try {
       setLoading(true);
@@ -176,6 +178,31 @@ function Content() {
           ...(campaign.reviewNotes ? [{ label: "Review notes", value: campaign.reviewNotes }] : []),
         ]} />
       </Card>
+
+      {monitoring ? (
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-black">Live campaign monitoring</h2>
+            <Badge tone={monitoring.risk === "Normal" ? "green" : monitoring.risk === "Paused" ? "gray" : monitoring.risk === "At risk" ? "amber" : "red"}>{monitoring.risk}</Badge>
+          </div>
+          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+            <div><p className="text-slate-500">Confirmed contributions</p><p className="font-bold">{monitoring.confirmedPayments}</p></div>
+            <div><p className="text-slate-500">Processing payments</p><p className="font-bold">{monitoring.processingPayments}</p></div>
+            <div><p className="text-slate-500">Failed payments</p><p className="font-bold">{monitoring.failedPayments}</p></div>
+            <div><p className="text-slate-500">Minimum</p><p className="font-bold">{monitoring.minimumShares ?? "-"}</p></div>
+            <div><p className="text-slate-500">Goal</p><p className="font-bold">{monitoring.goalShares ?? "-"}</p></div>
+            <div><p className="text-slate-500">Maximum</p><p className="font-bold">{monitoring.maximumShares ?? "-"}</p></div>
+          </div>
+          {monitoring.suggestedOutcome ? (
+            <div className="mt-5 border-t border-slate-100 pt-4">
+              <h3 className="font-black">Review campaign outcome</h3>
+              <p className="mt-1 text-sm text-slate-500">Confirmed shares {monitoring.paidShares}. Processing shares {monitoring.processingShares}.</p>
+              <p className="mt-2 font-bold">{monitoring.suggestedOutcome}</p>
+              <p className="mt-1 text-sm text-slate-500">Only provider-confirmed contributions count towards the final quantity. The system makes this decision automatically.</p>
+            </div>
+          ) : null}
+        </Card>
+      ) : null}
 
       {/* Actions */}
       {canMutate ? (

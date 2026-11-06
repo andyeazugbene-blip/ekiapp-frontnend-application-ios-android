@@ -57,7 +57,9 @@ export default function CommunityBuyShareScreen() {
   }
 
   const url = getPublicCommunityBuyUrl(campaign.id);
-  const message = `Join "${campaign.title}" on Eki Community Buy — ${campaign.confirmedShares} of ${campaign.maximumShares} slots filled. Open the Eki app to take part.\n${url}`;
+  // CB49's default message.
+  const deadlineText = campaign.deadline ? new Date(campaign.deadline).toLocaleDateString("en-GB", { day: "numeric", month: "long" }) : "the deadline";
+  const message = `We have reached ${campaign.confirmedShares} shares towards our Community Buy goal. Join or share before ${deadlineText}. ${getPublicCommunityBuyUrl(campaign.id)}`;
 
   const handleCopy = async () => {
     await Clipboard.setStringAsync(url);

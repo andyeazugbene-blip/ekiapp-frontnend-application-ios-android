@@ -9,6 +9,7 @@ import { communityBuyService, FULFILMENT_METHOD_LABELS, type Campaign, type Camp
 import { countryDisplayName } from "../../utils/countries";
 import { HOLD_PAYMENT_LINE, usesHold } from "../../utils/communityBuyHold";
 import { BUYER_SERVICE_FEE_MAX_MINOR, BUYER_SERVICE_FEE_MIN_MINOR, DEFAULT_BUYER_SERVICE_FEE_BPS, calculateBuyerServiceFee } from "../../utils/communityBuyFees";
+import { Ionicons } from "@expo/vector-icons";
 
 function formatDeadline(value: string): string {
   const d = new Date(value);
@@ -25,6 +26,7 @@ export default function CommunityBuyReviewScreen() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [fulfilment, setFulfilment] = useState<CampaignFulfilment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reviewed, setReviewed] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -126,12 +128,26 @@ export default function CommunityBuyReviewScreen() {
             </FloatingCard>
           </View>
 
+          <Text style={styles.bodyText}>The supplier order will be created only if the campaign reaches its approved minimum.</Text>
           <TouchableOpacity
+            onPress={() => setReviewed((v) => !v)}
+            activeOpacity={0.85}
+            style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}
+            accessibilityRole="checkbox"
+            accessibilityLabel="I have reviewed the campaign, fulfilment and refund information."
+            accessibilityState={{ checked: reviewed }}
+          >
+            <Ionicons name={reviewed ? "checkbox" : "square-outline"} size={20} color="#076B51" />
+            <Text style={[styles.bodyText, { flex: 1 }]}>I have reviewed the campaign, fulfilment and refund information.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            disabled={!reviewed}
             onPress={() => router.push({ pathname: "/(buyer)/community-buy-payment", params: { id: campaign.id, quantity: String(quantity) } } as any)}
             activeOpacity={0.88}
-            style={styles.primaryBtn}
+            style={[styles.primaryBtn, !reviewed && { opacity: 0.5 }]}
             accessibilityRole="button"
             accessibilityLabel="Continue to payment"
+            accessibilityState={{ disabled: !reviewed }}
           >
             <Text style={styles.primaryBtnText}>Continue to payment</Text>
           </TouchableOpacity>

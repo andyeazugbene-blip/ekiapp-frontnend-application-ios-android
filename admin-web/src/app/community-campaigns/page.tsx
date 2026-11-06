@@ -11,8 +11,7 @@ import { APIError } from "@/lib/api";
 import {
   communityBuyAdminAPI, isPendingApproval,
   type AdminCampaign, type AdminCancellationRequest, type AdminContribution, type AdminExtensionRequest, type AdminSupplierPayment,
-  type AdminSupplierProposal, type CampaignStatus, type FundingOutcome, type SupplierPaymentStatus,
-} from "@/lib/services/communityBuy.api";
+  type AdminSupplierProposal, type CampaignStatus, type FundingOutcome, type SupplierPaymentStatus, type OperationsSummary } from "@/lib/services/communityBuy.api";
 import { countryDisplayName } from "@/lib/countries";
 
 
@@ -53,6 +52,7 @@ export default function CommunityCampaignsPage() {
   const [notice, setNotice] = useState<{ tone: "success" | "info" | "warning"; text: string } | null>(null);
   const [review, setReview] = useState<{ mode: "approve" | "reject"; id: string; title: string } | null>(null);
   const [items, setItems] = useState<AdminCampaign[]>([]);
+  const [operations, setOperations] = useState<OperationsSummary | null>(null);
   const [closed, setClosed] = useState<AdminCampaign[]>([]);
   const [extensionRequests, setExtensionRequests] = useState<AdminExtensionRequest[]>([]);
   const [cancellationRequests, setCancellationRequests] = useState<AdminCancellationRequest[]>([]);
@@ -69,6 +69,7 @@ export default function CommunityCampaignsPage() {
   const [expandedContributionsId, setExpandedContributionsId] = useState<string | null>(null);
   const [contributionsLoadingId, setContributionsLoadingId] = useState<string | null>(null);
   const load = async (bypassCache = false) => {
+    communityBuyAdminAPI.operationsSummary().then(setOperations).catch(() => setOperations(null));
     try {
       bypassCache ? setRefreshing(true) : setLoading(true);
       setError("");
@@ -226,6 +227,20 @@ export default function CommunityCampaignsPage() {
             {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
             {notice ? <Banner tone={notice.tone}>{notice.text}</Banner> : null}
             {!permLoading && !canMutate ? <Banner tone="info">Your role can view Community Buy queues but cannot approve, reject, pause, release or hold anything.</Banner> : null}
+
+            {operations ? (
+              <Card>
+                <h2 className="text-2xl font-black">Community Buy operations</h2>
+                <div className="mt-5 grid gap-5 md:grid-cols-3">
+                  <MetricCard icon="clock" label="Campaigns awaiting review" value={operations.awaitingReview} tone="amber" />
+                  <MetricCard icon="warning" label="Live campaigns at risk" value={operations.liveAtRisk} tone="amber" />
+                  <MetricCard icon="clock" label="Completion periods open" value={operations.completionPeriods} tone="blue" />
+                  <MetricCard icon="warning" label="Payment exceptions" value={operations.paymentExceptions} tone="red" />
+                  <MetricCard icon="warning" label="Refunds needing attention" value={operations.refundsNeedingAttention} tone="red" />
+                  <MetricCard icon="warning" label="Supplier fulfilment issues" value={operations.fulfilmentIssues} tone="amber" />
+                </div>
+              </Card>
+            ) : null}
 
             <div className="grid gap-6 md:grid-cols-4">
               <MetricCard icon="clock" label="Under review" value={items.length} tone="amber" />

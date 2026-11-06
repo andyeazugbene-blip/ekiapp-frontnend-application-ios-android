@@ -229,6 +229,9 @@ export type CommunityBuyPaymentMode = "PAY_NOW_REFUND_ON_FAILURE" | "AUTHORISE_T
 export type SupplierReleasePolicy = "ON_DELIVERY_CONFIRMED" | "ON_FULFILMENT_MARKED";
 
 export interface MarketConfig {
+  organiserTopUpEnabled: boolean;
+  deadlineExtensionEnabled: boolean;
+  organiserFeeEnabled: boolean;
   id: string;
   countryCode: string;
   currency: string;
@@ -332,6 +335,29 @@ export interface LedgerEntry {
   amount: number;
   occurredAt: string;
   description: string;
+}
+
+export interface OperationsSummary {
+  awaitingReview: number;
+  liveAtRisk: number;
+  completionPeriods: number;
+  paymentExceptions: number;
+  refundsNeedingAttention: number;
+  fulfilmentIssues: number;
+}
+
+export interface CampaignMonitoring {
+  confirmedPayments: number;
+  processingPayments: number;
+  failedPayments: number;
+  paidShares: number;
+  processingShares: number;
+  minimumShares: number | null;
+  goalShares: number | null;
+  maximumShares: number | null;
+  deadline: string | null;
+  risk: "Normal" | "At risk" | "Needs attention" | "Paused";
+  suggestedOutcome: string | null;
 }
 
 export interface CampaignLedger {
@@ -532,6 +558,12 @@ export const communityBuyAdminAPI = {
   async rejectCampaign(id: string, notes: string, criteria?: Record<string, boolean>): Promise<AdminCampaign> {
     const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/reject`, { notes, criteria });
     return res.campaign;
+  },
+  operationsSummary(): Promise<OperationsSummary> {
+    return apiClient.get("/admin/community-buy/operations-summary", { bypassCache: true });
+  },
+  campaignMonitoring(id: string): Promise<CampaignMonitoring> {
+    return apiClient.get(`/admin/community-campaigns/${id}/monitoring`, { bypassCache: true });
   },
   async pauseCampaign(id: string, reason: string): Promise<AdminCampaign> {
     const res = await apiClient.post<{ campaign: AdminCampaign }>(`/admin/community-campaigns/${id}/pause`, { reason });
