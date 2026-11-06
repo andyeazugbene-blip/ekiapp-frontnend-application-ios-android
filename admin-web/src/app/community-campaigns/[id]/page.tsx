@@ -130,6 +130,11 @@ function Content() {
         actions={<Badge tone={STATUS_TONE[campaign.status]}>{STATUS_LABEL[campaign.status]}</Badge>}
       />
       {notice ? <Banner tone="success">{notice}</Banner> : null}
+      {campaign.disputedAt ? (
+        <Banner tone="danger" title="Disputed: money on hold">
+          {campaign.disputeReason} Marked {formatDateTime(campaign.disputedAt)}. Fulfilment carries on, but supplier and organiser money can&apos;t be released.
+        </Banner>
+      ) : null}
 
       {/* Progress and money */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -219,6 +224,18 @@ function Content() {
                 )}>Request changes</Button>
                 {campaign.status === "UNDER_REVIEW" ? <Button variant="danger" onClick={() => setReview("reject")}>Reject</Button> : null}
               </>
+            ) : null}
+            {!campaign.disputedAt && (campaign.status === "FULFILLING" || campaign.status === "COMPLETED") ? (
+              <Button variant="danger" onClick={() => c.ask(
+                { title: "Mark this Community Buy as disputed?", description: "Supplier and organiser money can't be released until the dispute is resolved. Fulfilment carries on. The organiser and supplier are told.", confirmLabel: "Mark as disputed" },
+                async (reason) => { await communityBuyAdminAPI.disputeCampaign(campaign.id, reason); await done("Marked as disputed. Money is on hold."); },
+              )}>Mark as disputed</Button>
+            ) : null}
+            {campaign.disputedAt ? (
+              <Button variant="secondary" onClick={() => c.ask(
+                { tone: "primary", title: "Resolve this dispute?", description: "This lifts the hold. Open participant issues still hold money until they're closed.", confirmLabel: "Resolve dispute" },
+                async (reason) => { await communityBuyAdminAPI.resolveCampaignDispute(campaign.id, reason); await done("Dispute resolved."); },
+              )}>Resolve dispute</Button>
             ) : null}
             {campaign.status === "LIVE" ? (
               <Button variant="danger" onClick={() => c.ask(

@@ -13,7 +13,8 @@ import { APIError } from "@/lib/api";
 import { countryDisplayName } from "@/lib/countries";
 import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
 import { usePermissions } from "@/lib/hooks/usePermissions";
-import { peopleAPI, userState } from "@/lib/services/people.api";
+import { peopleAPI, userState } from "@/lib/services/people.api";
+import RevealContact from "@/components/RevealContact";
 
 const NA = "Not provided";
 
@@ -110,6 +111,7 @@ export default function UserDetailPage() {
                 { label: "Email", value: anonymised ? "Removed" : user.email || NA },
                 { label: "Email verified", value: user.emailVerifiedAt ? formatDateTime(user.emailVerifiedAt) : "Not verified" },
                 { label: "Phone", value: anonymised ? "Removed" : user.phone || NA },
+                ...(anonymised ? [] : [{ label: "Full contact details", value: <RevealContact kind="user" id={user.id} /> }]),
                 { label: "Country", value: user.country ? countryDisplayName(user.country) : NA },
                 { label: "User ID", value: <span className="font-mono text-xs">{user.id}</span> },
               ]} />

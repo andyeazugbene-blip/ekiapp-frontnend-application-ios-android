@@ -93,7 +93,7 @@ const events = (name, where = {}) => prisma.event.count({ where: { name, ...wher
   const vendorUser = await prisma.user.create({ data: { email: `e_vendor_${stamp}@example.test`, name: "E Vendor", password: "x", role: "VENDOR", country: "United Kingdom", referralCode: `EV${stamp}`, referredBy: buyer.id } });
   const vendor = await prisma.vendor.create({ data: { userId: vendorUser.id, storeName: `E Store ${stamp}`, storeSlug: `e-${stamp}`, country: "United Kingdom", currency: "GBP", city: "London" } });
   const vendorToken = tokenFor(vendorUser);
-  const product = await prisma.product.create({ data: { vendorId: vendor.id, title: "E Rice", description: "Rice", priceInCents: 1000, currency: "GBP", stock: 50, isActive: true, status: "PUBLISHED", category: "Grains", productCode: `E-${stamp}` } });
+  const product = await prisma.product.create({ data: { vendorId: vendor.id, title: "E Rice", description: "Rice", priceInCents: 1000, currency: "GBP", stock: 50, isActive: true, status: "PUBLISHED", category: "Grains" } });
 
   const buyerToken = tokenFor(buyer);
   await call("GET", `/products/${product.id}`, buyerToken);

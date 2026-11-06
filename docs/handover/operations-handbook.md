@@ -41,6 +41,9 @@ Jobs: `verification-proof-cleanup`, `event-outbox`, `notification-deliveries`, `
 | A referral credit is due | Growth programmes → Release credit. **This adds a real Stripe balance credit.** Reverse takes back that referral's share on the next invoice |
 | Stop First Sale messages | One campaign: Growth programmes → Stop. All new ones: Settings → Launch decisions |
 | A Community Buy refund fails | Community refunds → requery or escalate |
+| A Community Buy is disputed | Community Campaigns → the campaign → Mark as disputed, with a reason. Fulfilment carries on. Supplier and organiser money can't be released until you Resolve dispute |
+| A participant reports a money or delivery problem | Their open case holds supplier and organiser money automatically. Close it in Community Support Cases to lift the hold |
+| You need someone's email or phone | Open their record → Reveal contact details, with a reason. It's recorded in the audit log as `pii.reveal`. Lists and exports stay masked |
 | Someone needs a receipt | They open it in the app. Links last 15 minutes, so ask them to open it again if it has expired |
 
 ## Escalation

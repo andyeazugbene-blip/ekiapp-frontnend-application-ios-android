@@ -24,6 +24,9 @@ Test suite on 2026-11-06: backend 219 files / 3419 tests passing; admin-web and 
 | Automations (14.10, 15.3) | Partly | Suppression recording, rules, retry w/o duplicate, emergency stop (unit + API) | Trigger real events on test devices; one failure; pause/reactivate a rule |
 | Security (13) | Yes | 2FA enforcement flow, invite -> set password -> login, reasons required (API) | Role journeys with support / ops / finance accounts; production 2FA enrolment |
 | Overview / search / nav (2, 3) | Yes | Action Centre with real aggregates; Ctrl+K search (browser) | - |
+| Attribution and email results (12, 12.1, 6.2) | Yes | Journey 26; admin Results tab | Real automation followed by a real order; Resend webhook set up and a real open and click |
+| Contact masking and reveal (13) | Yes | Journey 30, browser | Each admin role reveals a contact; check the audit log |
+| Community Buy dispute hold (10.2, 10.4) | Yes | Journey 30 | Dispute on a real campaign holds a real supplier payment |
 | Test-record isolation (2.1 L139) | Yes | isTest flags + exclusion; flag script is dry-run only | Run `scripts/flag-test-data.ts` dry-run against production, review, then `--apply` |
 | Launch settings, entry routing, partner codes (Phase 1) | Yes | Journeys 21 + settings journey | Scan a partner code on a real phone; install path needs a deep-link provider (K13) |
 | My Community Buys, drafts, offers, extensions (Phase 1) | Yes | Journeys 68 + 25 | Organiser and supplier on two real devices |
@@ -35,9 +38,11 @@ Test suite on 2026-11-06: backend 219 files / 3419 tests passing; admin-web and 
 | Discovery, new vendor boost, demand matching | Yes, except product list ranking (K17) | Journey 15 | Owner reviews real listing order |
 
 ## Not built (see docs/admin-handbook-gap-analysis.md)
-SMS (out of scope by client decision); attribution (assisted/incremental) metrics; opened/clicked tracking; DISPUTED campaign state; dispute evidence/messages model; order delivery-proof model; automatic substitution for subscriptions; PII click-to-reveal; event emits beyond automation/trial; per-user timezone.
+SMS (out of scope by client decision); estimated incremental revenue, which needs a holdout group.
 
-Vendor referral, the credit ledger, First Sale Campaign and the state-aware dashboard moved out of this list on 2026-11-06. They are built and await live proof.
+Corrected 2026-11-06: order disputes with evidence, messages and appeal, and order delivery proof, were already built when this list last said otherwise. Automatic substitution and per-user timezone aren't in the client documents. Unavailable items follow the controlled flow, and admin dates show their timezone.
+
+Vendor referral, the credit ledger, First Sale Campaign, the state-aware dashboard, all 83 canonical events, email opened and clicked results, attribution, contact masking with audited reveal and the Community Buy dispute hold moved out of this list on 2026-11-06. They are built and await live proof.
 
 ## Operational items that code cannot close
 GitHub / Vercel / EAS / Stripe / Apple / Google / Firebase ownership transfer to Eki; secrets vault + rotation of the loose credential files; database backup + restore drill; Sentry alert owner; iOS build 124 (Codemagic or EAS plan); Android Google Sign-In real-device test; production values for ADMIN_2FA_ENFORCE, RESEND_API_KEY, PUBLIC_API_URL, ADMIN_WEB_URL.

@@ -12,7 +12,8 @@ import { MoneyBreakdown, PaymentOutcomeBanner, RefundsTable, WebhookTable } from
 import { APIError } from "@/lib/api";
 import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
 import { usePermissions } from "@/lib/hooks/usePermissions";
-import { moneyAPI, orderStatusLabel, orderStatusTone, paymentStatusTone, type OrderDetail } from "@/lib/services/money.api";
+import { moneyAPI, orderStatusLabel, orderStatusTone, paymentStatusTone, type OrderDetail } from "@/lib/services/money.api";
+import RevealContact from "@/components/RevealContact";
 
 type Item = OrderDetail["items"][number];
 
@@ -141,6 +142,7 @@ export default function OrderDetailPage() {
                 { label: "Placed", value: formatDateTime(o.createdAt) },
                 { label: "Buyer", value: o.buyer ? <TextLink href={`/users/${o.buyer.id}`}>{o.buyer.name || o.buyer.email} →</TextLink> : "Not provided" },
                 { label: "Buyer email", value: o.buyer?.email ?? "Not provided" },
+                ...(o.buyer ? [{ label: "Buyer contact details", value: <RevealContact kind="user" id={o.buyer.id} /> }] : []),
                 { label: "Vendor", value: o.vendorId ? <TextLink href={`/vendors/${o.vendorId}`}>{o.vendorName ?? "Open vendor"} →</TextLink> : "Not provided" },
                 { label: "Delivery address", value: o.deliveryAddress ?? "Not provided" },
                 { label: "Delivery zone", value: o.deliveryZone ? `${o.deliveryZone.name} (${o.deliveryZone.country})` : "Not provided" },

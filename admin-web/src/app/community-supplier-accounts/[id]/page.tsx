@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Banner, KeyValue, formatDateTime } from "@/components/AdminKit";
+import RevealContact from "@/components/RevealContact";
 import { Badge, Button, Card, ErrorPanel, PageHeader } from "@/components/AdminUI";
 import { NoAccess, SkeletonRows } from "@/components/PageStates";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -102,6 +103,7 @@ function Content() {
             { label: "Name", value: a.user?.name ?? "Not provided" },
             { label: "Email", value: a.user?.email ?? "Not provided" },
             { label: "Phone", value: a.user?.phone ?? "Not provided" },
+            { label: "Full contact details", value: <RevealContact kind="supplier" id={a.id} /> },
             { label: "Categories", value: a.categories.length > 0 ? a.categories.join(", ") : "Not provided" },
             { label: "Coverage", value: formatCoverage(a.coverageRegions) },
             { label: "Collection areas", value: a.collectionAreas.length > 0 ? a.collectionAreas.join(", ") : "Not provided" },

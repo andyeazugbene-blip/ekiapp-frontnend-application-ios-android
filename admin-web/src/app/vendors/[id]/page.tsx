@@ -14,7 +14,8 @@ import { COUNTRIES, countryDisplayName } from "@/lib/countries";
 import { useTwoFactorAction } from "@/lib/hooks/useTwoFactorAction";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { peopleAPI, type CloseBlocker } from "@/lib/services/people.api";
-import { vendorsAPI, type VendorMarket } from "@/lib/services/vendors.api";
+import { vendorsAPI, type VendorMarket } from "@/lib/services/vendors.api";
+import RevealContact from "@/components/RevealContact";
 
 const NA = "Not provided";
 
@@ -159,6 +160,7 @@ export default function VendorDetailPage() {
               { label: "City", value: data.city ?? NA },
               { label: "Business type", value: data.businessType ?? NA },
               { label: "Phone", value: data.contactPhone ?? NA },
+              { label: "Full contact details", value: <RevealContact kind="vendor" id={data.id} /> },
               { label: "Store currency", value: data.currency ?? NA },
               { label: "Joined", value: formatDate(data.createdAt) },
               { label: "Description", value: data.description ?? NA },
