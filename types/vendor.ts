@@ -36,6 +36,7 @@ export interface DashboardAlert {
 }
 
 export interface VendorDashboardData {
+  state?: "NO_SALE" | "HAS_SALES" | "REPEAT_BUYERS";
   greeting: string;
   storeName: string;
   alerts: DashboardAlert[];

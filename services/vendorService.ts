@@ -401,6 +401,7 @@ export const vendorService = {
     const raw = await apiClient.get<any>("/api/vendors/me/dashboard");
     const earnings = normalizeDashboardEarnings(raw.earnings ?? {});
     return {
+      state: raw.state,
       greeting: raw.greeting ?? "Welcome back,",
       storeName: raw.storeName ?? "",
       alerts: raw.alerts ?? [],

@@ -329,6 +329,58 @@ export default function VendorDashboardScreen() {
     ],
   };
 
+  // Handbook 8.2: a store with no sale leads with getting its first order.
+  const renderFirstOrder = () => (
+    <>
+            {/* ── Get Your First Order (live progress) ────────────────── */}
+            {stepsDone < stepsTotal ? (
+              <View style={styles.firstOrderCard}>
+                <View style={styles.firstOrderHeader}>
+                  <Text style={styles.firstOrderTitle}>Get Your First Order</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => navigate("/(vendor)/activation")}
+                    style={styles.firstOrderClose}
+                  >
+                    <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.firstOrderProgress}>
+                  Setup progress: {stepsDone} of {stepsTotal} steps completed
+                </Text>
+                
+                {/* Segmented progress bar matching Image exactly */}
+                <View style={styles.segmentProgressBar}>
+                  {Array.from({ length: stepsTotal }).map((_, idx) => (
+                    <View 
+                      key={idx} 
+                      style={[
+                        styles.progressSegment, 
+                        { backgroundColor: idx < stepsDone ? "#FFFFFF" : "rgba(255,255,255,0.15)" }
+                      ]} 
+                    />
+                  ))}
+                </View>
+
+                <View style={styles.nextStepBox}>
+                  <Text style={styles.nextStepLabel}>Next Step</Text>
+                  <Text style={styles.nextStepText}>{nextStepText}</Text>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.86}
+                  onPress={() => navigate("/(vendor)/share-store-link")}
+                  style={styles.shareStoreBtn}
+                >
+                  <Text style={styles.shareStoreText}>Share your store link</Text>
+                  <Ionicons name="arrow-forward" size={14} color="#076B51" />
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+    </>
+  );
+
   return (
     <View style={styles.scene}>
       <StatusBar style={drawerOpen ? "light" : "dark"} />
@@ -424,6 +476,7 @@ export default function VendorDashboardScreen() {
               </View>
             )}
 
+            {data?.state === "NO_SALE" ? renderFirstOrder() : null}
             {/* ── Your Sales (live earnings) ──────────────────────────── */}
             <Text style={styles.section}>Your Sales</Text>
             <View style={styles.salesGrid}>
@@ -544,52 +597,7 @@ export default function VendorDashboardScreen() {
               <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
             </TouchableOpacity>
 
-            {/* ── Get Your First Order (live progress) ────────────────── */}
-            {stepsDone < stepsTotal ? (
-              <View style={styles.firstOrderCard}>
-                <View style={styles.firstOrderHeader}>
-                  <Text style={styles.firstOrderTitle}>Get Your First Order</Text>
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() => navigate("/(vendor)/activation")}
-                    style={styles.firstOrderClose}
-                  >
-                    <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.firstOrderProgress}>
-                  Setup progress: {stepsDone} of {stepsTotal} steps completed
-                </Text>
-                
-                {/* Segmented progress bar matching Image exactly */}
-                <View style={styles.segmentProgressBar}>
-                  {Array.from({ length: stepsTotal }).map((_, idx) => (
-                    <View 
-                      key={idx} 
-                      style={[
-                        styles.progressSegment, 
-                        { backgroundColor: idx < stepsDone ? "#FFFFFF" : "rgba(255,255,255,0.15)" }
-                      ]} 
-                    />
-                  ))}
-                </View>
-
-                <View style={styles.nextStepBox}>
-                  <Text style={styles.nextStepLabel}>Next Step</Text>
-                  <Text style={styles.nextStepText}>{nextStepText}</Text>
-                </View>
-
-                <TouchableOpacity
-                  activeOpacity={0.86}
-                  onPress={() => navigate("/(vendor)/share-store-link")}
-                  style={styles.shareStoreBtn}
-                >
-                  <Text style={styles.shareStoreText}>Share your store link</Text>
-                  <Ionicons name="arrow-forward" size={14} color="#076B51" />
-                </TouchableOpacity>
-              </View>
-            ) : null}
-
+            {data?.state === "NO_SALE" ? null : renderFirstOrder()}
             {/* ── Your Foodstuff ──────────────────────────────────────── */}
             <Text style={styles.section}>Your Foodstuff</Text>
             <View style={styles.foodstuffList}>
