@@ -10,7 +10,7 @@ secret store (never in code, chat, or loose files), role-based, revocable access
 |---|---|---|---|---|
 | GitHub | Source (backend + app + admin-web) | repo remotes | personal account `andyeazugbene-blip` | TO CONFIRM - transfer to Eki org |
 | Vercel (backend) | API hosting, daily cron | project `ekiapp-backend` | team `andyekiapp-s-projects` | TO CONFIRM |
-| Vercel (admin-web) | Admin panel | project `admin-web`; **not git-linked** - deploy with `cd admin-web && npx vercel --prod` | same team | TO CONFIRM + git-link |
+| Vercel (admin-web) | Admin panel | project `admin-web`; deploys from `main` | same team | TO CONFIRM |
 | PostgreSQL (Neon implied) | Primary database | `DATABASE_URL` | not verifiable from repo | TO CONFIRM; backup + restore drill required (docs/DISASTER_RECOVERY_DRILL.md) |
 | Stripe | Card payments, Connect payouts, Identity (KYC), subscriptions | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | not verifiable | TO CONFIRM; record account id + Connect model (Express/Standard) |
 | Paystack | NG/GH payments | `PAYSTACK_SECRET_KEY` | not verifiable | TO CONFIRM |

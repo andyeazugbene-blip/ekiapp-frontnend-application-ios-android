@@ -1,0 +1,154 @@
+// Growth programmes against the local verification database and Stripe test mode only.
+const path = require("path");
+const BACKEND = process.env.EKI_BACKEND_DIR || path.resolve(__dirname, "../../../../ekiapp-backend-main");
+const req = (m) => require(path.join(BACKEND, "node_modules", m));
+req("dotenv").config({ path: path.join(BACKEND, ".env") });
+if (!/localhost:5544\/eki_verify/.test(process.env.DATABASE_URL || "")) throw new Error("Refusing to run: not the verification DB");
+if (!(process.env.STRIPE_SECRET_KEY || "").startsWith("sk_test_")) throw new Error("Refusing to run: not a Stripe test key");
+const { PrismaClient } = req("@prisma/client");
+const jwt = req("jsonwebtoken");
+const Stripe = req("stripe");
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const prisma = new PrismaClient();
+const HOST = "http://localhost:4177";
+const API = HOST + "/api";
+const run = Date.now().toString(36);
+let pass = 0, fail = 0;
+const check = (n, ok, d) => { if (ok) { pass++; console.log("  PASS " + n); } else { fail++; console.log("  FAIL " + n + " -> " + String(JSON.stringify(d)).slice(0, 320)); } };
+async function call(method, p, token, body) {
+  const res = await fetch(API + p, { method, headers: { "content-type": "application/json", ...(token ? { authorization: "Bearer " + token } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const text = await res.text(); let json; try { json = JSON.parse(text); } catch { json = { raw: text.slice(0, 200) }; }
+  return { status: res.status, body: json };
+}
+const tokenFor = (u) => jwt.sign({ sub: u.id, role: u.role, email: u.email, tv: u.tokenVersion }, process.env.JWT_SECRET, { expiresIn: "2h" });
+let n = 0;
+const user = (role = "BUYER", extra = {}) => prisma.user.create({ data: { email: `c${++n}.${run}@example.test`, password: "x", name: `C ${n}`, country: "United Kingdom", role, emailVerifiedAt: new Date(), referralCode: `C${n}${run}`.toUpperCase().slice(0, 12), ...extra } });
+const vendorFor = (u, extra = {}) => prisma.vendor.create({ data: { userId: u.id, storeName: `C Store ${n} ${run}`, storeSlug: `c-${n}-${run}`, country: "United Kingdom", ...extra } });
+
+(async () => {
+  const adminUser = await prisma.user.findUniqueOrThrow({ where: { email: "seed_qa_admin@example.com" } });
+  const superRole = await prisma.adminRole.findUniqueOrThrow({ where: { name: "Super Administrator" } });
+  await prisma.adminRoleAssignment.upsert({ where: { roleId_userId: { roleId: superRole.id, userId: adminUser.id } }, create: { roleId: superRole.id, userId: adminUser.id }, update: {} });
+  const admin = tokenFor(adminUser);
+
+  console.log("\n=== FIRST SALE: READINESS");
+  const vu = await user("VENDOR");
+  const vendor = await vendorFor(vu);
+  let r = await call("GET", "/growth/first-sale-campaign", tokenFor(await user()));
+  check(`a buyer has no campaign [${r.status}]`, r.status === 403, r.body);
+  r = await call("GET", "/growth/first-sale-campaign", tokenFor(vu));
+  check(`empty store can't launch [${r.status}]`, r.status === 200 && r.body.canLaunch === false && r.body.status === "NOT_STARTED", r.body);
+  const blocking = (r.body.readiness || []).filter((c) => c.blocking && !c.done).map((c) => c.key);
+  check("says exactly what's missing", ["product", "stock", "quantity", "delivery"].every((k) => blocking.includes(k)), blocking);
+  r = await call("POST", "/growth/first-sale-campaign/launch", tokenFor(vu), {});
+  check(`launch refused until ready [${r.status}]`, r.status === 409 && r.body.code === "FIRST_SALE_NOT_READY", r.body);
+  const mkProduct = (title, extra = {}) => prisma.product.create({ data: { vendorId: vendor.id, title: title + " " + run, priceInCents: 1000, currency: "GBP", stock: 10, status: "PUBLISHED", isActive: true, category: "Grains" + run, ...extra } });
+  const good = await mkProduct("Good", { images: ["https://example.test/a.jpg"], weightGrams: 1000, description: "Nice" });
+  await mkProduct("Plain");
+  await mkProduct("Empty", { stock: 0, images: ["https://example.test/b.jpg"], weightGrams: 1000 });
+  await prisma.deliveryZone.create({ data: { vendorId: vendor.id, name: "UK " + run, country: "GB", baseFeeAmount: 300, feePerKgAmount: 0 } });
+  r = await call("GET", "/growth/first-sale-campaign", tokenFor(vu));
+  check("unverified store can still launch (Oct 19 rule)", r.body.canLaunch === true && r.body.readiness.find((c) => c.key === "verification").blocking === false, r.body.readiness);
+  check("best product leads, and out of stock is left out", r.body.launchProducts[0].id === good.id && !r.body.launchProducts.some((p) => p.title.startsWith("Empty")), r.body.launchProducts);
+  check("share assets ready", r.body.assets.storeUrl.includes(vendor.storeSlug) && r.body.assets.shareMessage.includes(vendor.storeName), r.body.assets);
+
+  console.log("\n=== FIRST SALE: AUDIENCE AND LAUNCH");
+  const consenting = await user("BUYER", { marketingConsentAt: new Date() });
+  const noConsent = await user();
+  const demoBuyer = await user("BUYER", { marketingConsentAt: new Date(), isTest: true });
+  const elsewhere = await user("BUYER", { marketingConsentAt: new Date(), country: "France" });
+  await prisma.adminPlatformSetting.upsert({ where: { key: "FIRST_SALE_ENGINE_ENABLED" }, update: { value: 0 }, create: { key: "FIRST_SALE_ENGINE_ENABLED", value: 0 } });
+  r = await call("POST", "/growth/first-sale-campaign/launch", tokenFor(vu), {});
+  check(`admin's switch stops launches [${r.status}]`, r.status === 409 && r.body.code === "FIRST_SALE_DISABLED", r.body);
+  await prisma.adminPlatformSetting.delete({ where: { key: "FIRST_SALE_ENGINE_ENABLED" } });
+  r = await call("POST", "/growth/first-sale-campaign/launch", tokenFor(vu), {});
+  check(`vendor approves and launches [${r.status}]`, r.status === 200 && r.body.status === "ACTIVE" && r.body.audience.messaged >= 1, r.body.audience ?? r.body);
+  const told = (u) => prisma.notification.count({ where: { userId: u.id, title: { startsWith: "New on Eki" } } });
+  check("buyer who agreed is told", (await told(consenting)) === 1);
+  check("buyer who didn't agree is left alone", (await told(noConsent)) === 0);
+  check("demo buyer is left alone", (await told(demoBuyer)) === 0);
+  check("buyer in another country is left alone", (await told(elsewhere)) === 0);
+  r = await call("POST", "/growth/first-sale-campaign/launch", tokenFor(vu), {});
+  check(`one campaign per vendor [${r.status}]`, r.status === 409 && r.body.code === "FIRST_SALE_ALREADY_STARTED", r.body);
+  check("nobody told twice", (await told(consenting)) === 1);
+
+  console.log("\n=== FIRST SALE: FUNNEL AND OUTCOME");
+  r = await call("GET", "/growth/first-sale-campaign", tokenFor(vu));
+  check("no visits reads as a visits problem", r.body.nextStep?.stage === "visits", r.body.nextStep);
+  await prisma.event.create({ data: { name: "store_viewed", entityType: "Vendor", entityId: vendor.id, actorType: "guest", source: "web" } }).catch(async (e) => { console.log(String(e.message).slice(-300)); throw e; });
+  r = await call("GET", "/growth/first-sale-campaign", tokenFor(vu));
+  check("a visit moves the bottleneck on", r.body.funnel.visits === 1 && r.body.nextStep?.stage === "baskets", r.body.funnel);
+  const job = async () => { const res = await fetch(`${API}/internal/jobs/first-sale-campaign-sweep`, { method: "POST", headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } }); return res.json(); };
+  let j = await job();
+  check("sweep leaves it running without a sale", j.ok === true && (await prisma.firstSaleCampaign.findUnique({ where: { vendorId: vendor.id } })).status === "ACTIVE", j);
+  const order = await prisma.order.create({ data: { buyerId: consenting.id, vendorId: vendor.id, subtotalAmount: 1000, deliveryFeeAmount: 0, totalAmount: 1000, currency: "GBP", status: "PAID", items: { create: [{ productId: good.id, vendorId: vendor.id, quantity: 1, unitAmount: 1000, totalAmount: 1000, productTitle: good.title }] } } });
+  j = await job();
+  check("first paid order completes it", (await prisma.firstSaleCampaign.findUnique({ where: { vendorId: vendor.id } })).status === "COMPLETED", j);
+  r = await call("GET", "/admin/growth/first-sale-campaigns", admin);
+  check("admin sees it", r.body.items?.some((c) => c.store === vendor.storeName && c.status === "COMPLETED"), r.body);
+
+  console.log("\n=== REFERRALS (Stripe test mode)");
+  const ru = await user("VENDOR");
+  const rv = await vendorFor(ru);
+  const plan = await prisma.sellerPlan.findFirst({ where: { monthlyPriceCents: { gt: 0 } } });
+  const customer = await stripe.customers.create({ email: `referrer.${run}@example.test`, metadata: { test: "eki-local" } });
+  await prisma.vendorSubscription.create({ data: { vendorId: rv.id, plan: "GROWTH", status: "ACTIVE", stripeCustomerId: customer.id, sellerPlanId: plan.id } }).catch(async (e) => { console.log(String(e.message).slice(-400)); throw e; });
+  r = await call("GET", "/growth/referrals", tokenFor(ru));
+  check(`vendor sees their code, no prompt before a sale [${r.status}]`, r.status === 200 && r.body.referralCode && r.body.promptReady === false && r.body.needed === 3, r.body);
+  const mkReferred = async (stage) => {
+    const u = await user("VENDOR");
+    const referral = await prisma.referral.create({ data: { referrerId: ru.id, referredId: u.id, bonusAmount: 0 } });
+    const v = await vendorFor(u);
+    return { u, v, referral, stage };
+  };
+  const refs = [await mkReferred(), await mkReferred(), await mkReferred(), await mkReferred()];
+  for (const ref of refs.slice(0, 3)) await prisma.vendorReferralCredit.create({ data: { referralId: ref.referral.id, referrerId: ru.id, referredUserId: ref.u.id, referredVendorId: ref.v.id, status: "QUALIFIED", qualifiedAt: new Date() } });
+  r = await call("GET", "/growth/referrals", tokenFor(ru));
+  check("stages show, and a credit is ready for review", r.body.referrals.filter((x) => x.stage === "Paid").length === 3 && r.body.referrals.filter((x) => x.stage === "Account created").length === 1 && r.body.creditsReadyForReview === 1, r.body);
+  r = await call("GET", "/admin/growth/referral-credits", tokenFor(ru));
+  check("vendor can't see the admin list", r.status === 403, r.status);
+  r = await call("GET", "/admin/growth/referral-credits", admin);
+  check("admin sees it's due", r.body.due?.some((d) => d.referrerId === ru.id && d.qualified === 3), r.body.due);
+  r = await call("POST", "/admin/growth/referral-credits/release", tokenFor(ru), { referrerId: ru.id, reason: "local test run" });
+  check("vendor can't release their own", r.status === 403, r.status);
+  r = await call("POST", "/admin/growth/referral-credits/release", admin, { referrerId: ru.id, reason: "local test run" });
+  const months = 1;
+  check(`admin releases it [${r.status}]`, r.status === 200 && r.body.released === 3 && r.body.total === plan.monthlyPriceCents * months, r.body);
+  let cust = await stripe.customers.retrieve(customer.id);
+  check("Stripe balance really has the credit", cust.balance === -plan.monthlyPriceCents, cust.balance);
+  check("all three marked released", (await prisma.vendorReferralCredit.count({ where: { referrerId: ru.id, status: "RELEASED", stripeBalanceTransactionId: { not: null } } })) === 3);
+  r = await call("POST", "/admin/growth/referral-credits/release", admin, { referrerId: ru.id, reason: "local test run" });
+  check(`can't release twice [${r.status}]`, r.status === 409 && r.body.code === "NOT_ENOUGH_REFERRALS", r.body);
+  cust = await stripe.customers.retrieve(customer.id);
+  check("balance unchanged by the second try", cust.balance === -plan.monthlyPriceCents, cust.balance);
+  const one = await prisma.vendorReferralCredit.findFirst({ where: { referrerId: ru.id, status: "RELEASED" } });
+  r = await call("POST", `/admin/growth/referral-credits/${one.id}/reverse`, admin, { reason: "local test run" });
+  check(`one reverses [${r.status}]`, r.status === 200 && r.body.credit.status === "REVERSED", r.body);
+  cust = await stripe.customers.retrieve(customer.id);
+  const share = Math.floor(plan.monthlyPriceCents / 3);
+  check("its share comes back off the credit", cust.balance === -plan.monthlyPriceCents + share, cust.balance);
+  r = await call("POST", `/admin/growth/referral-credits/${one.id}/reverse`, admin, { reason: "local test run" });
+  check(`can't reverse twice [${r.status}]`, r.status === 409, r.body);
+  r = await call("GET", "/growth/referrals", tokenFor(ru));
+  check("vendor sees it reversed", r.body.referrals.some((x) => x.stage === "Reversed"), r.body.referrals);
+
+  console.log("\n=== NO BILLING ACCOUNT");
+  const nu = await user("VENDOR");
+  await vendorFor(nu);
+  for (const ref of refs.slice(3)) await prisma.vendorReferralCredit.create({ data: { referralId: ref.referral.id, referrerId: nu.id, referredUserId: ref.u.id, referredVendorId: ref.v.id, status: "QUALIFIED", qualifiedAt: new Date() } });
+  await prisma.adminPlatformSetting.upsert({ where: { key: "REFERRALS_FOR_FREE_MONTH" }, update: { value: 1 }, create: { key: "REFERRALS_FOR_FREE_MONTH", value: 1 } });
+  r = await call("POST", "/admin/growth/referral-credits/release", admin, { referrerId: nu.id, reason: "local test run" });
+  check(`explained, and left qualified [${r.status}]`, r.status === 409 && r.body.code === "NO_BILLING_ACCOUNT" && (await prisma.vendorReferralCredit.count({ where: { referrerId: nu.id, status: "QUALIFIED" } })) === 1, r.body);
+  await prisma.adminPlatformSetting.delete({ where: { key: "REFERRALS_FOR_FREE_MONTH" } });
+
+  console.log("\n=== REFERRAL LINK");
+  const res = await fetch(`${HOST}/invite/ABC123?intent=sell&ref=1`);
+  const html = await res.text();
+  check("page says referral code, not partner code", res.status === 200 && html.includes("referral code") && !html.includes("partner code") && html.includes("ref=1"), html.slice(0, 200));
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  check("opening it is tracked", (await prisma.event.count({ where: { name: "invitation_opened", entityId: "ABC123" } })) >= 1);
+
+  console.log(`\nRESULT ${pass} passed, ${fail} failed`);
+  await stripe.customers.del(customer.id).catch(() => {});
+  process.exit(fail ? 1 : 0);
+})().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
