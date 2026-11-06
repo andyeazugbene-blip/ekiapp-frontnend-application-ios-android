@@ -1142,6 +1142,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
                 <Text style={styles.noticeText}>{campaign.reviewNotes}</Text>
               </FloatingCard>
             ) : null}
+            {campaign?.disputedAt ? (
+              <Text style={styles.fieldHint}>Under review: Eki is reviewing a dispute on this Community Buy. Supplier payment is on hold until it&apos;s resolved.</Text>
+            ) : null}
             {campaign ? <StatusPill label={CAMPAIGN_STATUS_LABELS[campaign.status]} tone={CAMPAIGN_STATUS_TONE[campaign.status]} /> : null}
 
             {campaign?.status === "RESCUE_WINDOW" ? (
