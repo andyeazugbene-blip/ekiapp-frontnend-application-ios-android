@@ -25,6 +25,7 @@ import {
 } from "../../components/shared/PremiumBlocks";
 import { DatePickerField } from "../../components/shared/DatePickerField";
 import { CountrySelectField } from "../../components/shared/CountrySelectField";
+import { getLaunchSettings } from "../../services/launchSettingsService";
 import {
   communityBuyService,
   CAMPAIGN_STATUS_LABELS,
@@ -175,6 +176,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
   // A fresh organiser (no profile yet) must be able to pick a market for
   // their very first draft — createCampaign() only needs title+country.
   const [marketOptions, setMarketOptions] = useState<MarketConfig[]>([]);
+  const [hideMarketChoice, setHideMarketChoice] = useState(false);
   const [submitMissing, setSubmitMissing] = useState<string[] | null>(null);
 
   const [saving, setSaving] = useState(false);
@@ -339,7 +341,9 @@ export default function CommunityBuyOrganiserCampaignScreen() {
         const markets = await communityBuyService.listMarketConfigs().catch(() => [] as MarketConfig[]);
         const availableMarkets = markets.filter((m) => m.communityBuyEnabled);
         setMarketOptions(availableMarkets);
-        const defaultCountry = profile?.country ?? "";
+        const launch = await getLaunchSettings();
+        setHideMarketChoice(launch.ukLaunchMode);
+        const defaultCountry = launch.ukLaunchMode ? launch.launchMarket : profile?.country ?? "";
         // Only default the market on the first load — a silent refresh must
         // never overwrite a market the organiser has since picked.
         if (defaultCountry && !silent) {
@@ -1321,7 +1325,7 @@ export default function CommunityBuyOrganiserCampaignScreen() {
               </FloatingCard>
             ) : null}
 
-            {!isEdit ? (
+            {!isEdit && !hideMarketChoice ? (
               <View>
                 <Text style={styles.sectionOutside}>Market</Text>
                 {marketOptions.length === 0 ? (

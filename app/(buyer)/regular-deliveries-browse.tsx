@@ -18,6 +18,7 @@ import { regularDeliveriesService, FREQUENCY_LABELS, type PublicOfferSummary } f
 import { countryDisplayName } from "../../utils/countries";
 import { CountrySelectField } from "../../components/shared/CountrySelectField";
 import { Ionicons } from "@expo/vector-icons";
+import { getLaunchSettings } from "../../services/launchSettingsService";
 
 /**
  * Real public discovery for Regular Delivery offers (architecture gap
@@ -31,6 +32,7 @@ export default function RegularDeliveriesBrowseScreen() {
   const { selectedCurrency } = useCurrencyStore();
   const [markets, setMarkets] = useState<MarketConfig[]>([]);
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
+  const [hideMarketChoice, setHideMarketChoice] = useState(true);
   const [offers, setOffers] = useState<PublicOfferSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -39,9 +41,12 @@ export default function RegularDeliveriesBrowseScreen() {
     setLoading(true);
     setError("");
     try {
+      const launch = await getLaunchSettings();
+      setHideMarketChoice(launch.ukLaunchMode);
+      const market = launch.ukLaunchMode ? launch.launchMarket : countryFilter;
       const [marketList, offerList] = await Promise.all([
         communityBuyService.listMarketConfigs().catch(() => [] as MarketConfig[]),
-        regularDeliveriesService.listPublicOffers(countryFilter ? { country: countryFilter } : undefined),
+        regularDeliveriesService.listPublicOffers(market ? { country: market } : undefined),
       ]);
       setMarkets(marketList.filter((m) => m.regularDeliveriesEnabled));
       setOffers(offerList);
@@ -61,7 +66,7 @@ export default function RegularDeliveriesBrowseScreen() {
         subtitle="Recurring foodstuff orders from local vendors"
         onBack={() => goBackOrReplace(router, "/(buyer)/regular-deliveries" as any)}
       >
-        {markets.length > 0 ? (
+        {markets.length > 0 && !hideMarketChoice ? (
           <View style={styles.filterRow}>
             <View style={{ flex: 1 }}>
               <CountrySelectField

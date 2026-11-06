@@ -6,6 +6,7 @@ import { ApiRequestError } from "../../services/api/client";
 import { communityBuyService, type MarketConfig } from "../../services/communityBuyService";
 import { useAuthStore } from "../../stores/authStore";
 import { countryDisplayName } from "../../utils/countries";
+import { useLaunchSettings } from "../../services/launchSettingsService";
 
 /** True when the backend refused because this account has no recognised country. */
 export function isCountryRequiredError(err: unknown): boolean {
@@ -19,6 +20,7 @@ export function isCountryRequiredError(err: unknown): boolean {
 export function CountryRequiredCard({ onSaved }: { onSaved: () => void }) {
   const updateProfile = useAuthStore((s) => s.updateProfile);
   const [markets, setMarkets] = useState<MarketConfig[]>([]);
+  const { ukLaunchMode, launchMarket } = useLaunchSettings();
   const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -32,12 +34,14 @@ export function CountryRequiredCard({ onSaved }: { onSaved: () => void }) {
     return () => { active = false; };
   }, []);
 
+  const chosen = ukLaunchMode ? launchMarket : selected;
+
   const handleSave = async () => {
-    if (!selected) return;
+    if (!chosen) return;
     setSaving(true);
     setError("");
     try {
-      await updateProfile({ country: countryDisplayName(selected) });
+      await updateProfile({ country: countryDisplayName(chosen) });
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save your country.");
@@ -50,18 +54,24 @@ export function CountryRequiredCard({ onSaved }: { onSaved: () => void }) {
     <FloatingCard style={styles.card}>
       <IconAvatar icon="location-outline" tone="success" size={52} />
       <Text style={styles.title}>Where are you based?</Text>
-      <Text style={styles.body}>Community Buy shows campaigns in your own country. Choose it once to continue.</Text>
-      <CountrySelectField
-        options={markets.map((m) => ({ code: m.countryCode, name: countryDisplayName(m.countryCode) }))}
-        value={selected}
-        onSelect={setSelected}
-        disabled={saving}
-        placeholder="Choose your country"
-        sheetTitle="Select country"
-        accessibilityLabel={selected ? `Country: ${countryDisplayName(selected)}` : "Choose your country"}
-      />
+      {ukLaunchMode ? (
+        <Text style={styles.body}>Community Buy is open in the {countryDisplayName(launchMarket)}. Continue to see what's available.</Text>
+      ) : (
+        <>
+          <Text style={styles.body}>Community Buy shows campaigns in your own country. Choose it once to continue.</Text>
+          <CountrySelectField
+            options={markets.map((m) => ({ code: m.countryCode, name: countryDisplayName(m.countryCode) }))}
+            value={selected}
+            onSelect={setSelected}
+            disabled={saving}
+            placeholder="Choose your country"
+            sheetTitle="Select country"
+            accessibilityLabel={selected ? `Country: ${countryDisplayName(selected)}` : "Choose your country"}
+          />
+        </>
+      )}
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <PrimaryButton label="Save and continue" disabled={!selected} loading={saving} onPress={() => void handleSave()} style={styles.button} />
+      <PrimaryButton label={ukLaunchMode ? "Continue" : "Save and continue"} disabled={!chosen} loading={saving} onPress={() => void handleSave()} style={styles.button} />
     </FloatingCard>
   );
 }

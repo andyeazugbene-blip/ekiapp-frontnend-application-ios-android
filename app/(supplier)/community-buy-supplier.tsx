@@ -30,6 +30,7 @@ import {
 import { countryDisplayName } from "../../utils/countries";
 import { CountrySelectField } from "../../components/shared/CountrySelectField";
 import { calculateSupplierCommission } from "../../utils/communityBuyFees";
+import { getLaunchSettings } from "../../services/launchSettingsService";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -112,6 +113,7 @@ export default function VendorCommunityBuySupplierScreen() {
   // Onboarding form (Workstream 3 — mandate item 2: real requirements, not
   // a one-tap "Apply for {country}") — country + categories + coverage.
   const [formCountry, setFormCountry] = useState<string | null>(null);
+  const [hideMarketChoice, setHideMarketChoice] = useState(false);
   const [formCategories, setFormCategories] = useState("");
   const [formBusinessName, setFormBusinessName] = useState("");
   const [formRegistration, setFormRegistration] = useState("");
@@ -157,6 +159,9 @@ export default function VendorCommunityBuySupplierScreen() {
       // workstream exists to fix. Every market open for supplier
       // applications is offered.
       setMarkets(marketList.filter((m) => m.supplierApplicationsEnabled));
+      const launch = await getLaunchSettings();
+      setHideMarketChoice(launch.ukLaunchMode);
+      if (launch.ukLaunchMode) setFormCountry((current) => current ?? launch.launchMarket);
       if (profileData.account && DASHBOARD_VISIBLE_STATES.includes(profileData.account.supplierState)) {
         const myCampaigns = await communityBuyService.listMySupplierCampaigns();
         setCampaigns(myCampaigns);
@@ -346,15 +351,19 @@ export default function VendorCommunityBuySupplierScreen() {
           />
 
           <Text style={[styles.formSection, { marginTop: 8 }]}>Products and coverage</Text>
-          <Text style={styles.formLabel}>Market</Text>
-          <CountrySelectField
-            options={markets.map((m) => ({ code: m.countryCode, name: countryDisplayName(m.countryCode) }))}
-            value={formCountry || null}
-            onSelect={setFormCountry}
-            placeholder="Choose a market"
-            sheetTitle="Select market"
-            accessibilityLabel={formCountry ? `Market: ${countryDisplayName(formCountry)}` : "Choose a market"}
-          />
+          {hideMarketChoice ? null : (
+            <>
+              <Text style={styles.formLabel}>Market</Text>
+              <CountrySelectField
+                options={markets.map((m) => ({ code: m.countryCode, name: countryDisplayName(m.countryCode) }))}
+                value={formCountry || null}
+                onSelect={setFormCountry}
+                placeholder="Choose a market"
+                sheetTitle="Select market"
+                accessibilityLabel={formCountry ? `Market: ${countryDisplayName(formCountry)}` : "Choose a market"}
+              />
+            </>
+          )}
           <Text style={styles.formLabel}>Categories you can supply</Text>
           <TextInput
             style={styles.input}

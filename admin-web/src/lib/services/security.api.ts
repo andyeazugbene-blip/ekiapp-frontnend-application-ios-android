@@ -97,7 +97,31 @@ export interface SystemInfo {
   startedAt: string;
 }
 
+export interface LaunchSetting {
+  key: string;
+  group: string;
+  label: string;
+  help: string;
+  kind: "number" | "toggle";
+  unit: string | null;
+  min: number;
+  max: number;
+  source: string;
+  defaultValue: number;
+  value: number;
+  changedFromDefault: boolean;
+  updatedById: string | null;
+  updatedAt: string | null;
+}
+
 export const platformSettingsAPI = {
+  async listLaunchSettings(): Promise<LaunchSetting[]> {
+    const res = await apiClient.get<{ settings: LaunchSetting[] }>("/admin/settings/launch", { bypassCache: true });
+    return res.settings;
+  },
+  saveLaunchSetting(key: string, value: number, reason: string) {
+    return apiClient.patch(`/admin/settings/launch/${encodeURIComponent(key)}`, { value, reason });
+  },
   async listFlags(): Promise<PlatformFlag[]> {
     const res = await apiClient.get<{ flags: PlatformFlag[] }>("/admin/settings/flags", { bypassCache: true });
     return res.flags;

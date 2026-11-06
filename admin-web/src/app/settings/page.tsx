@@ -10,17 +10,19 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import FlagsTab from "./_tabs/FlagsTab";
 import IntegrationsTab from "./_tabs/IntegrationsTab";
+import LaunchSettingsTab from "./_tabs/LaunchSettingsTab";
 import RolesTab from "./_tabs/RolesTab";
 import SecurityTab from "./_tabs/SecurityTab";
 import TeamTab from "./_tabs/TeamTab";
 import ThresholdsTab from "./_tabs/ThresholdsTab";
 
-type TabKey = "team" | "roles" | "security" | "thresholds" | "flags" | "integrations" | "system";
+type TabKey = "team" | "roles" | "security" | "launch" | "thresholds" | "flags" | "integrations" | "system";
 
 const TABS: { key: TabKey; label: string; needs?: string }[] = [
   { key: "team", label: "Team", needs: "roles.read" },
   { key: "roles", label: "Roles & permissions", needs: "roles.read" },
   { key: "security", label: "Security" },
+  { key: "launch", label: "Launch decisions", needs: "settings.read" },
   { key: "thresholds", label: "Operational thresholds", needs: "settings.read" },
   { key: "flags", label: "Platform flags", needs: "settings.read" },
   { key: "integrations", label: "Integrations", needs: "settings.read" },
@@ -64,6 +66,7 @@ function SettingsInner() {
       {active === "team" ? <TeamTab currentAdminId={user?.id} /> : null}
       {active === "roles" ? <RolesTab /> : null}
       {active === "security" ? <SecurityTab /> : null}
+      {active === "launch" ? <LaunchSettingsTab currentAdminId={user?.id} /> : null}
       {active === "thresholds" ? <ThresholdsTab currentAdminId={user?.id} /> : null}
       {active === "flags" ? <FlagsTab /> : null}
       {active === "integrations" ? <IntegrationsTab view="integrations" /> : null}
