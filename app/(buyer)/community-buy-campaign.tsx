@@ -300,8 +300,8 @@ export default function CommunityBuyCampaignScreen() {
               <Ionicons name="checkmark-circle-outline" size={20} color="#076B51" />
               <Text style={styles.outcomeText}>
                 {campaign.fundingOutcome === "GOAL_REACHED"
-                  ? "This campaign reached its goal. Fulfilment updates will be shared with participants."
-                  : "This campaign will proceed — the supplier-approved minimum was reached. Fulfilment updates will be shared with participants."}
+                  ? "The campaign reached its goal. The supplier order is now being prepared."
+                  : "The campaign succeeded. The campaign reached its supplier-approved minimum. The supplier order is now being prepared for the confirmed quantity."}
               </Text>
             </FloatingCard>
           ) : campaign.status === "RESCUE_WINDOW" ? (
@@ -332,7 +332,7 @@ export default function CommunityBuyCampaignScreen() {
                       <Text style={styles.outcomeText}>Your refund</Text>
                       <StatusPill label={CONTRIBUTION_STATUS_LABELS[contribution.refund.status as keyof typeof CONTRIBUTION_STATUS_LABELS] ?? contribution.refund.status} tone={CONTRIBUTION_STATUS_TONE[contribution.refund.status as keyof typeof CONTRIBUTION_STATUS_TONE] ?? "warning"} />
                     </View>
-                    <Text style={styles.outcomeText}>{formatDisplayMoney(contribution.refund.amount / 100, contribution.currency, selectedCurrency)} is being returned through your original payment route. Refunds may take {refundTimeframe} to appear, depending on your payment method.</Text>
+                    <Text style={styles.outcomeText}>{formatDisplayMoney(contribution.refund.amount / 100, contribution.currency, selectedCurrency)} {contribution.refund.status === "REFUNDED" ? "was returned through your original payment route. If you cannot see the refund after the stated processing period, contact your payment provider." : contribution.refund.status === "REFUND_FAILED" ? "is still owed to you. Your campaign refund remains open until this is resolved." : `is being returned through your original payment route. Refunds may take ${refundTimeframe} to appear, depending on your payment method.`}</Text>
                   </View>
                 ) : (
                   <Text style={styles.outcomeText}>Your refund is being processed — this appears here as soon as it's created.</Text>
@@ -354,7 +354,7 @@ export default function CommunityBuyCampaignScreen() {
                       <Text style={styles.outcomeText}>This campaign was ended. Your refund</Text>
                       <StatusPill label={CONTRIBUTION_STATUS_LABELS[contribution.refund.status as keyof typeof CONTRIBUTION_STATUS_LABELS] ?? contribution.refund.status} tone={CONTRIBUTION_STATUS_TONE[contribution.refund.status as keyof typeof CONTRIBUTION_STATUS_TONE] ?? "warning"} />
                     </View>
-                    <Text style={styles.outcomeText}>{formatDisplayMoney(contribution.refund.amount / 100, contribution.currency, selectedCurrency)} is being returned through your original payment route. Refunds may take {refundTimeframe} to appear, depending on your payment method.</Text>
+                    <Text style={styles.outcomeText}>{formatDisplayMoney(contribution.refund.amount / 100, contribution.currency, selectedCurrency)} {contribution.refund.status === "REFUNDED" ? "was returned through your original payment route. If you cannot see the refund after the stated processing period, contact your payment provider." : contribution.refund.status === "REFUND_FAILED" ? "is still owed to you. Your campaign refund remains open until this is resolved." : `is being returned through your original payment route. Refunds may take ${refundTimeframe} to appear, depending on your payment method.`}</Text>
                   </View>
                 ) : (
                   <Text style={styles.outcomeText}>This campaign was ended. Your pledge was cancelled — you were never charged, so there is nothing to refund.</Text>
@@ -376,11 +376,11 @@ export default function CommunityBuyCampaignScreen() {
                   disabled={joining}
                   activeOpacity={0.88}
                   accessibilityRole="button"
-                  accessibilityLabel={joining ? "Joining campaign" : "Join this campaign"}
+                  accessibilityLabel={joining ? "Joining campaign" : "Join Community Buy"}
                   accessibilityState={{ busy: joining, disabled: joining }}
                   style={styles.secondaryBtn}
                 >
-                  {joining ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Join this campaign</Text>}
+                  {joining ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Join Community Buy</Text>}
                 </TouchableOpacity>
               ) : null}
 
@@ -452,7 +452,7 @@ export default function CommunityBuyCampaignScreen() {
               ) : contribution?.status === "PAYMENT_PROCESSING" ? (
                 <FloatingCard style={styles.outcomeCard}>
                   <ActivityIndicator size="small" color="#076B51" />
-                  <Text style={styles.outcomeText}>Payment under review. Please don't pay again. A processing contribution does not count towards campaign progress until verified.</Text>
+                  <Text style={styles.outcomeText}>Payment under review. Please don't pay again. Your payment provider has not returned a final status yet. We will continue checking and notify you when the result is confirmed.</Text>
                 </FloatingCard>
               ) : contribution?.status === "CHARGE_FAILED" ? (
                 <FloatingCard style={[styles.outcomeCard, styles.outcomeCardWarning]}>
@@ -544,6 +544,7 @@ export default function CommunityBuyCampaignScreen() {
                 something to receive (dispatched/collected/completed). */}
             {contribution?.status === "PAID" && (fulfilment?.status === "DISPATCHED" || fulfilment?.status === "COLLECTED" || fulfilment?.status === "COMPLETED") ? (
               <View style={{ gap: 8, marginTop: 10 }}>
+                {!receiptConfirmed ? <Text style={styles.outcomeText}>Did you receive your Community Buy purchase?</Text> : null}
                 {!receiptConfirmed ? (
                   <TouchableOpacity
                     onPress={() => void handleConfirmReceipt()}
@@ -551,10 +552,10 @@ export default function CommunityBuyCampaignScreen() {
                     activeOpacity={0.88}
                     style={styles.secondaryBtn}
                     accessibilityRole="button"
-                    accessibilityLabel="Confirm you received your order"
+                    accessibilityLabel="Yes, I received it"
                     accessibilityState={{ busy: confirmingReceipt, disabled: confirmingReceipt }}
                   >
-                    {confirmingReceipt ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Confirm receipt</Text>}
+                    {confirmingReceipt ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Yes, I received it</Text>}
                   </TouchableOpacity>
                 ) : (
                   <Text style={styles.fulfilmentStatusText}>Thanks — receipt confirmed.</Text>

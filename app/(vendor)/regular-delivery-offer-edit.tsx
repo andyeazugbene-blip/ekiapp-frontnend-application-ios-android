@@ -340,13 +340,13 @@ export default function VendorRegularDeliveryOfferEditScreen() {
             </FloatingCard>
 
             <View>
-              <Text style={styles.sectionTitle}>Pricing rules</Text>
+              <Text style={styles.sectionTitle}>Set pricing rules</Text>
               <FloatingCard style={{ gap: 14 }}>
                 <TouchableOpacity onPress={() => setUseDiscount((v) => !v)} activeOpacity={0.85} style={styles.checkRow}>
                   <Ionicons name={useDiscount ? "checkbox" : "square-outline"} size={20} color={useDiscount ? "#076B51" : "#C7D2CB"} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.checkRowLabel}>Offer a Foodstuff Subscription discount</Text>
-                    <Text style={styles.fieldHint}>Off uses the current product price at each renewal.</Text>
+                    <Text style={styles.fieldHint}>Off will use current product prices at each renewal.</Text>
                   </View>
                 </TouchableOpacity>
                 {useDiscount ? (
@@ -408,6 +408,7 @@ export default function VendorRegularDeliveryOfferEditScreen() {
 
             <View>
               <Text style={styles.sectionTitle}>Eligible foodstuff</Text>
+              <Text style={styles.fieldHint}>Select the products buyers can add to a Foodstuff Subscription.</Text>
               {products.length === 0 ? (
                 <FloatingCard>
                   <Text style={styles.emptyProductsText}>Add products to your store first, then come back to build this offer.</Text>
@@ -479,7 +480,8 @@ export default function VendorRegularDeliveryOfferEditScreen() {
 
             {isActive ? (
               <>
-                <PrimaryButton label="Save changes" onPress={() => void handleSave(false)} loading={saving} />
+                <Text style={styles.fieldHint}>Changes to pricing, availability or fulfilment cannot silently rewrite already-paid orders.</Text>
+                <PrimaryButton label="Save permitted changes" onPress={() => void handleSave(false)} loading={saving} />
                 <OutlineButton label="Unpublish" onPress={() => void handleUnpublish()} loading={publishing} />
               </>
             ) : (

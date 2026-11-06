@@ -435,7 +435,7 @@ export default function CommunityBuyDiscoveryScreen() {
           ) : joinedActive.length === 0 ? (
             <View style={premiumStyles.block}>
               <FloatingCard>
-                <EmptyState icon="people-circle-outline" title="No contributions yet" body="Campaigns you contribute to will show up here." />
+                <EmptyState icon="people-circle-outline" title="No contributions yet" body="Campaigns you join will appear here." />
               </FloatingCard>
             </View>
           ) : (

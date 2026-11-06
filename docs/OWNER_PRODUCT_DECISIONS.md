@@ -1,5 +1,29 @@
 # Owner Product Decisions (blocking activation)
 
+## Defaults now in use (2026-11-06)
+
+The owner asked for open decisions to ship as defaults an admin can change, rather than wait. These override the "nothing is implemented" note below for the items listed. Andy can still rule on any of them.
+
+| Decision | Default in use | Change it at |
+|---|---|---|
+| First Sale: who can start | Store open, with stock, weight or pack size, and delivery set up. Verification doesn't block, because unverified vendors can sell | Code |
+| First Sale: what counts as the first sale | First paid order | Code |
+| First Sale: offer and funding | No money offered. No cost to the vendor or Eki | Code, when an offer is decided |
+| First Sale: reach | 50 buyers per campaign, marketing consent only | Settings → Launch decisions |
+| First Sale: kill switch | On/off for new campaigns, and stop per campaign | Settings → Launch decisions; Growth programmes |
+| Referral: who and what | Vendors inviting vendors. Buyer referrals are unchanged | Code |
+| Referral: qualifies when | Referred vendor is verified, has a store, and makes a first membership payment | Code |
+| Referral: reward | 3 referrals earn the configured months as Stripe invoice credit, never cash | Settings |
+| Referral: release | An admin approves each one. Not automatic, because it moves money | Growth programmes |
+| Referral: reversal | Takes back that referral's share on the next invoice | Growth programmes |
+| Referral: fraud checks | Same phone, business email or card fingerprint earns nothing | Code |
+| Vendor trial | 30 days, per the Handbook | Settings → Launch decisions |
+| Review targets | 72, 24, 24 and 24 hours | Settings → Launch decisions |
+| New vendor boost | 30 days | Settings → Launch decisions |
+| Dashboard states | No sale, has sales, repeat buyers | Code |
+| Attribution | Not built. Still needs a decision on section D below | |
+
+
 Nothing here has been decided by engineering. No value, amount, window or rule below is implemented. "Recommended" marks the lowest-risk option for activation, not a business choice made on your behalf. Fill the last column; engineering then builds exactly that.
 
 Classification key: **PD** product decision required - **TD** technical decision (engineering default, no business policy) - **MC** manual production configuration - **LV** live verification.

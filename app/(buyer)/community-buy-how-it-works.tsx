@@ -19,7 +19,7 @@ const STEPS: { icon: React.ComponentProps<typeof Ionicons>["name"]; title: strin
   {
     icon: "time-outline",
     title: "The campaign reaches its deadline",
-    body: "Every campaign has a closing date. What happens next depends on how many shares were confirmed by then.",
+    body: "Every campaign has a closing date. The campaign can proceed when it reaches its supplier-approved minimum.",
   },
   {
     icon: "checkmark-circle-outline",
@@ -29,12 +29,12 @@ const STEPS: { icon: React.ComponentProps<typeof Ionicons>["name"]; title: strin
   {
     icon: "hourglass-outline",
     title: "If the minimum isn't reached, there's a completion period",
-    body: "The organiser gets a short window to close the gap — by inviting more people or topping up themselves — before the campaign is decided as failed.",
+    body: "If it remains below the minimum, a completion period may be offered. The organiser may purchase missing shares, invite another participant or request an approved extension.",
   },
   {
     icon: "return-down-back-outline",
     title: "If it ultimately fails, nothing was ever charged",
-    body: "Eki never takes payment upfront. If a campaign fails, your saved payment method is simply released — there is nothing to refund because nothing was taken.",
+    body: "If the minimum is still not reached, the supplier order will not be created. Your saved payment method is released, so there is nothing to refund. Your payment does not go directly to the organiser.",
   },
 ];
 
@@ -43,7 +43,7 @@ export default function CommunityBuyHowItWorksScreen() {
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title="How Community Buy works" onBack={() => goBackOrReplace(router, "/(buyer)/community-buy" as any)} />
+      <PremiumHeader title="How this Community Buy works" onBack={() => goBackOrReplace(router, "/(buyer)/community-buy" as any)} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         <View style={[premiumStyles.block, { gap: 12 }]}>
           <Text style={styles.intro}>
