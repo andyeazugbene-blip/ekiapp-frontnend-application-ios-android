@@ -180,7 +180,19 @@ export interface SubscriptionListParams {
   status?: string; vendorId?: string; q?: string; renewalFrom?: string; renewalTo?: string; cursor?: string | null; limit?: number;
 }
 
+export interface SubscriptionOperationsSummary {
+  activeSubscriptions: number;
+  upcomingRenewals: number;
+  paymentsUnderReview: number;
+  failedRenewalPayments: number;
+  priceApprovalsOutstanding: number;
+  subscriptionExceptions: number;
+}
+
 export const subscriptionsAdminAPI = {
+  operationsSummary(): Promise<SubscriptionOperationsSummary> {
+    return apiClient.get("/admin/subscriptions/operations-summary", { bypassCache: true });
+  },
   async list(p: SubscriptionListParams = {}): Promise<SubscriptionListResponse> {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(p)) if (v != null && v !== "") qs.set(k, String(v));

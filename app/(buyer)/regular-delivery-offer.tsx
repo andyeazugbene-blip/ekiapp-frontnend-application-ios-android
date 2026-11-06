@@ -351,7 +351,10 @@ export default function RegularDeliveryOfferScreen() {
       case "address":
         return (
           <>
-            <Text style={styles.stepTitle}>Where should we deliver?</Text>
+            <Text style={styles.stepTitle}>{offer.fulfilmentMethod === "COLLECTION" ? "Where would you like to collect?" : "Where should we deliver?"}</Text>
+            {offer.fulfilmentMethod === "COLLECTION" ? (
+              <Text style={styles.detailValue}>Collect from {offer.vendor?.storeName ?? "the vendor"}. They'll confirm the collection point before your first order. We use your address below to contact you.</Text>
+            ) : null}
             <Text style={styles.sectionTitle}>Select address</Text>
             <View style={{ gap: 8 }}>
               {addresses.map((a) => (
