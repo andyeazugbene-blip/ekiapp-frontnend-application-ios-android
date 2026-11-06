@@ -474,6 +474,7 @@ export interface CampaignUpdate {
 
 export interface CampaignParticipant {
   userId: string;
+  contributionStatus?: "Confirmed" | "Processing" | "Failed" | "Refunding" | "Refunded";
   // M4 (spec §14.3, AT-44): omitted entirely by the backend for a
   // SELF-fulfilled campaign — the organiser IS the fulfiller and gets only
   // fulfilment-necessary data, same principle a third-party supplier's
@@ -843,6 +844,15 @@ export const communityBuyService = {
   async listMarketConfigs(): Promise<MarketConfig[]> {
     const res = await apiClient.get<Items<MarketConfig>>("/api/community-buy/markets", { skipAuth: true });
     return res.items ?? [];
+  },
+
+  async notifyWhenMarketOpens(country: string): Promise<void> {
+    await apiClient.post(`/api/community-buy/markets/${country}/notify-me`, {});
+  },
+
+  /** A short-lived link to a receipt the buyer can open, save or print. */
+  async getContributionReceiptLink(contributionId: string): Promise<string> {
+    return (await apiClient.post<{ url: string }>(`/api/community-buy/contributions/${contributionId}/receipt-link`, {})).url;
   },
 
   async getMarketConfig(country: string): Promise<MarketConfig> {

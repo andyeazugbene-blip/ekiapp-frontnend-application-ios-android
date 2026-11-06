@@ -28,11 +28,14 @@ import { ADDABLE_MARKETS, COUNTRIES, marketLabel } from "@/lib/countries";
  * and appears in the per-market history (read from the immutable audit log).
  */
 
-const FEATURE_FLAGS: { key: "communityBuyEnabled" | "organiserApplicationsEnabled" | "supplierApplicationsEnabled" | "regularDeliveriesEnabled" | "communityBuyOffersRequired"; label: string; note: string }[] = [
+const FEATURE_FLAGS: { key: "organiserTopUpEnabled" | "deadlineExtensionEnabled" | "organiserFeeEnabled" | "communityBuyEnabled" | "organiserApplicationsEnabled" | "supplierApplicationsEnabled" | "regularDeliveriesEnabled" | "communityBuyOffersRequired"; label: string; note: string }[] = [
   { key: "communityBuyEnabled", label: "Community Buy", note: "Campaigns can be created and published in this market." },
   { key: "organiserApplicationsEnabled", label: "Organiser applications", note: "Buyers in this market can apply to become organisers. Needs Community Buy on." },
   { key: "supplierApplicationsEnabled", label: "Supplier applications", note: "Suppliers in this market can apply. Needs Community Buy on." },
   { key: "communityBuyOffersRequired", label: "Community Buys built on supplier offers", note: "Organisers must choose an approved supplier offer, and can't set their own price. Turn on only once offers are live and phone codes reach this market." },
+  { key: "organiserTopUpEnabled", label: "Organiser top-up", note: "Organisers can buy the shortfall themselves during a completion period." },
+  { key: "deadlineExtensionEnabled", label: "Deadline extension", note: "Organisers can ask for one later deadline, needing approval." },
+  { key: "organiserFeeEnabled", label: "Organiser fee", note: "Organisers earn their configured fee in this market. Nothing is paid unless a rate is also set." },
   { key: "regularDeliveriesEnabled", label: "Foodstuff Subscription", note: "Buyers can browse and subscribe to Foodstuff Subscription offers. Needs a payment provider and a payment mode other than DISABLED." },
 ];
 
