@@ -6,13 +6,13 @@ Recorded 2026-11-06. **This is engineering evidence, not acceptance.** The Handb
 
 | Check | Result |
 |---|---|
-| Backend tests (`npx vitest run`, with `DATABASE_URL` unset) | 219 files, 3419 tests passing |
+| Backend tests (`npx vitest run`, with `DATABASE_URL` unset) | 220 files, 3428 tests passing |
 | Backend CI: type-check, scaffolding check, coverage map | Passing on each merged PR |
 | App and admin type-check | Clean |
 
 ## End-to-end journeys
 
-These ran against the real API with a throwaway PostgreSQL database and a Stripe **test** key. They never touched production.
+These ran against the real API with a throwaway PostgreSQL database and a Stripe **test** key. They never touched production. The scripts are in `journeys/`, and its README says how to run them.
 
 | Journey | Checks | Covers |
 |---|---|---|
@@ -53,3 +53,5 @@ Mobile screens were also checked in a browser, using the web build at phone widt
 | Remaining screens | 67 | 25 | `5d1ec80a` |
 | Growth | 68 | 26 | `4369a678` |
 | Discovery | 69 | 27 | `21be4693` |
+| Copy pass 2 and handover | - | 28 | `36cac69e` |
+| Health route hardening | 70 | - | Not needed |

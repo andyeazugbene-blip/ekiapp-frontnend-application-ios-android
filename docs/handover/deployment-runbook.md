@@ -21,7 +21,7 @@ Backend always goes first. An app update can rely on a new API, but the API must
 
 1. Open a PR. Wait for CI and the Vercel preview to pass.
 2. Merge. Wait for the merge commit's status to succeed.
-3. Smoke test, read-only: `GET /api/health` returns 200, and a route you changed answers as expected.
+3. Smoke test, read-only: `GET /api/health` returns 200, and a route you changed answers as expected. `GET /api/health/detailed` shows each dependency's status. Its full report needs `Authorization: Bearer <CRON_SECRET>`.
 
 ## App
 

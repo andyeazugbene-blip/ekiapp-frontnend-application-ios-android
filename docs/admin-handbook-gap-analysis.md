@@ -13,9 +13,10 @@ Effort: S ≤ ½ day · M ≈ 1–2 days · L ≥ 3 days.
 ## Implementation status (updated 2026-10-05)
 
 Blockers B1-B19, B21-B24 are **built and verified locally** (unit tests + local API + browser); none is marked accepted because the handbook requires live-provider proof - see `docs/handover/acceptance-evidence-matrix.md`.
-Still open: B20 (account ownership), vendor referral / First Sale engine / state-aware vendor dashboard (§8), attribution metrics, dispute-evidence model, delivery-proof model, PII reveal, remaining event emits.
-Decisions applied: no commission model (display + warning; seller-plan fee data NOT changed in production), 14-day trial kept, "Foodstuffs Subscription" naming, Super-Admin-only Community Buy payments, Operations/Finance Admin roles, no SMS.
-Not deployed: awaiting the owner's go-ahead.
+Still open: B20 (account ownership), attribution metrics, dispute-evidence model, delivery-proof model, PII reveal, remaining event emits.
+Decisions applied: no commission model (display + warning; seller-plan fee data NOT changed in production), "Foodstuffs Subscription" naming, Super-Admin-only Community Buy payments, Operations/Finance Admin roles, no SMS.
+
+Updated 2026-11-06: deployed. Vendor referral, First Sale and the state-aware dashboard are built. The vendor trial is now 30 days, set in Settings → Launch decisions. The tables below describe the state at the time of the audit.
 
 ---
 

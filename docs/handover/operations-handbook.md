@@ -19,6 +19,15 @@ Jobs: `verification-proof-cleanup`, `event-outbox`, `notification-deliveries`, `
 
 **Open problem.** A GitHub workflow (`automation-scheduler.yml`) is meant to run the time-sensitive jobs every 10 minutes, but the `CRON_SECRET` repository secret reaches it empty, so every run fails. See known issue K11. Until it's fixed, reminders and deadlines can be up to a day late.
 
+## Health checks
+
+| Route | Who | Returns |
+|---|---|---|
+| `GET /api/health` | Anyone | Whether the API is up |
+| `GET /api/health/detailed` | Anyone | Each dependency's status, cached for 60 seconds. 503 if the database, Stripe or storage fails |
+| `GET /api/health/detailed` with `Authorization: Bearer <CRON_SECRET>` | Operators | A fresh check with error text, latency and the Stripe mode |
+| `GET /api/health/sentry-test` with the same header | Operators | Raises a test error in Sentry |
+
 ## Common recovery actions
 
 | Situation | What to do |
