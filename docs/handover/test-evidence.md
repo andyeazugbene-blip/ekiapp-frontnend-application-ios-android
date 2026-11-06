@@ -62,3 +62,4 @@ Mobile screens were also checked in a browser, using the web build at phone widt
 | Events, email results, attribution | 71 | 30 | Not needed (admin) |
 | Contact masking, dispute hold | 72 | 31 | Not needed (admin) |
 | Product ranking, insights, wording | 73 | 32 | `b4a758af` |
+| Community Buy wording | - | 33 | `2295124a` |
