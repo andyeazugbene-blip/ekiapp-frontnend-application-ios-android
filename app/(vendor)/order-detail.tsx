@@ -191,6 +191,15 @@ export default function OrderDetailScreen() {
           </SafeAreaView>
         </LinearGradient>
 
+        {order.renewal ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Foodstuff Subscription renewal</Text>
+            <Text style={styles.infoValue}>Renewal reference: {order.renewal.id.slice(-8).toUpperCase()}</Text>
+            <Text style={styles.infoValue}>Prepare by: {new Date(order.renewal.cycleDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</Text>
+            <Text style={styles.infoValue}>Payment verified: {order.renewal.status === "PAID" || order.renewal.status === "ORDER_CREATED" ? "Yes" : "No"}</Text>
+          </View>
+        ) : null}
+
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Buyer Information</Text>
           <View style={styles.buyerRow}>

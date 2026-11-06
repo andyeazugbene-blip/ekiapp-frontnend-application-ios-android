@@ -403,6 +403,7 @@ export default function CommunityBuyDiscoveryScreen() {
                   <FloatingCard style={{ gap: 8 }}>
                     <View style={styles.cardTop}>
                       <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
+                      {c.maximumShares != null && c.confirmedShares < c.maximumShares && c.maximumShares - c.confirmedShares <= c.maximumShares * 0.1 ? <StatusPill label="Nearly full" tone="warning" /> : null}
                       <View style={styles.countryPill}><Text style={styles.countryPillText}>{countryDisplayName(c.country)}</Text></View>
                     </View>
                     <Text style={styles.cardVendor}>

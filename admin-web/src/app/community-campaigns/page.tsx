@@ -31,7 +31,7 @@ const CLOSED_STATUS_LABEL: Record<CampaignStatus, string> = {
 };
 
 const FUNDING_OUTCOME_LABEL: Record<FundingOutcome, string> = {
-  PENDING: "Not yet decided", GOAL_REACHED: "Goal reached", MINIMUM_REACHED: "Minimum reached", BELOW_MINIMUM: "Below minimum",
+  PENDING: "Not yet decided", GOAL_REACHED: "Goal reached", MINIMUM_REACHED: "Minimum reached", MAXIMUM_REACHED: "Maximum reached", BELOW_MINIMUM: "Below minimum",
 };
 
 const SUPPLIER_PAYMENT_STATUS_LABEL: Record<SupplierPaymentStatus, string> = {
@@ -66,6 +66,18 @@ export default function CommunityCampaignsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notesById, setNotesById] = useState<Record<string, string>>({});
   const [contributionsById, setContributionsById] = useState<Record<string, AdminContribution[]>>({});
+  const [recheckResult, setRecheckResult] = useState<Record<string, string>>({});
+
+  const recheckContribution = async (campaignId: string, contributionId: string) => {
+    try {
+      const result = await communityBuyAdminAPI.recheckContribution(contributionId);
+      setRecheckResult((prev) => ({ ...prev, [contributionId]: `Provider: ${result.providerStatus ?? "no payment yet"} · Eki: ${result.ekiStatus.replace(/_/g, " ")} · Counted: ${result.countedTowardsCampaign ? "Yes" : "No"}` }));
+      setContributionsById((prev) => ({ ...prev, [campaignId]: (prev[campaignId] ?? []).map((row) => (row.id === contributionId ? { ...row, status: result.ekiStatus as typeof row.status } : row)) }));
+    } catch (err) {
+      setError(err instanceof APIError ? err.message : "Could not recheck this contribution");
+    }
+  };
+
   const [expandedContributionsId, setExpandedContributionsId] = useState<string | null>(null);
   const [contributionsLoadingId, setContributionsLoadingId] = useState<string | null>(null);
   const load = async (bypassCache = false) => {
@@ -369,6 +381,9 @@ export default function CommunityCampaignsPage() {
                                     {ct.status.replace(/_/g, " ")}
                                   </Badge>
                                   {ct.isOrganiserTopUp ? <Badge tone="blue">Organiser top-up</Badge> : null}
+                                  <span className="text-slate-600">Counted towards campaign: {["PLEDGED", "PAID", "PAYMENT_PROCESSING"].includes(ct.status) ? "Yes" : "No"}</span>
+                                  {canMutate ? <Button variant="ghost" onClick={() => void recheckContribution(c.id, ct.id)}>Recheck provider</Button> : null}
+                                  {recheckResult[ct.id] ? <span className="w-full text-xs text-slate-500">{recheckResult[ct.id]}</span> : null}
                                 </div>
                               ))}
                             </div>

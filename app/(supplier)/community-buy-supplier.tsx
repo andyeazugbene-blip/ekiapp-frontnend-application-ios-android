@@ -16,6 +16,7 @@ import {
   StatusPill,
   premiumStyles,
   type Tone,
+  InterScope,
 } from "../../components/shared/PremiumBlocks";
 import {
   communityBuyService,
@@ -97,7 +98,7 @@ function formatDeadline(value: string | null | undefined): string {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
-export default function VendorCommunityBuySupplierScreen() {
+function VendorCommunityBuySupplierScreenInner() {
   const router = useRouter();
   const { selectedCurrency } = useCurrencyStore();
 
@@ -257,6 +258,17 @@ export default function VendorCommunityBuySupplierScreen() {
 
   /** Doc screens 115-117 — confirms the supplier can fulfil every confirmed quantity between the minimum and maximum before the organiser can submit for admin review. */
   const handleReconfirm = (campaignId: string, action: "confirm" | "decline") => {
+    if (action === "confirm") {
+      Alert.alert("Accept final supplier order", "I confirm that I can fulfil the final confirmed quantity.", [
+        { text: "Go back", style: "cancel" },
+        { text: "Accept final order", onPress: () => sendReconfirm(campaignId, action) },
+      ]);
+      return;
+    }
+    sendReconfirm(campaignId, action);
+  };
+
+  const sendReconfirm = (campaignId: string, action: "confirm" | "decline") => {
     communityBuyService
       .reconfirmSupply(campaignId, action)
       .then(() => load())
@@ -982,62 +994,70 @@ export default function VendorCommunityBuySupplierScreen() {
 }
 
 const styles = StyleSheet.create({
-  formSection: { fontSize: 14, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
+  formSection: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#12221A" },
   methodRow: { flexDirection: "row", gap: 10 },
   methodChip: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minHeight: 46, paddingHorizontal: 12, borderRadius: 12, backgroundColor: "#F4F6F5", borderWidth: 1, borderColor: "transparent" },
   methodChipActive: { borderColor: "#076B51", backgroundColor: "#EFF7F3" },
-  methodText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  methodText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#151E1B" },
   stepRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  stepText: { flex: 1, fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B", lineHeight: 19 },
+  stepText: { flex: 1, fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#151E1B", lineHeight: 19 },
   sectionRow: { gap: 8, paddingRight: 8 },
   sectionTab: { minHeight: 38, paddingHorizontal: 14, borderRadius: 19, backgroundColor: "#EEF2F0", alignItems: "center", justifyContent: "center" },
   sectionTabActive: { backgroundColor: "#076B51" },
-  sectionTabText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#3E5148" },
+  sectionTabText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#3E5148" },
   sectionTabTextActive: { color: "#FFFFFF" },
   tileRow: { flexDirection: "row", gap: 8 },
   tile: { alignItems: "center", gap: 4, paddingHorizontal: 6 },
-  tileCount: { fontSize: 22, fontFamily: "Manrope-ExtraBold", color: "#076B51" },
-  tileLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#5B6D64", textAlign: "center" },
+  tileCount: { fontSize: 22, fontFamily: "Inter_700Bold", color: "#076B51" },
+  tileLabel: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#5B6D64", textAlign: "center" },
   wholesaleCard: { gap: 6, backgroundColor: "#F4F6F5" },
-  wholesaleTitle: { fontSize: 12, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
+  wholesaleTitle: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#12221A" },
   previewRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
-  fieldHint: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
-  previewValue: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  fieldHint: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", color: "#6A7B72" },
+  previewValue: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#151E1B" },
   wholesaleTotalRow: { borderTopWidth: 1, borderTopColor: "#E1E7E3", paddingTop: 6, marginTop: 2 },
-  wholesaleTotalLabel: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
-  wholesaleTotalValue: { fontSize: 13, fontFamily: "Manrope-ExtraBold", color: "#076B51" },
+  wholesaleTotalLabel: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#151E1B" },
+  wholesaleTotalValue: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#076B51" },
   introCard: { alignItems: "center", gap: 8 },
-  introTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#151E1B" },
-  introBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", textAlign: "center", lineHeight: 19 },
-  formLabel: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#4A5A52" },
+  introTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#151E1B" },
+  introBody: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#6A7B72", textAlign: "center", lineHeight: 19 },
+  formLabel: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#4A5A52" },
   bannerCard: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  bannerText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#4A5A52", lineHeight: 17 },
-  errorText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#D6552F", textAlign: "center" },
-  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", textAlign: "center", paddingVertical: 8 },
-  section: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
+  bannerText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", color: "#4A5A52", lineHeight: 17 },
+  errorText: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#D6552F", textAlign: "center" },
+  emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#6A7B72", textAlign: "center", paddingVertical: 8 },
+  section: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#12221A" },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  cardTitle: { flex: 1, fontSize: 14, fontFamily: "Manrope-Bold", color: "#151E1B" },
-  cardDescription: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#4A5A52", lineHeight: 17 },
-  cardMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  cardTitle: { flex: 1, fontSize: 14, fontFamily: "Inter_700Bold", color: "#151E1B" },
+  cardDescription: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#4A5A52", lineHeight: 17 },
+  cardMeta: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#6A7B72" },
   acceptBtn: { minHeight: 42, borderRadius: 12, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center", marginTop: 6 },
-  acceptBtnText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  acceptBtnText: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   proposeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: "#076B51", marginTop: 6 },
-  proposeBtnText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  proposeBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#076B51" },
   committedRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
   acceptedCard: { gap: 4, marginTop: 6 },
-  acceptedMeta: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72" },
-  committedText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#076B51" },
+  acceptedMeta: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#6A7B72" },
+  committedText: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#076B51" },
   declinedRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 4 },
-  declinedText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", lineHeight: 16 },
+  declinedText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", color: "#6A7B72", lineHeight: 16 },
   decisionRow: { flexDirection: "row", gap: 8, marginTop: 6 },
   declineBtn: { flex: 1, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: "#D6552F", alignItems: "center", justifyContent: "center" },
-  declineBtnText: { fontSize: 12, fontFamily: "Manrope-Bold", color: "#D6552F" },
+  declineBtnText: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#D6552F" },
   declineConfirmBtn: { minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: "#D6552F", alignItems: "center", justifyContent: "center" },
   inlineForm: { gap: 8, marginTop: 6, borderTopWidth: 1, borderTopColor: "#F0F0F0", paddingTop: 10 },
-  input: { backgroundColor: "#F4F6F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 13, fontFamily: "Outfit-Regular", color: "#151E1B" },
+  input: { backgroundColor: "#F4F6F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 13, fontFamily: "Inter_400Regular", color: "#151E1B" },
   inputMultiline: { minHeight: 60, textAlignVertical: "top" },
-  hint: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194" },
+  hint: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#8AA194" },
   declineReasonRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 },
-  declineReasonText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#151E1B" },
-  linkText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  declineReasonText: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#151E1B" },
+  linkText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#076B51" },
 });
+
+export default function VendorCommunityBuySupplierScreen() {
+  return (
+    <InterScope value={true}>
+      <VendorCommunityBuySupplierScreenInner />
+    </InterScope>
+  );
+}

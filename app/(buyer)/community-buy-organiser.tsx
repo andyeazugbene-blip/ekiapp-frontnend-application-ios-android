@@ -17,6 +17,7 @@ import {
   PrimaryButton,
   RangeProgressBar,
   premiumStyles,
+  InterScope,
 } from "../../components/shared/PremiumBlocks";
 import {
   communityBuyService,
@@ -41,7 +42,7 @@ function ResponsibilityRow({ icon, text }: { icon: React.ComponentProps<typeof I
   );
 }
 
-export default function CommunityBuyOrganiserScreen() {
+function CommunityBuyOrganiserScreenInner() {
   const router = useRouter();
   const { from } = useLocalSearchParams<{ from?: string }>();
   const fromVendor = from === "vendor";
@@ -250,22 +251,30 @@ export default function CommunityBuyOrganiserScreen() {
 
 const styles = StyleSheet.create({
   introCard: { alignItems: "center", gap: 8 },
-  introTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#151E1B" },
-  introBody: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", textAlign: "center", lineHeight: 19 },
+  introTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#151E1B" },
+  introBody: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#6A7B72", textAlign: "center", lineHeight: 19 },
   applyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  applyRowText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
-  emptyText: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72", textAlign: "center", paddingVertical: 8 },
-  section: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
+  applyRowText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#151E1B" },
+  emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#6A7B72", textAlign: "center", paddingVertical: 8 },
+  section: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#12221A" },
   cardTop: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-  cardTitle: { flex: 1, fontSize: 14, fontFamily: "Manrope-Bold", color: "#151E1B" },
-  cardStatus: { fontSize: 11, fontFamily: "Manrope-SemiBold", color: "#076B51" },
-  cardMeta: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
-  cardNextAction: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#076B51", marginTop: 2 },
-  reviewNotes: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#D6552F", marginTop: 4 },
-  responsibilitiesTitle: { fontSize: 13, fontFamily: "Manrope-ExtraBold", color: "#12221A" },
+  cardTitle: { flex: 1, fontSize: 14, fontFamily: "Inter_700Bold", color: "#151E1B" },
+  cardStatus: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#076B51" },
+  cardMeta: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#6A7B72" },
+  cardNextAction: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#076B51", marginTop: 2 },
+  reviewNotes: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#D6552F", marginTop: 4 },
+  responsibilitiesTitle: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#12221A" },
   responsibilityRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
-  responsibilityText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#4A5A52", lineHeight: 17 },
+  responsibilityText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", color: "#4A5A52", lineHeight: 17 },
   restrictedCard: { flexDirection: "row", gap: 10, alignItems: "flex-start", backgroundColor: "rgba(214,85,47,0.08)" },
-  restrictedTitle: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
-  restrictedBody: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", lineHeight: 17, marginTop: 2 },
+  restrictedTitle: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#151E1B" },
+  restrictedBody: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#6A7B72", lineHeight: 17, marginTop: 2 },
 });
+
+export default function CommunityBuyOrganiserScreen() {
+  return (
+    <InterScope value={true}>
+      <CommunityBuyOrganiserScreenInner />
+    </InterScope>
+  );
+}

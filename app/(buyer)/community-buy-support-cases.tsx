@@ -20,7 +20,7 @@ import {
   type SupportCaseType,
 } from "../../services/communityBuyService";
 
-const CASE_TYPES: SupportCaseType[] = ["PAYMENT_ISSUE", "REFUND_ISSUE", "FULFILMENT_ISSUE", "ORGANISER_CONDUCT", "SUPPLIER_CONDUCT", "OTHER"];
+const CASE_TYPES: SupportCaseType[] = ["PRODUCT_QUALITY", "PAYMENT_ISSUE", "REFUND_ISSUE", "FULFILMENT_ISSUE", "ORGANISER_CONDUCT", "SUPPLIER_CONDUCT", "OTHER"];
 
 const STATUS_TONE: Record<string, Tone> = {
   OPEN: "warning",

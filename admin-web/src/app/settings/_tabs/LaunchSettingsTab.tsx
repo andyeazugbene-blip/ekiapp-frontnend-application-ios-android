@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Badge, Button, Card, ErrorPanel, LoadingPanel } from "@/components/AdminUI";
 import { Banner, formatDateTime, useConfirm } from "@/components/AdminKit";
 import { usePermissions } from "@/lib/hooks/usePermissions";
@@ -65,6 +66,9 @@ export default function LaunchSettingsTab({ currentAdminId }: { currentAdminId?:
     <div className="space-y-5">
       <Banner tone="info" title="Launch decisions">
         Defaults come from the client documents, shown under each setting. A change applies straight away and needs a reason and a 2FA code.
+      </Banner>
+      <Banner tone="info" title="Decisions set elsewhere">
+        <Link className="font-bold underline" href="/community-markets">Community Buy markets</Link> set the payment mode (pledges or verified card holds), the organiser fee, commission and buyer service fee. <Link className="font-bold underline" href="/subscription-plans">Vendor plans</Link> set the monthly vendor price.
       </Banner>
       {notice ? <Banner tone="success">{notice}</Banner> : null}
       {groups.map(([group, rows]) => (

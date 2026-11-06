@@ -96,6 +96,31 @@ export default function VendorRegularDeliveriesScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [priceDraft, setPriceDraft] = useState<{ renewalId: string; itemId: string; price: string; reason: string } | null>(null);
+
+  const submitPrice = async () => {
+    if (!priceDraft) return;
+    const newUnitPrice = Math.round(parseFloat(priceDraft.price) * 100);
+    if (!Number.isFinite(newUnitPrice) || newUnitPrice <= 0) {
+      Alert.alert("Enter a price", "Enter the new price for one unit.");
+      return;
+    }
+    if (!priceDraft.reason.trim()) {
+      Alert.alert("Add a reason", "The buyer sees this reason if they need to approve the price.");
+      return;
+    }
+    setBusyId(priceDraft.renewalId);
+    try {
+      const result = await regularDeliveriesService.proposeRenewalPrice(priceDraft.renewalId, { itemId: priceDraft.itemId, newUnitPrice, reason: priceDraft.reason.trim() });
+      setPriceDraft(null);
+      Alert.alert("Price updated for this renewal", result.approvalRequired ? "This is above the buyer's approval limit, so they must approve it before payment." : "This is within the buyer's approval limit. It doesn't need their approval.");
+      await load();
+    } catch (err) {
+      Alert.alert("Couldn't update the price", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -412,6 +437,30 @@ export default function VendorRegularDeliveriesScreen() {
                         <TouchableOpacity disabled={busyId === r.id} onPress={() => void confirmStock(r.id)} style={[styles.smallBtn, { alignSelf: "flex-start", marginTop: 10 }]} accessibilityRole="button">
                           {busyId === r.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.smallBtnText}>Confirm stock</Text>}
                         </TouchableOpacity>
+                      ) : null}
+                      {(r.status === "AWAITING_STOCK" || r.status === "READY_FOR_PAYMENT") && r.items?.length ? (
+                        priceDraft?.renewalId === r.id ? (
+                          <View style={{ gap: 8, marginTop: 10 }}>
+                            <Text style={styles.cardMeta}>Change a price for this renewal only</Text>
+                            {r.items.map((item) => (
+                              <TouchableOpacity key={item.id} onPress={() => setPriceDraft({ ...priceDraft, itemId: item.id, price: (item.currentUnitPrice / 100).toFixed(2) })} accessibilityRole="radio" accessibilityState={{ selected: priceDraft.itemId === item.id }}>
+                                <Text style={[styles.cardMeta, priceDraft.itemId === item.id ? { color: "#076B51", fontFamily: "Inter_600SemiBold" } : null]}>{item.product?.title ?? "Item"} · {money(item.currentUnitPrice, r.currency)}</Text>
+                              </TouchableOpacity>
+                            ))}
+                            <TextInput value={priceDraft.price} onChangeText={(price) => setPriceDraft({ ...priceDraft, price })} keyboardType="decimal-pad" placeholder="New unit price" placeholderTextColor="#8AA194" style={styles.searchInput} accessibilityLabel="New unit price" />
+                            <TextInput value={priceDraft.reason} onChangeText={(reason) => setPriceDraft({ ...priceDraft, reason })} placeholder="Reason for the change" placeholderTextColor="#8AA194" style={styles.searchInput} accessibilityLabel="Reason for the change" />
+                            <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
+                              <TouchableOpacity disabled={busyId === r.id} onPress={() => void submitPrice()} style={styles.smallBtn} accessibilityRole="button">
+                                {busyId === r.id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.smallBtnText}>Save price</Text>}
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => setPriceDraft(null)} accessibilityRole="button"><Text style={styles.cardMeta}>Cancel</Text></TouchableOpacity>
+                            </View>
+                          </View>
+                        ) : (
+                          <TouchableOpacity onPress={() => setPriceDraft({ renewalId: r.id, itemId: r.items[0].id, price: (r.items[0].currentUnitPrice / 100).toFixed(2), reason: "" })} style={{ marginTop: 10 }} accessibilityRole="button">
+                            <Text style={[styles.cardMeta, { color: "#076B51" }]}>Change price</Text>
+                          </TouchableOpacity>
+                        )
                       ) : null}
                     </FloatingCard>
                   ))

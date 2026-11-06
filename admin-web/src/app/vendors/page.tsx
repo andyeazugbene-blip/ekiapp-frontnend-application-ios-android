@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import SavedViews from "@/components/SavedViews";
 import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader, downloadCsv } from "@/components/AdminUI";
 import {
   Banner, DataTable, FilterSelect, Pagination, QueueTile, SearchInput, formatDate, formatMinor, type Column,
@@ -206,6 +207,7 @@ function VendorsInner() {
           </>
         }
       />
+      <SavedViews />
 
       {showInvite ? (
         <Card className="flex flex-col gap-3 sm:flex-row sm:items-center">

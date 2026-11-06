@@ -31,6 +31,7 @@ const CASE_TYPE_LABEL: Record<string, string> = {
   FULFILMENT_ISSUE: "Fulfilment issue",
   ORGANISER_CONDUCT: "Organiser conduct",
   SUPPLIER_CONDUCT: "Supplier conduct",
+  PRODUCT_QUALITY: "Product quality",
   OTHER: "Other",
 };
 

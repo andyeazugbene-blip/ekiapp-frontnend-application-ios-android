@@ -38,7 +38,7 @@ export type CampaignStatus =
   | "AWAITING_SUPPLIER_RECONFIRMATION"
   | "PAYMENT_CAPTURE";
 
-export type FundingOutcome = "PENDING" | "GOAL_REACHED" | "MINIMUM_REACHED" | "BELOW_MINIMUM";
+export type FundingOutcome = "PENDING" | "GOAL_REACHED" | "MINIMUM_REACHED" | "BELOW_MINIMUM" | "MAXIMUM_REACHED";
 
 export type StatusTone = "success" | "warning" | "error" | "info" | "neutral";
 
@@ -687,7 +687,7 @@ export interface OrganiserPayout {
   holdReason?: string | null;
 }
 
-export type SupportCaseType = "PAYMENT_ISSUE" | "REFUND_ISSUE" | "FULFILMENT_ISSUE" | "ORGANISER_CONDUCT" | "SUPPLIER_CONDUCT" | "OTHER";
+export type SupportCaseType = "PRODUCT_QUALITY" | "PAYMENT_ISSUE" | "REFUND_ISSUE" | "FULFILMENT_ISSUE" | "ORGANISER_CONDUCT" | "SUPPLIER_CONDUCT" | "OTHER";
 export type SupportCaseStatus = "OPEN" | "IN_PROGRESS" | "ESCALATED" | "RESOLVED" | "CLOSED";
 
 export interface SupportCase {
@@ -710,6 +710,7 @@ export const SUPPORT_CASE_TYPE_LABELS: Record<SupportCaseType, string> = {
   FULFILMENT_ISSUE: "Fulfilment issue",
   ORGANISER_CONDUCT: "Organiser conduct",
   SUPPLIER_CONDUCT: "Supplier conduct",
+  PRODUCT_QUALITY: "Product quality",
   OTHER: "Other",
 };
 
@@ -808,6 +809,7 @@ export type FulfilmentEventType =
   | "COLLECTED"
   | "COMPLETED"
   | "EXCEPTION"
+  | "EVIDENCE_ADDED"
   | "PARTICIPANT_RECEIPT_CONFIRMED"
   | "PARTICIPANT_PROBLEM_REPORTED";
 
@@ -1285,8 +1287,13 @@ export const communityBuyService = {
   },
 
   /** M5 — an informational overlay; never changes fulfilment.status itself. */
-  async reportFulfilmentException(campaignId: string, note: string): Promise<{ recorded: true }> {
-    return apiClient.post(`/api/supplier/campaigns/${campaignId}/fulfilment/exception`, { note });
+  async reportFulfilmentException(campaignId: string, note: string, kind?: "PARTIALLY_FULFILLED" | "DELIVERY_PROBLEM"): Promise<{ recorded: true }> {
+    return apiClient.post(`/api/supplier/campaigns/${campaignId}/fulfilment/exception`, { note, kind });
+  },
+
+  /** CB74: a photo or document supporting the packing record. */
+  async addFulfilmentEvidence(campaignId: string, url: string): Promise<{ recorded: true }> {
+    return apiClient.post(`/api/supplier/campaigns/${campaignId}/fulfilment/evidence`, { url });
   },
 
   // ─── Phase 6 (delivery + collection/tracking) ────────────────────────

@@ -158,7 +158,8 @@ function normalizeZone(raw: any): DeliveryZone {
     currency: (raw.currency ?? COUNTRY_CURRENCY[countryCode]).toUpperCase(),
     costPerKg: typeof raw.feePerKgAmount === "number" ? raw.feePerKgAmount / 100 : raw.costPerKg ?? 0,
     minimumFee: typeof raw.baseFeeAmount === "number" ? raw.baseFeeAmount / 100 : raw.minimumFee ?? 0,
-    maxWeightKg: raw.maxWeightKg ?? 30,
+    // 0 means no limit.
+    maxWeightKg: typeof raw.maxWeightGrams === "number" ? raw.maxWeightGrams / 1000 : 0,
     estimatedDays: raw.estimatedDays ?? "5-10 days",
     notes: raw.notes,
     active: raw.isActive ?? raw.active ?? true,
@@ -173,6 +174,7 @@ function toBackendZoneInput(input: DeliveryZoneInput): Record<string, unknown> {
     country: input.country,
     baseFeeAmount: Math.round((input.minimumFee ?? 0) * 100),
     feePerKgAmount: Math.round((input.costPerKg ?? 0) * 100),
+    maxWeightGrams: input.maxWeightKg > 0 ? Math.round(input.maxWeightKg * 1000) : null,
     currency: (input.currency ?? COUNTRY_CURRENCY[input.countryCode]).toLowerCase(),
     isActive: input.active ?? true,
   };
@@ -186,6 +188,7 @@ function toBackendZonePatch(patch: Partial<DeliveryZoneInput>): Record<string, u
   }
   if (patch.minimumFee !== undefined) backendPatch.baseFeeAmount = Math.round(patch.minimumFee * 100);
   if (patch.costPerKg !== undefined) backendPatch.feePerKgAmount = Math.round(patch.costPerKg * 100);
+  if (patch.maxWeightKg !== undefined) backendPatch.maxWeightGrams = patch.maxWeightKg > 0 ? Math.round(patch.maxWeightKg * 1000) : null;
   if (patch.currency !== undefined) backendPatch.currency = patch.currency.toLowerCase();
   if (patch.active !== undefined) backendPatch.isActive = patch.active;
   return backendPatch;

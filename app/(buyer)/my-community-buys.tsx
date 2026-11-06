@@ -15,6 +15,7 @@ import {
   RangeProgressBar,
   StatusPill,
   premiumStyles,
+  InterScope,
 } from "../../components/shared/PremiumBlocks";
 import {
   communityBuyService,
@@ -48,7 +49,7 @@ function formatRefundReference(refundId: string): string {
   return `RF-${tail}`;
 }
 
-export default function MyCommunityBuysScreen() {
+function MyCommunityBuysScreenInner() {
   const router = useRouter();
   const { selectedCurrency } = useCurrencyStore();
   const [items, setItems] = useState<MyCommunityBuy[]>([]);
@@ -188,10 +189,18 @@ export default function MyCommunityBuysScreen() {
 const styles = StyleSheet.create({
   headerIconBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
   exploreButton: { marginTop: 4, height: 48, borderRadius: 16, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
-  exploreButtonText: { color: "#FFFFFF", fontSize: 14, fontFamily: "Manrope-Bold" },
+  exploreButtonText: { color: "#FFFFFF", fontSize: 14, fontFamily: "Inter_700Bold" },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  cardTitle: { flex: 1, fontSize: 15, fontFamily: "Manrope-Bold", color: "#151E1B" },
-  cardVendor: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72" },
+  cardTitle: { flex: 1, fontSize: 15, fontFamily: "Inter_700Bold", color: "#151E1B" },
+  cardVendor: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#6A7B72" },
   cardMetaRow: { flexDirection: "row", justifyContent: "space-between" },
-  cardMetaText: { fontSize: 12, fontFamily: "Outfit-Medium", color: "#151E1B" },
+  cardMetaText: { fontSize: 12, fontFamily: "Inter_500Medium", color: "#151E1B" },
 });
+
+export default function MyCommunityBuysScreen() {
+  return (
+    <InterScope value={true}>
+      <MyCommunityBuysScreenInner />
+    </InterScope>
+  );
+}

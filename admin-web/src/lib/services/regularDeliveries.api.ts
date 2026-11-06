@@ -152,6 +152,8 @@ export interface SubscriptionDetail {
   offer: { id: string; title: string; frequencies: string[]; fulfilmentMethod: string; substitutionMode: string; discountPercent: number | null; renewalsPaused: boolean };
   recipient: { line1: string; city: string; country: string };
   paymentMethod: { id: string; brand: string | null; last4: string | null } | null;
+  paymentAuthorisation: "valid" | "not_recorded" | "expired";
+  recurringConsentAt: string | null;
   basket: { id: string; productId: string; title: string; quantity: number; unitAmount: number; lineAmount: number; currency: string; stockAvailable: boolean; stock: number; productActive: boolean }[];
   money: { currency: string | null; basketSubtotal: number; latestSubtotal: number | null; latestDeliveryFee: number | null; paymentState: SubscriptionRow["paymentState"]; latestFailureReason: string | null; nextRetryAt: string | null };
   renewals: {

@@ -118,7 +118,7 @@ export default function DeliverySummaryScreen() {
           </View>
           <View style={styles.detailCol}>
             <Text style={styles.detailLabel}>Max order weight:</Text>
-            <Text style={styles.detailValue}>{zone.maxWeightKg}kg</Text>
+            <Text style={styles.detailValue}>{zone.maxWeightKg > 0 ? `${zone.maxWeightKg}kg` : "No limit"}</Text>
           </View>
           <View style={styles.detailCol}>
             <Text style={styles.detailLabel}>Delivery estimate:</Text>

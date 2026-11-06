@@ -125,6 +125,9 @@ export interface RegularDeliveryInsights {
   upcomingRenewalsNext7Days: number;
   renewalSuccessRate?: number | null;
   mostSubscribedProduct?: string | null;
+  completedRenewals?: number;
+  skippedRenewals?: number;
+  paymentFailures?: number;
 }
 
 export interface SubscriptionItem {
@@ -162,6 +165,7 @@ export interface Renewal {
   }[];
   subscription?: { buyer?: { name: string } };
   orderId?: string | null;
+  priceChangeRequest?: { reason?: string | null; proposedByVendor?: boolean } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -176,6 +180,7 @@ export interface BuyerSubscription {
   frequency: SubscriptionFrequency;
   deliveryAddressId: string;
   paymentMethodId: string;
+  paymentMethod?: { brand?: string | null; last4?: string | null } | null;
   nextRenewalAt?: string | null;
   pausedUntil?: string | null;
   /** "payment_failed" when paused by the payment-recovery flow; "buyer" / "admin" otherwise. */
@@ -441,6 +446,11 @@ export const regularDeliveriesService = {
   },
   async resolveStockShortage(productId: string, mode: "earliest" | "pause"): Promise<{ confirmed?: number; waiting?: number; paused?: number }> {
     return apiClient.post(`/api/vendor/stock-shortages/${productId}/resolve`, { mode });
+  },
+
+  /** S18: changes one item's price on this renewal only. Above the buyer's limit, they must approve it. */
+  async proposeRenewalPrice(renewalId: string, input: { itemId: string; newUnitPrice: number; reason: string }): Promise<{ approvalRequired: boolean; percentageChange: number }> {
+    return apiClient.post(`/api/renewals/${renewalId}/propose-price`, input);
   },
 
   async confirmRenewalStock(renewalId: string): Promise<Renewal> {

@@ -317,7 +317,9 @@ export default function CommunityBuyCampaignScreen() {
             <FloatingCard style={styles.outcomeCard}>
               <Ionicons name="checkmark-circle-outline" size={20} color="#076B51" />
               <Text style={styles.outcomeText}>
-                {campaign.fundingOutcome === "GOAL_REACHED"
+                {campaign.fundingOutcome === "MAXIMUM_REACHED"
+                  ? "This campaign reached its maximum quantity and closed. The supplier order is now being prepared."
+                  : campaign.fundingOutcome === "GOAL_REACHED"
                   ? "The campaign reached its goal. The supplier order is now being prepared."
                   : "The campaign succeeded. The campaign reached its supplier-approved minimum. The supplier order is now being prepared for the confirmed quantity."}
               </Text>

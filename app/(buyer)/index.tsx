@@ -458,9 +458,9 @@ export default function BuyerHomeScreen() {
         {vendors.length > 0 ? (
           <View style={styles.sectionBlock}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitleInline}>New vendors</Text>
+              <Text style={styles.sectionTitleInline}>Featured stores</Text>
               <TouchableOpacity
-                onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "vendors", sort: "newest" } } as any)}
+                onPress={() => router.push({ pathname: "/(buyer)/explore", params: { view: "vendors", sort: "popular" } } as any)}
                 activeOpacity={0.8}
               >
                 <Text style={styles.viewAllText}>View All</Text>

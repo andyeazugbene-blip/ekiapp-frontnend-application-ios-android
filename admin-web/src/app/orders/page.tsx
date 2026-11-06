@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import SavedViews from "@/components/SavedViews";
 import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader, downloadCsv } from "@/components/AdminUI";
 import { DataTable, FilterSelect, Pagination, SearchInput, formatDateTime, formatMinor, type Column } from "@/components/AdminKit";
 import { APIError } from "@/lib/api";
@@ -69,6 +70,7 @@ function OrdersInner() {
           status: o.status, payment: o.payment?.status ?? "", placed: o.createdAt,
         })))}>Export page (CSV)</Button>}
       />
+      <SavedViews />
       {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
       <Card className="space-y-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">

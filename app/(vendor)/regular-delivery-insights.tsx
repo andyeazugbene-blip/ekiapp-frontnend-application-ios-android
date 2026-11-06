@@ -97,6 +97,21 @@ export default function RegularDeliveryInsightsScreen() {
                     <Text style={styles.metricLabel}>Renewal success rate</Text>
                   </FloatingCard>
                 ) : null}
+                <FloatingCard style={styles.metricCard}>
+                  <IconAvatar icon="checkmark-done-outline" tone="success" />
+                  <Text style={styles.metricValue}>{insights.completedRenewals ?? 0}</Text>
+                  <Text style={styles.metricLabel}>Completed renewals</Text>
+                </FloatingCard>
+                <FloatingCard style={styles.metricCard}>
+                  <IconAvatar icon="play-skip-forward-outline" tone="neutral" />
+                  <Text style={styles.metricValue}>{insights.skippedRenewals ?? 0}</Text>
+                  <Text style={styles.metricLabel}>Skipped renewals</Text>
+                </FloatingCard>
+                <FloatingCard style={styles.metricCard}>
+                  <IconAvatar icon="card-outline" tone="error" />
+                  <Text style={styles.metricValue}>{insights.paymentFailures ?? 0}</Text>
+                  <Text style={styles.metricLabel}>Payment failures</Text>
+                </FloatingCard>
                 {insights.mostSubscribedProduct ? (
                   <FloatingCard style={styles.metricCard}>
                     <IconAvatar icon="star-outline" tone="info" />
