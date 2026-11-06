@@ -63,7 +63,7 @@ export interface VendorDashboardData {
    * fields above. Optional here because older cached/mocked responses in
    * tests may not include them; real backend responses always do.
    */
-  recommended_action?: { id: string; type: string; label: string; reason: string } | null;
+  recommended_action?: { id: string; type: string; label: string; reason: string; route?: string } | null;
   marketing_tools?: { id: string; type: string; label: string; route: string; count?: number }[];
   business_tools?: { id: string; type: string; label: string; route: string; count?: number }[];
   business_counts?: { products: number; orders: number; buyers: number; lowStock: number };

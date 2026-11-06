@@ -1,4 +1,4 @@
-import React from "react";
+import React, { createContext, useContext } from "react";
 import { ActivityIndicator, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -54,6 +54,10 @@ export function IconAvatar({
   );
 }
 
+/** Phase 1's design rule: its new screens use Inter. Wrap a screen in this and the shared pieces follow. */
+const InterContext = createContext(false);
+export const InterScope = InterContext.Provider;
+
 export function PrimaryButton({
   label,
   onPress,
@@ -70,6 +74,7 @@ export function PrimaryButton({
   style?: StyleProp<ViewStyle>;
 }) {
   const isDisabled = disabled || loading;
+  const inter = useContext(InterContext);
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -85,7 +90,7 @@ export function PrimaryButton({
       ) : (
         <>
           {icon ? <Ionicons name={icon} size={16} color="#FFFFFF" style={{ marginRight: 8 }} /> : null}
-          <Text style={btnStyles.primaryText}>{label}</Text>
+          <Text style={[btnStyles.primaryText, inter && { fontFamily: "Inter_700Bold" }]}>{label}</Text>
         </>
       )}
     </TouchableOpacity>
@@ -111,6 +116,7 @@ export function OutlineButton({
 }) {
   const isDisabled = disabled || loading;
   const color = tone === "error" ? "#D6552F" : "#076B51";
+  const inter = useContext(InterContext);
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -126,7 +132,7 @@ export function OutlineButton({
       ) : (
         <>
           {icon ? <Ionicons name={icon} size={16} color={color} style={{ marginRight: 8 }} /> : null}
-          <Text style={[btnStyles.outlineText, { color }]}>{label}</Text>
+          <Text style={[btnStyles.outlineText, { color }, inter && { fontFamily: "Inter_700Bold" }]}>{label}</Text>
         </>
       )}
     </TouchableOpacity>
@@ -257,6 +263,7 @@ export function PremiumHeader({
   right?: React.ReactNode;
   children?: React.ReactNode;
 }) {
+  const inter = useContext(InterContext);
   return (
     <SafeAreaView edges={["top"]} style={{ backgroundColor: HERO_BG }}>
       <View style={styles.hero}>
@@ -275,8 +282,8 @@ export function PremiumHeader({
               </TouchableOpacity>
             ) : null}
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroTitle}>{title}</Text>
-              {subtitle ? <Text style={styles.heroSubtitle}>{subtitle}</Text> : null}
+              <Text style={[styles.heroTitle, inter && { fontFamily: "Inter_700Bold" }]}>{title}</Text>
+              {subtitle ? <Text style={[styles.heroSubtitle, inter && { fontFamily: "Inter_500Medium" }]}>{subtitle}</Text> : null}
             </View>
           </View>
           {right}

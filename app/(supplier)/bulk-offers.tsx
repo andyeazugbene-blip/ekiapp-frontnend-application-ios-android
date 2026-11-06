@@ -13,6 +13,7 @@ import {
   ErrorState,
   FloatingCard,
   LoadingBlock,
+  InterScope,
   PremiumHeader,
   PrimaryButton,
   StatusPill,
@@ -391,6 +392,7 @@ export default function BulkOffersScreen() {
     ) : null;
 
   return (
+    <InterScope value={true}>
     <View style={premiumStyles.page}>
       <PremiumHeader title="Supply bulk orders" onBack={goBack} />
       {loading && offers.length === 0 && step === "list" ? (
@@ -406,6 +408,7 @@ export default function BulkOffersScreen() {
         </ScrollView>
       )}
     </View>
+    </InterScope>
   );
 }
 

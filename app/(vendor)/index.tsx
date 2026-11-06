@@ -477,18 +477,23 @@ export default function VendorDashboardScreen() {
             )}
 
             {data?.state === "NO_SALE" ? renderFirstOrder() : null}
-            {/* Handbook 8.6: the invite prompt only appears after a real sale. */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => navigate(data?.state === "NO_SALE" ? "/(vendor)/first-sale-campaign" : "/(vendor)/referrals")}
-              style={styles.growthRow}
-              accessibilityRole="button"
-              accessibilityLabel={data?.state === "NO_SALE" ? "First Sale Campaign" : "Invite other vendors"}
-            >
-              <Ionicons name={data?.state === "NO_SALE" ? "rocket-outline" : "person-add-outline"} size={20} color="#076B51" />
-              <Text style={styles.growthRowText}>{data?.state === "NO_SALE" ? "First Sale Campaign" : "Invite other vendors"}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
-            </TouchableOpacity>
+            {/* Module 15: one next step, worked out by the server. The invite only appears after a real sale. */}
+            {data?.recommended_action?.route ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => navigate(data.recommended_action!.route!)}
+                style={styles.growthRow}
+                accessibilityRole="button"
+                accessibilityLabel={data.recommended_action.label}
+              >
+                <Ionicons name="sparkles-outline" size={20} color="#076B51" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.growthRowText}>{data.recommended_action.label}</Text>
+                  <Text style={styles.growthRowReason}>{data.recommended_action.reason}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#C7D2CB" />
+              </TouchableOpacity>
+            ) : null}
             {/* ── Your Sales (live earnings) ──────────────────────────── */}
             <Text style={styles.section}>Your Sales</Text>
             <View style={styles.salesGrid}>
@@ -1196,7 +1201,8 @@ const styles = StyleSheet.create({
   },
   // ── Section title ────────────────────────────────────────────────────
   growthRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14, marginHorizontal: 16, marginBottom: 12, borderRadius: 14, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E4EDE8" },
-  growthRowText: { flex: 1, fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#102118" },
+  growthRowText: { fontSize: 14, fontFamily: "Manrope-SemiBold", color: "#102118" },
+  growthRowReason: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: 2 },
   section: {
     color: "#1A1A1A",
     fontSize: 18,
