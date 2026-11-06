@@ -399,7 +399,7 @@ export default function RegularDeliveryDetailScreen() {
                 <Text style={styles.sectionTitle}>Products</Text>
                 {(isActive || isPaused) && !editingItems ? (
                   <TouchableOpacity onPress={startEditingItems} activeOpacity={0.85}>
-                    <Text style={styles.editLink}>Edit</Text>
+                    <Text style={styles.editLink}>Edit your basket</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -438,7 +438,7 @@ export default function RegularDeliveryDetailScreen() {
               {editingItems ? (
                 <View style={{ marginTop: 10 }}>
                   {itemsError ? <Text style={styles.itemsErrorText}>{itemsError}</Text> : null}
-                  <Text style={styles.editHint}>Set a product to 0 to remove it. Changes apply from your next renewal.</Text>
+                  <Text style={styles.editHint}>Set a product to 0 to remove it. Changes apply from the next unpaid renewal.</Text>
                   <View style={styles.editActionsRow}>
                     <TouchableOpacity onPress={cancelEditingItems} disabled={savingItems} activeOpacity={0.85} style={styles.editCancelBtn}>
                       <Text style={styles.editCancelBtnText}>Cancel</Text>
@@ -455,11 +455,11 @@ export default function RegularDeliveryDetailScreen() {
               {isActive ? (
                 <>
                   <ActionButton icon="pause-outline" label="Pause" busy={actionBusy === "pause"} onPress={() => setShowPauseSheet(true)} />
-                  <ActionButton icon="play-skip-forward-outline" label="Skip next" busy={actionBusy === "skip"} onPress={() => Alert.alert("Skip your next delivery?", `You will not be charged for the renewal scheduled for ${formatDate(sub.nextRenewalAt)}.`, [
+                  <ActionButton icon="play-skip-forward-outline" label="Skip next" busy={actionBusy === "skip"} onPress={() => Alert.alert("Skip your next delivery?", `You will not be charged for the delivery scheduled for ${formatDate(sub.nextRenewalAt)}.`, [
                     { text: "Keep it", style: "cancel" },
                     { text: "Skip this delivery", onPress: () => void runAction("skip", async () => {
                       const result = await regularDeliveriesService.skipNextRenewal(sub.id);
-                      Alert.alert("Your next delivery has been skipped", "You will not be charged for it. Your Foodstuff Subscription remains active.");
+                      Alert.alert("Your next delivery has been skipped", result?.nextRenewalAt ? `You will not be charged for it. Your following delivery remains scheduled for ${formatDate(result.nextRenewalAt)}.` : "You will not be charged for it. Your Foodstuff Subscription remains active.");
                       return result;
                     }) },
                   ])} />
@@ -569,7 +569,7 @@ export default function RegularDeliveryDetailScreen() {
 
             {showCardSheet ? (
               <FloatingCard style={{ gap: 12 }}>
-                <Text style={styles.sectionTitle}>Choose payment method</Text>
+                <Text style={styles.sectionTitle}>Change payment method</Text>
                 <Text style={styles.alertBody}>Choose another payment method for this renewal and future eligible renewals.</Text>
                 {cards.length === 0 ? (
                   <Text style={styles.alertBody}>No saved cards found. Add a card from your payment methods, then come back here.</Text>

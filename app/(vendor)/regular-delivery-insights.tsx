@@ -53,7 +53,10 @@ export default function RegularDeliveryInsightsScreen() {
               <LinearGradient colors={["#084E39", "#076B51", "#085F48"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.revenueHero}>
                 <Text style={styles.revenueLabel}>Renewal revenue · last 30 days</Text>
                 {insights.paidRenewalsLast30Days === 0 || insights.revenueLast30Days.length === 0 ? (
-                  <Text style={styles.revenueEmpty}>No paid renewals yet</Text>
+                  <>
+                    <Text style={styles.revenueEmpty}>No subscription insights yet</Text>
+                    <Text style={styles.revenueLabel}>Insights will appear after customers begin completing Foodstuff Subscription renewals.</Text>
+                  </>
                 ) : (
                   insights.revenueLast30Days.map((row) => (
                     <Text key={row.currency} style={styles.revenueValue}>{formatMoney(row.amount / 100, row.currency)}</Text>
@@ -87,6 +90,20 @@ export default function RegularDeliveryInsightsScreen() {
                   <Text style={styles.metricValue}>{insights.upcomingRenewalsNext7Days}</Text>
                   <Text style={styles.metricLabel}>Renewals due (7 days)</Text>
                 </FloatingCard>
+                {insights.renewalSuccessRate != null ? (
+                  <FloatingCard style={styles.metricCard}>
+                    <IconAvatar icon="checkmark-circle-outline" tone="success" />
+                    <Text style={styles.metricValue}>{insights.renewalSuccessRate}%</Text>
+                    <Text style={styles.metricLabel}>Renewal success rate</Text>
+                  </FloatingCard>
+                ) : null}
+                {insights.mostSubscribedProduct ? (
+                  <FloatingCard style={styles.metricCard}>
+                    <IconAvatar icon="star-outline" tone="info" />
+                    <Text style={styles.metricValue} numberOfLines={2}>{insights.mostSubscribedProduct}</Text>
+                    <Text style={styles.metricLabel}>Most subscribed foodstuff</Text>
+                  </FloatingCard>
+                ) : null}
               </View>
             </View>
           </View>

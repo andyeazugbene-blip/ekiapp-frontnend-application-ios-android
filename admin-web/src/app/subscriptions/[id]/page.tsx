@@ -139,7 +139,7 @@ function DetailInner({ id }: { id: string }) {
     {
       label: "Retry payment", show: canAct.retryPayment,
       run: () => confirm.ask({
-        title: "Retry the failed payment?", confirmLabel: "Retry payment", tone: "primary",
+        title: "Review payment retry", confirmLabel: "Start controlled retry", tone: "primary",
         description: "Uses the same safe charge flow as the automatic retries: it can never charge the buyer twice for one cycle.",
       }, async (reason) => { await subscriptionsAdminAPI.retryPayment(id, reason); await done("Payment retried. Check the timeline for the result.")(); }),
     },

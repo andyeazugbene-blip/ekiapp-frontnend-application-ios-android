@@ -4,11 +4,11 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { regularDeliveriesService, type PublicOfferSummary } from "../../services/regularDeliveriesService";
 
-const COPY = {
+const COPY: Record<"store" | "product" | "basket", { title: string; action: string; note?: string }> = {
   store: { title: "Foodstuff Subscription", action: "See this store's regular delivery offer" },
-  product: { title: "Receive regularly", action: "Set up a regular delivery of this product" },
+  product: { title: "Make this a Foodstuff Subscription", action: "Receive this foodstuff again on your preferred schedule.", note: "Pause, skip or cancel future renewals from your account." },
   basket: { title: "Make this a regular order", action: "Get these items delivered on a schedule" },
-} as const;
+};
 
 /** Offer's id plus the requested items it actually covers, or null if none. */
 export function findOfferFor(offers: PublicOfferSummary[], productIds: string[]): PublicOfferSummary | null {
@@ -58,6 +58,7 @@ export function RegularDeliveryEntry({ vendorId, mode, items = [] }: {
       <View style={{ flex: 1 }}>
         <Text style={styles.title}>{copy.title}</Text>
         <Text style={styles.action}>{copy.action}</Text>
+        {copy.note ? <Text style={styles.action}>{copy.note}</Text> : null}
       </View>
       <Ionicons name="chevron-forward" size={18} color="#8AA194" />
     </TouchableOpacity>

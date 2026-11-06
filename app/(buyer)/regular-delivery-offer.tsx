@@ -441,6 +441,12 @@ export default function RegularDeliveryOfferScreen() {
               </View>
               <Text style={styles.consentText}>I understand that this is a recurring subscription and future eligible renewals may be charged using my selected payment method.</Text>
             </TouchableOpacity>
+            {submitting ? (
+              <View>
+                <Text style={styles.sectionTitle}>Confirming your Foodstuff Subscription</Text>
+                <Text style={styles.consentText}>Please wait while we verify your payment and create your subscription.</Text>
+              </View>
+            ) : null}
             <PrimaryButton label="Confirm Foodstuff Subscription" onPress={() => void handleConfirm()} loading={submitting} />
           </>
         );

@@ -390,7 +390,7 @@ export default function VendorRegularDeliveriesScreen() {
                     <OutlineButton label="Review subscriptions individually" onPress={() => setTab("subscribers")} />
                   </FloatingCard>
                 ))}
-                <Text style={styles.sectionTitle}>Upcoming renewals</Text>
+                <Text style={styles.sectionTitle}>Confirm stock for upcoming renewals</Text>
                 <Text style={styles.cardMeta}>Confirm what you can supply before buyers are charged.</Text>
                 {renderFilterRow(Object.keys(RENEWAL_FILTERS), renewalFilter, setRenewalFilter)}
                 {visibleRenewals.length === 0 ? (

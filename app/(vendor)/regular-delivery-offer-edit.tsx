@@ -300,7 +300,7 @@ export default function VendorRegularDeliveryOfferEditScreen() {
                 <Text style={styles.sectionTitle}>Review Foodstuff Subscription offer</Text>
                 <Text style={styles.label}>Eligible foodstuff</Text><Text style={styles.fieldHint}>{selectedProductIds.size}</Text>
                 <Text style={styles.label}>Frequencies</Text><Text style={styles.fieldHint}>{Array.from(frequencies).map((f) => FREQUENCY_LABELS[f]).join(", ")}</Text>
-                <Text style={styles.label}>Foodstuff Subscription discount</Text><Text style={styles.fieldHint}>{useDiscount && discountPercent.trim() ? `${discountPercent.trim()}%` : "No discount"}</Text>
+                <Text style={styles.label}>Applied subscription discount</Text><Text style={styles.fieldHint}>{useDiscount && discountPercent.trim() ? `${discountPercent.trim()}%` : "No discount"}</Text>
                 <Text style={styles.label}>Fulfilment</Text><Text style={styles.fieldHint}>{FULFILMENT_METHOD_LABELS[fulfilmentMethod]}</Text>
                 <Text style={styles.label}>Preparation time</Text><Text style={styles.fieldHint}>{preparationHours.trim() ? `${preparationHours.trim()} hours` : "Not set"}</Text>
                 <Text style={styles.label}>Renewal cutoff</Text><Text style={styles.fieldHint}>{renewalCutoffHours.trim() ? `${renewalCutoffHours.trim()} days before renewal` : "Standard cutoff"}</Text>
@@ -328,7 +328,8 @@ export default function VendorRegularDeliveryOfferEditScreen() {
                 <TextInput style={[styles.input, styles.inputMultiline]} placeholder="Tell buyers what's included" placeholderTextColor="#8AA194" value={description} onChangeText={setDescription} multiline />
               </View>
               <View>
-                <Text style={styles.label}>Frequencies offered</Text>
+                <Text style={styles.label}>Choose delivery frequencies</Text>
+                <Text style={styles.fieldHint}>Select every frequency your store can support.</Text>
                 <View style={styles.chipRow}>
                   {ALL_FREQUENCIES.map((f) => (
                     <TouchableOpacity key={f} onPress={() => toggleFrequency(f)} activeOpacity={0.85} style={[styles.chip, frequencies.has(f) && styles.chipActive]}>
@@ -364,7 +365,7 @@ export default function VendorRegularDeliveryOfferEditScreen() {
             </View>
 
             <View>
-              <Text style={styles.sectionTitle}>Fulfilment rules</Text>
+              <Text style={styles.sectionTitle}>Set fulfilment rules</Text>
               <FloatingCard style={{ gap: 14 }}>
                 <View>
                   <Text style={styles.label}>Fulfilment method</Text>
@@ -411,7 +412,7 @@ export default function VendorRegularDeliveryOfferEditScreen() {
               <Text style={styles.fieldHint}>Select the products buyers can add to a Foodstuff Subscription.</Text>
               {products.length === 0 ? (
                 <FloatingCard>
-                  <Text style={styles.emptyProductsText}>Add products to your store first, then come back to build this offer.</Text>
+                  <Text style={styles.emptyProductsText}>No eligible foodstuff. Add available foodstuff before creating a Foodstuff Subscription offer.</Text>
                 </FloatingCard>
               ) : (
                 <FloatingCard style={{ padding: 0, overflow: "hidden" }}>
@@ -449,7 +450,7 @@ export default function VendorRegularDeliveryOfferEditScreen() {
             {pauseSheetProduct ? (
               <FloatingCard style={{ gap: 14 }}>
                 <Text style={styles.sectionTitle}>Pause &ldquo;{pauseSheetProduct.name}&rdquo;?</Text>
-                <Text style={styles.fieldHint}>It won&apos;t be included in any subscriber&apos;s next renewal until you resume it. Affected buyers will be notified.</Text>
+                <Text style={styles.fieldHint}>New subscriptions will be stopped and affected buyers will be notified. It won&apos;t be included in any subscriber&apos;s next renewal until you resume it.</Text>
                 <View>
                   <Text style={styles.label}>Reason (optional, shown to buyers)</Text>
                   <TextInput
@@ -470,7 +471,7 @@ export default function VendorRegularDeliveryOfferEditScreen() {
                 />
                 <OutlineButton label="Cancel" onPress={() => setPauseSheetProduct(null)} disabled={pausingProductId === pauseSheetProduct.id} />
                 <PrimaryButton
-                  label="Pause product"
+                  label="Pause this product"
                   onPress={() => void confirmPauseProduct()}
                   loading={pausingProductId === pauseSheetProduct.id}
                   disabled={pausingProductId === pauseSheetProduct.id}
