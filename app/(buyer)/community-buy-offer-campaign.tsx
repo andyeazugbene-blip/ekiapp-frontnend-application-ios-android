@@ -11,6 +11,7 @@ import {
   ErrorState,
   FloatingCard,
   LoadingBlock,
+  InterScope,
   PremiumHeader,
   PrimaryButton,
   premiumStyles,
@@ -354,6 +355,7 @@ export default function OfferCampaignScreen() {
   const body = { choose: renderChoose, details: renderDetails, review: renderReview, missing: renderMissing, live: renderLive, inReview: renderInReview }[step];
 
   return (
+    <InterScope value={true}>
     <View style={premiumStyles.page}>
       <PremiumHeader title="Create a Community Buy" onBack={goBack} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -363,6 +365,7 @@ export default function OfferCampaignScreen() {
         </View>
       </ScrollView>
     </View>
+    </InterScope>
   );
 }
 

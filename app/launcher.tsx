@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F4F9F5" },
   center: { alignItems: "center", justifyContent: "center" },
   content: { paddingHorizontal: 20, paddingTop: 28, paddingBottom: 28, gap: 14 },
-  title: { fontSize: 30, lineHeight: 38, fontFamily: "Manrope-ExtraBold", color: "#0B2B20", marginBottom: 8 },
+  title: { fontSize: 30, lineHeight: 38, fontFamily: "Inter_700Bold", color: "#0B2B20", marginBottom: 8 },
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -194,9 +194,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: "#E8F4EE", alignItems: "center", justifyContent: "center" },
-  cardTitle: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#12221A" },
-  cardStatus: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51", marginTop: 3 },
-  cardAction: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#5B6D64", marginTop: 3 },
+  cardTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#12221A" },
+  cardStatus: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#076B51", marginTop: 3 },
+  cardAction: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#5B6D64", marginTop: 3 },
   retry: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10 },
-  retryText: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#076B51" },
+  retryText: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#076B51" },
 });
