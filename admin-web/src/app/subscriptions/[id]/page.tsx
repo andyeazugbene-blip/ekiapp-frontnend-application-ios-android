@@ -71,6 +71,8 @@ function DetailInner({ id }: { id: string }) {
   const { subscription: s, buyer, vendor, canAct, money } = data;
   const when = (v: string | null) => (v ? formatDateTime(v) : "—");
 
+  const lastAttempts = data.renewals[0]?.attempts ?? [];
+  const lastAttempt = lastAttempts[lastAttempts.length - 1];
   const actions: Array<{ label: string; show: boolean; danger?: boolean; run: () => void }> = [
     {
       label: "Pause", show: canAct.pause,
@@ -140,7 +142,15 @@ function DetailInner({ id }: { id: string }) {
       label: "Retry payment", show: canAct.retryPayment,
       run: () => confirm.ask({
         title: "Review payment retry", confirmLabel: "Start controlled retry", tone: "primary",
-        description: "Uses the same safe charge flow as the automatic retries: it can never charge the buyer twice for one cycle.",
+        description: (
+          <div className="space-y-1">
+            <p>Previous attempt: {lastAttempt ? `${lastAttempt.status.toLowerCase()}${lastAttempt.failureMessage ? `, ${lastAttempt.failureMessage}` : ""}` : "none"}</p>
+            <p>Provider status: {lastAttempt?.failureCode ?? "not reported"}</p>
+            <p>Buyer updated method: {data.paymentMethod ? `${data.paymentMethod.brand ?? "Card"} ending ${data.paymentMethod.last4 ?? "????"}` : "no card saved"}</p>
+            <p>Retry eligibility: {canAct.retryPayment ? "eligible" : "not eligible"}</p>
+            <p>A retry must not be started while another payment attempt is pending. Every retry creates an audit event. The charge flow can never charge the buyer twice for one cycle.</p>
+          </div>
+        ),
       }, async (reason) => { await subscriptionsAdminAPI.retryPayment(id, reason); await done("Payment retried. Check the timeline for the result.")(); }),
     },
     {
@@ -194,6 +204,7 @@ function DetailInner({ id }: { id: string }) {
             { label: "Vendor location", value: [vendor.city, vendor.country].filter(Boolean).join(", ") || "Not provided" },
             { label: "Delivery recipient address", value: `${data.recipient.line1}, ${data.recipient.city}, ${data.recipient.country}` },
             { label: "Fulfilment", value: data.offer.fulfilmentMethod === "DELIVERY" ? "Delivery" : "Collection" },
+            { label: "Payment authorisation", value: data.paymentAuthorisation === "valid" ? "Valid" : data.paymentAuthorisation === "not_recorded" ? "Valid, consent date not recorded" : "Expired or revoked" },
             { label: "Saved card", value: data.paymentMethod ? `${data.paymentMethod.brand ?? "Card"} ending ${data.paymentMethod.last4 ?? "????"}` : "No saved card" },
           ]} />
         </Card>

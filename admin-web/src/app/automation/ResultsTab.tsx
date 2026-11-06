@@ -74,7 +74,15 @@ export default function ResultsTab({ vendorId }: { vendorId?: string }) {
 
       <section aria-labelledby="incremental-h" className="space-y-2">
         <h2 id="incremental-h" className="text-xl font-black">Estimated incremental revenue</h2>
-        <Card className="p-4"><p className="text-sm text-slate-600">{data.notes.incremental}</p></Card>
+        <Card className="space-y-2 p-4">
+          {data.estimatedIncremental ? (
+            <>
+              {data.estimatedIncremental.byCurrency.map((row) => <p key={row.currency} className="text-2xl font-black">{formatMinor(row.amount, row.currency)}</p>)}
+              <p className="text-sm text-slate-600">Bought after automations: {(data.estimatedIncremental.exposedRate * 100).toFixed(1)}% of {data.estimatedIncremental.exposedBuyers} buyers. Comparison group: {(data.estimatedIncremental.holdoutRate * 100).toFixed(1)}% of {data.estimatedIncremental.holdoutBuyers} buyers.</p>
+            </>
+          ) : null}
+          <p className="text-sm text-slate-600">{data.notes.incremental}</p>
+        </Card>
       </section>
     </div>
   );

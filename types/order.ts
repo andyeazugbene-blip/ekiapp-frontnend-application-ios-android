@@ -55,6 +55,7 @@ export interface Order {
   buyerId: string;
   buyerName: string;
   buyerAvatar?: string;
+  renewal?: { id: string; cycleDate: string; status: string; stockConfirmedAt?: string | null } | null;
   vendorId: string;
   vendorName: string;
   items: CartItem[];

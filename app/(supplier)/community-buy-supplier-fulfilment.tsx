@@ -2,6 +2,8 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { uploadService } from "../../services/uploadService";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
@@ -13,6 +15,7 @@ import {
   StatusPill,
   premiumStyles,
   type Tone,
+  InterScope,
 } from "../../components/shared/PremiumBlocks";
 import {
   communityBuyService,
@@ -38,6 +41,7 @@ const EVENT_LABELS: Record<FulfilmentEvent["eventType"], string> = {
   COLLECTED: "Collected",
   COMPLETED: "Completed",
   EXCEPTION: "Exception reported",
+  EVIDENCE_ADDED: "Supporting photo added",
   PARTICIPANT_RECEIPT_CONFIRMED: "Participant confirmed receipt",
   PARTICIPANT_PROBLEM_REPORTED: "Participant reported a problem",
 };
@@ -100,7 +104,13 @@ function stepIndex(status: string): number {
   return order.indexOf(status);
 }
 
-export default function CommunityBuySupplierFulfilmentScreen() {
+const READY_CHECKS = ["Products confirmed", "Quantity packed", "Packaging completed", "Collection or delivery booked"];
+const EXCEPTION_KINDS = [
+  { key: "PARTIALLY_FULFILLED", label: "Partially fulfilled" },
+  { key: "DELIVERY_PROBLEM", label: "Delivery problem" },
+] as const;
+
+function CommunityBuySupplierFulfilmentScreenInner() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { selectedCurrency } = useCurrencyStore();
@@ -121,6 +131,9 @@ export default function CommunityBuySupplierFulfilmentScreen() {
   const [events, setEvents] = useState<FulfilmentEvent[]>([]);
   const [exceptionNote, setExceptionNote] = useState("");
   const [reportingException, setReportingException] = useState(false);
+  const [exceptionKind, setExceptionKind] = useState<(typeof EXCEPTION_KINDS)[number]["key"] | null>(null);
+  const [readyChecks, setReadyChecks] = useState<string[]>([]);
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
   // Phase 6 (delivery + collection/tracking)
   const [collectionCodeInput, setCollectionCodeInput] = useState("");
   const [verifyingCode, setVerifyingCode] = useState(false);
@@ -179,14 +192,36 @@ export default function CommunityBuySupplierFulfilmentScreen() {
     if (!note) return;
     setReportingException(true);
     try {
-      await communityBuyService.reportFulfilmentException(id, note);
+      await communityBuyService.reportFulfilmentException(id, note, exceptionKind ?? undefined);
       setExceptionNote("");
+      setExceptionKind(null);
       setEvents(await communityBuyService.getFulfilmentEvents(id).catch(() => events));
       Alert.alert("Reported", "The organiser has been notified.");
     } catch (err) {
       Alert.alert("Couldn't report this", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setReportingException(false);
+    }
+  };
+
+  const handleAddEvidence = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Photos are off", "Allow access to your photos to add one.");
+      return;
+    }
+    const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.85 });
+    if (picked.canceled || !picked.assets?.[0]?.uri) return;
+    setUploadingEvidence(true);
+    try {
+      const url = await uploadService.uploadImage(picked.assets[0].uri, `fulfilment-${id}-${Date.now()}.jpg`, "image/jpeg", "community-buy");
+      await communityBuyService.addFulfilmentEvidence(id, url);
+      setEvents(await communityBuyService.getFulfilmentEvents(id).catch(() => events));
+      Alert.alert("Added", "Your supporting photo is on the fulfilment record.");
+    } catch (err) {
+      Alert.alert("Couldn't add that photo", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setUploadingEvidence(false);
     }
   };
 
@@ -250,7 +285,7 @@ export default function CommunityBuySupplierFulfilmentScreen() {
                 return (
                   <View key={s.status} style={styles.stepRow}>
                     <Ionicons name={done ? "checkmark-circle" : "ellipse-outline"} size={16} color={done ? "#076B51" : "#C7D2CB"} />
-                    <Text style={[styles.stepLabel, done && { color: "#151E1B", fontFamily: "Manrope-SemiBold" }]}>{s.label}</Text>
+                    <Text style={[styles.stepLabel, done && { color: "#151E1B", fontFamily: "Inter_600SemiBold" }]}>{s.label}</Text>
                   </View>
                 );
               })}
@@ -338,14 +373,31 @@ export default function CommunityBuySupplierFulfilmentScreen() {
           ) : null}
 
           {fulfilment.status === "PACKING" ? (
+            <FloatingCard style={{ gap: 10 }}>
+              {READY_CHECKS.map((check) => {
+                const done = readyChecks.includes(check);
+                return (
+                  <TouchableOpacity key={check} onPress={() => setReadyChecks((prev) => (done ? prev.filter((c) => c !== check) : [...prev, check]))} style={{ flexDirection: "row", gap: 10, alignItems: "center" }} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={check}>
+                    <Ionicons name={done ? "checkbox" : "square-outline"} size={20} color="#076B51" />
+                    <Text style={styles.outcomeText}>{check}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity onPress={() => void handleAddEvidence()} disabled={uploadingEvidence} activeOpacity={0.88} style={styles.secondaryBtn} accessibilityRole="button" accessibilityLabel="Upload supporting photo or document" accessibilityState={{ busy: uploadingEvidence, disabled: uploadingEvidence }}>
+                {uploadingEvidence ? <ActivityIndicator size="small" color="#076B51" /> : <Text style={styles.secondaryBtnText}>Upload supporting photo or document</Text>}
+              </TouchableOpacity>
+            </FloatingCard>
+          ) : null}
+
+          {fulfilment.status === "PACKING" ? (
             <TouchableOpacity
               onPress={() => void runAction("ready", () => communityBuyService.markFulfilmentReady(id))}
-              disabled={busy !== null}
+              disabled={busy !== null || readyChecks.length < READY_CHECKS.length}
               activeOpacity={0.88}
-              style={styles.primaryBtn}
+              style={[styles.primaryBtn, readyChecks.length < READY_CHECKS.length ? { opacity: 0.5 } : null]}
               accessibilityRole="button"
               accessibilityLabel={`Mark ready for ${fulfilment.method === "COLLECTION" ? "collection" : "dispatch"}`}
-              accessibilityState={{ busy: busy === "ready", disabled: busy !== null }}
+              accessibilityState={{ busy: busy === "ready", disabled: busy !== null || readyChecks.length < READY_CHECKS.length }}
             >
               {busy === "ready" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Mark ready for {fulfilment.method === "COLLECTION" ? "collection" : "dispatch"}</Text>}
             </TouchableOpacity>
@@ -413,6 +465,13 @@ export default function CommunityBuySupplierFulfilmentScreen() {
             <View>
               <Text style={styles.section}>Report an issue</Text>
               <FloatingCard style={{ gap: 10 }}>
+                <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                  {EXCEPTION_KINDS.map((kind) => (
+                    <TouchableOpacity key={kind.key} onPress={() => setExceptionKind(exceptionKind === kind.key ? null : kind.key)} style={{ borderWidth: 1, borderColor: "#076B51", borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: exceptionKind === kind.key ? "#076B51" : "transparent" }} accessibilityRole="radio" accessibilityState={{ selected: exceptionKind === kind.key }}>
+                      <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: exceptionKind === kind.key ? "#FFFFFF" : "#076B51" }}>{kind.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
                 <TextInput
                   style={[styles.input, styles.inputMultiline]}
                   placeholder="Describe the exception (e.g. stock damaged, courier delay)"
@@ -598,32 +657,40 @@ export default function CommunityBuySupplierFulfilmentScreen() {
 }
 
 const styles = StyleSheet.create({
-  summaryLabel: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#6A7B72", marginTop: 6 },
-  summaryValue: { fontSize: 16, fontFamily: "Manrope-Bold", color: "#151E1B" },
-  section: { fontSize: 15, fontFamily: "Manrope-ExtraBold", color: "#12221A", marginBottom: 10 },
+  summaryLabel: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#6A7B72", marginTop: 6 },
+  summaryValue: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#151E1B" },
+  section: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#12221A", marginBottom: 10 },
   stepRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  stepLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#8AA194" },
-  hint: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#6A7B72", lineHeight: 17 },
+  stepLabel: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#8AA194" },
+  hint: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#6A7B72", lineHeight: 17 },
   primaryBtn: { minHeight: 52, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
   primaryBtnInline: { minHeight: 48, borderRadius: 14, backgroundColor: "#076B51", alignItems: "center", justifyContent: "center" },
-  primaryBtnText: { fontSize: 14, fontFamily: "Manrope-Bold", color: "#FFFFFF" },
+  primaryBtnText: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#FFFFFF" },
   secondaryBtn: { minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: "#076B51", alignItems: "center", justifyContent: "center" },
-  secondaryBtnText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#076B51" },
+  secondaryBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#076B51" },
   methodRow: { flexDirection: "row", gap: 8 },
   methodChip: { flex: 1, minHeight: 44, borderRadius: 12, backgroundColor: "#F4F6F5", alignItems: "center", justifyContent: "center" },
   methodChipActive: { backgroundColor: "#076B51" },
-  methodChipText: { fontSize: 13, fontFamily: "Manrope-SemiBold", color: "#151E1B" },
+  methodChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#151E1B" },
   methodChipTextActive: { color: "#FFFFFF" },
-  input: { backgroundColor: "#F4F6F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: "Outfit-Regular", color: "#151E1B" },
+  input: { backgroundColor: "#F4F6F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: "Inter_400Regular", color: "#151E1B" },
   inputMultiline: { minHeight: 70, textAlignVertical: "top" },
-  outcomeText: { flex: 1, fontSize: 12, fontFamily: "Outfit-Regular", color: "#151E1B", lineHeight: 17 },
+  outcomeText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", color: "#151E1B", lineHeight: 17 },
   paymentRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  paymentLabel: { fontSize: 13, fontFamily: "Outfit-Regular", color: "#6A7B72" },
-  paymentValue: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
+  paymentLabel: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#6A7B72" },
+  paymentValue: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#151E1B" },
   payoutTotalRow: { borderTopWidth: 1, borderTopColor: "#F0F0F0", paddingTop: 8, marginTop: 2 },
-  payoutTotalLabel: { fontSize: 13, fontFamily: "Manrope-Bold", color: "#151E1B" },
-  payoutTotalValue: { fontSize: 14, fontFamily: "Manrope-ExtraBold", color: "#076B51" },
-  holdReason: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#D6552F" },
-  eventTimestamp: { fontSize: 11, fontFamily: "Outfit-Regular", color: "#8AA194", marginTop: 2 },
-  paymentPlaceholder: { fontSize: 12, fontFamily: "Outfit-Regular", color: "#8AA194", lineHeight: 17 },
+  payoutTotalLabel: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#151E1B" },
+  payoutTotalValue: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#076B51" },
+  holdReason: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#D6552F" },
+  eventTimestamp: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#8AA194", marginTop: 2 },
+  paymentPlaceholder: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#8AA194", lineHeight: 17 },
 });
+
+export default function CommunityBuySupplierFulfilmentScreen() {
+  return (
+    <InterScope value={true}>
+      <CommunityBuySupplierFulfilmentScreenInner />
+    </InterScope>
+  );
+}

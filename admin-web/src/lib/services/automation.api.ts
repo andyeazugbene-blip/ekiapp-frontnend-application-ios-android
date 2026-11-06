@@ -99,7 +99,7 @@ export interface AttributionResponse {
   assisted: { type: string; currency: string; orders: number; gross: number; refunds: number; net: number }[];
   subscriptionRecovery: { currency: string; count: number; amount: number }[];
   qualifiedReferrals: number | null;
-  estimatedIncremental: null;
+  estimatedIncremental: { exposedRate: number; holdoutRate: number; exposedBuyers: number; holdoutBuyers: number; byCurrency: { currency: string; amount: number }[] } | null;
   notes: { assisted: string; net: string; incremental: string; recovery: string };
 }
 

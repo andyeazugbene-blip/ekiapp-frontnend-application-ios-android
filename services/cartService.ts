@@ -33,7 +33,7 @@ export interface ServerCart {
   subtotal: number;
 }
 
-export type DeliveryIneligibilityReason = "VENDOR_ZONE_INACTIVE" | "NO_COVERAGE";
+export type DeliveryIneligibilityReason = "VENDOR_ZONE_INACTIVE" | "NO_COVERAGE" | "OVER_MAX_WEIGHT";
 
 export interface DeliveryEstimate {
   vendorId: string;

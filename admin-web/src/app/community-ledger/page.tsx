@@ -30,7 +30,7 @@ const STATUS_TONE: Record<CampaignStatus, "green" | "amber" | "red" | "blue" | "
   CANCELLATION_UNDER_REVIEW: "amber",
 };
 const FUNDING_OUTCOME_LABEL: Record<FundingOutcome, string> = {
-  PENDING: "Not yet decided", GOAL_REACHED: "Goal reached", MINIMUM_REACHED: "Minimum reached", BELOW_MINIMUM: "Below minimum",
+  PENDING: "Not yet decided", GOAL_REACHED: "Goal reached", MINIMUM_REACHED: "Minimum reached", MAXIMUM_REACHED: "Maximum reached", BELOW_MINIMUM: "Below minimum",
 };
 const ENTRY_TYPE_LABEL: Record<string, string> = {
   CONTRIBUTION: "Contribution", REFUND: "Refund", SUPPLIER_PAYMENT: "Supplier payment",

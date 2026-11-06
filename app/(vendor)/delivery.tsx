@@ -136,7 +136,7 @@ export default function DeliveryScreen() {
         currency: COUNTRY_CURRENCY[countryCode],
         costPerKg: 4.0,
         minimumFee: 12.0,
-        maxWeightKg: 10,
+        maxWeightKg: 0,
         estimatedDays: "3-5 days",
         active: true,
       };

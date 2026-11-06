@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AdminLayout from "@/components/AdminLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import SavedViews from "@/components/SavedViews";
 import { Badge, Button, Card, ErrorPanel, LoadingPanel, PageHeader, TwoFactorModal, downloadCsv } from "@/components/AdminUI";
 import { Banner, DataTable, FilterSelect, Pagination, SearchInput, StatusTabs, formatDate, timeAgo, useConfirm, type Column } from "@/components/AdminKit";
 import { SuspendDialog } from "@/components/SuspendDialog";
@@ -199,6 +200,7 @@ function UsersInner() {
           </div>
         }
       />
+      <SavedViews />
       {error ? <ErrorPanel message={error} onRetry={() => void load()} /> : null}
       {twoFactor.error ? <Banner tone="danger">{twoFactor.error}</Banner> : null}
 

@@ -264,6 +264,7 @@ export function normalizeOrder(raw: Record<string, any>): Order {
     buyerId: raw.buyerId ?? "",
     buyerName: raw.buyer?.name ?? raw.buyerName ?? "",
     buyerAvatar: raw.buyer?.avatar ?? undefined,
+    renewal: raw.renewal ?? null,
     vendorId: raw.items?.[0]?.vendorId ?? raw.vendorId ?? "",
     vendorName: raw.vendorName ?? raw.vendor?.storeName ?? raw.items?.[0]?.vendor?.storeName ?? "",
     items,

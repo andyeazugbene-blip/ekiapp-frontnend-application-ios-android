@@ -259,6 +259,9 @@ export default function RegularDeliveryDetailScreen() {
                     <Text style={styles.alertBody}>Your payment is paused until you decide.</Text>
                   </View>
                 </View>
+                {latestRenewal.priceChangeRequest?.proposedByVendor && latestRenewal.priceChangeRequest.reason ? (
+                  <Text style={styles.alertBody}>Vendor's reason: {latestRenewal.priceChangeRequest.reason}</Text>
+                ) : null}
                 {changedItems.map((item) => (
                   <View key={item.productId} style={{ gap: 4 }}>
                     <Text style={styles.alertTitle}>{item.product?.title ?? "Foodstuff"}</Text>
@@ -282,14 +285,25 @@ export default function RegularDeliveryDetailScreen() {
                 <View style={styles.alertActions}>
                   <TouchableOpacity
                     disabled={actionBusy === "price-accept"}
-                    onPress={() => void runRenewalAction("price-accept", () => regularDeliveriesService.decideRenewalPriceChange(latestRenewal.id, "accepted"))}
+                    onPress={() => Alert.alert(
+                      "Confirm changes",
+                      `Updated estimate: ${formatDisplayMoney((latestRenewal.items ?? []).reduce((sum, item) => sum + item.currentUnitPrice * item.quantity, 0) / 100, latestRenewal.currency, selectedCurrency)}, plus any delivery fee.\nPayment date: ${formatDate(latestRenewal.cycleDate)}.`,
+                      [
+                        { text: "Go back", style: "cancel" },
+                        { text: "Confirm changes", onPress: () => void runRenewalAction("price-accept", () => regularDeliveriesService.decideRenewalPriceChange(latestRenewal.id, "accepted")) },
+                      ],
+                    )}
                     style={styles.alertBtnPrimary}
                   >
                     {actionBusy === "price-accept" ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.alertBtnPrimaryText}>Accept new price</Text>}
                   </TouchableOpacity>
                   <TouchableOpacity
                     disabled={actionBusy === "price-decline"}
-                    onPress={() => void runRenewalAction("price-decline", () => regularDeliveriesService.decideRenewalPriceChange(latestRenewal.id, "declined"))}
+                    onPress={() => void runRenewalAction("price-decline", async () => {
+                      const renewal = await regularDeliveriesService.decideRenewalPriceChange(latestRenewal.id, "declined");
+                      Alert.alert("This renewal has been skipped", "You won't be charged for this renewal. Your Foodstuff Subscription stays active.");
+                      return renewal;
+                    })}
                     style={styles.alertBtnGhost}
                   >
                     {actionBusy === "price-decline" ? <ActivityIndicator size="small" color="#516A60" /> : <Text style={styles.alertBtnGhostText}>Skip this renewal</Text>}
@@ -368,6 +382,13 @@ export default function RegularDeliveryDetailScreen() {
               <Text style={styles.nextRenewalValue}>{isPaused ? "Paused" : formatDate(sub.nextRenewalAt)}</Text>
               {isPaused && sub.pausedUntil ? <Text style={styles.alertBody}>Deliveries are scheduled to resume on {formatDate(sub.pausedUntil)}.</Text> : null}
               {sub.status === "CANCELLED" ? <Text style={styles.alertBody}>You will not be charged for future renewals. Any order already paid is not affected and will continue separately.</Text> : null}
+              {isActive && sub.nextRenewalAt ? (
+                <View style={{ marginTop: 10, gap: 2 }}>
+                  <Text style={styles.alertTitle}>Review upcoming delivery</Text>
+                  {sub.offer?.renewalCutoffHours ? <Text style={styles.alertBody}>Make changes before {formatDate(new Date(new Date(sub.nextRenewalAt).getTime() - sub.offer.renewalCutoffHours * 3600000).toISOString())}.</Text> : null}
+                  {sub.paymentMethod?.last4 ? <Text style={styles.alertBody}>Payment method: {sub.paymentMethod.brand ? `${sub.paymentMethod.brand.toUpperCase()} ` : ""}ending {sub.paymentMethod.last4}</Text> : null}
+                </View>
+              ) : null}
               {isActive ? (
                 <TouchableOpacity onPress={() => { setNewDeliveryDate(null); setShowDateSheet(true); }} activeOpacity={0.85} style={{ marginTop: 8 }} accessibilityRole="button" accessibilityLabel="Choose a new date for next delivery">
                   <Text style={styles.editLink}>Choose a new date for next delivery</Text>

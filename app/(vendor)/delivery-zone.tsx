@@ -36,6 +36,7 @@ export default function DeliveryZoneScreen() {
 
   const [costPerKg, setCostPerKg] = useState("");
   const [minimumFee, setMinimumFee] = useState("");
+  const [maxWeight, setMaxWeight] = useState("");
   const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function DeliveryZoneScreen() {
           setZone(found);
           setCostPerKg(String(found.costPerKg));
           setMinimumFee(String(found.minimumFee));
+          setMaxWeight(found.maxWeightKg > 0 ? String(found.maxWeightKg) : "");
           setIsActive(found.active);
         } else {
           setError("Delivery zone not found.");
@@ -71,6 +73,7 @@ export default function DeliveryZoneScreen() {
       await deliveryService.updateZone(zone.id, {
         costPerKg: parseFloat(costPerKg) || 0,
         minimumFee: parseFloat(minimumFee) || 0,
+        maxWeightKg: parseFloat(maxWeight) || 0,
         active: isActive,
       });
       Alert.alert("Success", "Delivery settings updated successfully.", [
@@ -206,6 +209,18 @@ export default function DeliveryZoneScreen() {
                 placeholderTextColor="#858585"
                 keyboardType="decimal-pad"
                 style={styles.input}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Maximum order weight (kg)</Text>
+              <TextInput
+                value={maxWeight}
+                onChangeText={setMaxWeight}
+                placeholder="No limit"
+                placeholderTextColor="#858585"
+                keyboardType="decimal-pad"
+                style={styles.input}
+                accessibilityLabel="Maximum order weight in kilograms"
               />
             </View>
             <View style={styles.liveNotice}>

@@ -7,7 +7,7 @@ export type CampaignStatus =
   // Phase 4 (cancellation under review).
   | "CANCELLATION_UNDER_REVIEW";
 
-export type FundingOutcome = "PENDING" | "GOAL_REACHED" | "MINIMUM_REACHED" | "BELOW_MINIMUM";
+export type FundingOutcome = "PENDING" | "GOAL_REACHED" | "MINIMUM_REACHED" | "BELOW_MINIMUM" | "MAXIMUM_REACHED";
 
 export interface AdminCampaign {
   id: string;
@@ -568,6 +568,11 @@ export const communityBuyAdminAPI = {
   campaignMonitoring(id: string): Promise<CampaignMonitoring> {
     return apiClient.get(`/admin/community-campaigns/${id}/monitoring`, { bypassCache: true });
   },
+  /** CB83: asks the provider for the real state of one contribution. */
+  async recheckContribution(id: string): Promise<{ ekiStatus: string; providerStatus: string | null; countedTowardsCampaign: boolean; checkedAt: string }> {
+    return apiClient.post(`/admin/community-buy/contributions/${id}/recheck`, {});
+  },
+
   async disputeCampaign(id: string, reason: string) {
     return apiClient.post(`/admin/community-campaigns/${id}/dispute`, { reason });
   },
