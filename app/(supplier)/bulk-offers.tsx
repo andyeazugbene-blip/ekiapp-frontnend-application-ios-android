@@ -1,10 +1,14 @@
 import React, { useCallback, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { useFocusRefresh } from "../../hooks/useFocusRefresh";
 import { ApiRequestError, NetworkError } from "../../services/api/client";
+import * as ImagePicker from "expo-image-picker";
+import { uploadService } from "../../services/uploadService";
+import { communityBuyService } from "../../services/communityBuyService";
+import { useLaunchSettings } from "../../services/launchSettingsService";
 import {
   ErrorState,
   FloatingCard,
@@ -18,6 +22,7 @@ import {
   supplierOffersService,
   type OfferFulfilment,
   type SupplierOffer,
+  type SupplierOfferOrder,
   type SupplierOfferInput,
 } from "../../services/supplierOffersService";
 
@@ -79,12 +84,23 @@ export default function BulkOffersScreen() {
   const [draft, setDraft] = useState<SupplierOffer | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [orders, setOrders] = useState<SupplierOfferOrder[]>([]);
+  const [commissionBps, setCommissionBps] = useState<number | null>(null);
+  const { offerReviewHours } = useLaunchSettings();
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      setOffers(await supplierOffersService.listMine());
+      const [mine, myOrders, market] = await Promise.all([
+        supplierOffersService.listMine(),
+        supplierOffersService.listOrders().catch(() => [] as SupplierOfferOrder[]),
+        communityBuyService.getMarketConfig("GB").catch(() => null),
+      ]);
+      setOffers(mine);
+      setOrders(myOrders);
+      setCommissionBps(market?.communityBuyFeeBps ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load your offers.");
     } finally {
@@ -218,7 +234,7 @@ export default function BulkOffersScreen() {
 
       {offer.status === "IN_REVIEW" ? (
         <>
-          <Text style={styles.body}>We're checking your offer. Usually within 24 hours.</Text>
+          <Text style={styles.body}>We're checking your offer. Usually within {offerReviewHours} hours.</Text>
           {offer.review ? <Text style={styles.meta}>Submitted {formatDate(offer.review.submittedAt)}</Text> : null}
           <Text style={styles.meta}>Organisers can choose this offer once it's approved.</Text>
           <View style={styles.actions}>
@@ -262,16 +278,64 @@ export default function BulkOffersScreen() {
         <Text style={styles.body}>Supply foodstuff in bulk to Community Buys. You set the price and the minimum; nothing ships until the minimum is reached.</Text>
         <PrimaryButton label="Create offer" icon="add" onPress={startNew} />
       </FloatingCard>
+      {orders.filter((order) => order.extensionRequests?.some((e) => !e.supplierReconfirmed)).map((order) => {
+        const request = order.extensionRequests!.find((e) => !e.supplierReconfirmed)!;
+        return (
+          <FloatingCard key={request.id} style={{ gap: 8 }}>
+            <Text style={styles.cardTitle}>{order.title}</Text>
+            <Text style={styles.body}>The organiser has asked to extend the deadline to {formatDate(request.requestedDeadline)}. Can you still supply it at the same price?</Text>
+            {actionError ? <Text style={styles.notice}>{actionError}</Text> : null}
+            <View style={styles.actions}>
+              <SmallButton label="Yes, I can supply it" onPress={() => void answerExtension(request.id, true)} />
+              <SmallButton label="No, I can't" onPress={() => void answerExtension(request.id, false)} />
+            </View>
+          </FloatingCard>
+        );
+      })}
       {offers.map(renderOffer)}
     </>
   );
+
+  const pickPhoto = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setActionError("Allow photo access to add a photo.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.85 });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    setUploadingPhoto(true);
+    setActionError("");
+    try {
+      const url = await uploadService.uploadImage(result.assets[0].uri, `offer-${Date.now()}.jpg`);
+      setForm((f) => ({ ...f, imageUrl: url }));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "We couldn't upload that photo. Please try again.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const answerExtension = async (extensionId: string, canSupply: boolean) => {
+    setActionError("");
+    try {
+      await supplierOffersService.reconfirmExtension(extensionId, canSupply);
+      setOrders(await supplierOffersService.listOrders());
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "That didn't work. Please try again.");
+    }
+  };
 
   const renderForm = () => (
     <>
       <Text style={styles.stepTitle}>Create offer</Text>
       <Field label="Foodstuff" value={form.foodstuffName} onChange={(v) => setForm((f) => ({ ...f, foodstuffName: v }))} placeholder="e.g. Puna yam" />
       <Field label="Pack size and weight" value={form.packSize} onChange={(v) => setForm((f) => ({ ...f, packSize: v }))} placeholder="e.g. 10kg box" />
-      <Field label="Photo link" value={form.imageUrl} onChange={(v) => setForm((f) => ({ ...f, imageUrl: v }))} placeholder="https://" />
+      <Text style={styles.label}>Photo</Text>
+      <TouchableOpacity onPress={() => void pickPhoto()} disabled={uploadingPhoto} activeOpacity={0.85} style={styles.photoBox} accessibilityRole="button" accessibilityLabel={form.imageUrl ? "Change photo" : "Add a photo"}>
+        {form.imageUrl ? <Image source={{ uri: form.imageUrl }} style={styles.photoPreview} /> : <Ionicons name="camera-outline" size={22} color="#076B51" />}
+        <Text style={styles.photoText}>{uploadingPhoto ? "Uploading..." : form.imageUrl ? "Change photo" : "Add a photo"}</Text>
+      </TouchableOpacity>
       <Field label="Price per share (£)" value={form.price} onChange={(v) => setForm((f) => ({ ...f, price: v }))} placeholder="0.00" keyboardType="decimal-pad" />
       <View style={styles.twoCols}>
         <View style={{ flex: 1 }}><Field label="Minimum shares" value={form.minimumShares} onChange={(v) => setForm((f) => ({ ...f, minimumShares: v }))} keyboardType="number-pad" /></View>
@@ -318,6 +382,7 @@ export default function BulkOffersScreen() {
           <Fact label="Price per share" value={formatPounds(draft.pricePerShareMinor)} />
           <Fact label="Minimum and maximum shares" value={`${draft.minimumShares} to ${draft.maximumShares}`} />
           <Fact label="Offer window" value={`${formatDate(draft.windowStartsAt)} to ${formatDate(draft.windowEndsAt)}`} />
+          {commissionBps != null ? <Fact label="Eki's Community Buy commission" value={`${(commissionBps / 100).toFixed(commissionBps % 100 === 0 ? 0 : 2)}% of each share sold`} /> : null}
           <Fact label="Delivery or collection" value={draft.fulfilmentMethods.map((m) => (m === "DELIVERY" ? "Delivery" : "Collection")).join(" and ")} />
         </FloatingCard>
         <Text style={styles.body}>Organisers can choose this offer once it's approved.</Text>
@@ -380,6 +445,9 @@ function SmallButton({ label, onPress }: { label: string; onPress: () => void })
 }
 
 const styles = StyleSheet.create({
+  photoBox: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: "#CFE1DA", backgroundColor: "#FFFFFF" },
+  photoPreview: { width: 48, height: 48, borderRadius: 10 },
+  photoText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#076B51" },
   stepTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: "#151E1B" },
   cardTitle: { flex: 1, fontSize: 15, fontFamily: "Inter_700Bold", color: "#151E1B" },
   body: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#516A60", lineHeight: 19 },

@@ -54,7 +54,11 @@ function formatDate(value: string | null): string {
 // Organised/Drafts share one backend list (listMyOrganiserCampaigns) split
 // client-side by status — the full per-organiser list is real data, not
 // paginated or large enough to warrant a second endpoint.
-type HomeTab = "discover" | "joined" | "organised" | "drafts";
+type HomeTab = "discover" | "organised" | "joined" | "completed" | "failed";
+
+const COMPLETED_STATUSES = new Set(["COMPLETED", "FINANCIALLY_CLOSED"]);
+const FAILED_STATUSES = new Set(["FAILED", "REFUNDING", "CANCELLED", "REJECTED"]);
+const isClosedStatus = (status: string) => COMPLETED_STATUSES.has(status) || FAILED_STATUSES.has(status);
 const DRAFT_STATUSES = new Set(["DRAFT", "CHANGES_REQUIRED"]);
 
 export default function CommunityBuyDiscoveryScreen() {
@@ -63,7 +67,7 @@ export default function CommunityBuyDiscoveryScreen() {
   // `?tab=` lets another screen land here on a specific tab (e.g. right after
   // deleting a draft from inside the campaign form → back on Drafts).
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
-  const initialTab: HomeTab = tabParam === "drafts" || tabParam === "organised" || tabParam === "joined" ? tabParam : "discover";
+  const initialTab: HomeTab = tabParam === "drafts" || tabParam === "organised" ? "organised" : tabParam === "joined" ? "joined" : "discover";
   const [activeTab, setActiveTab] = useState<HomeTab>(initialTab);
 
   // Client correction (original, still true for the UI itself): "Community
@@ -191,6 +195,7 @@ export default function CommunityBuyDiscoveryScreen() {
   const refreshActiveTab = useCallback(() => {
     if (activeTab === "discover") return loadDiscover();
     if (activeTab === "joined") return loadJoined();
+    if (activeTab === "completed" || activeTab === "failed") return Promise.all([loadJoined(), loadOrganised(true)]).then(() => undefined);
     return loadOrganised();
   }, [activeTab, loadDiscover, loadJoined, loadOrganised]);
 
@@ -198,22 +203,32 @@ export default function CommunityBuyDiscoveryScreen() {
 
   const handleTabPress = (tab: HomeTab) => {
     setActiveTab(tab);
-    if (tab === "joined" && !joinedLoaded) void loadJoined();
-    if ((tab === "organised" || tab === "drafts") && !organisedLoaded) void loadOrganised();
+    if (tab !== "organised" && tab !== "discover" && !joinedLoaded) void loadJoined();
+    if (tab !== "joined" && tab !== "discover" && !organisedLoaded) void loadOrganised();
   };
 
   useEffect(() => {
-    if (tabParam === "drafts" || tabParam === "organised" || tabParam === "joined") handleTabPress(tabParam);
+    if (tabParam === "drafts" || tabParam === "organised") handleTabPress("organised");
+    if (tabParam === "joined") handleTabPress("joined");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabParam]);
 
-  const organisedCampaigns = myCampaigns.filter((c) => !DRAFT_STATUSES.has(c.status));
-  const draftCampaigns = myCampaigns.filter((c) => DRAFT_STATUSES.has(c.status));
+  // Drafts sit first so an unfinished Community Buy is easy to pick back up.
+  const organisingCampaigns = [
+    ...myCampaigns.filter((c) => DRAFT_STATUSES.has(c.status)),
+    ...myCampaigns.filter((c) => !DRAFT_STATUSES.has(c.status) && !isClosedStatus(c.status)),
+  ];
+  const joinedActive = joined.filter((item) => !isClosedStatus(item.campaign.status));
+  const closedStatuses = activeTab === "completed" ? COMPLETED_STATUSES : FAILED_STATUSES;
+  const closedRows = [
+    ...myCampaigns.filter((c) => closedStatuses.has(c.status)).map((c) => ({ id: c.id, title: c.title, status: c.status, role: "Organising" })),
+    ...joined.filter((item) => closedStatuses.has(item.campaign.status)).map((item) => ({ id: item.campaign.id, title: item.campaign.title, status: item.campaign.status, role: "Joined" })),
+  ];
 
   return (
     <View style={premiumStyles.page}>
       <PremiumHeader
-        title={activeTab === "discover" ? "Explore Community Buys" : "Community Buy"}
+        title={activeTab === "discover" ? "Explore Community Buys" : "My Community Buys"}
         subtitle={offersOn ? "Buy together in bulk from verified suppliers." : activeTab === "discover" ? "Find campaigns in your area." : "Bulk-buy together, unlock better prices"}
         onBack={() => goBackOrReplace(router, "/(buyer)/profile" as any)}
         right={
@@ -244,12 +259,13 @@ export default function CommunityBuyDiscoveryScreen() {
           </View>
         }
       >
-        <View style={styles.tabRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
           {([
             ["discover", "Discover"],
+            ["organised", "Organising"],
             ["joined", "Joined"],
-            ["organised", "Organised"],
-            ["drafts", "Drafts"],
+            ["completed", "Completed"],
+            ["failed", "Failed or refunded"],
           ] as const).map(([tab, label]) => (
             <TouchableOpacity
               key={tab}
@@ -263,7 +279,7 @@ export default function CommunityBuyDiscoveryScreen() {
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{label}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
         {activeTab === "discover" ? (
           <View style={styles.searchRow}>
@@ -338,7 +354,7 @@ export default function CommunityBuyDiscoveryScreen() {
             <LoadingBlock />
           ) : joinedError ? (
             <View style={premiumStyles.block}><ErrorState message={joinedError} onRetry={() => void loadJoined()} /></View>
-          ) : joined.length === 0 ? (
+          ) : joinedActive.length === 0 ? (
             <View style={premiumStyles.block}>
               <FloatingCard>
                 <EmptyState icon="people-circle-outline" title="No contributions yet" body="Campaigns you contribute to will show up here." />
@@ -346,7 +362,7 @@ export default function CommunityBuyDiscoveryScreen() {
             </View>
           ) : (
             <View style={[premiumStyles.block, { gap: 10 }]}>
-              {joined.map((item) => {
+              {joinedActive.map((item) => {
                 // Same fee-inclusive total as the quantity/review/receipt
                 // screens — totalPaid/totalPledged are product-subtotal-only
                 // (see MyCommunityBuy backend contract), so the fee is added
@@ -394,19 +410,53 @@ export default function CommunityBuyDiscoveryScreen() {
               })}
             </View>
           )
+        ) : activeTab === "completed" || activeTab === "failed" ? (
+          joinedLoading || organisedLoading ? (
+            <LoadingBlock />
+          ) : closedRows.length === 0 ? (
+            <View style={premiumStyles.block}>
+              <FloatingCard>
+                <EmptyState
+                  icon={activeTab === "completed" ? "checkmark-circle-outline" : "refresh-circle-outline"}
+                  title={activeTab === "completed" ? "Nothing completed yet" : "Nothing failed or refunded"}
+                  body={activeTab === "completed" ? "Community Buys that finish will show up here." : "Any Community Buy that doesn't go ahead shows up here, with its refund."}
+                />
+              </FloatingCard>
+            </View>
+          ) : (
+            <View style={[premiumStyles.block, { gap: 10 }]}>
+              {closedRows.map((row) => (
+                <TouchableOpacity
+                  key={`${row.role}-${row.id}`}
+                  activeOpacity={0.85}
+                  onPress={() => router.push({ pathname: row.role === "Organising" ? "/(buyer)/community-buy-organiser-campaign" : "/(buyer)/community-buy-campaign", params: { id: row.id } } as any)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${row.title}, ${CAMPAIGN_STATUS_LABELS[row.status]}`}
+                >
+                  <FloatingCard style={{ gap: 6 }}>
+                    <View style={styles.cardTop}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>{row.title}</Text>
+                      <StatusPill label={CAMPAIGN_STATUS_LABELS[row.status]} tone={CAMPAIGN_STATUS_TONE[row.status]} />
+                    </View>
+                    <Text style={styles.cardMetaText}>{row.role}</Text>
+                  </FloatingCard>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )
         ) : (
           // organised / drafts share one loading source
           organisedLoading ? (
             <LoadingBlock />
           ) : organisedError ? (
             <View style={premiumStyles.block}><ErrorState message={organisedError} onRetry={() => void loadOrganised()} /></View>
-          ) : (activeTab === "organised" ? organisedCampaigns : draftCampaigns).length === 0 ? (
+          ) : organisingCampaigns.length === 0 ? (
             <View style={premiumStyles.block}>
               <FloatingCard>
                 <EmptyState
                   icon="megaphone-outline"
-                  title={activeTab === "organised" ? "No campaigns yet" : "No drafts yet"}
-                  body={activeTab === "organised" ? "Campaigns you're organising and have submitted will show up here." : "Start a campaign — it saves as a draft here until you're ready to submit it."}
+                  title="No Community Buys yet"
+                  body="Start one and it stays here, even before it goes live."
                 />
                 <PrimaryButton label="Start a Community Buy" icon="add" onPress={() => void startCommunityBuy(router)} style={{ marginTop: 12 }} />
                 <TouchableOpacity onPress={() => router.push("/(buyer)/community-buy-organiser" as any)} activeOpacity={0.8} style={{ alignSelf: "center", paddingVertical: 12 }} accessibilityRole="button" accessibilityLabel="Payouts and organiser settings">
@@ -416,9 +466,11 @@ export default function CommunityBuyDiscoveryScreen() {
             </View>
           ) : (
             <View style={[premiumStyles.block, { gap: 10 }]}>
-              {(activeTab === "organised" ? organisedCampaigns : draftCampaigns).map((c) => {
-                const isDraftCard = activeTab === "drafts";
-                const openCampaign = () => router.push({ pathname: "/(buyer)/community-buy-organiser-campaign", params: { id: c.id } } as any);
+              {organisingCampaigns.map((c) => {
+                const isDraftCard = DRAFT_STATUSES.has(c.status);
+                const openCampaign = () => (isDraftCard && c.supplierOfferId
+                  ? router.push({ pathname: "/(buyer)/community-buy-offer-campaign", params: { id: c.id } } as any)
+                  : router.push({ pathname: "/(buyer)/community-buy-organiser-campaign", params: { id: c.id } } as any));
                 const progress = isDraftCard ? getDraftProgress(c) : null;
                 const deleting = deletingDraftId === c.id;
                 // Real product info from what's been saved so far — only the
@@ -501,7 +553,7 @@ export default function CommunityBuyDiscoveryScreen() {
 const styles = StyleSheet.create({
   headerIconBtn: { width: 38, height: 38, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", alignItems: "center", justifyContent: "center" },
   tabRow: { flexDirection: "row", gap: 6, marginTop: 14 },
-  tab: { flex: 1, paddingVertical: 8, borderRadius: 12, alignItems: "center", backgroundColor: "rgba(255,255,255,0.12)" },
+  tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, alignItems: "center", backgroundColor: "rgba(255,255,255,0.12)" },
   tabActive: { backgroundColor: "#FFFFFF" },
   tabText: { fontSize: 12, fontFamily: "Manrope-SemiBold", color: "#FFFFFF" },
   tabTextActive: { color: "#076B51" },

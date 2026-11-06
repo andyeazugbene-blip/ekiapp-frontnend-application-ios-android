@@ -6,10 +6,12 @@ export interface LaunchSettings {
   ukLaunchMode: boolean;
   launchMarket: string;
   vendorTrialDays: number;
+  offerReviewHours: number;
+  campaignReviewHours: number;
 }
 
 /** Used until the server answers, and if it can't. Matches the server defaults. */
-const DEFAULTS: LaunchSettings = { ukLaunchMode: true, launchMarket: "GB", vendorTrialDays: 30 };
+const DEFAULTS: LaunchSettings = { ukLaunchMode: true, launchMarket: "GB", vendorTrialDays: 30, offerReviewHours: 24, campaignReviewHours: 24 };
 
 const CACHE_MS = 5 * 60 * 1000;
 let cached: { at: number; value: LaunchSettings } | null = null;
