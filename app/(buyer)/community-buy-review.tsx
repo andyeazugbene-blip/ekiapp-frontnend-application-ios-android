@@ -7,6 +7,7 @@ import { useCurrencyStore } from "../../stores/currencyStore";
 import { ErrorState, FloatingCard, LoadingBlock, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, FULFILMENT_METHOD_LABELS, type Campaign, type CampaignFulfilment } from "../../services/communityBuyService";
 import { countryDisplayName } from "../../utils/countries";
+import { HOLD_PAYMENT_LINE, usesHold } from "../../utils/communityBuyHold";
 import { BUYER_SERVICE_FEE_MAX_MINOR, BUYER_SERVICE_FEE_MIN_MINOR, DEFAULT_BUYER_SERVICE_FEE_BPS, calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 
 function formatDeadline(value: string): string {
@@ -83,7 +84,7 @@ export default function CommunityBuyReviewScreen() {
 
   return (
     <View style={premiumStyles.page}>
-      <PremiumHeader title="Review your pledge" onBack={backToQuantity} />
+      <PremiumHeader title={usesHold(campaign) ? "Review your Community Buy" : "Review your pledge"} onBack={backToQuantity} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
         <View style={[premiumStyles.block, { gap: 14 }]}>
           <FloatingCard style={{ gap: 10 }}>
@@ -118,10 +119,10 @@ export default function CommunityBuyReviewScreen() {
           <View>
             <Text style={styles.sectionTitle}>Important conditions</Text>
             <FloatingCard style={{ gap: 8 }}>
-              <Text style={styles.bodyText}>• Your card is not charged now — only saved against this pledge.</Text>
+              <Text style={styles.bodyText}>• {usesHold(campaign) ? HOLD_PAYMENT_LINE : "Your card is not charged now — only saved against this pledge."}</Text>
               <Text style={styles.bodyText}>• You are only charged {formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)} (including Eki's service fee{isDelivery ? " and delivery fee" : ""}) if this campaign reaches its minimum required quantity by {formatDeadline(campaign.deadline!)}.</Text>
               <Text style={styles.bodyText}>• Reaching the goal is not required — the campaign proceeds at the minimum.</Text>
-              <Text style={styles.bodyText}>• If the campaign fails, nothing is charged — there is nothing to refund.</Text>
+              <Text style={styles.bodyText}>• {usesHold(campaign) ? "If it doesn't go ahead, the hold is released and you pay nothing." : "If the campaign fails, nothing is charged — there is nothing to refund."}</Text>
             </FloatingCard>
           </View>
 

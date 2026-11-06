@@ -8,6 +8,7 @@ import { useCurrencyStore } from "../../stores/currencyStore";
 import { presentSetupIntent } from "../../services/stripePayment";
 import { ErrorState, FloatingCard, LoadingBlock, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import { communityBuyService, type Campaign } from "../../services/communityBuyService";
+import { HOLD_PAYMENT_LINE, usesHold } from "../../utils/communityBuyHold";
 import { BUYER_SERVICE_FEE_MAX_MINOR, BUYER_SERVICE_FEE_MIN_MINOR, calculateBuyerServiceFee } from "../../utils/communityBuyFees";
 // The saved-card flow is generic (buyer/payment-methods), built for Regular
 // Deliveries — reused as-is for Community Buy pledges rather than duplicated.
@@ -83,6 +84,45 @@ export default function CommunityBuyPaymentScreen() {
   };
 
   /**
+   * Two-stage: the card is saved in the supplier's connected account, so the
+   * platform-level saved cards above can't be used. No money moves here.
+   */
+  const handleJoinWithHold = async () => {
+    if (contributing || !id || !campaign) return;
+    if (campaign.deliveryPreference === "DELIVERY" && (!recipientName.trim() || !addressLine1.trim() || !city.trim() || !postcode.trim())) {
+      setContributeError("Enter your delivery address to continue.");
+      return;
+    }
+    setContributing(true);
+    setContributeError("");
+    let contributionId: string | null = null;
+    try {
+      const deliveryAddress = campaign.deliveryPreference === "DELIVERY"
+        ? {
+            recipientName: recipientName.trim(), addressLine1: addressLine1.trim(), addressLine2: addressLine2.trim() || undefined, city: city.trim(), postcode: postcode.trim(),
+            phone: phone.trim() || undefined, instructions: instructions.trim() || undefined,
+          }
+        : undefined;
+      const commitment = await communityBuyService.commitToCampaign(id, quantity, deliveryAddress);
+      contributionId = commitment.contributionId;
+      if (!commitment.setupIntentClientSecret) throw new Error("We couldn't start saving your card. Please try again.");
+      const result = await presentSetupIntent({ clientSecret: commitment.setupIntentClientSecret, stripeAccountId: commitment.stripeAccountId });
+      if (result.status !== "succeeded") {
+        // Without a card they haven't really joined, so the place goes straight back.
+        await communityBuyService.withdrawCommitment(commitment.contributionId).catch(() => undefined);
+        setContributeError(result.status === "cancelled" ? "Your card wasn't saved, so you haven't joined yet. You can try again." : result.message ?? "We couldn't save your card. Please try again.");
+        return;
+      }
+      await communityBuyService.confirmHoldSetup(commitment.contributionId);
+      router.replace({ pathname: "/(buyer)/community-buy-contribution-confirmed", params: { id, contributionId: commitment.contributionId } } as any);
+    } catch (err) {
+      setContributeError(err instanceof Error ? err.message : contributionId ? "We couldn't confirm your card. Please check My Community Buys." : "We couldn't save your place. Nothing was charged. You can try again.");
+    } finally {
+      setContributing(false);
+    }
+  };
+
+  /**
    * PLEDGE_THEN_CHARGE (client mandate 2026-09): this only saves a pledge
    * against an already-collected payment method. No charge happens now —
    * the amount is only captured later if the campaign actually succeeds.
@@ -153,7 +193,8 @@ export default function CommunityBuyPaymentScreen() {
   const deliveryFee = isDelivery ? campaign.deliveryFeeAmountMinor ?? 0 : 0;
   const maxTotal = amount + serviceFee + deliveryFee;
   const addressMissing = isDelivery && (!recipientName.trim() || !addressLine1.trim() || !city.trim() || !postcode.trim());
-  const pledgeDisabled = contributing || !paymentMethodId || addressMissing;
+  const holdMode = usesHold(campaign);
+  const pledgeDisabled = contributing || addressMissing || (!holdMode && !paymentMethodId);
 
   return (
     <View style={premiumStyles.page}>
@@ -212,6 +253,15 @@ export default function CommunityBuyPaymentScreen() {
             </FloatingCard>
           ) : null}
 
+          {holdMode ? (
+            <FloatingCard style={{ gap: 10 }}>
+              <Text style={styles.section}>Your card</Text>
+              <Text style={styles.disclosureText}>{HOLD_PAYMENT_LINE}</Text>
+              <Text style={styles.disclosureText}>
+                If it goes ahead, you'll be charged {formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)} (including Eki's service fee{isDelivery ? " and delivery fee" : ""}). If it doesn't, the hold is released and you pay nothing.
+              </Text>
+            </FloatingCard>
+          ) : (
           <FloatingCard style={{ gap: 10 }}>
             <View style={{ gap: 8 }}>
               {paymentMethods.map((m) => (
@@ -246,19 +296,20 @@ export default function CommunityBuyPaymentScreen() {
               Your card will not be charged now. It will only be charged {formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)} (including Eki's service fee{isDelivery ? " and delivery fee" : ""}) if this campaign reaches its minimum or goal. If the campaign doesn't succeed, you are never charged.
             </Text>
           </FloatingCard>
+          )}
 
           {contributeError ? <Text style={styles.errorText}>{contributeError}</Text> : null}
 
           <TouchableOpacity
-            onPress={() => void handlePledge()}
+            onPress={() => void (holdMode ? handleJoinWithHold() : handlePledge())}
             disabled={pledgeDisabled}
             activeOpacity={0.88}
             accessibilityRole="button"
-            accessibilityLabel={contributing ? "Submitting pledge" : "Pledge, no charge now"}
+            accessibilityLabel={contributing ? "Saving your place" : holdMode ? "Save card and join" : "Pledge, no charge now"}
             accessibilityState={{ busy: contributing, disabled: pledgeDisabled }}
             style={[styles.primaryBtn, pledgeDisabled && { opacity: 0.6 }]}
           >
-            {contributing ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Pledge — no charge now</Text>}
+            {contributing ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>{holdMode ? "Save card and join" : "Pledge — no charge now"}</Text>}
           </TouchableOpacity>
         </View>
       </ScrollView>

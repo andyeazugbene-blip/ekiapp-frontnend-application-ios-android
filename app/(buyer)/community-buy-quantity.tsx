@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
+import { HOLD_PAYMENT_LINE, usesHold } from "../../utils/communityBuyHold";
 import { ErrorState, FloatingCard, LoadingBlock, PremiumHeader, premiumStyles } from "../../components/shared/PremiumBlocks";
 import {
   communityBuyService,
@@ -172,10 +173,10 @@ export default function CommunityBuyQuantityScreen() {
                 You pay exactly {formatDisplayMoney(maxTotal / 100, campaign.currency, selectedCurrency)} for {parsedQuantity || 0} share{parsedQuantity === 1 ? "" : "s"} — nothing more.
               </Text>
               <Text style={styles.disclosureText}>
-                Your card is not charged now. It will only be charged if this campaign reaches its minimum required quantity.
+                {usesHold(campaign) ? HOLD_PAYMENT_LINE : "Your card is not charged now. It will only be charged if this campaign reaches its minimum required quantity."}
               </Text>
               <Text style={styles.disclosureText}>
-                If this campaign does not reach its minimum, it fails and your card is never charged — there is nothing to refund because nothing was taken.
+                {usesHold(campaign) ? "If it doesn't go ahead, the hold is released and you pay nothing." : "If this campaign does not reach its minimum, it fails and your card is never charged — there is nothing to refund because nothing was taken."}
               </Text>
             </FloatingCard>
           </View>

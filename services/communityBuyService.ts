@@ -31,7 +31,12 @@ export type CampaignStatus =
   // Phase 4 (cancellation under review) — a campaign that has already
   // captured at least one payment enters this state when its organiser
   // requests cancellation, instead of going straight to CANCELLED.
-  | "CANCELLATION_UNDER_REVIEW";
+  | "CANCELLATION_UNDER_REVIEW"
+  // Two-stage payment: after joining closes, before the outcome.
+  | "HOLD_WINDOW"
+  | "DECISION_REQUIRED"
+  | "AWAITING_SUPPLIER_RECONFIRMATION"
+  | "PAYMENT_CAPTURE";
 
 export type FundingOutcome = "PENDING" | "GOAL_REACHED" | "MINIMUM_REACHED" | "BELOW_MINIMUM";
 
@@ -39,6 +44,10 @@ export type StatusTone = "success" | "warning" | "error" | "info" | "neutral";
 
 /** Central status-presentation mapping — every participant screen must read from here, never `.replace("_", " ")` on the raw enum. */
 export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
+  HOLD_WINDOW: "Confirming card holds",
+  DECISION_REQUIRED: "Decision needed",
+  AWAITING_SUPPLIER_RECONFIRMATION: "Waiting for supplier",
+  PAYMENT_CAPTURE: "Taking payment",
   DRAFT: "Draft",
   UNDER_REVIEW: "Under review",
   CHANGES_REQUIRED: "Changes requested",
@@ -58,6 +67,10 @@ export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
 };
 
 export const CAMPAIGN_STATUS_TONE: Record<CampaignStatus, StatusTone> = {
+  HOLD_WINDOW: "info",
+  DECISION_REQUIRED: "warning",
+  AWAITING_SUPPLIER_RECONFIRMATION: "info",
+  PAYMENT_CAPTURE: "info",
   DRAFT: "neutral",
   UNDER_REVIEW: "neutral",
   CHANGES_REQUIRED: "warning",
@@ -320,6 +333,8 @@ export interface Campaign {
   // whether this campaign's payment views should call getMySupplierPayment
   // (escrow) or getMyPaymentProgress()/getMyCampaignPayout() (Direct Charge).
   paymentMode: "PLEDGE_THEN_CHARGE" | "AUTHORISE_THEN_CAPTURE";
+  decisionDeadline?: string | null;
+  reconfirmationQuantity?: number | null;
   supplierCommitted: boolean;
   supplierCommittedAt?: string | null;
   supplierDeclinedAt?: string | null;
@@ -376,6 +391,8 @@ export interface Campaign {
   perShareFeeEstimate?: { productSubtotal: number; feeAmount: number; maxTotal: number; feeBps: number; minAmount?: number; maxAmount?: number } | null;
 }
 
+export type HoldStatus = "NOT_REQUESTED" | "HOLD_PENDING" | "REQUIRES_ACTION" | "HOLD_SUCCEEDED" | "HOLD_DECLINED" | "HOLD_EXPIRING" | "HOLD_RELEASED";
+
 export interface Contribution {
   id: string;
   campaignId: string;
@@ -405,6 +422,8 @@ export interface Contribution {
   deliveryCity?: string | null;
   deliveryPostcode?: string | null;
   refund?: { id: string; status: string; amount: number } | null;
+  // Two-stage campaigns only: where this buyer's card hold stands.
+  paymentAuthorisation?: { holdStatus: HoldStatus; captureStatus: string; holdRecoveryDeadline?: string | null } | null;
   createdAt: string;
 }
 
@@ -869,6 +888,33 @@ export const communityBuyService = {
    * regularDeliveriesService.createSetupIntent/confirmSetupIntent (the same
    * generic /api/buyer/payment-methods flow, reused as-is).
    */
+  /** Two-stage join: reserves the place and starts saving a card. No money moves. */
+  async commitToCampaign(campaignId: string, quantity: number, deliveryAddress?: DeliveryAddressInput): Promise<{ contributionId: string; setupIntentClientSecret: string | null; stripeAccountId: string }> {
+    return apiClient.post(`/api/community-buy/campaigns/${campaignId}/commit`, { quantity, deliveryAddress });
+  },
+  async confirmHoldSetup(contributionId: string): Promise<void> {
+    await apiClient.post(`/api/community-buy/contributions/${contributionId}/confirm-setup`, {});
+  },
+  async withdrawCommitment(contributionId: string): Promise<void> {
+    await apiClient.post(`/api/community-buy/contributions/${contributionId}/withdraw`, {});
+  },
+  async startHoldCardUpdate(contributionId: string): Promise<{ setupIntentClientSecret: string | null; stripeAccountId: string }> {
+    return apiClient.post(`/api/community-buy/contributions/${contributionId}/update-card`, {});
+  },
+  async getHoldAction(contributionId: string): Promise<{ clientSecret: string | null; stripeAccountId: string; paymentMethodId: string; needsConfirmation: boolean }> {
+    return apiClient.get(`/api/community-buy/contributions/${contributionId}/hold-action`);
+  },
+  async refreshHold(contributionId: string): Promise<void> {
+    await apiClient.post(`/api/community-buy/contributions/${contributionId}/refresh-hold`, {});
+  },
+  async decideCampaign(campaignId: string, action: "proceed" | "cancel"): Promise<Campaign> {
+    const res = await apiClient.post<{ campaign: Campaign }>(`/api/organiser/campaigns/${campaignId}/decision`, { action });
+    return res.campaign;
+  },
+  async reconfirmSupply(campaignId: string, action: "confirm" | "decline", reason?: string): Promise<void> {
+    await apiClient.post(`/api/supplier/campaigns/${campaignId}/reconfirm`, { action, reason });
+  },
+
   async pledgeContribution(campaignId: string, quantity: number, paymentMethodId: string, deliveryAddress?: DeliveryAddressInput): Promise<{ contributionId: string; quantity: number; amount: number; currency: string; status: ContributionStatus }> {
     return apiClient.post(`/api/community-buy/campaigns/${campaignId}/contributions`, { quantity, paymentMethodId, deliveryAddress });
   },
