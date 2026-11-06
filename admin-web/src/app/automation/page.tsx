@@ -11,10 +11,11 @@ import { usePermissions } from "@/lib/hooks/usePermissions";
 import AutomationsTab from "./AutomationsTab";
 import EventsTab from "./EventsTab";
 import FailuresTab from "./FailuresTab";
+import ResultsTab from "./ResultsTab";
 import RunsTab from "./RunsTab";
 
-type Tab = "automations" | "runs" | "failures" | "events";
-const TABS: Tab[] = ["automations", "runs", "failures", "events"];
+type Tab = "automations" | "runs" | "results" | "failures" | "events";
+const TABS: Tab[] = ["automations", "runs", "results", "failures", "events"];
 
 function AutomationInner() {
   const router = useRouter();
@@ -41,7 +42,7 @@ function AutomationInner() {
     <div className="space-y-6">
       <PageHeader title="Automation Centre" subtitle="What Eki sends automatically, to whom, why it did or did not send, and what happened next." />
       <StatusTabs
-        tabs={[{ key: "automations", label: "Automations" }, { key: "runs", label: "Run History" }, { key: "failures", label: "Failures" }, { key: "events", label: "Events" }]}
+        tabs={[{ key: "automations", label: "Automations" }, { key: "runs", label: "Run History" }, { key: "results", label: "Results" }, { key: "failures", label: "Failures" }, { key: "events", label: "Events" }]}
         active={tab}
         onChange={setTab}
       />
@@ -53,6 +54,7 @@ function AutomationInner() {
           initial={{ vendorId, ruleKey: params.get("ruleKey") ?? undefined, status: params.get("status") ?? undefined, type: params.get("type") ?? undefined }}
         />
       ) : null}
+      {tab === "results" ? <ResultsTab key={version} vendorId={vendorId} /> : null}
       {tab === "failures" ? <FailuresTab key={version} canMutate={canMutate} /> : null}
       {tab === "events" ? <EventsTab /> : null}
     </div>

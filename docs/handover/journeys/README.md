@@ -32,5 +32,6 @@ Journeys create their own data, so a database that has already been used can giv
 | `e2e_b.cjs` | Supplier actions: CB65, CB67, CB69 |
 | `e2e_c.cjs` | Growth: referrals, credit release and reversal, First Sale |
 | `e2e_d.cjs` | Discovery, demand matching, recommendations |
+| `e2e_e.cjs` | Events, Resend webhook, attribution. Needs `RESEND_WEBHOOK_SECRET` set to the local server's value |
 | `e2e_hold.cjs` | Harness for two-stage payment. It doesn't replace a real Stripe Connect run |
 | `seed_vendor_ui.cjs` | Creates a local vendor for checking screens |

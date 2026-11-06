@@ -45,7 +45,7 @@ npm run dev
 |---|---|
 | Core | `NODE_ENV`, `PORT`, `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `FRONTEND_URL`, `CRON_SECRET`, `LOG_LEVEL` |
 | Payments | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_IDENTITY_WEBHOOK_SECRET`, `DEFAULT_CURRENCY`, `PLATFORM_FEE_BPS` |
-| Email and SMS | `RESEND_API_KEY`, `EMAIL_FROM`, `OPS_ALERT_EMAIL`, `SMS_PROVIDER`, `SMS_API_KEY`, `AT_USERNAME`, `SMS_SENDER_ID` |
+| Email and SMS | `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `EMAIL_FROM`, `OPS_ALERT_EMAIL`, `SMS_PROVIDER`, `SMS_API_KEY`, `AT_USERNAME`, `SMS_SENDER_ID` |
 | Push | `EXPO_ACCESS_TOKEN` |
 | Storage | `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL`, `UPLOAD_BASE_URL` |
 | Sign-in | `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_ANDROID_CLIENT_ID`, `GOOGLE_WEB_CLIENT_ID`, `APPLE_BUNDLE_ID`, `TURNSTILE_SECRET_KEY` |
@@ -58,7 +58,7 @@ npm run dev
 
 ## Settings an admin changes without a deploy
 
-Admin → Settings → **Launch decisions**: UK launch mode, vendor trial, referrals per credit, First Sale switch and buyer cap, review targets, hold timing, unfinished card release, new vendor boost, demand threshold.
+Admin → Settings → **Launch decisions**: UK launch mode, vendor trial, referrals per credit, First Sale switch and buyer cap, review targets, hold timing, unfinished card release, new vendor boost, demand threshold, automation-assisted window.
 
 Admin → **Community Buy markets**: per-market switches, payment mode, fees, refund timeframe.
 

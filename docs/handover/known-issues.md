@@ -15,7 +15,7 @@ Status column is updated as each fix is verified. "Needs live proof" means code 
 | K6 | Critical | Live proof | End-to-end payment/refund/payout/KYC with real provider accounts not yet recorded | Eki/dev | Open |
 | K7 | Major | Push | Receipts are checked by cron; delivery to iOS/Android devices not yet proven | Eki/dev | Needs live proof |
 | K8 | Major | Referral / First Sale / state-aware vendor dashboard | Built and live in code (2026-11-06). Not yet proven on real devices or with a real referral | dev | Needs live proof |
-| K9 | Major | Attribution | No assisted/incremental metrics (intentionally not invented) | dev | Backlog |
+| K9 | Major | Attribution | Assisted revenue, net, subscription recovery and qualified referrals are in Automation Centre → Results. Estimated incremental revenue stays unshown until a comparison or holdout group exists | Andy | Open: decide on a holdout |
 | K10 | Minor | Data | Test/QA records flagged via `isTest`; run `scripts/flag-test-data.ts` (dry-run first) against production | dev | Needs action |
 | K11 | Critical | Scheduled jobs | The `CRON_SECRET` GitHub secret reaches `automation-scheduler.yml` empty, so 10-minute jobs never run. Only the daily sweep does, so reminders and deadlines can be up to a day late | Eki | Open: set the secret to the Vercel value |
 | K12 | Blocker | Card holds | Two-stage payment has never run against real Stripe Connect, because the local test key's account has no Connect. The UK stays on pledge mode until it has | Eki/dev | Open: enable Connect on that account |

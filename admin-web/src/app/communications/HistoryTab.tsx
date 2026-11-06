@@ -136,7 +136,7 @@ function DetailDrawer({ id, onClose }: { id: string; onClose: () => void }) {
             <div className="overflow-x-auto rounded-2xl border border-slate-200">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
-                  <tr><th className="px-3 py-2">Channel</th><th className="px-3 py-2">Eligible</th><th className="px-3 py-2">Queued</th><th className="px-3 py-2">Sent</th><th className="px-3 py-2">Delivered</th><th className="px-3 py-2">Failed</th><th className="px-3 py-2">Read</th></tr>
+                  <tr><th className="px-3 py-2">Channel</th><th className="px-3 py-2">Eligible</th><th className="px-3 py-2">Queued</th><th className="px-3 py-2">Sent</th><th className="px-3 py-2">Delivered</th><th className="px-3 py-2">Failed</th><th className="px-3 py-2">Read or opened</th><th className="px-3 py-2">Clicked</th></tr>
                 </thead>
                 <tbody>
                   {b.channels.map((ch) => {
@@ -145,9 +145,10 @@ function DetailDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                       <tr key={ch} className="border-t border-slate-100">
                         <td className="px-3 py-2 font-bold">{CHANNEL_LABEL[ch as BroadcastChannel] ?? ch}</td>
                         <td className="px-3 py-2">{c?.eligible ?? 0}</td><td className="px-3 py-2">{c?.queued ?? 0}</td><td className="px-3 py-2">{c?.sent ?? 0}</td>
-                        <td className="px-3 py-2 font-bold text-[#096B4A]">{ch === "email" ? "Not tracked" : c?.delivered ?? 0}</td>
+                        <td className="px-3 py-2 font-bold text-[#096B4A]">{c?.delivered ?? 0}</td>
                         <td className="px-3 py-2 font-bold text-red-600">{c?.failed ?? 0}</td>
-                        <td className="px-3 py-2">{ch === "in_app" ? c?.read ?? 0 : "—"}</td>
+                        <td className="px-3 py-2">{ch === "in_app" ? c?.read ?? 0 : ch === "email" ? c?.opened ?? 0 : "—"}</td>
+                        <td className="px-3 py-2">{ch === "email" ? c?.clicked ?? 0 : "—"}</td>
                       </tr>
                     );
                   })}
