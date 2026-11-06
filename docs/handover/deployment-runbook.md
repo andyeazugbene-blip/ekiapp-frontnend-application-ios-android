@@ -6,7 +6,7 @@ Backend always goes first. An app update can rely on a new API, but the API must
 
 1. Branch from `origin/main`. Commit subjects are lower case (commitlint).
 2. Backend, with `DATABASE_URL` unset: `npx vitest run`, `npx tsc --noEmit`, `npm run check:scaffolding`, `npm run test:coverage-map`.
-3. App and admin: `npx tsc --noEmit` in the root and in `admin-web`.
+3. App and admin: `npx tsc --noEmit` in the root, and `npx next build` in `admin-web`. A type-check alone misses lint errors that fail the Vercel build.
 4. Run the journey for what changed against the throwaway database. Mocked tests have hidden real bugs here more than once, so anything touching money runs against Stripe test mode.
 
 ## Migrations

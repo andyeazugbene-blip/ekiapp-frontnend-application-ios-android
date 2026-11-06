@@ -132,7 +132,7 @@ function Content() {
       {notice ? <Banner tone="success">{notice}</Banner> : null}
       {campaign.disputedAt ? (
         <Banner tone="danger" title="Disputed: money on hold">
-          {campaign.disputeReason} Marked {formatDateTime(campaign.disputedAt)}. Fulfilment carries on, but supplier and organiser money can't be released.
+          {campaign.disputeReason} Marked {formatDateTime(campaign.disputedAt)}. Fulfilment carries on, but supplier and organiser money can&apos;t be released.
         </Banner>
       ) : null}
 
