@@ -342,6 +342,7 @@ export interface Campaign {
   supplierDeclineReason?: string | null;
   rescueEndsAt?: string | null;
   extensionCount: number;
+  supplierInventoryStatus?: InventoryStatus | null;
   supplierOfferId?: string | null;
   paidTotal?: number;
   progressPct?: number;
@@ -471,6 +472,16 @@ export interface CampaignUpdate {
   createdAt: string;
   source?: "broadcast" | "system";
   authorRole?: "ORGANISER" | "SUPPLIER" | "SYSTEM";
+}
+
+export type InventoryStatus = "CONFIRMED" | "LIMITED" | "NO_LONGER_AVAILABLE";
+
+export interface OrganiserHistory {
+  campaignsOrganised: number;
+  successfulCampaigns: number;
+  participantCompletionRate: number | null;
+  fulfilmentIssues: number;
+  organiserPaymentsEnabled: boolean;
 }
 
 export interface CampaignParticipant {
@@ -845,6 +856,16 @@ export const communityBuyService = {
   async listMarketConfigs(): Promise<MarketConfig[]> {
     const res = await apiClient.get<Items<MarketConfig>>("/api/community-buy/markets", { skipAuth: true });
     return res.items ?? [];
+  },
+
+  async setInventoryStatus(campaignId: string, status: InventoryStatus): Promise<void> {
+    await apiClient.post(`/api/supplier/campaigns/${campaignId}/inventory-status`, { status });
+  },
+  async askSupplierQuestion(campaignId: string, question: string): Promise<void> {
+    await apiClient.post(`/api/supplier/campaigns/${campaignId}/question`, { question });
+  },
+  async getOrganiserHistory(): Promise<OrganiserHistory> {
+    return apiClient.get("/api/organiser/history");
   },
 
   async notifyWhenMarketOpens(country: string): Promise<void> {

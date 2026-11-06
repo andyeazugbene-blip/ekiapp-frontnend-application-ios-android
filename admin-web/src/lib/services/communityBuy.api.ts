@@ -32,6 +32,7 @@ export interface AdminCampaign {
   supplierDeclineReason?: string | null;
   rescueEndsAt?: string | null;
   extensionCount: number;
+  supplierInventoryStatus?: string | null;
   paidTotal?: number | null;
   deadline: string;
   status: CampaignStatus;

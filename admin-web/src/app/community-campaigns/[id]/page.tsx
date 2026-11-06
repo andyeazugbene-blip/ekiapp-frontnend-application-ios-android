@@ -173,6 +173,7 @@ function Content() {
           { label: "Fulfilment deadline", value: inCampaignZone(campaign.fulfilmentDeadline, campaign.timezone) },
           { label: "Scheduled opening", value: inCampaignZone(campaign.scheduledOpenAt, campaign.timezone) },
           { label: "Extensions used", value: campaign.extensionCount },
+          { label: "Supplier inventory status", value: campaign.supplierInventoryStatus ? campaign.supplierInventoryStatus.replace(/_/g, " ").toLowerCase() : "Not reported" },
           ...(campaign.status === "RESCUE_WINDOW" && campaign.rescueEndsAt ? [{ label: "Rescue window ends", value: inCampaignZone(campaign.rescueEndsAt, campaign.timezone) }] : []),
           ...(campaign.reviewCriteria ? [{ label: "Review criteria", value: Object.entries(campaign.reviewCriteria).map(([k, v]) => `${k}: ${v ? "pass" : "fail"}`).join(", ") }] : []),
           ...(campaign.reviewNotes ? [{ label: "Review notes", value: campaign.reviewNotes }] : []),

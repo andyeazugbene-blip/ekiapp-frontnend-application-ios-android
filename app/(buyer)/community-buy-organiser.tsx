@@ -7,6 +7,7 @@ import { goBackOrReplace } from "../../utils/navigation";
 import { startCommunityBuy } from "../../utils/startCommunityBuy";
 import { formatDisplayMoney } from "../../utils/currency";
 import { useCurrencyStore } from "../../stores/currencyStore";
+import type { OrganiserHistory } from "../../services/communityBuyService";
 import {
   ErrorState,
   FloatingCard,
@@ -48,6 +49,7 @@ export default function CommunityBuyOrganiserScreen() {
 
   const [profile, setProfile] = useState<OrganiserProfile | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [history, setHistory] = useState<OrganiserHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   // Phase 2 (organiser identity display preference) — account-level, so it
@@ -61,6 +63,7 @@ export default function CommunityBuyOrganiserScreen() {
       const profileData = await communityBuyService.getMyOrganiserProfile();
       setProfile(profileData);
       setCampaigns(profileData ? await communityBuyService.listMyOrganiserCampaigns() : []);
+      setHistory(profileData ? await communityBuyService.getOrganiserHistory().catch(() => null) : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load your Community Buys.");
     } finally {
@@ -166,6 +169,19 @@ export default function CommunityBuyOrganiserScreen() {
                 trackColor={{ false: "#D9E2DC", true: "#076B51" }}
               />
             </FloatingCard>
+
+            {history ? (
+              <>
+                <Text style={styles.section}>Organiser history</Text>
+                <FloatingCard style={{ gap: 6 }}>
+                  <Text style={styles.applyRowText}>Campaigns organised: {history.campaignsOrganised}</Text>
+                  <Text style={styles.applyRowText}>Successful campaigns: {history.successfulCampaigns}</Text>
+                  <Text style={styles.applyRowText}>Participant completion rate: {history.participantCompletionRate == null ? "No payments yet" : `${history.participantCompletionRate}%`}</Text>
+                  <Text style={styles.applyRowText}>Fulfilment issues: {history.fulfilmentIssues}</Text>
+                  <Text style={styles.applyRowText}>Organiser payments: {history.organiserPaymentsEnabled ? "Enabled" : "Not enabled"}</Text>
+                </FloatingCard>
+              </>
+            ) : null}
 
             <Text style={styles.section}>Your campaigns</Text>
             {campaigns.length === 0 ? (

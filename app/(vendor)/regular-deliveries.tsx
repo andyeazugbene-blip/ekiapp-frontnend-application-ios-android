@@ -14,6 +14,7 @@ import {
   PremiumHeader,
   StatusPill,
   premiumStyles,
+  OutlineButton,
 } from "../../components/shared/PremiumBlocks";
 import {
   regularDeliveriesService,
@@ -23,6 +24,7 @@ import {
   type BuyerSubscription,
   type Renewal,
   type SubscriptionOffer,
+  type StockShortage,
 } from "../../services/regularDeliveriesService";
 
 type Tab = "offers" | "subscribers" | "renewals" | "calendar";
@@ -83,6 +85,7 @@ export default function VendorRegularDeliveriesScreen() {
   const [offers, setOffers] = useState<SubscriptionOffer[]>([]);
   const [subscribers, setSubscribers] = useState<BuyerSubscription[]>([]);
   const [renewals, setRenewals] = useState<Renewal[]>([]);
+  const [shortages, setShortages] = useState<StockShortage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -99,6 +102,7 @@ export default function VendorRegularDeliveriesScreen() {
       setOffers(offerList);
       setSubscribers(subscriberList);
       setRenewals(renewalList);
+      regularDeliveriesService.listStockShortages().then(setShortages).catch(() => setShortages([]));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load Foodstuff Subscriptions.");
     } finally {
@@ -145,6 +149,23 @@ export default function VendorRegularDeliveriesScreen() {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const resolveShortage = (shortage: StockShortage, mode: "earliest" | "pause") => {
+    const body = mode === "earliest"
+      ? `Stock goes to the earliest ${shortage.title} renewals first. Anyone left waiting is told, and isn't charged.`
+      : `${shortage.title} comes out of your offers for now. Buyers are told it won't be in their next renewal.`;
+    Alert.alert("Review allocation", body, [
+      { text: "Go back", style: "cancel" },
+      {
+        text: "Continue",
+        onPress: () => {
+          regularDeliveriesService.resolveStockShortage(shortage.productId, mode)
+            .then(() => load())
+            .catch((err) => Alert.alert("Couldn't update stock", err instanceof Error ? err.message : "Please try again."));
+        },
+      },
+    ]);
   };
 
   const confirmStock = async (renewalId: string) => {
@@ -350,6 +371,18 @@ export default function VendorRegularDeliveriesScreen() {
               </>
             ) : tab === "renewals" ? (
               <>
+                {shortages.map((shortage) => (
+                  <FloatingCard key={shortage.productId} style={{ gap: 8 }}>
+                    <Text style={styles.cardTitle}>Stock is limited</Text>
+                    <Text style={styles.cardMeta}>There is not enough stock for every upcoming renewal of {shortage.title}.</Text>
+                    <Text style={styles.cardMeta}>Available quantity: {shortage.availableQuantity}</Text>
+                    <Text style={styles.cardMeta}>Required quantity: {shortage.requiredQuantity}</Text>
+                    <Text style={styles.cardMeta}>Affected buyers will be notified before payment.</Text>
+                    <OutlineButton label="Allocate by earliest renewal" onPress={() => resolveShortage(shortage, "earliest")} />
+                    <OutlineButton label="Pause affected items" onPress={() => resolveShortage(shortage, "pause")} />
+                    <OutlineButton label="Review subscriptions individually" onPress={() => setTab("subscribers")} />
+                  </FloatingCard>
+                ))}
                 <Text style={styles.sectionTitle}>Upcoming renewals</Text>
                 {renderFilterRow(Object.keys(RENEWAL_FILTERS), renewalFilter, setRenewalFilter)}
                 {visibleRenewals.length === 0 ? (
