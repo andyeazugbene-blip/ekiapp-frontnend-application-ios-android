@@ -132,6 +132,14 @@ export interface SubscriptionItem {
   product: { id: string; title: string; priceInCents: number; currency: string; imageUrl?: string | null };
 }
 
+export interface StockShortage {
+  productId: string;
+  title: string;
+  availableQuantity: number;
+  requiredQuantity: number;
+  affectedRenewals: number;
+}
+
 export interface Renewal {
   id: string;
   subscriptionId: string;
@@ -424,6 +432,13 @@ export const regularDeliveriesService = {
   async listMyRenewals(): Promise<Renewal[]> {
     const res = await apiClient.get<Items<Renewal>>("/api/vendor/renewals");
     return res.items ?? [];
+  },
+
+  async listStockShortages(): Promise<StockShortage[]> {
+    return (await apiClient.get<{ items: StockShortage[] }>("/api/vendor/stock-shortages")).items;
+  },
+  async resolveStockShortage(productId: string, mode: "earliest" | "pause"): Promise<{ confirmed?: number; waiting?: number; paused?: number }> {
+    return apiClient.post(`/api/vendor/stock-shortages/${productId}/resolve`, { mode });
   },
 
   async confirmRenewalStock(renewalId: string): Promise<Renewal> {

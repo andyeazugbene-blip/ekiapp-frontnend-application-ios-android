@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOrReplace } from "../../utils/navigation";
@@ -16,6 +16,8 @@ import {
   premiumStyles,
 } from "../../components/shared/PremiumBlocks";
 import { DatePickerField } from "../../components/shared/DatePickerField";
+import { getPublicStoreUrl } from "../../utils/shareLinks";
+import { vendorService } from "../../services/vendorService";
 import {
   regularDeliveriesService,
   FREQUENCY_LABELS,
@@ -33,6 +35,8 @@ const ALL_SUBSTITUTION_MODES: OfferSubstitutionMode[] = ["NO_SUBSTITUTION", "ASK
 export default function VendorRegularDeliveryOfferEditScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
+  // A new offer starts with what the vendor is signing up for (S02), and publishes from a review (S08).
+  const [step, setStep] = useState<"intro" | "form" | "review" | "published">(id ? "form" : "intro");
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +96,7 @@ export default function VendorRegularDeliveryOfferEditScreen() {
         setFrequencies(new Set(existing.frequencies));
         setSubstitutionPolicy(existing.substitutionPolicy ?? "");
         setSubstitutionMode(existing.substitutionMode ?? "ASK_BUYER");
-        setRenewalCutoffHours(existing.renewalCutoffHours != null ? String(existing.renewalCutoffHours) : "");
+        setRenewalCutoffHours(existing.renewalCutoffHours != null ? String(existing.renewalCutoffHours / 24) : "");
         setFulfilmentMethod(existing.fulfilmentMethod ?? "DELIVERY");
         setPreparationHours(existing.preparationHours != null ? String(existing.preparationHours) : "");
         setUseDiscount(existing.discountPercent != null);
@@ -140,9 +144,9 @@ export default function VendorRegularDeliveryOfferEditScreen() {
       return;
     }
     const trimmedCutoff = renewalCutoffHours.trim();
-    const parsedCutoff = trimmedCutoff ? Number(trimmedCutoff) : undefined;
+    const parsedCutoff = trimmedCutoff ? Number(trimmedCutoff) * 24 : undefined;
     if (trimmedCutoff && (!Number.isFinite(parsedCutoff) || (parsedCutoff as number) <= 0)) {
-      Alert.alert("Invalid cutoff", "Enter a valid number of hours, or leave it blank.");
+      Alert.alert("Invalid cutoff", "Enter a valid number of days, or leave it blank.");
       return;
     }
     const trimmedPrep = preparationHours.trim();
@@ -193,12 +197,26 @@ export default function VendorRegularDeliveryOfferEditScreen() {
       }
       setOfferId(offer.id);
       setIsActive(offer.isActive);
-      Alert.alert("Saved", offer.isActive ? "Offer created and published." : "Offer saved as a draft. Publish it when ready.");
+      if (publishAfter && offer.isActive) setStep("published");
+      else Alert.alert("Saved", offer.isActive ? "Your changes are saved." : "Offer saved as a draft. Publish it when ready.");
     } catch (err) {
       Alert.alert("Couldn't save offer", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const goToReview = () => {
+    if (!title.trim()) return Alert.alert("Title required", "Give this offer a name.");
+    if (selectedProductIds.size === 0) return Alert.alert("Select products", "Choose at least one product for this offer.");
+    if (frequencies.size === 0) return Alert.alert("Select a frequency", "Choose at least one delivery frequency.");
+    setStep("review");
+  };
+
+  const shareOffer = async () => {
+    const profile = await vendorService.getMyProfile().catch(() => null);
+    const link = getPublicStoreUrl({ storeSlug: profile?.storeSlug });
+    await Share.share({ message: `${title.trim()}: subscribe to repeat foodstuff deliveries from my store on Eki. ${link}` }).catch(() => undefined);
   };
 
   const handleTogglePauseProduct = (productId: string, productName: string) => {
@@ -264,6 +282,42 @@ export default function VendorRegularDeliveryOfferEditScreen() {
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={[premiumStyles.scrollContent, { paddingTop: 18 }]} showsVerticalScrollIndicator={false}>
           <View style={[premiumStyles.block, { gap: 14 }]}>
+            {step === "intro" ? (
+              <FloatingCard style={{ gap: 12 }}>
+                <Text style={styles.sectionTitle}>Create a Foodstuff Subscription offer</Text>
+                <Text style={styles.fieldHint}>Buyers will choose eligible foodstuff, select a frequency and authorise repeat payments.</Text>
+                <Text style={styles.fieldHint}>You remain responsible for confirming stock and preparing every paid renewal.</Text>
+                <Text style={styles.label}>How it works</Text>
+                <Text style={styles.fieldHint}>1. Choose eligible foodstuff</Text>
+                <Text style={styles.fieldHint}>2. Select the frequencies you support</Text>
+                <Text style={styles.fieldHint}>3. Set pricing and fulfilment rules</Text>
+                <Text style={styles.fieldHint}>4. Review and publish your offer</Text>
+                <Text style={styles.label}>You must not prepare a renewal until its payment is verified.</Text>
+                <PrimaryButton label="Get started" onPress={() => setStep("form")} />
+              </FloatingCard>
+            ) : step === "review" ? (
+              <FloatingCard style={{ gap: 10 }}>
+                <Text style={styles.sectionTitle}>Review Foodstuff Subscription offer</Text>
+                <Text style={styles.label}>Eligible foodstuff</Text><Text style={styles.fieldHint}>{selectedProductIds.size}</Text>
+                <Text style={styles.label}>Frequencies</Text><Text style={styles.fieldHint}>{Array.from(frequencies).map((f) => FREQUENCY_LABELS[f]).join(", ")}</Text>
+                <Text style={styles.label}>Foodstuff Subscription discount</Text><Text style={styles.fieldHint}>{useDiscount && discountPercent.trim() ? `${discountPercent.trim()}%` : "No discount"}</Text>
+                <Text style={styles.label}>Fulfilment</Text><Text style={styles.fieldHint}>{FULFILMENT_METHOD_LABELS[fulfilmentMethod]}</Text>
+                <Text style={styles.label}>Preparation time</Text><Text style={styles.fieldHint}>{preparationHours.trim() ? `${preparationHours.trim()} hours` : "Not set"}</Text>
+                <Text style={styles.label}>Renewal cutoff</Text><Text style={styles.fieldHint}>{renewalCutoffHours.trim() ? `${renewalCutoffHours.trim()} days before renewal` : "Standard cutoff"}</Text>
+                <Text style={styles.fieldHint}>Buyers can pause, skip or cancel according to your displayed terms.</Text>
+                <PrimaryButton label="Publish offer" onPress={() => void handleSave(true)} loading={saving} />
+                <OutlineButton label="Edit" onPress={() => setStep("form")} disabled={saving} />
+              </FloatingCard>
+            ) : step === "published" ? (
+              <FloatingCard style={{ gap: 12 }}>
+                <Text style={styles.sectionTitle}>Your Foodstuff Subscription offer is live</Text>
+                <Text style={styles.fieldHint}>Buyers can now subscribe to repeat foodstuff deliveries from your store.</Text>
+                <PrimaryButton label="Share offer" onPress={() => void shareOffer()} />
+                <OutlineButton label="View offer" onPress={() => setStep("form")} />
+                <OutlineButton label="Return to dashboard" onPress={() => router.replace("/(vendor)/regular-deliveries" as any)} />
+              </FloatingCard>
+            ) : (
+              <>
             <FloatingCard style={{ gap: 14 }}>
               <View>
                 <Text style={styles.label}>Title</Text>
@@ -327,9 +381,11 @@ export default function VendorRegularDeliveryOfferEditScreen() {
                   <TextInput style={styles.input} placeholder="e.g. 24" placeholderTextColor="#8AA194" value={preparationHours} onChangeText={setPreparationHours} keyboardType="number-pad" />
                 </View>
                 <View>
-                  <Text style={styles.label}>Renewal cutoff, in hours (optional)</Text>
-                  <TextInput style={styles.input} placeholder="e.g. 48" placeholderTextColor="#8AA194" value={renewalCutoffHours} onChangeText={setRenewalCutoffHours} keyboardType="number-pad" />
-                  <Text style={styles.fieldHint}>How many hours before a renewal buyers can still pause, skip, or edit it.</Text>
+                  <Text style={styles.label}>Cancellation cutoff, days before renewal (optional)</Text>
+                  <TextInput style={styles.input} placeholder="e.g. 2" placeholderTextColor="#8AA194" value={renewalCutoffHours} onChangeText={setRenewalCutoffHours} keyboardType="number-pad" accessibilityLabel="Cancellation cutoff in days before renewal" />
+                  <Text style={styles.fieldHint}>Buyers can edit their basket before the displayed cutoff, skip a future unpaid renewal, pause future deliveries and cancel future unpaid renewals.</Text>
+                  <Text style={styles.fieldHint}>Changes made after the cutoff may apply to the following renewal.</Text>
+                  <Text style={styles.fieldHint}>A cancellation does not cancel an order that has already been paid or dispatched.</Text>
                 </View>
                 <View>
                   <Text style={styles.label}>Substitution policy</Text>
@@ -428,8 +484,10 @@ export default function VendorRegularDeliveryOfferEditScreen() {
               </>
             ) : (
               <>
-                <PrimaryButton label={isEdit ? "Update and publish offer" : "Create and publish offer"} onPress={() => void handleSave(true)} loading={saving} />
+                <PrimaryButton label="Review offer" onPress={goToReview} />
                 <OutlineButton label="Save as draft" onPress={() => void handleSave(false)} loading={saving} />
+              </>
+            )}
               </>
             )}
           </View>

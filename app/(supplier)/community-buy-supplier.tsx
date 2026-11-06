@@ -31,6 +31,7 @@ import { countryDisplayName } from "../../utils/countries";
 import { CountrySelectField } from "../../components/shared/CountrySelectField";
 import { calculateSupplierCommission } from "../../utils/communityBuyFees";
 import { getLaunchSettings } from "../../services/launchSettingsService";
+import type { InventoryStatus } from "../../services/communityBuyService";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -61,6 +62,7 @@ const DECLINE_REASONS = [
 const DASHBOARD_VISIBLE_STATES: SupplierAccountState[] = ["APPROVED", "PAUSED", "RESTRICTED"];
 
 // Spec F: Supplier Centre sections.
+const INVENTORY_OPTIONS: [InventoryStatus, string][] = [["CONFIRMED", "Confirmed"], ["LIMITED", "Limited"], ["NO_LONGER_AVAILABLE", "No longer available"]];
 type CentreSection = "home" | "invitations" | "campaigns" | "fulfilment" | "payouts";
 const CENTRE_SECTIONS: { key: CentreSection; label: string }[] = [
   { key: "home", label: "Home" },
@@ -113,6 +115,9 @@ export default function VendorCommunityBuySupplierScreen() {
   // Onboarding form (Workstream 3 — mandate item 2: real requirements, not
   // a one-tap "Apply for {country}") — country + categories + coverage.
   const [formCountry, setFormCountry] = useState<string | null>(null);
+  const [inventoryChoice, setInventoryChoice] = useState<Record<string, InventoryStatus>>({});
+  const [questionOpenId, setQuestionOpenId] = useState<string | null>(null);
+  const [questionText, setQuestionText] = useState("");
   const [hideMarketChoice, setHideMarketChoice] = useState(false);
   const [formCategories, setFormCategories] = useState("");
   const [formBusinessName, setFormBusinessName] = useState("");
@@ -256,6 +261,28 @@ export default function VendorCommunityBuySupplierScreen() {
       .reconfirmSupply(campaignId, action)
       .then(() => load())
       .catch((err: unknown) => Alert.alert("That didn't work", err instanceof Error ? err.message : "Please try again."));
+  };
+
+  const saveInventory = async (campaignId: string) => {
+    const status = inventoryChoice[campaignId];
+    if (!status) return;
+    try {
+      await communityBuyService.setInventoryStatus(campaignId, status);
+      setCampaigns((prev) => prev.map((c) => (c.id === campaignId ? { ...c, supplierInventoryStatus: status } : c)));
+    } catch (err) {
+      Alert.alert("Couldn't save inventory status", err instanceof Error ? err.message : "Please try again.");
+    }
+  };
+
+  const sendQuestion = async (campaignId: string) => {
+    try {
+      await communityBuyService.askSupplierQuestion(campaignId, questionText.trim());
+      setQuestionText("");
+      setQuestionOpenId(null);
+      Alert.alert("Question sent", "Our support team will reply in your support cases.");
+    } catch (err) {
+      Alert.alert("Couldn't send your question", err instanceof Error ? err.message : "Please try again.");
+    }
   };
 
   const handleAcceptCampaign = (campaignId: string, title: string) => {
@@ -665,6 +692,9 @@ export default function VendorCommunityBuySupplierScreen() {
                         <StatusPill label={CAMPAIGN_STATUS_LABELS[c.status]} tone={CAMPAIGN_STATUS_TONE[c.status]} />
                       </View>
                       <Text style={styles.cardMeta}>Organiser: {c.organiser?.user?.name ?? "Unknown"}</Text>
+                      {c.minimumShares != null ? <Text style={styles.cardMeta}>Minimum quantity: {c.minimumShares}</Text> : null}
+                      {c.goalShares != null ? <Text style={styles.cardMeta}>Goal quantity: {c.goalShares}</Text> : null}
+                      {c.maximumShares != null ? <Text style={styles.cardMeta}>Maximum quantity: {c.maximumShares}</Text> : null}
                       {c.description ? <Text style={styles.cardDescription}>{c.description}</Text> : null}
                       <Text style={styles.cardMeta}>Deadline: {formatDeadline(c.deadline)}</Text>
                       {c.status === "AWAITING_SUPPLIER_RECONFIRMATION" ? (
@@ -713,6 +743,41 @@ export default function VendorCommunityBuySupplierScreen() {
                           </FloatingCard>
                         );
                       })() : null}
+
+                      {c.supplierCommitted && canPostUpdate ? (
+                        <View style={{ gap: 6, marginTop: 4 }}>
+                          <Text style={styles.formLabel}>Inventory status</Text>
+                          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                            {INVENTORY_OPTIONS.map(([value, label]) => {
+                              const on = (inventoryChoice[c.id] ?? c.supplierInventoryStatus) === value;
+                              return (
+                                <TouchableOpacity key={value} onPress={() => setInventoryChoice((p) => ({ ...p, [c.id]: value }))} activeOpacity={0.85} style={[styles.declineBtn, on && { borderColor: "#076B51", backgroundColor: "#EBF5F0" }]} accessibilityRole="radio" accessibilityState={{ selected: on }}>
+                                  <Text style={[styles.declineBtnText, on && { color: "#076B51" }]}>{label}</Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                          {inventoryChoice[c.id] && inventoryChoice[c.id] !== c.supplierInventoryStatus ? (
+                            <TouchableOpacity onPress={() => void saveInventory(c.id)} activeOpacity={0.88} style={[styles.acceptBtn, { marginTop: 0 }]} accessibilityRole="button" accessibilityLabel="Save inventory status">
+                              <Text style={styles.acceptBtnText}>Save inventory status</Text>
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+                      ) : null}
+
+                      {pendingDecision ? (
+                        <TouchableOpacity onPress={() => setQuestionOpenId(questionOpenId === c.id ? null : c.id)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Ask a question" accessibilityState={{ expanded: questionOpenId === c.id }}>
+                          <Text style={[styles.cardMeta, { color: "#076B51" }]}>Ask a question</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                      {questionOpenId === c.id ? (
+                        <View style={styles.inlineForm}>
+                          <TextInput style={styles.input} placeholder="What would you like to know?" placeholderTextColor="#8AA194" value={questionText} onChangeText={setQuestionText} multiline accessibilityLabel="Your question" />
+                          <TouchableOpacity onPress={() => void sendQuestion(c.id)} disabled={!questionText.trim()} activeOpacity={0.88} style={[styles.acceptBtn, { marginTop: 0 }, !questionText.trim() && { opacity: 0.5 }]} accessibilityRole="button" accessibilityLabel="Send question">
+                            <Text style={styles.acceptBtnText}>Send question</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : null}
 
                       {pendingDecision ? (
                         <>

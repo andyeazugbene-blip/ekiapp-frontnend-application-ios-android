@@ -11,7 +11,20 @@ import { NoAccess } from "@/components/PageStates";
 import { FREQUENCY_LABEL, paymentBadge, statusBadge } from "@/components/SubscriptionBits";
 import { APIError } from "@/lib/api";
 import { usePermissions } from "@/lib/hooks/usePermissions";
+import SupportCases from "./SupportCases";
 import { subscriptionsAdminAPI, type SubscriptionDetail, type SubscriptionTimelineEvent } from "@/lib/services/regularDeliveries.api";
+
+/** S61: what an admin can do next with a renewal in this state. */
+function nextAction(status: string): string {
+  switch (status) {
+    case "PAYMENT_PROCESSING": return "Recheck provider";
+    case "PAYMENT_FAILED": return "Retry payment, within the retry limit";
+    case "AWAITING_STOCK": return "Contact vendor, or skip this renewal";
+    case "AWAITING_PRICE_APPROVAL": return "Resend the price change, or cancel an invalid one";
+    case "READY_FOR_PAYMENT": return "Wait for the scheduled payment";
+    default: return "None";
+  }
+}
 
 const KIND_TONE: Record<SubscriptionTimelineEvent["kind"], "green" | "amber" | "red" | "blue" | "gray"> = {
   action: "blue", renewal: "gray", payment_attempt: "amber", order: "green", refund: "red", audit: "gray",
@@ -40,6 +53,17 @@ function DetailInner({ id }: { id: string }) {
   useEffect(() => { void load(); }, [load]);
 
   const done = (msg: string) => async () => { setNotice(msg); await load(); };
+  const [openRenewal, setOpenRenewal] = useState<string | null>(null);
+  const [caseRenewal, setCaseRenewal] = useState<string | null>(null);
+  const recheck = async (renewalId: string) => {
+    try {
+      const result = await subscriptionsAdminAPI.recheckProvider(renewalId);
+      setNotice(`Provider says ${result.providerStatus}. ${result.changed ? `Renewal is now ${result.renewalStatus.replace(/_/g, " ").toLowerCase()}.` : "Nothing changed."}`);
+      await load();
+    } catch (e) {
+      setNotice(e instanceof APIError ? e.message : "Couldn't check the provider.");
+    }
+  };
 
   if (loading && !data) return <LoadingPanel label="Loading subscription…" />;
   if (error && !data) return <ErrorPanel message={error} onRetry={() => void load()} />;
@@ -224,13 +248,38 @@ function DetailInner({ id }: { id: string }) {
                   </p>
                   {r.failureReason ? <p className="text-xs font-semibold text-red-600">{r.failureReason}</p> : null}
                 </div>
-                {r.order ? <Link className="text-sm font-bold text-[#096B4A] hover:underline" href={`/orders/${r.order.id}`}>Order {r.order.orderNumber}</Link> : null}
+                <div className="flex flex-wrap items-center gap-3">
+                  {r.order ? <Link className="text-sm font-bold text-[#096B4A] hover:underline" href={`/orders/${r.order.id}`}>Order {r.order.orderNumber}</Link> : null}
+                  <button className="text-sm font-bold text-[#096B4A] hover:underline" onClick={() => setOpenRenewal(openRenewal === r.id ? null : r.id)}>{openRenewal === r.id ? "Hide details" : "Renewal details"}</button>
+                </div>
+                {openRenewal === r.id ? (
+                  <div className="w-full rounded-xl bg-slate-50 p-4 text-sm">
+                    <KeyValue items={[
+                      { label: "Renewal reference", value: r.id },
+                      { label: "Subscription", value: s.id },
+                      { label: "Stock status", value: r.stockConfirmedAt ? `Confirmed ${formatDateTime(r.stockConfirmedAt)}` : r.status === "AWAITING_STOCK" ? "Waiting for the vendor" : "Not needed yet" },
+                      { label: "Price approval", value: !r.priceChange ? "Not needed" : r.priceChange.buyerDecision ?? "Waiting for the buyer" },
+                      { label: "Payment status", value: r.attempts.length ? r.attempts[r.attempts.length - 1].status : "No payment attempted" },
+                      { label: "Order status", value: r.order ? r.order.status : "No order created" },
+                      { label: "Retry count", value: Math.max(0, r.attempts.length - 1) },
+                      { label: "Next allowed action", value: nextAction(r.status) },
+                    ]} />
+                    {canMutate ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {r.attempts.length ? <Button variant="secondary" onClick={() => void recheck(r.id)}>Recheck provider</Button> : null}
+                        <Button variant="secondary" onClick={() => setCaseRenewal(r.id)}>Open support case</Button>
+                        {!r.escalated ? <Button variant="ghost" onClick={() => confirm.ask({ title: "Escalate this renewal?", confirmLabel: "Escalate", tone: "primary" }, async (reason) => { await subscriptionsAdminAPI.escalateRenewal(r.id, reason); await done("Renewal escalated.")(); })}>Escalate</Button> : <Badge tone="red">Escalated</Badge>}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
         )}
       </Card>
 
+      <SupportCases subscriptionId={s.id} buyerName={buyer?.name ?? "Unknown"} vendorName={vendor?.storeName ?? "Unknown"} renewalId={caseRenewal} canEdit={canMutate} onClearRenewal={() => setCaseRenewal(null)} />
       <Card>
         <h2 className="mb-3 text-xl font-black">History</h2>
         {data.timeline.length === 0 ? <p className="text-sm text-slate-500">Nothing recorded yet.</p> : (

@@ -156,7 +156,7 @@ export interface SubscriptionDetail {
   money: { currency: string | null; basketSubtotal: number; latestSubtotal: number | null; latestDeliveryFee: number | null; paymentState: SubscriptionRow["paymentState"]; latestFailureReason: string | null; nextRetryAt: string | null };
   renewals: {
     id: string; cycleDate: string; status: string; currency: string; subtotalAmount: number | null; deliveryFeeAmount: number | null;
-    failureReason: string | null; nextRetryAt: string | null; escalated: boolean;
+    failureReason: string | null; nextRetryAt: string | null; escalated: boolean; stockConfirmedAt: string | null; priceChange: { approvalRequired: boolean; buyerDecision: string | null } | null;
     attempts: { attemptNumber: number; status: string; failureCode: string | null; failureMessage: string | null; createdAt: string }[];
     order: { id: string; orderNumber: string; status: string; totalAmount: number; currency: string } | null;
     items: { title: string; quantity: number; unitAmount: number; stockAvailable: boolean }[];
@@ -189,7 +189,40 @@ export interface SubscriptionOperationsSummary {
   subscriptionExceptions: number;
 }
 
+export const SUPPORT_CASE_TYPES = [
+  ["PAYMENT", "Payment"], ["RENEWAL", "Renewal"], ["PRICE_CHANGE", "Price change"], ["STOCK", "Stock"],
+  ["DELIVERY", "Delivery"], ["CANCELLATION", "Cancellation"], ["REFUND", "Refund"], ["VENDOR_CONDUCT", "Vendor conduct"],
+] as const;
+
+export interface SubscriptionSupportCase {
+  id: string;
+  renewalId: string | null;
+  caseType: (typeof SUPPORT_CASE_TYPES)[number][0];
+  description: string;
+  evidenceUrls: string[];
+  status: "OPEN" | "IN_PROGRESS" | "ESCALATED" | "RESOLVED" | "CLOSED";
+  internalNotes: string | null;
+  customerVisibleResponse: string | null;
+  escalated: boolean;
+  createdAt: string;
+}
+
 export const subscriptionsAdminAPI = {
+  async listSupportCases(id: string): Promise<SubscriptionSupportCase[]> {
+    return (await apiClient.get<{ items: SubscriptionSupportCase[] }>(`/admin/subscriptions/${id}/support-cases`, { bypassCache: true })).items;
+  },
+  async createSupportCase(id: string, input: { caseType: string; description: string; renewalId?: string; internalNotes?: string; evidenceUrls?: string[] }): Promise<void> {
+    await apiClient.post(`/admin/subscriptions/${id}/support-cases`, input);
+  },
+  async updateSupportCase(caseId: string, input: { status?: string; internalNotes?: string; customerVisibleResponse?: string; evidenceUrls?: string[]; escalate?: boolean }): Promise<void> {
+    await apiClient.patch(`/admin/subscriptions/support-cases/${caseId}`, input);
+  },
+  recheckProvider(renewalId: string): Promise<{ providerStatus: string; changed: boolean; renewalStatus: string }> {
+    return apiClient.post(`/admin/renewals/${renewalId}/recheck-provider`, {});
+  },
+  async escalateRenewal(renewalId: string, reason: string): Promise<void> {
+    await apiClient.post(`/admin/renewals/${renewalId}/escalate`, { reason });
+  },
   operationsSummary(): Promise<SubscriptionOperationsSummary> {
     return apiClient.get("/admin/subscriptions/operations-summary", { bypassCache: true });
   },
