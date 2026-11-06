@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLaunchSettings } from "../services/launchSettingsService";
 import {
   subscriptionService,
   type ActiveSubscription,
@@ -43,8 +44,6 @@ const NAV_ITEMS: NavItem[] = [
   { key: "billing", label: "Billing & Invoices", icon: "receipt-outline", section: "Billing & Services" },
   { key: "help", label: "Help & Support", icon: "help-circle-outline" },
 ];
-
-const GROWTH_TRIAL_DAYS = 14;
 
 function formatPrice(plan: SubscriptionPlan) {
   if (!plan.price) return "Free";
@@ -193,6 +192,7 @@ function ManageServiceView({ plans, email, subscription, onEmailChange }: {
   subscription: ActiveSubscription | null;
   onEmailChange: (e: string) => void;
 }) {
+  const { vendorTrialDays } = useLaunchSettings();
   const [selectedPlan, setSelectedPlan] = useState<PaidSubscriptionPlan>(subscription?.slug ?? "growth");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -285,11 +285,11 @@ function ManageServiceView({ plans, email, subscription, onEmailChange }: {
               <Text style={s.planPrice}>
                 {formatPrice(plan)} <Text style={s.planInterval}>/ month</Text>
               </Text>
-              {plan.slug === "growth" ? (
+              {plan.slug === "growth" && vendorTrialDays > 0 ? (
                 <View style={s.trialBadge}>
                   <Ionicons name="gift-outline" size={13} color={BRAND} />
                   <Text style={s.trialBadgeText}>
-                    First {GROWTH_TRIAL_DAYS} days free, then {formatPrice(plan)}/month
+                    First {vendorTrialDays} days free, then {formatPrice(plan)}/month
                   </Text>
                 </View>
               ) : null}
@@ -331,7 +331,7 @@ function ManageServiceView({ plans, email, subscription, onEmailChange }: {
         disabled={submitting || plans.length === 0}
       >
         {submitting && <ActivityIndicator color="#FFFFFF" size="small" />}
-        <Text style={s.ctaButtonText}>{selectedPlan === "growth" ? "Start free trial" : "Continue"}</Text>
+        <Text style={s.ctaButtonText}>{selectedPlan === "growth" && vendorTrialDays > 0 ? "Start free trial" : "Continue"}</Text>
         <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
       </TouchableOpacity>
 

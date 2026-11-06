@@ -9,6 +9,7 @@ import { addressService, type SavedAddress } from "../../services/addressService
 import { presentSetupIntent } from "../../services/stripePayment";
 import { CountrySelectField } from "../../components/shared/CountrySelectField";
 import { COUNTRIES, countryCodeForName, countryDisplayName } from "../../utils/countries";
+import { useLaunchSettings } from "../../services/launchSettingsService";
 import {
   ErrorState,
   FloatingCard,
@@ -80,6 +81,7 @@ export default function RegularDeliveryOfferScreen() {
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [addressId, setAddressId] = useState<string | null>(null);
   const [showAddAddress, setShowAddAddress] = useState(false);
+  const { ukLaunchMode, launchMarket } = useLaunchSettings();
   const [newAddress, setNewAddress] = useState({ recipientName: "", line1: "", city: "", postalCode: "", country: "", phone: "" });
   const [savingAddress, setSavingAddress] = useState(false);
 
@@ -181,7 +183,7 @@ export default function RegularDeliveryOfferScreen() {
     }
     setSavingAddress(true);
     try {
-      const saved = await addressService.createAddress({ ...newAddress, isDefault: addresses.length === 0 });
+      const saved = await addressService.createAddress({ ...newAddress, country: ukLaunchMode ? countryDisplayName(launchMarket) : newAddress.country, isDefault: addresses.length === 0 });
       setAddresses((prev) => [...prev, saved]);
       setAddressId(saved.id);
       setShowAddAddress(false);
@@ -361,13 +363,15 @@ export default function RegularDeliveryOfferScreen() {
                   <TextInput placeholder="Address line" placeholderTextColor="#8AA194" style={styles.input} value={newAddress.line1} onChangeText={(v) => setNewAddress((p) => ({ ...p, line1: v }))} />
                   <TextInput placeholder="City" placeholderTextColor="#8AA194" style={styles.input} value={newAddress.city} onChangeText={(v) => setNewAddress((p) => ({ ...p, city: v }))} />
                   <TextInput placeholder="Postal code" placeholderTextColor="#8AA194" style={styles.input} value={newAddress.postalCode} onChangeText={(v) => setNewAddress((p) => ({ ...p, postalCode: v }))} />
-                  <CountrySelectField
-                    options={COUNTRIES}
-                    value={countryCodeForName(newAddress.country)}
-                    onSelect={(code) => setNewAddress((p) => ({ ...p, country: countryDisplayName(code) }))}
-                    placeholder="Select country"
-                    sheetTitle="Select country"
-                  />
+                  {ukLaunchMode ? null : (
+                    <CountrySelectField
+                      options={COUNTRIES}
+                      value={countryCodeForName(newAddress.country)}
+                      onSelect={(code) => setNewAddress((p) => ({ ...p, country: countryDisplayName(code) }))}
+                      placeholder="Select country"
+                      sheetTitle="Select country"
+                    />
+                  )}
                   <TextInput placeholder="Phone (optional)" placeholderTextColor="#8AA194" style={styles.input} value={newAddress.phone} onChangeText={(v) => setNewAddress((p) => ({ ...p, phone: v }))} />
                   <PrimaryButton label="Save address" onPress={() => void handleAddAddress()} loading={savingAddress} style={{ marginTop: 2 }} />
                 </FloatingCard>
